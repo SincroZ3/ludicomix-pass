@@ -1,0 +1,60 @@
+<%-include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <strong>Tipologie Pass PDF</strong></nav>
+<h1 class="page-title">Lista Tipologie Pass PDF</h1>
+
+<div class="card">
+  <div class="card-title">Aggiungi nuova Tipologia Pass PDF</div>
+  <form method="post" enctype="multipart/form-data" style="display:grid;gap:0.75rem;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem 1rem;">
+      <label>Denominazione <span class="req">*</span><br><input type="text" name="name" required></label>
+      <label>Descrizione<br><input type="text" name="description"></label>
+    </div>
+    <label>Template PDF <span class="req">*</span><br><input type="file" name="template" accept="application/pdf" required></label>
+    <fieldset class="coords">
+      <legend>Coordinate testo (px)</legend>
+      <div class="coord-row"><span>Nome:</span>
+        <label style="display:inline-flex;align-items:center;gap:0.3rem;margin:0;">X <input type="number" name="name_x" value="100" style="width:80px;display:inline-block;margin-top:0;"></label>
+        <label style="display:inline-flex;align-items:center;gap:0.3rem;margin:0;">Y <input type="number" name="name_y" value="400" style="width:80px;display:inline-block;margin-top:0;"></label>
+      </div>
+      <div class="coord-row"><span>Ruolo:</span>
+        <label style="display:inline-flex;align-items:center;gap:0.3rem;margin:0;">X <input type="number" name="role_x" value="100" style="width:80px;display:inline-block;margin-top:0;"></label>
+        <label style="display:inline-flex;align-items:center;gap:0.3rem;margin:0;">Y <input type="number" name="role_y" value="370" style="width:80px;display:inline-block;margin-top:0;"></label>
+      </div>
+    </fieldset>
+    <div><button type="submit" class="primary">+ Salva Tipologia</button></div>
+  </form>
+</div>
+
+<% if (types.length > 0) { %>
+<div class="table-wrapper">
+  <table>
+    <thead>
+      <tr>
+        <th>Denominazione Tipologia Pass PDF</th>
+        <th>Nome File</th>
+        <th>Coord. Nome</th>
+        <th>Coord. Ruolo</th>
+        <th>Cancella</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% types.forEach(t => { %>
+        <tr>
+          <td><strong><%= t.name %></strong></td>
+          <td style="font-family:monospace;font-size:0.8rem;"><%= t.template_file %></td>
+          <td>X: <%= t.name_x %>, Y: <%= t.name_y %></td>
+          <td>X: <%= t.role_x %>, Y: <%= t.role_y %></td>
+          <td>
+            <form method="post" action="/pass-types/<%= t.id %>/delete" onsubmit="return confirm('Cancellare la tipologia «<%= t.name %>»?');">
+              <button type="submit" class="btn-danger">✕ Cancella</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<% } else { %>
+  <p style="color:var(--text-muted);">Nessuna tipologia inserita.</p>
+<% } %>
+<%-include('partials/footer') %>

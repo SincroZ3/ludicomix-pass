@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: ludicomix-pass-manager
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server.js
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /var/data
+      - key: SESSION_SECRET
+        generateValue: true
+    disk:
+      name: ludicomix-data
+      mountPath: /var/data
+      sizeGB: 1

@@ -1,0 +1,78 @@
+<%-include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <strong>Gestione Utenti</strong></nav>
+<h1 class="page-title">Gestione Utenti</h1>
+
+<div class="card" style="max-width:480px;">
+  <div class="card-title">Crea nuovo utente</div>
+  <form method="post" style="display:grid;gap:0.75rem;">
+    <label>Username <span style="color:#c0392b">*</span><br><input type="text" name="username" required></label>
+    <label>Password <span style="color:#c0392b">*</span><br><input type="password" name="password" required></label>
+    <label>Ruolo <span style="color:#c0392b">*</span><br>
+      <select name="role" required>
+        <option value="operator">Operatore</option>
+        <option value="viewer">Visualizzatore</option>
+        <option value="admin">Amministratore</option>
+      </select>
+    </label>
+    <div><button type="submit" class="primary">+ Crea Utente</button></div>
+  </form>
+</div>
+
+<div class="card" style="max-width:700px;margin-top:0.5rem;">
+  <div class="card-title">Permessi per ruolo</div>
+  <table style="font-size:0.8rem;">
+    <thead>
+      <tr>
+        <th>Funzione</th>
+        <th style="text-align:center;">Admin</th>
+        <th style="text-align:center;">Operatore</th>
+        <th style="text-align:center;">Visualizzatore</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Visualizzare pass e gruppi</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
+      <tr><td>Modificare stato pass (escluso GENERATO)</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
+      <tr><td>Aggiungere / eliminare assegnatari e gruppi</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="text-align:center;">❌</td></tr>
+      <tr><td>Generare pass PDF</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="text-align:center;">❌</td></tr>
+      <tr><td>Creare tipologie pass</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="text-align:center;">❌</td></tr>
+      <tr><td>Gestione utenti e log azioni</td><td style="text-align:center;">✅</td><td style="text-align:center;">❌</td><td style="text-align:center;">❌</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>Elenco Utenti</h2>
+<div class="table-wrapper" style="max-width:700px;">
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Username</th><th>Ruolo</th><th>Creato il</th><th>Azioni</th></tr>
+    </thead>
+    <tbody>
+      <% users.forEach(u => { %>
+        <tr>
+          <td><span class="chip">#<%= u.id %></span></td>
+          <td><strong><%= u.username %></strong></td>
+          <td>
+            <% if (u.role === 'admin') { %>
+              <span class="chip" style="background:#e8edf8;color:#1a2744;">Amministratore</span>
+            <% } else if (u.role === 'operator') { %>
+              <span class="chip" style="background:#e8f5e9;color:#1b5e20;">Operatore</span>
+            <% } else { %>
+              <span class="chip" style="background:#fff8e1;color:#e65100;">Visualizzatore</span>
+            <% } %>
+          </td>
+          <td style="font-size:0.78rem;color:var(--text-muted);"><%= u.created_at %></td>
+          <td>
+            <% if (u.id !== currentUser.id) { %>
+              <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Eliminare l\'utente <%= u.username %>?');">
+                <button type="submit" class="btn-danger">✕ Elimina</button>
+              </form>
+            <% } else { %>
+              <span style="font-size:0.78rem;color:var(--text-muted);">Utente corrente</span>
+            <% } %>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<%-include('partials/footer') %>

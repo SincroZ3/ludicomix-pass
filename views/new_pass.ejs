@@ -1,0 +1,26 @@
+<%-include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <a href="/passes">Pass Generati</a> <span class="sep">›</span> <strong>Nuovo Pass Singolo</strong></nav>
+<h1 class="page-title">Nuovo Pass Singolo</h1>
+
+<% if (participants.length === 0 || types.length === 0) { %>
+  <div class="alert alert-warning"><span>⚠️</span> Per creare un pass devi prima inserire almeno un assegnatario e una tipologia di pass.</div>
+<% } else { %>
+  <div class="card" style="max-width:480px;">
+    <form method="post" action="/passes" style="display:grid;gap:0.75rem;">
+      <label>Assegnatario <span style="color:#c0392b">*</span><br>
+        <select name="participant_id" required>
+          <option value="">— Seleziona —</option>
+          <% participants.forEach(p => { %><option value="<%= p.id %>"><%= p.last_name %> <%= p.first_name %></option><% }) %>
+        </select>
+      </label>
+      <label>Tipologia di Pass <span style="color:#c0392b">*</span><br>
+        <select name="pass_type_id" required>
+          <option value="">— Seleziona —</option>
+          <% types.forEach(t => { %><option value="<%= t.id %>"><%= t.name %></option><% }) %>
+        </select>
+      </label>
+      <div><button type="submit" class="primary">🖨 Genera PDF</button></div>
+    </form>
+  </div>
+<% } %>
+<%-include('partials/footer') %>
