@@ -555,7 +555,7 @@
         db.get('SELECT * FROM pass_types WHERE id = ?', [passTypeId], async (err2, type) => {
           if (err2 || !type) return reject(err2 || new Error('Tipo pass non trovato'));
           try {
-            const templatePath = path.join(__dirname, 'templates', type.template_file);
+            const templatePath = path.join(process.env.DATA_DIR || __dirname, 'templates', type.template_file);
             const templateBytes = fs.readFileSync(templatePath);
             const pdfDoc = await PDFDocument.load(templateBytes);
             const pages = pdfDoc.getPages();
@@ -650,7 +650,7 @@
                 if (err3) return reject(err3);
                 const passId = this.lastID;
                 const filename = `pass_${passId}.pdf`;
-                const outPath = path.join(__dirname, 'generated', filename);
+                const outPath = path.join(process.env.DATA_DIR || __dirname, 'generated', filename);
                 fs.writeFileSync(outPath, pdfBytes);
                 db.run(
                   'UPDATE passes SET pdf_file = ? WHERE id = ?',
@@ -751,7 +751,7 @@
       if (err || !pass || !pass.pdf_file) {
         return res.status(404).send('Pass non trovato');
       }
-      const filePath = path.join(__dirname, 'generated', pass.pdf_file);
+      const filePath = path.join(process.env.DATA_DIR || __dirname, 'generated', pass.pdf_file);
       db.run('UPDATE passes SET status = ? WHERE id = ?', ['SCARICATO', id], (err2) => {
         if (err2) console.error('Errore aggiornamento stato scaricato', err2);
         res.sendFile(filePath);
