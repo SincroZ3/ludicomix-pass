@@ -168,6 +168,23 @@
     );
   });
 
+
+  // POST modifica dati gruppo/stand
+  app.post('/assignment-groups/:id/edit', requireAuth, requireNotViewer, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { name, stand_name, zone, stand_code } = req.body;
+    if (!name) return res.status(400).send('Nome gruppo obbligatorio');
+    db.run(
+      'UPDATE assignment_groups SET name = ?, stand_name = ?, zone = ?, stand_code = ? WHERE id = ?',
+      [name, stand_name || null, zone || null, stand_code || null, id],
+      function(err) {
+        if (err) return res.status(500).send('Errore aggiornamento gruppo');
+        logAction(req.session.user.id, 'edit_assignment_group', 'assignment_group', id, 'Dati gruppo aggiornati');
+        res.redirect('/assignment-groups/' + id);
+      }
+    );
+  });
+
   app.post('/assignment-groups/:id/delete', requireAuth, requireNotViewer, (req, res) => {
     const id = req.params.id;
     db.run('DELETE FROM assignment_groups WHERE id = ?', [id], function (err) {
@@ -489,6 +506,23 @@
       function (err) {
         if (err) return res.status(500).send('Errore salvataggio raggruppamento');
         logAction(req.session.user.id, 'create_group', 'group', this.lastID, `Creato raggruppamento ${name}`);
+        res.redirect('/groups');
+      }
+    );
+  });
+
+
+  // POST modifica raggruppamento pass (tipologia PDF)
+  app.post('/groups/:id/edit', requireAuth, requireNotViewer, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { name, priority, pass_type_id } = req.body;
+    if (!name) return res.status(400).send('Nome raggruppamento obbligatorio');
+    db.run(
+      'UPDATE groups SET name = ?, priority = ?, pass_type_id = ? WHERE id = ?',
+      [name, parseInt(priority || 0, 10), pass_type_id || null, id],
+      function(err) {
+        if (err) return res.status(500).send('Errore aggiornamento raggruppamento');
+        logAction(req.session.user.id, 'edit_group', 'group', id, 'Raggruppamento aggiornato');
         res.redirect('/groups');
       }
     );

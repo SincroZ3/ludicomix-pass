@@ -34,6 +34,29 @@
 
 <% if (!isViewer) { %>
 <details style="margin-bottom:1rem;">
+  <summary style="cursor:pointer;font-weight:700;font-size:0.85rem;color:var(--accent-blue);padding:0.4rem 0;">&#9999;&#65039; Modifica dati gruppo / stand</summary>
+  <div class="card" style="margin-top:0.5rem;">
+    <form method="post" action="/assignment-groups/<%= groupInfo.id %>/edit" style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem 1rem;">
+      <label>Nome gruppo <span style="color:#c0392b">*</span><br>
+        <input type="text" name="name" value="<%= groupInfo.name %>" required>
+      </label>
+      <label>Nome stand / riferimento<br>
+        <input type="text" name="stand_name" value="<%= groupInfo.stand_name || '' %>">
+      </label>
+      <label>Zona / Padiglione<br>
+        <input type="text" name="zone" value="<%= groupInfo.zone || '' %>">
+      </label>
+      <label>Codice stand<br>
+        <input type="text" name="stand_code" value="<%= groupInfo.stand_code || '' %>">
+      </label>
+      <div style="grid-column:1/-1;">
+        <button type="submit" class="primary">Salva modifiche</button>
+      </div>
+    </form>
+  </div>
+</details>
+
+<details style="margin-bottom:1rem;">
   <summary style="cursor:pointer;font-weight:700;font-size:0.85rem;color:var(--accent-blue);padding:0.4rem 0;">&#128221; Note ed Email gruppo <% if (groupInfo.notes || groupInfo.email) { %><span class="chip" style="background:#e8f5e9;color:#1b5e20;margin-left:0.4rem;">compilate</span><% } %></summary>
   <div class="card" style="margin-top:0.5rem;max-width:600px;">
     <form method="post" action="/assignment-groups/<%= groupInfo.id %>/notes" style="display:grid;gap:0.75rem;">
