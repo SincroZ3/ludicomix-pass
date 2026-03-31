@@ -765,6 +765,24 @@
     }
     const ids = participant_ids.map((id) => parseInt(id, 10)).filter(Boolean);
     try {
+      // Controlla se qualcuno ha già un pass generato
+      const duplicates = await new Promise((resolve, reject) => {
+        const placeholders = ids.map(() => '?').join(',');
+        db.all(
+          `SELECT pa.first_name || ' ' || pa.last_name AS name, pa.id
+           FROM participants pa
+           WHERE pa.id IN (${placeholders})
+           AND EXISTS (SELECT 1 FROM passes WHERE participant_id = pa.id)`,
+          ids,
+          (err, rows) => err ? reject(err) : resolve(rows)
+        );
+      });
+
+      if (duplicates.length > 0) {
+        const names = duplicates.map(d => d.name).join(', ');
+        return res.status(409).json({ duplicate: true, names });
+      }
+
       for (const pid of ids) {
         await generatePassForParticipant(pid, parseInt(pass_type_id, 10), req.session.user.id);
       }
@@ -828,14 +846,19 @@
     const sql = `
       SELECT p.id, p.created_at, p.pdf_file, p.code, p.status,
              pt.name AS pass_type_name,
-             pa.first_name || ' ' || pa.last_name AS participant_name
+             pa.first_name || ' ' || pa.last_name AS participant_name,
+             ag.name AS group_name,
+             ag.stand_name AS stand_name
       FROM passes p
       JOIN pass_types pt ON pt.id = p.pass_type_id
       JOIN participants pa ON pa.id = p.participant_id
-      WHERE pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ? OR pt.name LIKE ? OR p.code LIKE ?
+      LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
+      WHERE pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ?
+         OR pt.name LIKE ? OR p.code LIKE ?
+         OR ag.name LIKE ? OR ag.stand_name LIKE ?
       ORDER BY p.id DESC
     `;
-    db.all(sql, [like, like, like, like, like], (err, rows) => {
+    db.all(sql, [like, like, like, like, like, like, like], (err, rows) => {
       if (err) return res.status(500).send('Errore ricerca pass');
       res.render('search', { q, results: rows });
     });
