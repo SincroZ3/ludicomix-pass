@@ -753,6 +753,28 @@
     }
   });
 
+
+  // API: controlla se gli assegnatari selezionati hanno già un pass
+  app.post('/passes/check-existing', requireAuth, requireNotViewer, (req, res) => {
+    let { participant_ids } = req.body;
+    if (!participant_ids) return res.json({ duplicates: [] });
+    if (!Array.isArray(participant_ids)) participant_ids = [participant_ids];
+    const ids = participant_ids.map(id => parseInt(id, 10)).filter(Boolean);
+    if (ids.length === 0) return res.json({ duplicates: [] });
+    const placeholders = ids.map(() => '?').join(',');
+    db.all(
+      `SELECT pa.first_name || ' ' || pa.last_name AS name, pa.id
+       FROM participants pa
+       WHERE pa.id IN (${placeholders})
+       AND EXISTS (SELECT 1 FROM passes WHERE participant_id = pa.id)`,
+      ids,
+      (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Errore DB' });
+        res.json({ duplicates: rows || [] });
+      }
+    );
+  });
+
   app.post('/passes/bulk', requireAuth, requireNotViewer, async (req, res) => {
     const { pass_type_id, assignment_group_id } = req.body;
     let { participant_ids } = req.body;
@@ -786,11 +808,17 @@
       for (const pid of ids) {
         await generatePassForParticipant(pid, parseInt(pass_type_id, 10), req.session.user.id);
       }
-      // Se la richiesta viene da un gruppo, torna al gruppo
-      if (assignment_group_id) {
-        return res.redirect(`/assignment-groups/${assignment_group_id}`);
+      // Risposta: JSON se chiamata via fetch (header Accept: */*), redirect altrimenti
+      const redirectUrl = assignment_group_id
+        ? `/assignment-groups/${assignment_group_id}`
+        : '/passes';
+      // Detecta se è una chiamata fetch (inviata con URLSearchParams dal client)
+      const isAjax = req.headers['x-requested-with'] === 'XMLHttpRequest' ||
+                     req.headers['accept'] === 'application/json';
+      if (isAjax) {
+        return res.json({ success: true, redirect: redirectUrl });
       }
-      res.redirect('/passes');
+      return res.redirect(redirectUrl);
     } catch (e) {
       console.error('Errore bulk pass:', e.message || e);
       res.status(500).send('Errore generazione pass: ' + (e.message || e));

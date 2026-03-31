@@ -136,9 +136,8 @@
 <% if (participants.length === 0) { %>
   <div class="alert alert-info"><span>&#8505;&#65039;</span> Nessun nominativo inserito per questo gruppo.</div>
 <% } else { %>
-  <form method="post" action="/passes/bulk">
+  <form method="post" action="/passes/bulk" id="form-bulk-passes" onsubmit="return verificaDuplicati(event, this)">
     <input type="hidden" name="assignment_group_id" value="<%= groupInfo.id %>">
-    <input type="hidden" name="_bulk_intercept" value="1">
     <% if (!isViewer) { %>
     <div class="card" style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:0.75rem;">
       <label style="margin:0;flex:1;min-width:200px;">Tipologia di Pass da generare <span style="color:#c0392b">*</span><br>
@@ -146,7 +145,7 @@
           <% types.forEach(function(t){ %><option value="<%= t.id %>"><%= t.name %></option><% }); %>
         </select>
       </label>
-      <button type="button" class="primary" onclick="generaPassSelezionati(this)">&#128424; Genera pass selezionati</button>
+      <button type="button" class="primary" id="btn-genera" onclick="controllaEGenera(this)">&#128424; Genera pass selezionati</button>
     </div>
     <% } %>
     <div class="table-wrapper">
@@ -274,42 +273,61 @@
 </div>
 
 <script>
-// ── Variabili globali ──
-var GID = '<%= groupInfo.id %>';   // group id iniettato da EJS
+var GID = '<%= groupInfo.id %>';
 var _nomiPending = '';
 var _stalloQueue = [];
 var _stalloConf = [];
 var _stalloNomeCorrente = '';
 
-// ── Anteprima textarea ──
+// Anteprima textarea
 function aggiornaPrev() {
   var val = document.getElementById('bulk-names').value;
   var lines = val.split('\n').map(function(l){ return l.trim(); }).filter(function(l){ return l !== ''; });
-  document.getElementById('bulk-count').textContent = lines.length + ' nominativo/i';
+  var cnt = document.getElementById('bulk-count');
+  if (cnt) cnt.textContent = lines.length + ' nominativo/i';
   var list = document.getElementById('bulk-preview-list');
-  if (lines.length === 0) {
-    list.innerHTML = '<span style="color:var(--text-muted)">Nessun nominativo</span>';
-    return;
-  }
+  if (!list) return;
+  if (lines.length === 0) { list.innerHTML = '<span style="color:var(--text-muted)">Nessun nominativo</span>'; return; }
   list.innerHTML = lines.map(function(l, i) {
-    return '<div style="padding:0.15rem 0;border-bottom:1px solid #eee;">'
-         + '<span style="color:#aaa;margin-right:4px;">' + (i+1) + '.</span>' + escHtml(l) + '</div>';
+    return '<div style="padding:0.15rem 0;border-bottom:1px solid #eee;"><span style="color:#aaa;margin-right:4px;">' + (i+1) + '.</span>' + l.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
   }).join('');
 }
-
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function mostraOk(msg)  { var e=document.getElementById('bulk-ok');  e.textContent=msg; e.style.display=''; document.getElementById('bulk-err').style.display='none'; }
-function mostraErr(msg) { var e=document.getElementById('bulk-err'); e.textContent=msg; e.style.display=''; document.getElementById('bulk-ok').style.display='none';  }
 
 function parsaNome(line) {
   var p = line.trim().split(/\s+/);
   return { fn: p[0]||'', ln: p.slice(1).join(' ') };
 }
 
-// ── Avvia inserimento bulk ──
+// Controllo duplicati prima di generare bulk
+function controllaEGenera(btn) {
+  var form = btn.closest('form');
+  var checkboxes = form.querySelectorAll('.chk-group:checked');
+  if (checkboxes.length === 0) { alert('Seleziona almeno un assegnatario.'); return; }
+
+  var ids = Array.from(checkboxes).map(function(c){ return c.value; });
+  var params = new URLSearchParams();
+  ids.forEach(function(id){ params.append('participant_ids', id); });
+
+  fetch('/passes/check-existing', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: params.toString()
+  }).then(function(r){ return r.json(); })
+    .then(function(data) {
+      if (data.duplicates && data.duplicates.length > 0) {
+        var names = data.duplicates.map(function(d){ return d.name; }).join(', ');
+        document.getElementById('stop-msg').textContent =
+          'I seguenti assegnatari hanno già un pass generato: ' + names +
+          '. Eliminare prima il pass esistente da "Pass Generati".';
+        document.getElementById('modal-stop').style.display = 'flex';
+      } else {
+        form.submit();
+      }
+    })
+    .catch(function(){ form.submit(); });
+}
+
+// Avvia inserimento bulk nominativi
 function avviaBulk(groupId) {
   var val = document.getElementById('bulk-names').value.trim();
   if (!val) { mostraErr('Inserisci almeno un nominativo'); return; }
@@ -318,7 +336,6 @@ function avviaBulk(groupId) {
 
   var lines = val.split('\n').map(function(l){ return l.trim(); }).filter(function(l){ return l !== ''; });
 
-  // Controlla duplicati per ogni riga in parallelo
   var checks = lines.map(function(line) {
     var n = parsaNome(line);
     var p = new URLSearchParams();
@@ -327,28 +344,27 @@ function avviaBulk(groupId) {
     p.append('assignment_group_id', GID);
     return fetch('/participants/check-duplicate', {
       method: 'POST',
-      headers: {'Content-Type':'application/x-www-form-urlencoded'},
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: p.toString()
     }).then(function(r){ return r.json(); })
-      .then(function(d){ return { line:line, n:n, dups: d.duplicates||[] }; });
+      .then(function(d){ return { line: line, n: n, dups: d.duplicates||[] }; });
   });
 
   Promise.all(checks)
     .then(function(res) {
-      var conDup    = res.filter(function(r){ return r.dups.length > 0; });
-      var senzaDup  = res.filter(function(r){ return r.dups.length === 0; });
+      var conDup = res.filter(function(r){ return r.dups.length > 0; });
+      var senzaDup = res.filter(function(r){ return r.dups.length === 0; });
       if (conDup.length === 0) {
         inserisciTutti(lines.join('\n'), GID);
       } else {
         _stalloQueue = conDup.slice();
-        _stalloConf  = senzaDup.map(function(r){ return r.line; });
+        _stalloConf = senzaDup.map(function(r){ return r.line; });
         prossimoStallo();
       }
     })
-    .catch(function(e){ mostraErr('Errore controllo duplicati: ' + e.message); });
+    .catch(function(e){ mostraErr('Errore: ' + e.message); });
 }
 
-// ── Stallo alla messicana ──
 function prossimoStallo() {
   if (_stalloQueue.length === 0) {
     if (_stalloConf.length === 0) { mostraErr('Nessun nominativo da inserire.'); return; }
@@ -365,7 +381,7 @@ function prossimoStallo() {
   document.getElementById('stallo-dup-tipo').textContent = d.pass_type_name || 'nessun pass';
   document.getElementById('stallo-dup-stato').textContent = d.last_status || 'nessun pass';
   var inv = (d.first_name||'').toLowerCase() === item.n.ln.toLowerCase() &&
-            (d.last_name||'').toLowerCase()  === item.n.fn.toLowerCase();
+            (d.last_name||'').toLowerCase() === item.n.fn.toLowerCase();
   document.getElementById('stallo-warn-inv').style.display = inv ? '' : 'none';
   document.getElementById('modal-stallo').style.display = 'flex';
 }
@@ -381,14 +397,13 @@ function stalloSkip() {
   setTimeout(prossimoStallo, 150);
 }
 
-// ── Inserimento effettivo ──
 function inserisciTutti(nomi, groupId) {
   var p = new URLSearchParams();
   p.append('names_list', nomi);
   p.append('assignment_group_id', groupId);
   fetch('/participants/bulk-import', {
     method: 'POST',
-    headers: {'Content-Type':'application/x-www-form-urlencoded'},
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
     body: p.toString()
   }).then(function(r){ return r.json().then(function(d){ return {s:r.status, d:d}; }); })
     .then(function(obj) {
@@ -398,16 +413,15 @@ function inserisciTutti(nomi, groupId) {
       } else if (obj.s === 409 && obj.d.warning) {
         apriMaronno(obj.d);
       } else {
-        mostraErr(obj.d.error || 'Errore durante l\'inserimento');
+        mostraErr(obj.d.error || "Errore durante l'inserimento");
       }
     })
     .catch(function(){ mostraErr('Errore di rete'); });
 }
 
-// ── Maronno (limite superato) ──
 function apriMaronno(d) {
   _nomiPending = document.getElementById('bulk-names').value.trim();
-  document.getElementById('mar-msg').textContent = 'Stai inserendo ' + d.adding + ' nominativi ma il limite è ' + d.max + '!';
+  document.getElementById('mar-msg').textContent = 'Stai inserendo ' + d.adding + ' nominativi ma il limite e' ' + d.max + '!';
   document.getElementById('mar-sub').textContent = 'Attualmente ci sono ' + d.current + '. Dopo sarebbero ' + d.total_after + ' (' + d.over + ' oltre il limite).';
   document.getElementById('mar-max').value = d.total_after;
   document.getElementById('mar-pwd').value = '';
@@ -417,10 +431,10 @@ function apriMaronno(d) {
 
 function maronnoForza() {
   var newMax = document.getElementById('mar-max').value;
-  var pwd    = document.getElementById('mar-pwd').value;
-  var errEl  = document.getElementById('mar-err');
-  if (!newMax) { errEl.textContent = 'Inserisci il nuovo limite'; errEl.style.display=''; return; }
-  if (!pwd)    { errEl.textContent = 'Inserisci la password';     errEl.style.display=''; return; }
+  var pwd = document.getElementById('mar-pwd').value;
+  var errEl = document.getElementById('mar-err');
+  if (!newMax) { errEl.textContent = 'Inserisci il nuovo limite'; errEl.style.display = ''; return; }
+  if (!pwd) { errEl.textContent = 'Inserisci la password'; errEl.style.display = ''; return; }
   errEl.style.display = 'none';
   var p = new URLSearchParams();
   p.append('names_list', _nomiPending);
@@ -430,7 +444,7 @@ function maronnoForza() {
   p.append('admin_password', pwd);
   fetch('/participants/bulk-import', {
     method: 'POST',
-    headers: {'Content-Type':'application/x-www-form-urlencoded'},
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
     body: p.toString()
   }).then(function(r){ return r.json(); })
     .then(function(d) {
@@ -442,7 +456,18 @@ function maronnoForza() {
         errEl.textContent = d.error || 'Errore';
         errEl.style.display = '';
       }
-    }).catch(function(){ errEl.textContent = 'Errore di rete'; errEl.style.display=''; });
+    }).catch(function(){ errEl.textContent = 'Errore di rete'; errEl.style.display = ''; });
+}
+
+function mostraOk(msg) {
+  var el = document.getElementById('bulk-ok');
+  el.innerHTML = msg; el.style.display = '';
+  document.getElementById('bulk-err').style.display = 'none';
+}
+function mostraErr(msg) {
+  var el = document.getElementById('bulk-err');
+  el.innerHTML = msg; el.style.display = '';
+  document.getElementById('bulk-ok').style.display = 'none';
 }
 </script>
 
