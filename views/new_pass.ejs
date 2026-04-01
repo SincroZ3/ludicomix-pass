@@ -1,26 +1,169 @@
-<%-include('partials/header') %>
-<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <a href="/passes">Pass Generati</a> <span class="sep">›</span> <strong>Nuovo Pass Singolo</strong></nav>
+<%- include('partials/header') %>
+<nav class="breadcrumb-bar">
+  Sei in: <a href="/home">Home</a>
+  <span class="sep">›</span> <a href="/passes">Pass Generati</a>
+  <span class="sep">›</span> <strong>Nuovo Pass Singolo</strong>
+</nav>
 <h1 class="page-title">Nuovo Pass Singolo</h1>
 
 <% if (participants.length === 0 || types.length === 0) { %>
-  <div class="alert alert-warning"><span>⚠️</span> Per creare un pass devi prima inserire almeno un assegnatario e una tipologia di pass.</div>
-<% } else { %>
-  <div class="card" style="max-width:480px;">
-    <form method="post" action="/passes" style="display:grid;gap:0.75rem;">
-      <label>Assegnatario <span style="color:#c0392b">*</span><br>
-        <select name="participant_id" required>
-          <option value="">— Seleziona —</option>
-          <% participants.forEach(p => { %><option value="<%= p.id %>"><%= p.last_name %> <%= p.first_name %></option><% }) %>
-        </select>
-      </label>
-      <label>Tipologia di Pass <span style="color:#c0392b">*</span><br>
-        <select name="pass_type_id" required>
-          <option value="">— Seleziona —</option>
-          <% types.forEach(t => { %><option value="<%= t.id %>"><%= t.name %></option><% }) %>
-        </select>
-      </label>
-      <div><button type="submit" class="primary">🖨 Genera PDF</button></div>
-    </form>
+  <div class="alert alert-warning">
+    <span>⚠️</span> Per creare un pass devi prima inserire almeno un assegnatario e una tipologia di pass.
   </div>
+<% } else { %>
+
+<%
+  const dupWarning     = typeof duplicate_warning       !== 'undefined' ? duplicate_warning       : null;
+  const preParticipant = typeof preselected_participant !== 'undefined' ? preselected_participant : '';
+  const preType        = typeof preselected_type        !== 'undefined' ? preselected_type        : '';
+%>
+
+<!-- MODALE DUPLICATO PASS -->
+<div class="modal-overlay" id="modal-dup-pass" style="display:none">
+  <div class="modal" style="max-width:500px;">
+    <div class="modal-header" style="background:#f3e5f5;border-bottom-color:#ce93d8;">
+      <h2 style="color:#4a148c;">🛑 Pass già generato!</h2>
+      <button type="button" class="modal-close" onclick="chiudiDupModal()">×</button>
+    </div>
+    <div class="modal-body" style="text-align:center;">
+      <img src="/ciuchino_stop.png"
+           alt="Ciuchino Stop"
+           style="height:160px;width:auto;margin:0.5rem auto 1rem;display:block;">
+      <p style="font-weight:700;font-size:0.95rem;color:#4a148c;margin-bottom:0.5rem;">
+        Questo assegnatario ha già i seguenti pass generati:
+      </p>
+      <ul id="dup-modal-list"
+          style="text-align:left;margin:0 auto 1rem;display:inline-block;font-size:0.85rem;list-style:disc;padding-left:1.2rem;">
+      </ul>
+      <p style="color:#6a1b9a;font-size:0.85rem;margin-bottom:1.25rem;">
+        Vuoi davvero generarne un altro?
+      </p>
+      <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">
+        <button type="button" class="secondary" onclick="chiudiDupModal()">
+          ✕ Annulla
+        </button>
+        <button type="button"
+                style="background:#6b3fa0;color:#fff;border:none;border-radius:4px;
+                       padding:0.45rem 1.1rem;font-weight:700;font-size:0.82rem;
+                       letter-spacing:0.4px;text-transform:uppercase;cursor:pointer;
+                       font-family:'Arial Narrow',Arial,sans-serif;"
+                onclick="forzaGenerazione()">
+          ⚠️ Genera comunque
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="max-width:520px;">
+  <form method="post" action="/passes" id="form-nuovo-pass" style="display:grid;gap:0.85rem;">
+
+    <label>Assegnatario <span style="color:#c0392b">*</span><br>
+      <select name="participant_id" id="sel-participant" required
+              onchange="checkDuplicato(this.value)">
+        <option value="">— Seleziona —</option>
+        <% participants.forEach(p => { %>
+          <option value="<%= p.id %>"
+            <%= String(p.id) === String(preParticipant) ? 'selected' : '' %>>
+            <%= p.last_name %> <%= p.first_name %>
+          </option>
+        <% }) %>
+      </select>
+    </label>
+
+    <label>Tipologia di Pass <span style="color:#c0392b">*</span><br>
+      <select name="pass_type_id" id="sel-pass-type" required>
+        <option value="">— Seleziona —</option>
+        <% types.forEach(t => { %>
+          <option value="<%= t.id %>"
+            <%= String(t.id) === String(preType) ? 'selected' : '' %>>
+            <%= t.name %>
+          </option>
+        <% }) %>
+      </select>
+    </label>
+
+    <!-- flag nascosto: impostato a "1" solo se l'utente conferma dal modale -->
+    <input type="hidden" name="force_duplicate" id="force-dup-input" value="">
+
+    <div>
+      <button type="submit" class="primary" onclick="return confirmGenera()">
+        🖨 Genera PDF
+      </button>
+    </div>
+
+  </form>
+</div>
+
+<script>
+  // Se il server ha già rilevato un duplicato (redirect post-check), apri subito il modale
+  (function () {
+    <% if (dupWarning && dupWarning.length > 0) { %>
+      var list = document.getElementById('dup-modal-list');
+      <% dupWarning.forEach(function(p) { %>
+        (function () {
+          var li = document.createElement('li');
+          li.innerHTML = 'Pass <strong>#<%= p.id %></strong> &mdash; <%= p.pass_type_name %> &mdash; <em><%= p.status %></em> &mdash; codice: <code><%= p.code %></code>';
+          list.appendChild(li);
+        })();
+      <% }) %>
+      document.getElementById('modal-dup-pass').style.display = 'flex';
+    <% } %>
+  })();
+
+  // Controlla duplicati via AJAX al cambio assegnatario
+  function checkDuplicato(participantId) {
+    document.getElementById('force-dup-input').value = '';
+    if (!participantId) return;
+
+    fetch('/passes/check-participant/' + participantId)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.passes && data.passes.length > 0) {
+          var list = document.getElementById('dup-modal-list');
+          list.innerHTML = '';
+          data.passes.forEach(function (p) {
+            var li = document.createElement('li');
+            li.innerHTML =
+              'Pass <strong>#' + p.id + '</strong> &mdash; ' +
+              p.pass_type_name + ' &mdash; <em>' + p.status +
+              '</em> &mdash; codice: <code>' + p.code + '</code>';
+            list.appendChild(li);
+          });
+          document.getElementById('modal-dup-pass').style.display = 'flex';
+        }
+      })
+      .catch(function () { /* errore rete: lascia proseguire normalmente */ });
+  }
+
+  function chiudiDupModal() {
+    document.getElementById('modal-dup-pass').style.display = 'none';
+    document.getElementById('sel-participant').value = '';
+    document.getElementById('force-dup-input').value = '';
+  }
+
+  function confirmGenera() {
+    // Blocca il submit normale se il modale è visibile
+    if (document.getElementById('modal-dup-pass').style.display !== 'none') {
+      return false;
+    }
+    return true;
+  }
+
+  function forzaGenerazione() {
+    document.getElementById('modal-dup-pass').style.display = 'none';
+    document.getElementById('force-dup-input').value = '1';
+    document.getElementById('form-nuovo-pass').submit();
+  }
+
+  // Se c'era un assegnatario preselezionato dal server, controlla subito
+  (function () {
+    var sel = document.getElementById('sel-participant');
+    if (sel && sel.value) {
+      checkDuplicato(sel.value);
+    }
+  })();
+</script>
+
 <% } %>
-<%-include('partials/footer') %>
+<%- include('partials/footer') %>

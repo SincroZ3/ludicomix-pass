@@ -713,6 +713,24 @@
 
   // -------- Pass singolo e bulk --------
 
+
+  // API: controlla se un partecipante ha già pass generati
+  app.get('/passes/check-participant/:id', requireAuth, (req, res) => {
+    const pid = parseInt(req.params.id, 10);
+    const sql = `
+      SELECT p.id, p.code, p.status, p.created_at,
+             pt.name AS pass_type_name
+      FROM passes p
+      JOIN pass_types pt ON pt.id = p.pass_type_id
+      WHERE p.participant_id = ?
+      ORDER BY p.id DESC
+    `;
+    db.all(sql, [pid], (err, rows) => {
+      if (err) return res.status(500).json({ error: 'Errore DB' });
+      res.json({ passes: rows });
+    });
+  });
+
   app.get('/passes', requireAuth, (req, res) => {
     const sql = `
       SELECT p.id, p.created_at, p.pdf_file, p.code, p.status,
@@ -740,12 +758,57 @@
   });
 
   app.post('/passes', requireAuth, requireNotViewer, async (req, res) => {
-    const { participant_id, pass_type_id } = req.body;
+    const { participant_id, pass_type_id, force_duplicate } = req.body;
     if (!participant_id || !pass_type_id) {
       return res.status(400).send('Partecipante e tipo pass obbligatori');
     }
+
+    const pid  = parseInt(participant_id, 10);
+    const ptid = parseInt(pass_type_id, 10);
+
+    // Controllo duplicato (salvo override esplicito dall'utente)
+    if (!force_duplicate) {
+      try {
+        const existing = await new Promise((resolve, reject) => {
+          const sql = `
+            SELECT p.id, p.code, p.status, p.created_at,
+                   pt.name AS pass_type_name
+            FROM passes p
+            JOIN pass_types pt ON pt.id = p.pass_type_id
+            WHERE p.participant_id = ?
+            ORDER BY p.id DESC
+          `;
+          db.all(sql, [pid], (err, rows) => err ? reject(err) : resolve(rows));
+        });
+
+        if (existing && existing.length > 0) {
+          const [participants, types] = await Promise.all([
+            new Promise((res2, rej2) => db.all(
+              'SELECT * FROM participants ORDER BY last_name ASC, first_name ASC', [],
+              (e, r) => e ? rej2(e) : res2(r)
+            )),
+            new Promise((res2, rej2) => db.all(
+              'SELECT * FROM pass_types ORDER BY name ASC', [],
+              (e, r) => e ? rej2(e) : res2(r)
+            )),
+          ]);
+          return res.render('new_pass', {
+            participants,
+            types,
+            duplicate_warning: existing,
+            preselected_participant: pid,
+            preselected_type: ptid,
+          });
+        }
+      } catch (e) {
+        console.error('Errore check duplicato:', e.message);
+        return res.status(500).send('Errore verifica duplicato pass');
+      }
+    }
+
+    // Nessun duplicato (o override confermato): genera il pass
     try {
-      await generatePassForParticipant(parseInt(participant_id, 10), parseInt(pass_type_id, 10), req.session.user.id);
+      await generatePassForParticipant(pid, ptid, req.session.user.id);
       res.redirect('/passes');
     } catch (e) {
       console.error('Errore singolo pass:', e.message || e);
