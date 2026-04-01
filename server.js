@@ -218,7 +218,9 @@
         `;
         db.all(sqlParticipants, [id], (err3, participants) => {
           if (err3) return res.status(500).send('Errore DB partecipanti');
-          res.render('assignment_group_detail', { groupInfo, types, participants, PASS_STATUSES });
+          const dupSkipped = req.query.dup_skipped ? parseInt(req.query.dup_skipped, 10) : 0;
+        const dupTotal   = req.query.dup_total   ? parseInt(req.query.dup_total,   10) : 0;
+        res.render('assignment_group_detail', { groupInfo, types, participants, PASS_STATUSES, dupSkipped, dupTotal });
         });
       });
     });
@@ -827,15 +829,34 @@
       participant_ids = [participant_ids];
     }
     const ids = participant_ids.map((id) => parseInt(id, 10)).filter(Boolean);
+
     try {
-      for (const pid of ids) {
+      // Controlla duplicati: per ogni id verifica se ha già un pass
+      const checkExisting = (pid) => new Promise((resolve, reject) => {
+        db.get('SELECT id FROM passes WHERE participant_id = ? LIMIT 1', [pid], (err, row) => {
+          if (err) return reject(err);
+          resolve(row ? pid : null);
+        });
+      });
+
+      const dupChecks = await Promise.all(ids.map(checkExisting));
+      const alreadyHavePass = dupChecks.filter(Boolean);
+      const toGenerate = ids.filter(pid => !alreadyHavePass.includes(pid));
+
+      // Genera solo per chi non ha ancora il pass
+      for (const pid of toGenerate) {
         await generatePassForParticipant(pid, parseInt(pass_type_id, 10), req.session.user.id);
       }
-      // Se la richiesta viene da un gruppo, torna al gruppo
-      if (assignment_group_id) {
-        return res.redirect(`/assignment-groups/${assignment_group_id}`);
+
+      const redirectBase = assignment_group_id
+        ? `/assignment-groups/${assignment_group_id}`
+        : '/passes';
+
+      // Se ci sono stati duplicati saltati, passa il conteggio come query param
+      if (alreadyHavePass.length > 0) {
+        return res.redirect(`${redirectBase}?dup_skipped=${alreadyHavePass.length}&dup_total=${ids.length}`);
       }
-      res.redirect('/passes');
+      res.redirect(redirectBase);
     } catch (e) {
       console.error('Errore bulk pass:', e.message || e);
       res.status(500).send('Errore generazione pass: ' + (e.message || e));
