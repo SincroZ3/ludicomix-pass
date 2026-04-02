@@ -57,7 +57,7 @@
   <% }); %>
 </div>
 
-<div class="dash-row">
+<div class="dash-row" style="grid-template-columns:<% if(currentUser&&currentUser.role==='admin'){ %>1fr 1fr<% }else{ %>1fr<% } %>;">
   <div class="dash-box">
     <h3>&#128680; Gruppi vicini al limite (&ge;80%)</h3>
     <% if(!alertGroups||alertGroups.length===0){ %>
@@ -74,6 +74,7 @@
       </div>
     <% });} %>
   </div>
+  <% if(currentUser&&currentUser.role==='admin'){ %>
   <div class="dash-box">
     <h3>&#128336; Attivit&agrave; recente</h3>
     <% if(!recentActivity||recentActivity.length===0){ %>
@@ -88,6 +89,7 @@
       </div>
     <% });} %>
   </div>
+  <% } %>
 </div>
 
 <div class="dash-box">
@@ -100,8 +102,7 @@
     <a href="/account/password" class="icon-item"><span class="icon-emoji">&#128273;</span>Cambia Password</a>
     <a href="/account/security" class="icon-item"><span class="icon-emoji">&#128274;</span>Password Sicurezza</a>
     <% if(currentUser&&currentUser.role==='admin'){ %>
-      <a href="/admin/users"    class="icon-item"><span class="icon-emoji">&#128100;</span>Gestione Utenti</a>
-      <a href="/admin/logs"     class="icon-item"><span class="icon-emoji">&#128203;</span>Log Azioni</a>
+        <a href="/admin/logs"     class="icon-item"><span class="icon-emoji">&#128203;</span>Log Azioni</a>
       <a href="/admin/settings" class="icon-item"><span class="icon-emoji">&#9881;&#65039;</span>Impostazioni</a>
     <% } %>
   </div>

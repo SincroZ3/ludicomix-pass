@@ -10,6 +10,7 @@
   <button type="button" class="pill-tab" data-tab="raggruppamenti">&#128193; Raggruppamenti Pass</button>
   <button type="button" class="pill-tab" data-tab="tipologie">&#127931; Tipologie Pass PDF</button>
   <button type="button" class="pill-tab" data-tab="backup">&#128190; Backup &amp; Restore</button>
+  <button type="button" class="pill-tab" data-tab="utenti">&#128100; Gestione Utenti</button>
 </div>
 
 <!-- ===== TAB 1: ZONE ===== -->
@@ -270,9 +271,83 @@
 
 </div>
 
+<!-- ====== PANEL UTENTI ====== -->
+<div id="panel-utenti" class="settings-panel" style="display:none;">
+
+  <div class="card" style="max-width:480px;">
+    <div class="card-title">Crea nuovo utente</div>
+    <form method="post" action="/admin/users" style="display:grid;gap:.75rem;">
+      <label>Username <span style="color:#c0392b">*</span><br>
+        <input type="text" name="username" required></label>
+      <label>Password <span style="color:#c0392b">*</span><br>
+        <input type="password" name="password" required></label>
+      <label>Ruolo <span style="color:#c0392b">*</span><br>
+        <select name="role" required>
+          <option value="operator">Operatore</option>
+          <option value="viewer">Visualizzatore</option>
+          <option value="admin">Amministratore</option>
+        </select>
+      </label>
+      <div><button type="submit" class="primary">+ Crea Utente</button></div>
+    </form>
+  </div>
+
+  <div class="card" style="max-width:560px;">
+    <div class="card-title">Permessi per ruolo</div>
+    <table style="font-size:.8rem;">
+      <thead><tr><th>Funzione</th><th style="text-align:center;">Admin</th><th style="text-align:center;">Operatore</th><th style="text-align:center;">Viewer</th></tr></thead>
+      <tbody>
+        <tr><td>Visualizzare pass e gruppi</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10003;</td></tr>
+        <tr><td>Modificare stato pass</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10003;</td></tr>
+        <tr><td>Aggiungere / eliminare assegnatari</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10007;</td></tr>
+        <tr><td>Generare pass PDF</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10007;</td></tr>
+        <tr><td>Gestione utenti e log azioni</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10007;</td><td style="text-align:center;">&#10007;</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Elenco Utenti</div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>ID</th><th>Username</th><th>Ruolo</th><th>Creato il</th><th>Elimina</th></tr></thead>
+        <tbody>
+          <% users.forEach(function(u){ %>
+            <tr>
+              <td><span class="chip">#<%= u.id %></span></td>
+              <td><strong><%= u.username %></strong></td>
+              <td>
+                <% if(u.role==='admin'){ %>
+                  <span class="chip" style="background:#e8edf8;color:#1a2744;">Amministratore</span>
+                <% }else if(u.role==='operator'){ %>
+                  <span class="chip" style="background:#e8f5e9;color:#1b5e20;">Operatore</span>
+                <% }else{ %>
+                  <span class="chip" style="background:#fff8e1;color:#e65100;">Visualizzatore</span>
+                <% } %>
+              </td>
+              <td style="font-size:.78rem;color:var(--text-muted);"><%= u.created_at %></td>
+              <td>
+                <% if(u.id!==currentUser.id){ %>
+                  <form method="post" action="/admin/users/<%= u.id %>/delete"
+                    onsubmit="return confirm('Eliminare l\'utente <%= u.username %>?');">
+                    <button type="submit" class="btn-danger">&#10005; Elimina</button>
+                  </form>
+                <% }else{ %>
+                  <span style="font-size:.78rem;color:var(--text-muted);">Utente corrente</span>
+                <% } %>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
 <script>
 (function () {
-  var PANELS = { zone: 'panel-zone', raggruppamenti: 'panel-raggruppamenti', tipologie: 'panel-tipologie', backup: 'panel-backup' };
+  var PANELS = { zone: 'panel-zone', raggruppamenti: 'panel-raggruppamenti', tipologie: 'panel-tipologie', backup: 'panel-backup', utenti: 'panel-utenti' };
   var tabs   = document.querySelectorAll('[data-tab]');
 
   function showTab(key) {

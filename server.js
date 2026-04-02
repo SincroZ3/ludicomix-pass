@@ -956,7 +956,10 @@ const os   = require('os');
         if (err2) return res.status(500).send('Errore DB tipologie pass');
         db.all('SELECT * FROM zones ORDER BY sort_order, name', [], (err3, zones) => {
           if (err3) return res.status(500).send('Errore DB zone');
-          res.render('admin_settings', { groups, types, zones });
+          db.all('SELECT id, username, role, created_at FROM users ORDER BY username ASC', [], (err4, users) => {
+            if (err4) return res.status(500).send('Errore DB utenti');
+            res.render('admin_settings', { groups, types, zones, users });
+          });
         });
       });
     });
@@ -1195,10 +1198,7 @@ const os   = require('os');
   });
 
   app.get('/admin/users', requireAdmin, (req, res) => {
-    db.all('SELECT id, username, role, created_at FROM users ORDER BY username ASC', [], (err, users) => {
-      if (err) return res.status(500).send('Errore DB utenti');
-      res.render('users', { users, error: null, success: null });
-    });
+    res.redirect('/admin/settings#utenti');
   });
 
   app.post('/admin/users', requireAdmin, (req, res) => {
@@ -1215,7 +1215,7 @@ const os   = require('os');
           return res.status(500).send('Errore creazione utente (forse username già esistente).');
         }
         logAction(req.session.user.id, 'create_user', 'user', this.lastID, `Creato utente ${username} (${role})`);
-        res.redirect('/admin/users');
+        res.redirect('/admin/settings#utenti');
       }
     );
   });
@@ -1230,7 +1230,7 @@ const os   = require('os');
       if (this.changes > 0) {
         logAction(req.session.user.id, 'delete_user', 'user', id, 'Utente eliminato');
       }
-      res.redirect('/admin/users');
+      res.redirect('/admin/settings#utenti');
     });
   });
 
