@@ -16,8 +16,12 @@
       <label style="margin:0;font-size:0.78rem;">📍 Filtra per Zona / Padiglione<br>
         <select id="zone-filter" onchange="applyFilters()" style="margin-top:0.25rem;">
           <option value="">— Tutte le zone —</option>
-          <% const allZones = [...new Set(assignmentGroups.map(ag => ag.zone).filter(z => z && z.trim()))].sort(); %>
-          <% allZones.forEach(z => { %><option value="<%= z %>"><%= z %></option><% }); %>
+          <%
+            const dbZoneNames = (typeof zones !== 'undefined' ? zones : []).map(function(z){ return z.name; });
+            const legacyZones = [...new Set(assignmentGroups.map(function(ag){ return ag.zone; }).filter(function(z){ return z && z.trim() && !dbZoneNames.includes(z); }))].sort();
+            const allZones    = dbZoneNames.concat(legacyZones).sort();
+          %>
+          <% allZones.forEach(function(z){ %><option value="<%= z %>"><%= z %></option><% }); %>
         </select>
       </label>
     </div>
@@ -136,7 +140,14 @@
         <label>Categoria<br><input type="text" id="modal-group-category" disabled></label>
         <label>Nome gruppo <span style="color:#c0392b">*</span><br><input type="text" name="name" required></label>
         <label>Nome stand / riferimento<br><input type="text" name="stand_name"></label>
-        <label>Zona / Padiglione<br><input type="text" name="zone"></label>
+        <label>Zona / Padiglione<br>
+        <select name="zone">
+          <option value="">&#8212; Nessuna &#8212;</option>
+          <% (typeof zones !== 'undefined' ? zones : []).forEach(function(z){ %>
+            <option value="<%= z.name %>"><%= z.name %></option>
+          <% }); %>
+        </select>
+      </label>
         <label>Codice stand<br><input type="text" name="stand_code"></label>
         <label>Max pass (0 = illimitati)<br><input type="number" name="max_passes" min="0"></label>
         <label style="grid-column:1/-1;">Email di riferimento gruppo<br><input type="email" name="email" placeholder="email@esempio.it"></label>

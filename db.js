@@ -89,10 +89,16 @@ db.serialize(() => {
     FOREIGN KEY(user_id) REFERENCES users(id)
   )`);
 
-  // Migrazione: aggiungi email ad assignment_groups se non esiste
-  db.run("ALTER TABLE assignment_groups ADD COLUMN email TEXT", function(err) {
-    // Ignoriamo l'errore se la colonna esiste già
-  });
+
+  // NUOVA TABELLA: zone/padiglioni configurabili dall'admin
+  db.run(`CREATE TABLE IF NOT EXISTS zones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    sort_order INTEGER DEFAULT 0
+  )`);
+
+  // Migrazione: aggiungi colonne mancanti se non esistono
+  db.run("ALTER TABLE assignment_groups ADD COLUMN email TEXT", function(err) { /* ignora se esiste già */ });
 
   // Seed admin
   db.get('SELECT COUNT(*) AS count FROM users', (err, row) => {

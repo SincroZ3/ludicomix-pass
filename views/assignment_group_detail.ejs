@@ -64,7 +64,15 @@
         <input type="text" name="stand_name" value="<%= groupInfo.stand_name || '' %>">
       </label>
       <label>Zona / Padiglione<br>
-        <input type="text" name="zone" value="<%= groupInfo.zone || '' %>">
+        <select name="zone">
+          <option value="">&#8212; Nessuna &#8212;</option>
+          <% (typeof zones !== 'undefined' ? zones : []).forEach(function(z){ %>
+            <option value="<%= z.name %>" <%= groupInfo.zone === z.name ? 'selected' : '' %>><%= z.name %></option>
+          <% }); %>
+          <% if (groupInfo.zone && groupInfo.zone.trim() && (typeof zones === 'undefined' || !zones.find(function(z){ return z.name === groupInfo.zone; }))) { %>
+            <option value="<%= groupInfo.zone %>" selected><%= groupInfo.zone %> (legacy)</option>
+          <% } %>
+        </select>
       </label>
       <label>Codice stand<br>
         <input type="text" name="stand_code" value="<%= groupInfo.stand_code || '' %>">

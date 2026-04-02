@@ -147,7 +147,10 @@
         `;
         db.all(sql, [], (err3, assignmentGroups) => {
           if (err3) return res.status(500).send('Errore DB gruppi assegnatari');
-          res.render('participants', { categories, types, assignmentGroups });
+          db.all('SELECT * FROM zones ORDER BY sort_order, name', [], (err4, zones) => {
+            if (err4) return res.status(500).send('Errore DB zone');
+            res.render('participants', { categories, types, assignmentGroups, zones: zones || [] });
+          });
         });
       });
     });
@@ -220,7 +223,9 @@
           if (err3) return res.status(500).send('Errore DB partecipanti');
           const dupSkipped = req.query.dup_skipped ? parseInt(req.query.dup_skipped, 10) : 0;
         const dupTotal   = req.query.dup_total   ? parseInt(req.query.dup_total,   10) : 0;
-        res.render('assignment_group_detail', { groupInfo, types, participants, PASS_STATUSES, dupSkipped, dupTotal });
+        db.all('SELECT * FROM zones ORDER BY sort_order, name', [], (errZ, zones) => {
+          res.render('assignment_group_detail', { groupInfo, types, participants, PASS_STATUSES, dupSkipped, dupTotal, zones: zones || [] });
+        });
         });
       });
     });
@@ -435,11 +440,8 @@
 
   // -------- Tipologie Pass e Raggruppamenti --------
 
-  app.get('/pass-types', requireAuth, (req, res) => {
-    db.all('SELECT * FROM pass_types ORDER BY id DESC', [], (err, types) => {
-      if (err) return res.status(500).send('Errore DB tipologie pass');
-      res.render('pass_types', { types });
-    });
+  app.get('/pass-types', requireAuth, requireAdmin, (req, res) => {
+    res.redirect('/admin/settings#tipologie');
   });
 
   app.post('/pass-types', requireAuth, requireNotViewer, upload.single('template'), (req, res) => {
@@ -467,7 +469,7 @@
       function (err) {
         if (err) return res.status(500).send('Errore salvataggio tipo pass');
         logAction(req.session.user.id, 'create_pass_type', 'pass_type', this.lastID, `Creato tipo pass ${name}`);
-        res.redirect('/pass-types');
+        res.redirect('/admin/settings#tipologie');
       }
     );
   });
@@ -479,24 +481,12 @@
       if (this.changes > 0) {
         logAction(req.session.user.id, 'delete_pass_type', 'pass_type', id, 'Tipo pass eliminato');
       }
-      res.redirect('/pass-types');
+      res.redirect('/admin/settings#tipologie');
     });
   });
 
-  app.get('/groups', requireAuth, (req, res) => {
-    const sql = `
-      SELECT g.id, g.name, g.priority, g.pass_type_id, pt.name AS pass_type_name
-      FROM groups g
-      LEFT JOIN pass_types pt ON pt.id = g.pass_type_id
-      ORDER BY g.priority ASC, g.name ASC
-    `;
-    db.all(sql, [], (err, groups) => {
-      if (err) return res.status(500).send('Errore DB raggruppamenti');
-      db.all('SELECT * FROM pass_types ORDER BY name ASC', [], (err2, types) => {
-        if (err2) return res.status(500).send('Errore DB tipologie pass');
-        res.render('groups', { groups, types });
-      });
-    });
+  app.get('/groups', requireAuth, requireAdmin, (req, res) => {
+    res.redirect('/admin/settings#raggruppamenti');
   });
 
   app.post('/groups', requireAuth, requireNotViewer, (req, res) => {
@@ -508,7 +498,7 @@
       function (err) {
         if (err) return res.status(500).send('Errore salvataggio raggruppamento');
         logAction(req.session.user.id, 'create_group', 'group', this.lastID, `Creato raggruppamento ${name}`);
-        res.redirect('/groups');
+        res.redirect('/admin/settings#raggruppamenti');
       }
     );
   });
@@ -525,7 +515,7 @@
       function(err) {
         if (err) return res.status(500).send('Errore aggiornamento raggruppamento');
         logAction(req.session.user.id, 'edit_group', 'group', id, 'Raggruppamento aggiornato');
-        res.redirect('/groups');
+        res.redirect('/admin/settings#raggruppamenti');
       }
     );
   });
@@ -537,7 +527,7 @@
       if (this.changes > 0) {
         logAction(req.session.user.id, 'delete_group', 'group', id, 'Raggruppamento eliminato');
       }
-      res.redirect('/groups');
+      res.redirect('/admin/settings#raggruppamenti');
     });
   });
 
@@ -898,6 +888,70 @@
         logAction(req.session.user.id, 'delete_pass', 'pass', id, 'Pass eliminato');
       }
       res.redirect('/passes');
+    });
+  });
+
+
+  // -------- Impostazioni Admin (Zone, Raggruppamenti, Tipologie) --------
+
+  app.get('/admin/settings', requireAuth, requireAdmin, (req, res) => {
+    const sqlG = `
+      SELECT g.id, g.name, g.priority, g.pass_type_id, pt.name AS pass_type_name
+      FROM groups g
+      LEFT JOIN pass_types pt ON pt.id = g.pass_type_id
+      ORDER BY g.priority ASC, g.name ASC
+    `;
+    db.all(sqlG, [], (err, groups) => {
+      if (err) return res.status(500).send('Errore DB raggruppamenti');
+      db.all('SELECT * FROM pass_types ORDER BY id DESC', [], (err2, types) => {
+        if (err2) return res.status(500).send('Errore DB tipologie pass');
+        db.all('SELECT * FROM zones ORDER BY sort_order, name', [], (err3, zones) => {
+          if (err3) return res.status(500).send('Errore DB zone');
+          res.render('admin_settings', { groups, types, zones });
+        });
+      });
+    });
+  });
+
+  app.post('/admin/zones', requireAuth, requireAdmin, (req, res) => {
+    const { name, sort_order } = req.body;
+    if (!name || !name.trim()) return res.status(400).send('Nome zona obbligatorio');
+    db.run(
+      'INSERT INTO zones (name, sort_order) VALUES (?, ?)',
+      [name.trim(), parseInt(sort_order || 0, 10)],
+      function(err) {
+        if (err) {
+          if (err.message && err.message.includes('UNIQUE'))
+            return res.status(400).send('Una zona con questo nome esiste gia');
+          return res.status(500).send('Errore salvataggio zona');
+        }
+        logAction(req.session.user.id, 'create_zone', 'zone', this.lastID, 'Creata zona: ' + name.trim());
+        res.redirect('/admin/settings#zone');
+      }
+    );
+  });
+
+  app.post('/admin/zones/:id/edit', requireAuth, requireAdmin, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { name, sort_order } = req.body;
+    if (!name || !name.trim()) return res.status(400).send('Nome zona obbligatorio');
+    db.run(
+      'UPDATE zones SET name = ?, sort_order = ? WHERE id = ?',
+      [name.trim(), parseInt(sort_order || 0, 10), id],
+      function(err) {
+        if (err) return res.status(500).send('Errore aggiornamento zona');
+        logAction(req.session.user.id, 'edit_zone', 'zone', id, 'Zona aggiornata: ' + name.trim());
+        res.redirect('/admin/settings#zone');
+      }
+    );
+  });
+
+  app.post('/admin/zones/:id/delete', requireAuth, requireAdmin, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    db.run('DELETE FROM zones WHERE id = ?', [id], function(err) {
+      if (err) return res.status(500).send('Errore eliminazione zona');
+      logAction(req.session.user.id, 'delete_zone', 'zone', id, 'Zona eliminata');
+      res.redirect('/admin/settings#zone');
     });
   });
 
