@@ -1,6 +1,7 @@
 
   const express = require('express');
   const path = require('path');
+const os   = require('os');
   const fs = require('fs');
   const multer = require('multer');
   const session = require('express-session');
@@ -125,7 +126,40 @@
   });
 
   app.get('/home', requireAuth, (req, res) => {
-    res.render('home');
+    db.get('SELECT COUNT(*) as total FROM participants', [], (e, r1) => {
+      const totalParticipants = r1 ? r1.total : 0;
+      db.get('SELECT COUNT(*) as total FROM passes', [], (e2, r2) => {
+        const totalPasses = r2 ? r2.total : 0;
+        db.all('SELECT status, COUNT(*) as count FROM passes GROUP BY status', [], (e3, sRows) => {
+          const passesByStatus = {};
+          (sRows || []).forEach(r => { passesByStatus[r.status] = r.count; });
+          db.get('SELECT COUNT(*) as total FROM participants WHERE id NOT IN (SELECT DISTINCT participant_id FROM passes)',
+            [], (e4, r4) => {
+              const senzaPass = r4 ? r4.total : 0;
+              db.all(`SELECT ag.name, ag.max_passes, COUNT(p.id) as pass_count
+                FROM assignment_groups ag
+                LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
+                LEFT JOIN passes p ON p.participant_id = pa.id
+                WHERE ag.max_passes IS NOT NULL AND ag.max_passes > 0
+                GROUP BY ag.id
+                HAVING CAST(pass_count AS FLOAT)/ag.max_passes >= 0.8
+                ORDER BY CAST(pass_count AS FLOAT)/ag.max_passes DESC LIMIT 5`,
+                [], (e5, alertGroups) => {
+                  db.all(`SELECT al.action, al.details, al.created_at, u.username
+                    FROM action_logs al LEFT JOIN users u ON u.id = al.user_id
+                    ORDER BY al.id DESC LIMIT 8`,
+                    [], (e6, recentActivity) => {
+                      res.render('home', {
+                        stats: { totalParticipants, totalPasses, passesByStatus, senzaPass },
+                        alertGroups: alertGroups || [],
+                        recentActivity: recentActivity || []
+                      });
+                    });
+                });
+            });
+        });
+      });
+    });
   });
 
   // -------- Partecipanti, Gruppi, Categorie --------
@@ -867,6 +901,19 @@
     });
   });
 
+
+  app.get('/passes/:id/history', requireAuth, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    db.all(`SELECT h.status, h.changed_at, u.username
+      FROM pass_status_history h
+      LEFT JOIN users u ON u.id = h.user_id
+      WHERE h.pass_id = ? ORDER BY h.id ASC`,
+      [id], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Errore DB' });
+        res.json(rows || []);
+      });
+  });
+
   app.post('/passes/:id/status', requireAuth, (req, res) => {
     const id = parseInt(req.params.id, 10);
     const { status } = req.body;
@@ -875,8 +922,10 @@
       if (err) return res.status(500).send('Errore aggiornamento stato pass');
       if (this.changes > 0) {
         logAction(req.session.user.id, 'update_pass_status', 'pass', id, `Stato aggiornato a ${status}`);
+        db.run('INSERT INTO pass_status_history (pass_id, status, user_id) VALUES (?, ?, ?)',
+          [id, status, req.session.user.id]);
       }
-      res.redirect('/passes');
+      res.redirect(req.body.redirect_to || '/passes');
     });
   });
 
@@ -955,6 +1004,39 @@
     });
   });
 
+
+  // -------- Backup & Restore DB --------
+
+  app.get('/admin/backup', requireAuth, requireAdmin, (req, res) => {
+    const tmpPath = path.join(os.tmpdir(), `ludicomix_backup_${Date.now()}.sqlite`);
+    db.run(`VACUUM INTO '${tmpPath}'`, function(err) {
+      if (err) return res.status(500).send('Errore backup: ' + err.message);
+      res.download(tmpPath, 'ludicomix_backup.sqlite', () => { fs.unlink(tmpPath, () => {}); });
+    });
+  });
+
+  app.post('/admin/restore', requireAuth, requireAdmin, upload.single('backup'), (req, res) => {
+    if (!req.file) return res.status(400).send('Nessun file caricato');
+    const buf = Buffer.alloc(16);
+    let fd;
+    try { fd = fs.openSync(req.file.path, 'r'); fs.readSync(fd, buf, 0, 16, 0); fs.closeSync(fd); }
+    catch(e) { fs.unlink(req.file.path, () => {}); return res.status(400).send('Impossibile leggere il file'); }
+    if (buf.toString('ascii', 0, 15) !== 'SQLite format 3') {
+      fs.unlink(req.file.path, () => {});
+      return res.status(400).send('File non valido: non e un database SQLite');
+    }
+    const dbPath = db.dbPath;
+    db.close((err) => {
+      if (err) return res.status(500).send('Errore chiusura DB: ' + err.message);
+      try { fs.copyFileSync(req.file.path, dbPath); fs.unlink(req.file.path, () => {}); }
+      catch(e) { return res.status(500).send('Errore sostituzione DB: ' + e.message); }
+      res.send('<!DOCTYPE html><html><body><p style="font-family:sans-serif;padding:2rem">'
+        + '<strong>Database ripristinato.</strong> Il server si riavvier&agrave; tra 2 secondi&hellip;</p>'
+        + '<script>setTimeout(()=>location.href="/login",2500)<\/script></body></html>');
+      setTimeout(() => process.exit(0), 1500);
+    });
+  });
+
   // -------- Ricerca & Reports --------
 
   app.get('/search', requireAuth, (req, res) => {
@@ -985,30 +1067,99 @@
   });
 
   app.get('/reports', requireAuth, (req, res) => {
-    res.render('reports');
+    db.all('SELECT status, COUNT(*) as count FROM passes GROUP BY status', [], (e, statusCounts) => {
+      db.all(`SELECT ag.id, ag.name as group_name, g.name as category_name, ag.zone,
+          ag.max_passes, COUNT(p.id) as pass_count,
+          SUM(CASE WHEN p.status IN ('CONSEGNATO','RICONSEGNATO') THEN 1 ELSE 0 END) as consegnati
+        FROM assignment_groups ag
+        LEFT JOIN groups g ON g.id = ag.group_id
+        LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
+        LEFT JOIN passes p ON p.participant_id = pa.id
+        GROUP BY ag.id ORDER BY g.name, ag.name`,
+        [], (e2, groupStats) => {
+          db.get('SELECT COUNT(*) as total FROM participants WHERE id NOT IN (SELECT DISTINCT participant_id FROM passes)',
+            [], (e3, r3) => {
+              res.render('reports', {
+                statusCounts: statusCounts || [],
+                groupStats:   groupStats   || [],
+                senzaPass:    r3 ? r3.total : 0
+              });
+            });
+        });
+    });
   });
 
   app.get('/reports/passes.csv', requireAuth, (req, res) => {
-    const sql = `
-      SELECT p.id, p.created_at, p.code,
-             pa.first_name || ' ' || pa.last_name AS participant_name,
-             pa.email,
-             pt.name AS pass_type_name
+    db.all(`SELECT p.id, p.created_at, p.code, p.status,
+        pa.first_name || ' ' || pa.last_name AS participant_name, pa.email, pa.role,
+        pt.name AS pass_type_name, ag.name AS group_name, ag.stand_name, ag.zone
       FROM passes p
       JOIN pass_types pt ON pt.id = p.pass_type_id
       JOIN participants pa ON pa.id = p.participant_id
-      ORDER BY p.id DESC
-    `;
-    db.all(sql, [], (err, rows) => {
-      if (err) return res.status(500).send('Errore generazione report');
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', 'attachment; filename="report_passes.csv"');
-      res.write('id;created_at;code;participant_name;email;pass_type\n');
-      rows.forEach((r) => {
-        res.write(`${r.id};${r.created_at};${r.code || ''};"${r.participant_name}";"${r.email || ''}";"${r.pass_type_name}"\n`);
+      LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
+      ORDER BY p.id DESC`,
+      [], (err, rows) => {
+        if (err) return res.status(500).send('Errore generazione report');
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="report_passes.csv"');
+        res.write('\xEF\xBB\xBF');
+        res.write('ID;Data;Codice;Stato;Assegnatario;Email;Ruolo;Tipologia Pass;Gruppo;Stand;Zona\n');
+        rows.forEach(r => {
+          res.write([r.id, r.created_at, r.code||'', r.status||'',
+            `"${r.participant_name||''}"`, `"${r.email||''}"`, `"${r.role||''}"`,
+            `"${r.pass_type_name||''}"`, `"${r.group_name||''}"`,
+            `"${r.stand_name||''}"`, `"${r.zone||''}"`].join(';') + '\n');
+        });
+        res.end();
       });
-      res.end();
-    });
+  });
+
+  app.get('/reports/senza-pass.csv', requireAuth, (req, res) => {
+    db.all(`SELECT pa.id, pa.first_name, pa.last_name, pa.email, pa.role,
+        ag.name AS group_name, ag.stand_name, ag.zone
+      FROM participants pa
+      LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
+      WHERE pa.id NOT IN (SELECT DISTINCT participant_id FROM passes)
+      ORDER BY ag.name, pa.last_name, pa.first_name`,
+      [], (err, rows) => {
+        if (err) return res.status(500).send('Errore generazione report');
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="senza_pass.csv"');
+        res.write('\xEF\xBB\xBF');
+        res.write('ID;Cognome;Nome;Email;Ruolo;Gruppo;Stand;Zona\n');
+        rows.forEach(r => {
+          res.write([r.id, `"${r.last_name||''}"`, `"${r.first_name||''}"`,
+            `"${r.email||''}"`, `"${r.role||''}"`, `"${r.group_name||''}"`,
+            `"${r.stand_name||''}"`, `"${r.zone||''}"`].join(';') + '\n');
+        });
+        res.end();
+      });
+  });
+
+  app.get('/reports/stato-gruppi.csv', requireAuth, (req, res) => {
+    db.all(`SELECT g.name as categoria, ag.name as gruppo, ag.zone, ag.stand_name,
+        ag.max_passes, COUNT(p.id) as pass_totali,
+        SUM(CASE WHEN p.status='GENERATO' THEN 1 ELSE 0 END) as generati,
+        SUM(CASE WHEN p.status='CONSEGNATO' THEN 1 ELSE 0 END) as consegnati,
+        SUM(CASE WHEN p.status='RICONSEGNATO' THEN 1 ELSE 0 END) as riconsegnati
+      FROM assignment_groups ag
+      LEFT JOIN groups g ON g.id = ag.group_id
+      LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
+      LEFT JOIN passes p ON p.participant_id = pa.id
+      GROUP BY ag.id ORDER BY g.name, ag.name`,
+      [], (err, rows) => {
+        if (err) return res.status(500).send('Errore generazione report');
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="stato_gruppi.csv"');
+        res.write('\xEF\xBB\xBF');
+        res.write('Categoria;Gruppo;Zona;Stand;Limite;Pass Totali;Generati;Consegnati;Riconsegnati\n');
+        rows.forEach(r => {
+          res.write([`"${r.categoria||''}"`, `"${r.gruppo||''}"`, `"${r.zone||''}"`,
+            `"${r.stand_name||''}"`, r.max_passes||'', r.pass_totali,
+            r.generati, r.consegnati, r.riconsegnati].join(';') + '\n');
+        });
+        res.end();
+      });
   });
 
   // -------- Account, Utenti, Log --------

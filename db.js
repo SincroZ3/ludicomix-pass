@@ -90,7 +90,17 @@ db.serialize(() => {
   )`);
 
 
-  // NUOVA TABELLA: zone/padiglioni configurabili dall'admin
+  db.run(`CREATE TABLE IF NOT EXISTS pass_status_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pass_id INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    changed_at TEXT DEFAULT (datetime('now')),
+    user_id INTEGER,
+    FOREIGN KEY(pass_id) REFERENCES passes(id),
+    FOREIGN KEY(user_id) REFERENCES users(id)
+  )`);
+
+  // Zone/padiglioni configurabili dall'admin
   db.run(`CREATE TABLE IF NOT EXISTS zones (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
@@ -117,4 +127,5 @@ db.serialize(() => {
   });
 });
 
+db.dbPath = dbPath;
 module.exports = db;

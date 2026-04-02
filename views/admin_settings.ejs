@@ -9,6 +9,7 @@
   <button type="button" class="pill-tab active" data-tab="zone">&#128506;&#65039; Zone / Padiglioni</button>
   <button type="button" class="pill-tab" data-tab="raggruppamenti">&#128193; Raggruppamenti Pass</button>
   <button type="button" class="pill-tab" data-tab="tipologie">&#127931; Tipologie Pass PDF</button>
+  <button type="button" class="pill-tab" data-tab="backup">&#128190; Backup &amp; Restore</button>
 </div>
 
 <!-- ===== TAB 1: ZONE ===== -->
@@ -234,9 +235,44 @@
   </div>
 </div>
 
+<!-- ====== PANEL BACKUP ====== -->
+<div id="panel-backup" class="settings-panel" style="display:none;">
+
+  <div class="card" style="border-top:3px solid var(--accent-blue);">
+    <div class="card-title">&#128190; Backup database</div>
+    <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:1rem;">
+      Scarica una copia consistente del database SQLite (tramite <code>VACUUM INTO</code>).
+      Conservala in un posto sicuro.
+    </p>
+    <a href="/admin/backup" class="primary" style="display:inline-flex;align-items:center;gap:.4rem;">
+      &#11015; Scarica backup (ludicomix_backup.sqlite)
+    </a>
+  </div>
+
+  <div class="card" style="border-top:3px solid #c0392b;">
+    <div class="card-title" style="color:#c0392b;">&#9888;&#65039; Ripristina database</div>
+    <div class="alert alert-info" style="margin-bottom:1rem;">
+      <span>&#9432;</span>
+      <strong>Attenzione:</strong> questa operazione sostituir&agrave; <em>completamente</em>
+      il database corrente con il file caricato e il server si riavvier&agrave;
+      automaticamente (2&ndash;3 sec). Usa solo un file <code>.sqlite</code>
+      scaricato da questo pannello.
+    </div>
+    <form method="post" action="/admin/restore" enctype="multipart/form-data"
+      onsubmit="return confirm('ATTENZIONE: il database corrente verra sostituito completamente. Continuare?');" 
+      style="display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap;">
+      <label style="font-size:.82rem;font-weight:700;">File backup (.sqlite)<br>
+        <input type="file" name="backup" accept=".sqlite" required style="margin-top:.3rem;">
+      </label>
+      <button type="submit" class="btn-danger" style="height:38px;">&#128260; Ripristina ora</button>
+    </form>
+  </div>
+
+</div>
+
 <script>
 (function () {
-  var PANELS = { zone: 'panel-zone', raggruppamenti: 'panel-raggruppamenti', tipologie: 'panel-tipologie' };
+  var PANELS = { zone: 'panel-zone', raggruppamenti: 'panel-raggruppamenti', tipologie: 'panel-tipologie', backup: 'panel-backup' };
   var tabs   = document.querySelectorAll('[data-tab]');
 
   function showTab(key) {

@@ -1,16 +1,88 @@
-<%-include('partials/header') %>
-<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <strong>Reports</strong></nav>
-<h1 class="page-title">Reports</h1>
+<%- include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">&rsaquo;</span> <strong>Reports</strong></nav>
+<h1 class="page-title">&#128202; Reports</h1>
+<style>
+.dl-btn{display:inline-flex;align-items:center;gap:.35rem;padding:.45rem 1rem;border-radius:var(--radius-sm);background:var(--brand-dark);color:#fff;text-decoration:none;font-size:.8rem;font-weight:700;transition:background .15s}
+.dl-btn:hover{background:var(--brand-violet)}
+.stat-badge{display:inline-block;padding:.15rem .6rem;border-radius:9999px;font-size:.75rem;font-weight:700;color:#fff}
+.pct-bar-wrap{background:#e8ecf3;border-radius:9999px;height:6px;display:inline-block;vertical-align:middle}
+.pct-bar{height:6px;border-radius:9999px;display:block}
+</style>
+<% var sc={GENERATO:'#6b3fa0',SCARICATO:'#1d6fa4',STAMPATO:'#c9a227',CONSEGNATO:'#2d6a4f',RICONSEGNATO:'#c0392b'}; %>
+<% var totP=statusCounts.reduce(function(a,r){return a+r.count;},0); %>
 
-<div class="table-wrapper">
-  <table>
-    <thead><tr><th>Report</th><th>CSV</th></tr></thead>
-    <tbody>
-      <tr>
-        <td><strong>Elenco Pass</strong></td>
-        <td><a href="/reports/passes.csv" class="link-action">⬇ Scarica CSV</a></td>
-      </tr>
-    </tbody>
-  </table>
+<div class="card">
+  <div class="card-title">Riepilogo stati pass</div>
+  <div style="display:flex;flex-wrap:wrap;gap:.75rem 1.5rem;align-items:flex-end;">
+    <% statusCounts.forEach(function(r){ %>
+      <div style="text-align:center;">
+        <div style="font-size:1.6rem;font-weight:800;color:<%= sc[r.status]||'#888' %>"><%= r.count %></div>
+        <span class="stat-badge" style="background:<%= sc[r.status]||'#888' %>"><%= r.status %></span>
+        <% if(totP>0){ %><div style="font-size:.72rem;color:var(--text-muted);margin-top:.2rem;"><%= Math.round(r.count/totP*100) %>%</div><% } %>
+      </div>
+    <% }); %>
+    <% if(totP===0){ %><p style="color:var(--text-muted);margin:0;">Nessun pass generato.</p><% } %>
+    <div style="margin-left:auto;text-align:right;">
+      <div style="font-size:.75rem;color:var(--text-muted);">Senza pass</div>
+      <div style="font-size:1.6rem;font-weight:800;color:<%= senzaPass>0?'#c0392b':'#2d6a4f' %>"><%= senzaPass %></div>
+    </div>
+  </div>
 </div>
-<%-include('partials/footer') %>
+
+<div class="card">
+  <div class="card-title">Esporta CSV</div>
+  <div style="display:flex;flex-wrap:wrap;gap:.6rem;margin-bottom:.75rem;">
+    <a href="/reports/passes.csv" class="dl-btn">&#11015; Tutti i pass</a>
+    <a href="/reports/senza-pass.csv" class="dl-btn" style="background:#c0392b;">&#11015; Senza pass (<%= senzaPass %>)</a>
+    <a href="/reports/stato-gruppi.csv" class="dl-btn" style="background:#2d6a4f;">&#11015; Stato utilizzo gruppi</a>
+  </div>
+  <p style="color:var(--text-muted);font-size:.78rem;margin:0;">CSV con BOM UTF-8 (compatibile Excel). Separatore: <code>;</code></p>
+</div>
+
+<div class="card">
+  <div class="card-title">Utilizzo pass per gruppo / stand</div>
+  <% if(groupStats.length===0){ %>
+    <p style="color:var(--text-muted);">Nessun gruppo configurato.</p>
+  <% }else{ %>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr><th>Categoria</th><th>Gruppo / Stand</th><th>Zona</th><th>Pass</th><th>Limite</th><th>Utilizzo</th><th>Consegnati</th></tr>
+        </thead>
+        <tbody>
+          <% var lastCat=null; groupStats.forEach(function(g){ %>
+            <% if(g.category_name!==lastCat){lastCat=g.category_name; %>
+              <tr style="background:var(--bg-section);">
+                <td colspan="7" style="font-weight:700;font-size:.78rem;color:var(--text-secondary);padding:.5rem .9rem;">&#128193; <%= g.category_name||'&mdash;' %></td>
+              </tr>
+            <% } %>
+            <% var pct=g.max_passes&&g.max_passes>0?Math.min(100,Math.round(g.pass_count/g.max_passes*100)):null; %>
+            <% var bc=pct===null?'#1d6fa4':pct>=100?'#c0392b':pct>=80?'#c9a227':'#2d6a4f'; %>
+            <tr>
+              <td style="color:var(--text-muted);font-size:.78rem;"><%= g.category_name||'&mdash;' %></td>
+              <td><strong><%= g.group_name %></strong></td>
+              <td style="font-size:.8rem;"><%= g.zone||'&mdash;' %></td>
+              <td><%= g.pass_count %></td>
+              <td style="color:var(--text-muted);">
+                <% if(g.max_passes&&g.max_passes>0){ %><%= g.max_passes %><% }else{ %>&infin;<% } %>
+              </td>
+              <td style="min-width:100px;">
+                <% if(pct!==null){ %>
+                  <div style="display:flex;align-items:center;gap:.4rem;">
+                    <div class="pct-bar-wrap" style="width:70px;"><span class="pct-bar" style="width:<%= pct %>%;background:<%= bc %>"></span></div>
+                    <span style="font-size:.75rem;color:<%= bc %>;font-weight:700;"><%= pct %>%</span>
+                  </div>
+                <% }else{ %><span style="color:var(--text-muted);">&mdash;</span><% } %>
+              </td>
+              <td>
+                <% if(g.consegnati>0){ %><span class="stat-badge" style="background:#2d6a4f;"><%= g.consegnati %></span>
+                <% }else{ %><span style="color:var(--text-muted);">0</span><% } %>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+<%- include('partials/footer') %>
