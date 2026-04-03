@@ -9,8 +9,7 @@
   <button type="button" class="pill-tab active" data-tab="zone">&#128506;&#65039; Zone / Padiglioni</button>
   <button type="button" class="pill-tab" data-tab="raggruppamenti">&#128193; Raggruppamenti Pass</button>
   <button type="button" class="pill-tab" data-tab="tipologie">&#127931; Tipologie Pass PDF</button>
-  <button type="button" class="pill-tab" data-tab="notifiche">&#128276; Notifiche &amp; Email</button>
-    <button type="button" class="pill-tab" data-tab="backup">&#128190; Backup &amp; Restore</button>
+  <button type="button" class="pill-tab" data-tab="backup">&#128190; Backup &amp; Restore</button>
   <button type="button" class="pill-tab" data-tab="utenti">&#128100; Gestione Utenti</button>
 </div>
 
@@ -238,31 +237,6 @@
 </div>
 
 <!-- ====== PANEL BACKUP ====== -->
-
-<div id="panel-notifiche" class="settings-panel" style="display:none;">
-  <div class="card" style="border-top:3px solid #1d6fa4;"><div class="card-title">&#128231; Configurazione Email (SMTP)</div>
-  <form method="post" action="/admin/settings/smtp" id="smtp-form" style="display:grid;gap:.8rem;max-width:520px;margin-top:.75rem;">
-    <div style="display:grid;grid-template-columns:1fr 90px 130px;gap:.6rem;">
-      <label style="font-size:.82rem;font-weight:700;">Host SMTP<br><input type="text" name="smtp_host" value="<%= smtp.smtp_host||'' %>" placeholder="smtp.gmail.com" style="width:100%;margin-top:.3rem;"></label>
-      <label style="font-size:.82rem;font-weight:700;">Porta<br><input type="number" name="smtp_port" value="<%= smtp.smtp_port||'587' %>" style="width:100%;margin-top:.3rem;"></label>
-      <label style="font-size:.82rem;font-weight:700;">Sicurezza<br><select name="smtp_secure" style="width:100%;margin-top:.3rem;"><option value="0" <%= smtp.smtp_secure==='1'?'':' selected' %>>STARTTLS</option><option value="1" <%= smtp.smtp_secure==='1'?' selected':'' %>>SSL/TLS</option></select></label>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
-      <label style="font-size:.82rem;font-weight:700;">Username<br><input type="text" name="smtp_user" value="<%= smtp.smtp_user||'' %>" style="width:100%;margin-top:.3rem;"></label>
-      <label style="font-size:.82rem;font-weight:700;">Password<br><input type="password" name="smtp_pass" value="<%= smtp.smtp_pass||'' %>" style="width:100%;margin-top:.3rem;"></label>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
-      <label style="font-size:.82rem;font-weight:700;">Mittente<br><input type="email" name="smtp_from" value="<%= smtp.smtp_from||'' %>" placeholder="noreply@ludicomix.it" style="width:100%;margin-top:.3rem;"></label>
-      <label style="font-size:.82rem;font-weight:700;">Destinatario<br><input type="email" name="smtp_to" value="<%= smtp.smtp_to||'' %>" placeholder="admin@ludicomix.it" style="width:100%;margin-top:.3rem;"></label>
-    </div>
-    <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;">
-      <button type="submit" class="primary">&#128190; Salva SMTP</button>
-      <button type="button" class="secondary" id="btn-smtp-test" style="font-size:.82rem;">&#128231; Test email</button>
-    </div>
-    <div id="smtp-result" style="display:none;font-size:.82rem;padding:.4rem .7rem;border-radius:6px;"></div>
-  </form></div>
-  <div class="card"><div class="card-title">&#128276; Centro Notifiche</div><p style="font-size:.82rem;margin-bottom:.75rem;">Storico eventi critici.</p><a href="/notifications" class="secondary" style="font-size:.82rem;">Vai alle notifiche &rarr;</a></div>
-</div>
 <div id="panel-backup" class="settings-panel" style="display:none;">
 
   <div class="card" style="border-top:3px solid var(--accent-blue);">
@@ -373,7 +347,7 @@
 
 <script>
 (function () {
-  var PANELS = { zone: 'panel-zone', raggruppamenti: 'panel-raggruppamenti', tipologie: 'panel-tipologie', backup:'panel-backup',notifiche:'panel-notifiche', utenti: 'panel-utenti' };
+  var PANELS = { zone: 'panel-zone', raggruppamenti: 'panel-raggruppamenti', tipologie: 'panel-tipologie', backup: 'panel-backup', utenti: 'panel-utenti' };
   var tabs   = document.querySelectorAll('[data-tab]');
 
   function showTab(key) {

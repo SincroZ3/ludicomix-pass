@@ -1,0 +1,18 @@
+<%- include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">&rsaquo;</span> <strong>Notifiche</strong></nav>
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:1rem;">
+  <h1 class="page-title" style="margin:0;">&#128276; Notifiche</h1>
+  <form method="post" action="/notifications/read-all"><button type="submit" class="secondary" style="font-size:.8rem;">&#10003; Segna tutte lette</button></form>
+</div>
+<% var ICON={limit_warning:'&#9888;&#65039;',limit_reached:'&#128680;',import:'&#128229;',replace:'&#128260;',smtp:'&#128231;'}; %>
+<% if(!notifs.length){ %>
+  <div class="card" style="text-align:center;color:var(--text-muted);padding:2.5rem;"><div style="font-size:2.5rem;margin-bottom:.5rem">&#128277;</div><p>Nessuna notifica.</p></div>
+<% }else{ notifs.forEach(function(n){ %>
+  <div class="card" style="margin-bottom:.45rem;display:flex;gap:.75rem;align-items:flex-start;border-left:3px solid <%= n.read_at?'var(--border)':'var(--brand-violet)' %>;opacity:<%= n.read_at?'.65':'1' %>;">
+    <span style="font-size:1.35rem;flex-shrink:0;"><%- ICON[n.type]||'&#128276;' %></span>
+    <div style="flex:1;"><div style="font-weight:800;font-size:.9rem;"><%= n.title %></div>
+      <div style="font-size:.82rem;color:var(--text-secondary);margin-top:.2rem;"><%- n.message %></div>
+      <div style="font-size:.7rem;color:var(--text-muted);margin-top:.3rem;"><%= (n.created_at||'').substring(0,16).replace('T',' ') %> &middot; <% if(n.read_at){ %><span style="color:#2d6a4f;">&#10003; Letta</span><% }else{ %><strong style="color:var(--brand-violet);">Nuova</strong><% } %></div>
+    </div></div>
+<% }); } %>
+<%- include('partials/footer') %>

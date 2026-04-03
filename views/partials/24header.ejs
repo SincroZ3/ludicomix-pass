@@ -519,8 +519,7 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
       </div>
     </div>
     <% if (currentUser) { %>
-    <% if(currentUser&&currentUser.role==="admin"){ %><div id="nb" style="position:relative;margin-left:.25rem;"><a href="/notifications" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.15);color:#fff;text-decoration:none;font-size:1rem;" title="Notifiche">&#128276;</a><span id="nbc" style="display:none;position:absolute;top:-3px;right:-3px;background:#c0392b;color:#fff;border-radius:9999px;min-width:16px;height:16px;font-size:.56rem;font-weight:800;line-height:16px;text-align:center;padding:0 3px;"></span></div><% } %>
-  <form method="post" action="/logout" class="logout-form">
+    <form method="post" action="/logout" class="logout-form">
       <button type="submit">Logout</button>
     </form>
     <% } %>
@@ -530,8 +529,6 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
     <a href="/home">&#127968; Home</a>
     <a href="/participants">&#128101; Assegnatari Pass</a>
     <a href="/passes">&#127915; Pass generati</a>
-    <a href="/mappa">&#128506; Mappa Stand</a>
-    <% if(currentUser&&currentUser.role!=="viewer"){ %><a href="/import">&#128229; Import CSV</a><% } %>
     <a href="/reports">&#128202; Reports</a>
     <a href="/search">&#128269; Ricerca Pass</a>
     <a href="/account/password">&#128273; Cambia Password</a>

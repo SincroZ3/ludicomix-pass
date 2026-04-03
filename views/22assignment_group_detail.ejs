@@ -64,15 +64,7 @@
         <input type="text" name="stand_name" value="<%= groupInfo.stand_name || '' %>">
       </label>
       <label>Zona / Padiglione<br>
-        <select name="zone">
-          <option value="">&#8212; Nessuna &#8212;</option>
-          <% (typeof zones !== 'undefined' ? zones : []).forEach(function(z){ %>
-            <option value="<%= z.name %>" <%= groupInfo.zone === z.name ? 'selected' : '' %>><%= z.name %></option>
-          <% }); %>
-          <% if (groupInfo.zone && groupInfo.zone.trim() && (typeof zones === 'undefined' || !zones.find(function(z){ return z.name === groupInfo.zone; }))) { %>
-            <option value="<%= groupInfo.zone %>" selected><%= groupInfo.zone %> (legacy)</option>
-          <% } %>
-        </select>
+        <input type="text" name="zone" value="<%= groupInfo.zone || '' %>">
       </label>
       <label>Codice stand<br>
         <input type="text" name="stand_code" value="<%= groupInfo.stand_code || '' %>">
@@ -472,40 +464,4 @@ function maronnoForza() {
     }).catch(function(){ errEl.textContent = 'Errore di rete'; errEl.style.display=''; });
 }
 </script>
-
-<% if(currentUser&&currentUser.role==='admin'){ %>
-<div class="card" style="border-top:3px solid #1d6fa4;margin-top:1rem;">
-  <div class="card-title">&#127970; Portale Espositore</div>
-  <% if(groupInfo.portal_token&&groupInfo.portal_enabled){ %>
-    <div style="display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-bottom:.75rem;">
-      <input type="text" readonly id="plink" value="/portale/<%= groupInfo.portal_token %>" style="flex:1;min-width:180px;font-size:.78rem;background:#f7f6f2;border:1px solid var(--border);padding:.32rem .6rem;border-radius:4px;">
-      <button type="button" class="secondary" style="font-size:.78rem;" onclick="navigator.clipboard.writeText(location.origin+document.getElementById('plink').value).then(function(){alert('Copiato!');})">&#128203; Copia</button>
-      <a href="/portale/<%= groupInfo.portal_token %>" target="_blank" class="secondary" style="font-size:.78rem;">&#128279; Apri</a>
-    </div>
-  <% }else if(groupInfo.portal_token&&!groupInfo.portal_enabled){ %>
-    <p style="font-size:.8rem;color:#c0392b;margin-bottom:.6rem;">&#128274; Portale disabilitato.</p>
-  <% } %>
-  <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
-    <button type="button" class="secondary" style="font-size:.82rem;" onclick="genTok(<%= groupInfo.id %>)">&#128273; <%= groupInfo.portal_token?'Rigenera':'Genera' %> token</button>
-    <% if(groupInfo.portal_token){ %><button type="button" class="secondary" style="font-size:.82rem;background:<%= groupInfo.portal_enabled?'#c0392b':'#2d6a4f' %>;color:#fff;" onclick="togP(<%= groupInfo.id %>)"><%= groupInfo.portal_enabled?'&#128274; Disabilita':'&#128275; Abilita' %></button><% } %>
-  </div>
-</div>
-<div class="card" style="border-top:3px solid #6b3fa0;margin-top:1rem;">
-  <div class="card-title">&#128506; Posizione Mappa Stand</div>
-  <form id="mpf" style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end;">
-    <label style="font-size:.82rem;font-weight:700;">Riga<br><input type="number" id="mr" min="1" max="20" value="<%= groupInfo.map_row||'' %>" style="width:65px;margin-top:.3rem;"></label>
-    <label style="font-size:.82rem;font-weight:700;">Colonna<br><input type="number" id="mc" min="1" max="20" value="<%= groupInfo.map_col||'' %>" style="width:65px;margin-top:.3rem;"></label>
-    <label style="font-size:.82rem;font-weight:700;">Larghezza<br><input type="number" id="ms" min="1" max="8" value="<%= groupInfo.map_span||1 %>" style="width:58px;margin-top:.3rem;"></label>
-    <button type="submit" class="secondary" style="font-size:.82rem;">&#128190; Salva</button>
-    <% if(groupInfo.map_row){ %><button type="button" class="btn-danger" style="font-size:.78rem;" onclick="rmM(<%= groupInfo.id %>)">&#10005; Rimuovi</button><% } %>
-  </form>
-  <div id="mpmsg" style="display:none;font-size:.78rem;margin-top:.4rem;"></div>
-</div>
-<script>
-function genTok(id){if(!confirm('Generare nuovo token?'))return;fetch('/admin/groups/'+id+'/portal/token',{method:'POST'}).then(function(r){return r.json();}).then(function(d){if(d.token)location.reload();else alert('Errore:'+(d.error||'?'));});}
-function togP(id){fetch('/admin/groups/'+id+'/portal/toggle',{method:'POST'}).then(function(){location.reload();});}
-document.getElementById('mpf')&&document.getElementById('mpf').addEventListener('submit',function(e){e.preventDefault();var msg=document.getElementById('mpmsg');fetch('/admin/groups/<%= groupInfo.id %>/map-position',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'map_row='+document.getElementById('mr').value+'&map_col='+document.getElementById('mc').value+'&map_span='+document.getElementById('ms').value}).then(function(r){return r.json();}).then(function(d){msg.style.display='block';msg.style.color=d.ok?'#2d6a4f':'#c0392b';msg.textContent=d.ok?'Salvato!':'Errore:'+(d.error||'?');setTimeout(function(){msg.style.display='none';},3000);});});
-function rmM(id){fetch('/admin/groups/'+id+'/map-position',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'map_row=&map_col=&map_span=1'}).then(function(){location.reload();});}
-</script>
-<% } %>
 <%-include('partials/footer') %>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="it"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Portale Espositore &mdash; <%= group.name %></title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',system-ui,sans-serif;background:#f7f6f2;color:#28251d;min-height:100vh}
+.hdr{background:#1a0533;color:#fff;padding:.9rem 1.5rem}.hdr h1{font-size:.95rem;font-weight:800}.hdr .sub{font-size:.72rem;opacity:.6;margin-top:.1rem}
+.wrap{max-width:900px;margin:0 auto;padding:1.5rem 1rem}
+.kr{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.5rem;margin-bottom:1.4rem}
+.kpi{background:#fff;border:1px solid #ddd;border-radius:8px;padding:.55rem .8rem}
+.kpi label{font-size:.6rem;text-transform:uppercase;letter-spacing:.4px;color:#aaa;font-weight:700;display:block}
+.kpi strong{font-size:.88rem;margin-top:.15rem;display:block}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+th{background:#f0f0ee;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;padding:.45rem .75rem;text-align:left;color:#777}
+td{padding:.43rem .75rem;font-size:.82rem;border-bottom:1px solid #f0f0ee}tr:last-child td{border:none}
+.badge{display:inline-flex;padding:.12rem .5rem;border-radius:9999px;font-size:.67rem;font-weight:700;color:#fff}
+.sGEN{background:#6b3fa0}.sSCA{background:#1d6fa4}.sSTA{background:#c9a227;color:#28251d}.sCON{background:#2d6a4f}.sRIC{background:#c0392b}.sINV{background:#9ca3af}
+.dl{display:inline-flex;align-items:center;gap:.3rem;padding:.26rem .65rem;background:#1a0533;color:#fff;border-radius:6px;text-decoration:none;font-size:.73rem;font-weight:700}.dl:hover{background:#6b3fa0}
+.foot{text-align:center;padding:2rem 1rem;font-size:.7rem;color:#bbb}
+</style></head><body>
+<div class="hdr"><h1>&#127915; Portale Espositore &mdash; Ludicomix</h1><div class="sub">Accesso riservato &middot; Non condividere questo link</div></div>
+<div class="wrap">
+  <% var wp=parts.filter(function(p){return p.pass_id;}),np=parts.filter(function(p){return !p.pass_id;}); %>
+  <% var SC={GENERATO:'sGEN',SCARICATO:'sSCA',STAMPATO:'sSTA',CONSEGNATO:'sCON',RICONSEGNATO:'sRIC',INVALIDATO:'sINV'}; %>
+  <div class="kr">
+    <div class="kpi"><label>Stand</label><strong><%= group.name %></strong></div>
+    <div class="kpi"><label>Categoria</label><strong><%= group.cat_name||'&mdash;' %></strong></div>
+    <div class="kpi"><label>Zona</label><strong><%= group.zone||'&mdash;' %></strong></div>
+    <div class="kpi"><label>Assegnatari</label><strong><%= parts.length %></strong></div>
+    <div class="kpi"><label>Pass pronti</label><strong style="color:#2d6a4f"><%= wp.length %> / <%= parts.length %></strong></div>
+  </div>
+  <% if(wp.length){ %>
+    <h2 style="font-size:.78rem;text-transform:uppercase;font-weight:800;color:#2d6a4f;margin:1.2rem 0 .5rem;">&#9989; Pass disponibili</h2>
+    <table style="margin-bottom:1.4rem"><thead><tr><th>#</th><th>Assegnatario</th><th>Ruolo</th><th>Tipo</th><th>Stato</th><th>Download</th></tr></thead><tbody>
+      <% wp.forEach(function(p,i){ %><tr>
+        <td style="color:#ccc;font-size:.7rem"><%= i+1 %></td><td><strong><%= p.last_name %> <%= p.first_name %></strong></td>
+        <td style="font-size:.74rem;color:#888"><%= p.role||'&mdash;' %></td><td style="font-size:.74rem"><%= p.type_name||'&mdash;' %></td>
+        <td><span class="badge <%= SC[p.status]||'sGEN' %>"><%= p.status %></span></td>
+        <td><a href="/portale/<%= token %>/download/<%= p.pass_id %>" class="dl" target="_blank">&#11015; PDF</a></td>
+      </tr><% }); %>
+    </tbody></table>
+  <% } %>
+  <% if(np.length){ %>
+    <h2 style="font-size:.78rem;text-transform:uppercase;font-weight:800;color:#c0392b;margin:1.2rem 0 .5rem;">&#9888;&#65039; Senza pass (<%= np.length %>)</h2>
+    <table><thead><tr><th>Assegnatario</th><th>Ruolo</th><th>Nota</th></tr></thead><tbody>
+      <% np.forEach(function(p){ %><tr><td><strong><%= p.last_name %> <%= p.first_name %></strong></td><td style="font-size:.73rem;color:#888"><%= p.role||'&mdash;' %></td><td style="font-size:.75rem;color:#c0392b;font-style:italic">Pass non ancora generato</td></tr><% }); %>
+    </tbody></table>
+  <% } %>
+  <div class="foot">Ludicomix &middot; Portale espositore &middot; Per assistenza contatta l&rsquo;organizzazione</div>
+</div></body></html>

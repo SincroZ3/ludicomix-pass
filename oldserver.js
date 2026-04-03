@@ -1,7 +1,6 @@
 
   const express = require('express');
   const path = require('path');
-const os   = require('os');
   const fs = require('fs');
   const multer = require('multer');
   const session = require('express-session');
@@ -10,25 +9,6 @@ const os   = require('os');
   const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 
   const db = require('./db');
-
-function createNotification(type,title,message,rT,rI){
-  db.run("INSERT INTO notifications(type,title,message,related_type,related_id)VALUES(?,?,?,?,?)",[type,title,message,rT||null,rI||null],function(err){if(!err)trySendEmail(title,message);});}
-function trySendEmail(subj,html){
-  db.all("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'",[],function(e,rows){
-    if(e||!rows||rows.length<2)return;var c={};rows.forEach(function(r){c[r.key]=r.value;});
-    if(!c.smtp_host||!c.smtp_to)return;
-    nodemailer.createTransport({host:c.smtp_host,port:parseInt(c.smtp_port||'587',10),secure:c.smtp_secure==='1',
-      auth:c.smtp_user?{user:c.smtp_user,pass:c.smtp_pass}:undefined,tls:{rejectUnauthorized:false}
-    }).sendMail({from:c.smtp_from||'noreply@ludicomix.it',to:c.smtp_to,
-      subject:'[Ludicomix] '+subj,html:'<div style="font-family:sans-serif">'+html+'</div>'},
-      function(err2){if(err2)console.error('Email:',err2.message);});});}
-function checkGroupLimit(gid){
-  db.get(`SELECT ag.max_passes,ag.name,COUNT(CASE WHEN p.status!='INVALIDATO' THEN 1 END)AS cnt
-    FROM assignment_groups ag LEFT JOIN participants pa ON pa.assignment_group_id=ag.id
-    LEFT JOIN passes p ON p.participant_id=pa.id WHERE ag.id=? GROUP BY ag.id`,[gid],function(err,row){
-    if(err||!row||!row.max_passes)return;var pct=Math.round(row.cnt/row.max_passes*100);
-    if(pct>=100)createNotification('limit_reached','Limite gruppo raggiunto','Gruppo <strong>'+row.name+'</strong> al 100% ('+row.cnt+'/'+row.max_passes+').','group',gid);
-    else if(pct>=90)createNotification('limit_warning','Gruppo vicino al limite','Gruppo <strong>'+row.name+'</strong> al '+pct+'% ('+row.cnt+'/'+row.max_passes+').','group',gid);});}
 
   const app = express();
   const PORT = process.env.PORT || 3000;
@@ -145,40 +125,7 @@ function checkGroupLimit(gid){
   });
 
   app.get('/home', requireAuth, (req, res) => {
-    db.get('SELECT COUNT(*) as total FROM participants', [], (e, r1) => {
-      const totalParticipants = r1 ? r1.total : 0;
-      db.get('SELECT COUNT(*) as total FROM passes', [], (e2, r2) => {
-        const totalPasses = r2 ? r2.total : 0;
-        db.all('SELECT status, COUNT(*) as count FROM passes GROUP BY status', [], (e3, sRows) => {
-          const passesByStatus = {};
-          (sRows || []).forEach(r => { passesByStatus[r.status] = r.count; });
-          db.get('SELECT COUNT(*) as total FROM participants WHERE id NOT IN (SELECT DISTINCT participant_id FROM passes)',
-            [], (e4, r4) => {
-              const senzaPass = r4 ? r4.total : 0;
-              db.all(`SELECT ag.name, ag.max_passes, COUNT(p.id) as pass_count
-                FROM assignment_groups ag
-                LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
-                LEFT JOIN passes p ON p.participant_id = pa.id
-                WHERE ag.max_passes IS NOT NULL AND ag.max_passes > 0
-                GROUP BY ag.id
-                HAVING CAST(pass_count AS FLOAT)/ag.max_passes >= 0.8
-                ORDER BY CAST(pass_count AS FLOAT)/ag.max_passes DESC LIMIT 5`,
-                [], (e5, alertGroups) => {
-                  db.all(`SELECT al.action, al.details, al.created_at, u.username
-                    FROM action_logs al LEFT JOIN users u ON u.id = al.user_id
-                    ORDER BY al.id DESC LIMIT 8`,
-                    [], (e6, recentActivity) => {
-                      res.render('home', {
-                        stats: { totalParticipants, totalPasses, passesByStatus, senzaPass },
-                        alertGroups: alertGroups || [],
-                        recentActivity: recentActivity || []
-                      });
-                    });
-                });
-            });
-        });
-      });
-    });
+    res.render('home');
   });
 
   // -------- Partecipanti, Gruppi, Categorie --------
@@ -200,10 +147,7 @@ function checkGroupLimit(gid){
         `;
         db.all(sql, [], (err3, assignmentGroups) => {
           if (err3) return res.status(500).send('Errore DB gruppi assegnatari');
-          db.all('SELECT * FROM zones ORDER BY sort_order, name', [], (err4, zones) => {
-            if (err4) return res.status(500).send('Errore DB zone');
-            res.render('participants', { categories, types, assignmentGroups, zones: zones || [] });
-          });
+          res.render('participants', { categories, types, assignmentGroups });
         });
       });
     });
@@ -220,23 +164,6 @@ function checkGroupLimit(gid){
         if (err) return res.status(500).send('Errore salvataggio gruppo assegnatari');
         logAction(req.session.user.id, 'create_assignment_group', 'assignment_group', this.lastID, `Creato gruppo ${name}`);
         res.redirect('/participants');
-      }
-    );
-  });
-
-
-  // POST modifica dati gruppo/stand
-  app.post('/assignment-groups/:id/edit', requireAuth, requireNotViewer, (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    const { name, stand_name, zone, stand_code } = req.body;
-    if (!name) return res.status(400).send('Nome gruppo obbligatorio');
-    db.run(
-      'UPDATE assignment_groups SET name = ?, stand_name = ?, zone = ?, stand_code = ? WHERE id = ?',
-      [name, stand_name || null, zone || null, stand_code || null, id],
-      function(err) {
-        if (err) return res.status(500).send('Errore aggiornamento gruppo');
-        logAction(req.session.user.id, 'edit_assignment_group', 'assignment_group', id, 'Dati gruppo aggiornati');
-        res.redirect('/assignment-groups/' + id);
       }
     );
   });
@@ -274,11 +201,7 @@ function checkGroupLimit(gid){
         `;
         db.all(sqlParticipants, [id], (err3, participants) => {
           if (err3) return res.status(500).send('Errore DB partecipanti');
-          const dupSkipped = req.query.dup_skipped ? parseInt(req.query.dup_skipped, 10) : 0;
-        const dupTotal   = req.query.dup_total   ? parseInt(req.query.dup_total,   10) : 0;
-        db.all('SELECT * FROM zones ORDER BY sort_order, name', [], (errZ, zones) => {
-          res.render('assignment_group_detail', { groupInfo, types, participants, PASS_STATUSES, dupSkipped, dupTotal, zones: zones || [] });
-        });
+          res.render('assignment_group_detail', { groupInfo, types, participants, PASS_STATUSES });
         });
       });
     });
@@ -493,8 +416,11 @@ function checkGroupLimit(gid){
 
   // -------- Tipologie Pass e Raggruppamenti --------
 
-  app.get('/pass-types', requireAuth, requireAdmin, (req, res) => {
-    res.redirect('/admin/settings#tipologie');
+  app.get('/pass-types', requireAuth, (req, res) => {
+    db.all('SELECT * FROM pass_types ORDER BY id DESC', [], (err, types) => {
+      if (err) return res.status(500).send('Errore DB tipologie pass');
+      res.render('pass_types', { types });
+    });
   });
 
   app.post('/pass-types', requireAuth, requireNotViewer, upload.single('template'), (req, res) => {
@@ -522,7 +448,7 @@ function checkGroupLimit(gid){
       function (err) {
         if (err) return res.status(500).send('Errore salvataggio tipo pass');
         logAction(req.session.user.id, 'create_pass_type', 'pass_type', this.lastID, `Creato tipo pass ${name}`);
-        res.redirect('/admin/settings#tipologie');
+        res.redirect('/pass-types');
       }
     );
   });
@@ -534,12 +460,24 @@ function checkGroupLimit(gid){
       if (this.changes > 0) {
         logAction(req.session.user.id, 'delete_pass_type', 'pass_type', id, 'Tipo pass eliminato');
       }
-      res.redirect('/admin/settings#tipologie');
+      res.redirect('/pass-types');
     });
   });
 
-  app.get('/groups', requireAuth, requireAdmin, (req, res) => {
-    res.redirect('/admin/settings#raggruppamenti');
+  app.get('/groups', requireAuth, (req, res) => {
+    const sql = `
+      SELECT g.id, g.name, g.priority, g.pass_type_id, pt.name AS pass_type_name
+      FROM groups g
+      LEFT JOIN pass_types pt ON pt.id = g.pass_type_id
+      ORDER BY g.priority ASC, g.name ASC
+    `;
+    db.all(sql, [], (err, groups) => {
+      if (err) return res.status(500).send('Errore DB raggruppamenti');
+      db.all('SELECT * FROM pass_types ORDER BY name ASC', [], (err2, types) => {
+        if (err2) return res.status(500).send('Errore DB tipologie pass');
+        res.render('groups', { groups, types });
+      });
+    });
   });
 
   app.post('/groups', requireAuth, requireNotViewer, (req, res) => {
@@ -551,24 +489,7 @@ function checkGroupLimit(gid){
       function (err) {
         if (err) return res.status(500).send('Errore salvataggio raggruppamento');
         logAction(req.session.user.id, 'create_group', 'group', this.lastID, `Creato raggruppamento ${name}`);
-        res.redirect('/admin/settings#raggruppamenti');
-      }
-    );
-  });
-
-
-  // POST modifica raggruppamento pass (tipologia PDF)
-  app.post('/groups/:id/edit', requireAuth, requireNotViewer, (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    const { name, priority, pass_type_id } = req.body;
-    if (!name) return res.status(400).send('Nome raggruppamento obbligatorio');
-    db.run(
-      'UPDATE groups SET name = ?, priority = ?, pass_type_id = ? WHERE id = ?',
-      [name, parseInt(priority || 0, 10), pass_type_id || null, id],
-      function(err) {
-        if (err) return res.status(500).send('Errore aggiornamento raggruppamento');
-        logAction(req.session.user.id, 'edit_group', 'group', id, 'Raggruppamento aggiornato');
-        res.redirect('/admin/settings#raggruppamenti');
+        res.redirect('/groups');
       }
     );
   });
@@ -580,7 +501,7 @@ function checkGroupLimit(gid){
       if (this.changes > 0) {
         logAction(req.session.user.id, 'delete_group', 'group', id, 'Raggruppamento eliminato');
       }
-      res.redirect('/admin/settings#raggruppamenti');
+      res.redirect('/groups');
     });
   });
 
@@ -758,24 +679,6 @@ function checkGroupLimit(gid){
 
   // -------- Pass singolo e bulk --------
 
-
-  // API: controlla se un partecipante ha già pass generati
-  app.get('/passes/check-participant/:id', requireAuth, (req, res) => {
-    const pid = parseInt(req.params.id, 10);
-    const sql = `
-      SELECT p.id, p.code, p.status, p.created_at,
-             pt.name AS pass_type_name
-      FROM passes p
-      JOIN pass_types pt ON pt.id = p.pass_type_id
-      WHERE p.participant_id = ?
-      ORDER BY p.id DESC
-    `;
-    db.all(sql, [pid], (err, rows) => {
-      if (err) return res.status(500).json({ error: 'Errore DB' });
-      res.json({ passes: rows });
-    });
-  });
-
   app.get('/passes', requireAuth, (req, res) => {
     const sql = `
       SELECT p.id, p.created_at, p.pdf_file, p.code, p.status,
@@ -803,57 +706,12 @@ function checkGroupLimit(gid){
   });
 
   app.post('/passes', requireAuth, requireNotViewer, async (req, res) => {
-    const { participant_id, pass_type_id, force_duplicate } = req.body;
+    const { participant_id, pass_type_id } = req.body;
     if (!participant_id || !pass_type_id) {
       return res.status(400).send('Partecipante e tipo pass obbligatori');
     }
-
-    const pid  = parseInt(participant_id, 10);
-    const ptid = parseInt(pass_type_id, 10);
-
-    // Controllo duplicato (salvo override esplicito dall'utente)
-    if (!force_duplicate) {
-      try {
-        const existing = await new Promise((resolve, reject) => {
-          const sql = `
-            SELECT p.id, p.code, p.status, p.created_at,
-                   pt.name AS pass_type_name
-            FROM passes p
-            JOIN pass_types pt ON pt.id = p.pass_type_id
-            WHERE p.participant_id = ?
-            ORDER BY p.id DESC
-          `;
-          db.all(sql, [pid], (err, rows) => err ? reject(err) : resolve(rows));
-        });
-
-        if (existing && existing.length > 0) {
-          const [participants, types] = await Promise.all([
-            new Promise((res2, rej2) => db.all(
-              'SELECT * FROM participants ORDER BY last_name ASC, first_name ASC', [],
-              (e, r) => e ? rej2(e) : res2(r)
-            )),
-            new Promise((res2, rej2) => db.all(
-              'SELECT * FROM pass_types ORDER BY name ASC', [],
-              (e, r) => e ? rej2(e) : res2(r)
-            )),
-          ]);
-          return res.render('new_pass', {
-            participants,
-            types,
-            duplicate_warning: existing,
-            preselected_participant: pid,
-            preselected_type: ptid,
-          });
-        }
-      } catch (e) {
-        console.error('Errore check duplicato:', e.message);
-        return res.status(500).send('Errore verifica duplicato pass');
-      }
-    }
-
-    // Nessun duplicato (o override confermato): genera il pass
     try {
-      await generatePassForParticipant(pid, ptid, req.session.user.id);
+      await generatePassForParticipant(parseInt(participant_id, 10), parseInt(pass_type_id, 10), req.session.user.id);
       res.redirect('/passes');
     } catch (e) {
       console.error('Errore singolo pass:', e.message || e);
@@ -872,42 +730,22 @@ function checkGroupLimit(gid){
       participant_ids = [participant_ids];
     }
     const ids = participant_ids.map((id) => parseInt(id, 10)).filter(Boolean);
-
     try {
-      // Controlla duplicati: per ogni id verifica se ha già un pass
-      const checkExisting = (pid) => new Promise((resolve, reject) => {
-        db.get('SELECT id FROM passes WHERE participant_id = ? LIMIT 1', [pid], (err, row) => {
-          if (err) return reject(err);
-          resolve(row ? pid : null);
-        });
-      });
-
-      const dupChecks = await Promise.all(ids.map(checkExisting));
-      const alreadyHavePass = dupChecks.filter(Boolean);
-      const toGenerate = ids.filter(pid => !alreadyHavePass.includes(pid));
-
-      // Genera solo per chi non ha ancora il pass
-      for (const pid of toGenerate) {
+      for (const pid of ids) {
         await generatePassForParticipant(pid, parseInt(pass_type_id, 10), req.session.user.id);
       }
-
-      const redirectBase = assignment_group_id
-        ? `/assignment-groups/${assignment_group_id}`
-        : '/passes';
-
-      // Se ci sono stati duplicati saltati, passa il conteggio come query param
-      if (alreadyHavePass.length > 0) {
-        return res.redirect(`${redirectBase}?dup_skipped=${alreadyHavePass.length}&dup_total=${ids.length}`);
+      // Se la richiesta viene da un gruppo, torna al gruppo
+      if (assignment_group_id) {
+        return res.redirect(`/assignment-groups/${assignment_group_id}`);
       }
-      res.redirect(redirectBase);
+      res.redirect('/passes');
     } catch (e) {
       console.error('Errore bulk pass:', e.message || e);
       res.status(500).send('Errore generazione pass: ' + (e.message || e));
     }
   });
 
-  app.get('/passes/:id/download', function(req,res,next){if(req.query.portal_token||(req.session&&req.session.user))return next();return res.redirect('/login');
-  }, (req, res) => {
+  app.get('/passes/:id/download', requireAuth, (req, res) => {
     const id = parseInt(req.params.id, 10);
     db.get('SELECT pdf_file FROM passes WHERE id = ?', [id], (err, pass) => {
       if (err || !pass || !pass.pdf_file) {
@@ -921,19 +759,6 @@ function checkGroupLimit(gid){
     });
   });
 
-
-  app.get('/passes/:id/history', requireAuth, (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    db.all(`SELECT h.status, h.changed_at, u.username
-      FROM pass_status_history h
-      LEFT JOIN users u ON u.id = h.user_id
-      WHERE h.pass_id = ? ORDER BY h.id ASC`,
-      [id], (err, rows) => {
-        if (err) return res.status(500).json({ error: 'Errore DB' });
-        res.json(rows || []);
-      });
-  });
-
   app.post('/passes/:id/status', requireAuth, (req, res) => {
     const id = parseInt(req.params.id, 10);
     const { status } = req.body;
@@ -942,10 +767,8 @@ function checkGroupLimit(gid){
       if (err) return res.status(500).send('Errore aggiornamento stato pass');
       if (this.changes > 0) {
         logAction(req.session.user.id, 'update_pass_status', 'pass', id, `Stato aggiornato a ${status}`);
-        db.run('INSERT INTO pass_status_history (pass_id, status, user_id) VALUES (?, ?, ?)',
-          [id, status, req.session.user.id]);
       }
-      res.redirect(req.body.redirect_to || '/passes');
+      res.redirect('/passes');
     });
   });
 
@@ -960,140 +783,6 @@ function checkGroupLimit(gid){
     });
   });
 
-
-  // -------- Impostazioni Admin (Zone, Raggruppamenti, Tipologie) --------
-
-  app.get('/admin/settings', requireAuth, requireAdmin, (req, res) => {
-    const sqlG = `
-      SELECT g.id, g.name, g.priority, g.pass_type_id, pt.name AS pass_type_name
-      FROM groups g
-      LEFT JOIN pass_types pt ON pt.id = g.pass_type_id
-      ORDER BY g.priority ASC, g.name ASC
-    `;
-    db.all(sqlG, [], (err, groups) => {
-      if (err) return res.status(500).send('Errore DB raggruppamenti');
-      db.all('SELECT * FROM pass_types ORDER BY id DESC', [], (err2, types) => {
-        if (err2) return res.status(500).send('Errore DB tipologie pass');
-        db.all('SELECT * FROM zones ORDER BY sort_order, name', [], (err3, zones) => {
-          if (err3) return res.status(500).send('Errore DB zone');
-          db.all('SELECT id, username, role, created_at FROM users ORDER BY username ASC', [], (err4, users) => {
-            if (err4) return res.status(500).send('Errore DB utenti');
-            res.render('admin_settings', { groups, types, zones, users });
-          });
-        });
-      });
-    });
-  });
-
-  app.post('/admin/zones', requireAuth, requireAdmin, (req, res) => {
-    const { name, sort_order } = req.body;
-    if (!name || !name.trim()) return res.status(400).send('Nome zona obbligatorio');
-    db.run(
-      'INSERT INTO zones (name, sort_order) VALUES (?, ?)',
-      [name.trim(), parseInt(sort_order || 0, 10)],
-      function(err) {
-        if (err) {
-          if (err.message && err.message.includes('UNIQUE'))
-            return res.status(400).send('Una zona con questo nome esiste gia');
-          return res.status(500).send('Errore salvataggio zona');
-        }
-        logAction(req.session.user.id, 'create_zone', 'zone', this.lastID, 'Creata zona: ' + name.trim());
-        res.redirect('/admin/settings#zone');
-      }
-    );
-  });
-
-  app.post('/admin/zones/:id/edit', requireAuth, requireAdmin, (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    const { name, sort_order } = req.body;
-    if (!name || !name.trim()) return res.status(400).send('Nome zona obbligatorio');
-    db.run(
-      'UPDATE zones SET name = ?, sort_order = ? WHERE id = ?',
-      [name.trim(), parseInt(sort_order || 0, 10), id],
-      function(err) {
-        if (err) return res.status(500).send('Errore aggiornamento zona');
-        logAction(req.session.user.id, 'edit_zone', 'zone', id, 'Zona aggiornata: ' + name.trim());
-        res.redirect('/admin/settings#zone');
-      }
-    );
-  });
-
-  app.post('/admin/zones/:id/delete', requireAuth, requireAdmin, (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    db.run('DELETE FROM zones WHERE id = ?', [id], function(err) {
-      if (err) return res.status(500).send('Errore eliminazione zona');
-      logAction(req.session.user.id, 'delete_zone', 'zone', id, 'Zona eliminata');
-      res.redirect('/admin/settings#zone');
-    });
-  });
-
-
-  // -------- Backup & Restore DB --------
-
-  app.get('/admin/backup', requireAuth, requireAdmin, (req, res) => {
-    const tmpPath = path.join(os.tmpdir(), `ludicomix_backup_${Date.now()}.sqlite`);
-    db.run(`VACUUM INTO '${tmpPath}'`, function(err) {
-      if (err) return res.status(500).send('Errore backup: ' + err.message);
-      res.download(tmpPath, 'ludicomix_backup.sqlite', () => { fs.unlink(tmpPath, () => {}); });
-    });
-  });
-
-  app.post('/admin/restore', requireAuth, requireAdmin, upload.single('backup'), (req, res) => {
-    if (!req.file) return res.status(400).send('Nessun file caricato');
-    const buf = Buffer.alloc(16);
-    let fd;
-    try { fd = fs.openSync(req.file.path, 'r'); fs.readSync(fd, buf, 0, 16, 0); fs.closeSync(fd); }
-    catch(e) { fs.unlink(req.file.path, () => {}); return res.status(400).send('Impossibile leggere il file'); }
-    if (buf.toString('ascii', 0, 15) !== 'SQLite format 3') {
-      fs.unlink(req.file.path, () => {});
-      return res.status(400).send('File non valido: non e un database SQLite');
-    }
-    const dbPath = db.dbPath;
-    db.close((err) => {
-      if (err) return res.status(500).send('Errore chiusura DB: ' + err.message);
-      try { fs.copyFileSync(req.file.path, dbPath); fs.unlink(req.file.path, () => {}); }
-      catch(e) { return res.status(500).send('Errore sostituzione DB: ' + e.message); }
-      res.send('<!DOCTYPE html><html><body><p style="font-family:sans-serif;padding:2rem">'
-        + '<strong>Database ripristinato.</strong> Il server si riavvier&agrave; tra 2 secondi&hellip;</p>'
-        + '<script>setTimeout(()=>location.href="/login",2500)<\/script></body></html>');
-      setTimeout(() => process.exit(0), 1500);
-    });
-  });
-
-
-  app.get('/import',requireAuth,requireNotViewer,function(req,res){db.all(`SELECT ag.id,ag.name,g.name AS cat FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id ORDER BY g.name,ag.name`,[],function(err,groups){res.render('import',{groups:groups||[],result:null});});});
-  app.get('/import/template.csv',requireAuth,function(req,res){res.setHeader('Content-Type','text/csv;charset=utf-8');res.setHeader('Content-Disposition','attachment;filename="template_import.csv"');res.send('\xEF\xBB\xBFcognome;nome;email;ruolo\nRossi;Marco;marco@ex.com;Espositore\n');});
-  app.post('/import',requireAuth,requireNotViewer,upload.single('file'),function(req,res){
-    var gid=parseInt(req.body.group_id,10);if(!gid||!req.file)return res.status(400).send('Gruppo e file obbligatori');
-    var rows;try{var wb=XLSX.read(req.file.buffer,{type:'buffer'});rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',raw:false});}catch(e){return res.status(400).send('Errore:'+e.message);}
-    if(!rows||!rows.length)return res.status(400).send('File vuoto');
-    var ok=0,skip=0,errors=[];
-    function ins(i){if(i>=rows.length){logAction(req.session.user.id,'import_csv','import',gid,'Import '+ok+' nel gruppo #'+gid);createNotification('import','Import CSV completato','Importati <strong>'+ok+'</strong> nel gruppo #'+gid+'. Saltati:'+skip+'.','group',gid);return db.all(`SELECT ag.id,ag.name,g.name AS cat FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id ORDER BY g.name,ag.name`,[],function(e,groups){res.render('import',{groups:groups||[],result:{ok,skip,errors}});});}
-      var r=rows[i];var last=(r.cognome||r.Cognome||'').toString().trim(),first=(r.nome||r.Nome||'').toString().trim(),email=(r.email||r.Email||'').toString().trim().toLowerCase(),role=(r.ruolo||r.Ruolo||'Espositore').toString().trim();
-      if(!last&&!first){skip++;return ins(i+1);}
-      db.get('SELECT id FROM participants WHERE LOWER(first_name)=? AND LOWER(last_name)=? AND assignment_group_id=?',[first.toLowerCase(),last.toLowerCase(),gid],function(e,dup){if(dup){skip++;return ins(i+1);}
-        db.run('INSERT INTO participants(first_name,last_name,email,role,assignment_group_id)VALUES(?,?,?,?,?)',[first,last,email||null,role,gid],function(e2){if(e2)errors.push('Riga '+(i+2)+':'+e2.message);else ok++;ins(i+1);});});}
-    ins(0);});
-  app.post('/passes/:id/replace',requireAuth,requireNotViewer,function(req,res){
-    var oldId=parseInt(req.params.id,10);
-    db.get(`SELECT p.*,pt.name AS type_name,pa.first_name,pa.last_name FROM passes p JOIN pass_types pt ON pt.id=p.pass_type_id JOIN participants pa ON pa.id=p.participant_id WHERE p.id=? AND p.status!='INVALIDATO'`,[oldId],function(err,old){
-      if(err||!old)return res.status(404).send('Pass non trovato');
-      db.run("UPDATE passes SET status='INVALIDATO' WHERE id=?",[oldId]);db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[oldId,'INVALIDATO',req.session.user.id]);
-      db.run('INSERT INTO passes(participant_id,pass_type_id,status,code)VALUES(?,?,?,?)',[old.participant_id,old.pass_type_id,'GENERATO','LDX-'+Date.now()],function(e2){if(e2)return res.status(500).send('Errore');
-        var nid=this.lastID;db.run('UPDATE passes SET replaced_by=? WHERE id=?',[nid,oldId]);db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[nid,'GENERATO',req.session.user.id]);
-        logAction(req.session.user.id,'replace_pass','pass',oldId,'Pass #'+oldId+' -> #'+nid);createNotification('replace','Pass sostituito','Pass #'+oldId+' di <strong>'+old.first_name+' '+old.last_name+'</strong> -> nuovo #'+nid+'.','pass',nid);
-        res.redirect('/passes?replaced='+nid);});});});
-  app.post('/admin/groups/:id/portal/token',requireAuth,requireAdmin,function(req,res){var id=parseInt(req.params.id,10),token=require('crypto').randomBytes(24).toString('hex');db.run('UPDATE assignment_groups SET portal_token=?,portal_enabled=1 WHERE id=?',[token,id],function(err){if(err)return res.status(500).json({error:err.message});res.json({token});});});
-  app.post('/admin/groups/:id/portal/toggle',requireAuth,requireAdmin,function(req,res){var id=parseInt(req.params.id,10);db.get('SELECT portal_enabled FROM assignment_groups WHERE id=?',[id],function(e,row){if(!row)return res.status(404).json({error:'not found'});var v=row.portal_enabled?0:1;db.run('UPDATE assignment_groups SET portal_enabled=? WHERE id=?',[v,id],function(){res.json({enabled:v});});});});
-  app.get('/portale/:token',function(req,res){db.get(`SELECT ag.*,g.name AS cat_name FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id WHERE ag.portal_token=? AND ag.portal_enabled=1`,[req.params.token],function(err,group){if(err||!group)return res.status(404).send('<h2 style="font-family:sans-serif;padding:2rem">Portale non disponibile.</h2>');db.all(`SELECT pa.first_name,pa.last_name,pa.email,pa.role,p.id AS pass_id,p.code,p.status,pt.name AS type_name FROM participants pa LEFT JOIN passes p ON p.participant_id=pa.id AND p.status!='INVALIDATO' LEFT JOIN pass_types pt ON pt.id=p.pass_type_id WHERE pa.assignment_group_id=? ORDER BY pa.last_name,pa.first_name`,[group.id],function(e2,parts){res.render('portale',{group,parts:parts||[],token:req.params.token});});});});
-  app.get('/portale/:token/download/:passId',function(req,res){db.get(`SELECT ag.portal_enabled FROM assignment_groups ag JOIN participants pa ON pa.assignment_group_id=ag.id JOIN passes p ON p.participant_id=pa.id WHERE ag.portal_token=? AND p.id=?`,[req.params.token,req.params.passId],function(err,row){if(err||!row||!row.portal_enabled)return res.status(403).send('Accesso negato');res.redirect('/passes/'+req.params.passId+'/download?portal_token='+req.params.token);});});
-  app.get('/mappa',requireAuth,function(req,res){db.all(`SELECT ag.id,ag.name AS stand_name,ag.zone,ag.map_row,ag.map_col,ag.map_span,ag.max_passes,COUNT(CASE WHEN p.status!='INVALIDATO' THEN 1 END)AS pass_count,SUM(CASE WHEN p.status IN('CONSEGNATO','RICONSEGNATO') THEN 1 ELSE 0 END)AS consegnati FROM assignment_groups ag LEFT JOIN participants pa ON pa.assignment_group_id=ag.id LEFT JOIN passes p ON p.participant_id=pa.id GROUP BY ag.id ORDER BY ag.map_row,ag.map_col`,[],function(err,stands){if(err)return res.status(500).send('Errore DB');res.render('mappa',{stands:stands||[],isAdmin:!!(req.session.user&&req.session.user.role==='admin')});});});
-  app.post('/admin/groups/:id/map-position',requireAuth,requireAdmin,function(req,res){var id=parseInt(req.params.id,10),row=parseInt(req.body.map_row,10)||null,col=parseInt(req.body.map_col,10)||null,span=Math.max(1,Math.min(8,parseInt(req.body.map_span,10)||1));db.run('UPDATE assignment_groups SET map_row=?,map_col=?,map_span=? WHERE id=?',[row,col,span,id],function(err){res.json(err?{error:err.message}:{ok:true});});});
-  app.get('/notifications',requireAuth,requireAdmin,function(req,res){db.run("UPDATE notifications SET read_at=datetime('now') WHERE read_at IS NULL");db.all('SELECT * FROM notifications ORDER BY id DESC LIMIT 200',[],function(err,notifs){res.render('notifications',{notifs:notifs||[]});});});
-  app.get('/api/notifications/count',requireAuth,requireAdmin,function(req,res){db.get('SELECT COUNT(*) as n FROM notifications WHERE read_at IS NULL',[],function(e,r){res.json({count:r?r.n:0});});});
-  app.post('/notifications/read-all',requireAuth,requireAdmin,function(req,res){db.run("UPDATE notifications SET read_at=datetime('now') WHERE read_at IS NULL",function(){res.redirect('/notifications');});});
-  app.post('/admin/settings/smtp',requireAuth,requireAdmin,function(req,res){var fields=['smtp_host','smtp_port','smtp_secure','smtp_user','smtp_pass','smtp_from','smtp_to'],done=0;fields.forEach(function(k){db.run('INSERT OR REPLACE INTO app_settings(key,value)VALUES(?,?)',[k,req.body[k]||''],function(){if(++done===fields.length)res.redirect('/admin/settings#notifiche');});});});
-  app.post('/admin/settings/smtp-test',requireAuth,requireAdmin,function(req,res){var c=req.body;if(!c.smtp_host||!c.smtp_to)return res.json({ok:false,error:'Host e destinatario obbligatori'});nodemailer.createTransport({host:c.smtp_host,port:parseInt(c.smtp_port||'587',10),secure:c.smtp_secure==='1',auth:c.smtp_user?{user:c.smtp_user,pass:c.smtp_pass}:undefined,tls:{rejectUnauthorized:false}}).sendMail({from:c.smtp_from||'noreply@ludicomix.it',to:c.smtp_to,subject:'[Ludicomix] Test SMTP',html:'<p>Test OK!</p>'},function(err){res.json(err?{ok:false,error:err.message}:{ok:true});});});
   // -------- Ricerca & Reports --------
 
   app.get('/search', requireAuth, (req, res) => {
@@ -1105,118 +794,44 @@ function checkGroupLimit(gid){
     const sql = `
       SELECT p.id, p.created_at, p.pdf_file, p.code, p.status,
              pt.name AS pass_type_name,
-             pa.first_name || ' ' || pa.last_name AS participant_name,
-             ag.name AS group_name,
-             ag.stand_name AS stand_name
+             pa.first_name || ' ' || pa.last_name AS participant_name
       FROM passes p
       JOIN pass_types pt ON pt.id = p.pass_type_id
       JOIN participants pa ON pa.id = p.participant_id
-      LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
-      WHERE pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ?
-         OR pt.name LIKE ? OR p.code LIKE ?
-         OR ag.name LIKE ? OR ag.stand_name LIKE ?
+      WHERE pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ? OR pt.name LIKE ? OR p.code LIKE ?
       ORDER BY p.id DESC
     `;
-    db.all(sql, [like, like, like, like, like, like, like], (err, rows) => {
+    db.all(sql, [like, like, like, like, like], (err, rows) => {
       if (err) return res.status(500).send('Errore ricerca pass');
       res.render('search', { q, results: rows });
     });
   });
 
   app.get('/reports', requireAuth, (req, res) => {
-    db.all('SELECT status, COUNT(*) as count FROM passes GROUP BY status', [], (e, statusCounts) => {
-      db.all(`SELECT ag.id, ag.name as group_name, g.name as category_name, ag.zone,
-          ag.max_passes, COUNT(p.id) as pass_count,
-          SUM(CASE WHEN p.status IN ('CONSEGNATO','RICONSEGNATO') THEN 1 ELSE 0 END) as consegnati
-        FROM assignment_groups ag
-        LEFT JOIN groups g ON g.id = ag.group_id
-        LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
-        LEFT JOIN passes p ON p.participant_id = pa.id
-        GROUP BY ag.id ORDER BY g.name, ag.name`,
-        [], (e2, groupStats) => {
-          db.get('SELECT COUNT(*) as total FROM participants WHERE id NOT IN (SELECT DISTINCT participant_id FROM passes)',
-            [], (e3, r3) => {
-              res.render('reports', {
-                statusCounts: statusCounts || [],
-                groupStats:   groupStats   || [],
-                senzaPass:    r3 ? r3.total : 0
-              });
-            });
-        });
-    });
+    res.render('reports');
   });
 
   app.get('/reports/passes.csv', requireAuth, (req, res) => {
-    db.all(`SELECT p.id, p.created_at, p.code, p.status,
-        pa.first_name || ' ' || pa.last_name AS participant_name, pa.email, pa.role,
-        pt.name AS pass_type_name, ag.name AS group_name, ag.stand_name, ag.zone
+    const sql = `
+      SELECT p.id, p.created_at, p.code,
+             pa.first_name || ' ' || pa.last_name AS participant_name,
+             pa.email,
+             pt.name AS pass_type_name
       FROM passes p
       JOIN pass_types pt ON pt.id = p.pass_type_id
       JOIN participants pa ON pa.id = p.participant_id
-      LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
-      ORDER BY p.id DESC`,
-      [], (err, rows) => {
-        if (err) return res.status(500).send('Errore generazione report');
-        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', 'attachment; filename="report_passes.csv"');
-        res.write('\xEF\xBB\xBF');
-        res.write('ID;Data;Codice;Stato;Assegnatario;Email;Ruolo;Tipologia Pass;Gruppo;Stand;Zona\n');
-        rows.forEach(r => {
-          res.write([r.id, r.created_at, r.code||'', r.status||'',
-            `"${r.participant_name||''}"`, `"${r.email||''}"`, `"${r.role||''}"`,
-            `"${r.pass_type_name||''}"`, `"${r.group_name||''}"`,
-            `"${r.stand_name||''}"`, `"${r.zone||''}"`].join(';') + '\n');
-        });
-        res.end();
+      ORDER BY p.id DESC
+    `;
+    db.all(sql, [], (err, rows) => {
+      if (err) return res.status(500).send('Errore generazione report');
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="report_passes.csv"');
+      res.write('id;created_at;code;participant_name;email;pass_type\n');
+      rows.forEach((r) => {
+        res.write(`${r.id};${r.created_at};${r.code || ''};"${r.participant_name}";"${r.email || ''}";"${r.pass_type_name}"\n`);
       });
-  });
-
-  app.get('/reports/senza-pass.csv', requireAuth, (req, res) => {
-    db.all(`SELECT pa.id, pa.first_name, pa.last_name, pa.email, pa.role,
-        ag.name AS group_name, ag.stand_name, ag.zone
-      FROM participants pa
-      LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
-      WHERE pa.id NOT IN (SELECT DISTINCT participant_id FROM passes)
-      ORDER BY ag.name, pa.last_name, pa.first_name`,
-      [], (err, rows) => {
-        if (err) return res.status(500).send('Errore generazione report');
-        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', 'attachment; filename="senza_pass.csv"');
-        res.write('\xEF\xBB\xBF');
-        res.write('ID;Cognome;Nome;Email;Ruolo;Gruppo;Stand;Zona\n');
-        rows.forEach(r => {
-          res.write([r.id, `"${r.last_name||''}"`, `"${r.first_name||''}"`,
-            `"${r.email||''}"`, `"${r.role||''}"`, `"${r.group_name||''}"`,
-            `"${r.stand_name||''}"`, `"${r.zone||''}"`].join(';') + '\n');
-        });
-        res.end();
-      });
-  });
-
-  app.get('/reports/stato-gruppi.csv', requireAuth, (req, res) => {
-    db.all(`SELECT g.name as categoria, ag.name as gruppo, ag.zone, ag.stand_name,
-        ag.max_passes, COUNT(p.id) as pass_totali,
-        SUM(CASE WHEN p.status='GENERATO' THEN 1 ELSE 0 END) as generati,
-        SUM(CASE WHEN p.status='CONSEGNATO' THEN 1 ELSE 0 END) as consegnati,
-        SUM(CASE WHEN p.status='RICONSEGNATO' THEN 1 ELSE 0 END) as riconsegnati
-      FROM assignment_groups ag
-      LEFT JOIN groups g ON g.id = ag.group_id
-      LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
-      LEFT JOIN passes p ON p.participant_id = pa.id
-      GROUP BY ag.id ORDER BY g.name, ag.name`,
-      [], (err, rows) => {
-        if (err) return res.status(500).send('Errore generazione report');
-        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', 'attachment; filename="stato_gruppi.csv"');
-        res.write('\xEF\xBB\xBF');
-        res.write('Categoria;Gruppo;Zona;Stand;Limite;Pass Totali;Generati;Consegnati;Riconsegnati\n');
-        rows.forEach(r => {
-          res.write([`"${r.categoria||''}"`, `"${r.gruppo||''}"`, `"${r.zone||''}"`,
-            `"${r.stand_name||''}"`, r.max_passes||'', r.pass_totali,
-            r.generati, r.consegnati, r.riconsegnati].join(';') + '\n');
-        });
-        res.end();
-      });
+      res.end();
+    });
   });
 
   // -------- Account, Utenti, Log --------
@@ -1252,7 +867,10 @@ function checkGroupLimit(gid){
   });
 
   app.get('/admin/users', requireAdmin, (req, res) => {
-    res.redirect('/admin/settings#utenti');
+    db.all('SELECT id, username, role, created_at FROM users ORDER BY username ASC', [], (err, users) => {
+      if (err) return res.status(500).send('Errore DB utenti');
+      res.render('users', { users, error: null, success: null });
+    });
   });
 
   app.post('/admin/users', requireAdmin, (req, res) => {
@@ -1269,7 +887,7 @@ function checkGroupLimit(gid){
           return res.status(500).send('Errore creazione utente (forse username già esistente).');
         }
         logAction(req.session.user.id, 'create_user', 'user', this.lastID, `Creato utente ${username} (${role})`);
-        res.redirect('/admin/settings#utenti');
+        res.redirect('/admin/users');
       }
     );
   });
@@ -1284,7 +902,7 @@ function checkGroupLimit(gid){
       if (this.changes > 0) {
         logAction(req.session.user.id, 'delete_user', 'user', id, 'Utente eliminato');
       }
-      res.redirect('/admin/settings#utenti');
+      res.redirect('/admin/users');
     });
   });
 

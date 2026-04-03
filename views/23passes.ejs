@@ -1,5 +1,4 @@
 <%-include('partials/header') %>
-<% if(replaced){ %><div style="background:#f0fdf4;border:1.5px solid #2d6a4f;border-radius:8px;padding:.7rem 1rem;display:flex;gap:.75rem;margin-bottom:1rem;font-size:.85rem;"><span>&#128260;</span><span>Pass <strong>#<%= replaced %></strong> creato come sostituto. Il pass originale &egrave; stato invalidato.</span></div><% } %>
 <nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <strong>Pass Generati</strong></nav>
 <h1 class="page-title">Pass Generati</h1>
 
@@ -46,8 +45,6 @@
         <th>Tipologia</th>
         <th>Stato</th>
         <th>PDF</th>
-        <th>Storico</th>
-        <th>Sost.</th>
         <th>Cancella</th>
       </tr>
     </thead>
@@ -79,13 +76,7 @@
             <% } else { %><span style="color:var(--text-muted);">n/d</span><% } %>
           </td>
           <td>
-            <button type="button" class="secondary"
-              style="font-size:.72rem;padding:.25rem .6rem;min-width:auto;"
-              onclick="mostraStorico(<%= p.id %>)">&#128203;</button>
-          </td>
-          <td>
-            <td><% if(p.status!=="INVALIDATO"){ %><form method="post" action="/passes/<%= p.id %>/replace" onsubmit="return confirm('Invalidare pass #<%= p.id %> e creare sostituto?');"><button type="submit" class="secondary" style="font-size:.72rem;padding:.25rem .55rem;background:#c9a227;color:#fff;border:none;" title="Sostituisci">&#128260;</button></form><% } %></td>
-          <form method="post" action="/passes/<%= p.id %>/delete" onsubmit="return confirm('Cancellare il pass #<%= p.id %>?');">
+            <form method="post" action="/passes/<%= p.id %>/delete" onsubmit="return confirm('Cancellare il pass #<%= p.id %>?');">
               <button type="submit" class="btn-danger">✕</button>
             </form>
           </td>

@@ -127,20 +127,5 @@ db.serialize(() => {
   });
 });
 
-
-  db.run(`CREATE TABLE IF NOT EXISTS notifications (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    type TEXT NOT NULL, title TEXT NOT NULL, message TEXT NOT NULL,
-    related_type TEXT, related_id INTEGER,
-    created_at TEXT DEFAULT (datetime('now')), read_at TEXT)`);
-  db.run(`CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT)`);
-  ['ALTER TABLE assignment_groups ADD COLUMN portal_token TEXT',
-   'ALTER TABLE assignment_groups ADD COLUMN portal_enabled INTEGER DEFAULT 0',
-   'ALTER TABLE assignment_groups ADD COLUMN map_row INTEGER',
-   'ALTER TABLE assignment_groups ADD COLUMN map_col INTEGER',
-   'ALTER TABLE assignment_groups ADD COLUMN map_span INTEGER DEFAULT 1',
-   'ALTER TABLE passes ADD COLUMN replaced_by INTEGER'
-  ].forEach(function(sql){db.run(sql,function(err){
-    if(err&&!err.message.includes('duplicate column name'))console.warn('migrate:',err.message);});});
 db.dbPath = dbPath;
 module.exports = db;

@@ -1,0 +1,75 @@
+<%- include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">&rsaquo;</span> <strong>Mappa Stand</strong></nav>
+<h1 class="page-title">&#128506; Mappa Stand Interattiva</h1>
+<style>
+.leg{display:inline-flex;padding:.2rem .65rem;border-radius:9999px;font-size:.76rem;font-weight:700;color:#fff}
+#mw{overflow-x:auto;background:#e8ecf3;border-radius:12px;padding:8px;margin-bottom:1.4rem}
+#mg{display:grid;gap:5px}
+.sb{border-radius:8px;padding:.5rem .55rem;cursor:pointer;color:#fff;display:flex;flex-direction:column;justify-content:flex-end;min-height:68px;transition:transform .12s,box-shadow .12s}
+.sb:hover{transform:translateY(-2px);box-shadow:0 5px 18px rgba(0,0,0,.22)}
+.sb .sn{font-size:.68rem;font-weight:800;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.sb .sz{font-size:.6rem;opacity:.75}.sb .sp{font-size:.63rem;font-weight:700;margin-top:.2rem}
+.sb .bw{height:4px;background:rgba(255,255,255,.25);border-radius:9999px;margin-top:.22rem}
+.sb .bf{height:4px;background:rgba(255,255,255,.8);border-radius:9999px}
+.ec{border-radius:8px;border:2px dashed #ccc;opacity:.3;min-height:68px}
+.unp{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:.45rem;margin-top:.5rem}
+.uc{background:#fff;border:1px solid var(--border,#ddd);border-radius:8px;padding:.5rem .65rem;font-size:.79rem;border-left:3px solid #1d6fa4}
+.pm{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center}.pm.on{display:flex}
+.pb{background:#fff;border-radius:12px;padding:1.4rem 1.2rem;max-width:360px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.3)}
+</style>
+<% var pos=stands.filter(function(s){return s.map_row&&s.map_col;}),unp=stands.filter(function(s){return !s.map_row||!s.map_col;});
+var COLS=12,ROWS=2;
+pos.forEach(function(s){var e=s.map_col+(s.map_span||1)-1;if(e>COLS)COLS=e;if(s.map_row>ROWS)ROWS=s.map_row;});
+COLS=Math.max(COLS,12);ROWS++;
+function sc(s){if(!s.pass_count)return'#9ca3af';var p=s.consegnati/s.pass_count;if(p>=.8)return'#2d6a4f';if(p>0)return'#c9a227';return'#c0392b';}
+function sp(s){return s.pass_count?Math.round(s.consegnati/s.pass_count*100):0;}
+%>
+<div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:1rem;font-size:.77rem;">
+  <strong>Legenda:</strong>
+  <span class="leg" style="background:#2d6a4f;">&ge;80% consegnati</span>
+  <span class="leg" style="background:#c9a227;color:#28251d;">parziale</span>
+  <span class="leg" style="background:#c0392b;">0 consegnati</span>
+  <span class="leg" style="background:#9ca3af;">nessun pass</span>
+  <% if(isAdmin){ %><span style="color:var(--text-muted);margin-left:auto;">Clicca uno stand per modificare</span><% } %>
+</div>
+<div id="mw"><div id="mg" style="grid-template-columns:repeat(<%= COLS %>,minmax(68px,1fr));">
+<% for(var r=1;r<=ROWS;r++){for(var c=1;c<=COLS;c++){
+  var found=null,skip=false;
+  for(var i=0;i<pos.length;i++){var st=pos[i];if(st.map_row===r&&st.map_col===c){found=st;break;}if(st.map_row===r&&st.map_col<c&&c<st.map_col+(st.map_span||1)){skip=true;break;}}
+%>
+<% if(found){ %>
+  <div class="sb" style="background:<%- sc(found) %>;grid-column:span <%=found.map_span||1%>;" onclick="oM(<%=found.id%>,'<%=(found.stand_name||'').replace(/'/g,'')%>',<%=found.map_row%>,<%=found.map_col%>,<%=found.map_span||1%>)">
+    <div class="sn"><%=found.stand_name%></div><div class="sz"><%=found.zone||''%></div>
+    <div class="sp"><%=found.consegnati%>/<%=found.pass_count%> (<%=sp(found)%>%)</div>
+    <div class="bw"><div class="bf" style="width:<%=sp(found)%>%"></div></div>
+  </div>
+<% }else if(!skip){ %><% if(isAdmin){ %><div class="ec" style="cursor:pointer;" onclick="oM(0,'',<%=r%>,<%=c%>,1)"></div><% }else{ %><div class="ec"></div><% } %><% } %><% } } %>
+</div></div>
+<% if(unp.length){ %><div class="card"><div class="card-title">&#128204; Stand non posizionati (<%= unp.length %>)</div>
+<div class="unp"><% unp.forEach(function(s){ %>
+  <div class="uc"><strong><%=s.stand_name%></strong><br><span style="font-size:.72rem;color:var(--text-muted)"><%=s.zone||'&mdash;'%> &middot; <%=s.pass_count%> pass</span>
+    <% if(isAdmin){ %><br><button type="button" class="secondary" style="font-size:.7rem;padding:.2rem .5rem;margin-top:.4rem;" onclick="oM(<%=s.id%>,'<%=(s.stand_name||'').replace(/'/g,'')%>',1,1,1)">&#128204; Posiziona</button><% } %>
+  </div><% }); %></div></div><% } %>
+<% if(isAdmin){ %>
+<div id="pm" class="pm"><div class="pb">
+  <h3 id="ptit" style="margin-bottom:1rem;font-size:.93rem;font-weight:800;"></h3>
+  <form id="pf" style="display:grid;gap:.75rem;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem;">
+      <label style="font-size:.82rem;font-weight:700;">Riga<br><input type="number" id="pr" min="1" max="20" style="width:100%;margin-top:.3rem;" required></label>
+      <label style="font-size:.82rem;font-weight:700;">Colonna<br><input type="number" id="pc" min="1" max="20" style="width:100%;margin-top:.3rem;" required></label>
+      <label style="font-size:.82rem;font-weight:700;">Larghezza<br><input type="number" id="ps" min="1" max="8" value="1" style="width:100%;margin-top:.3rem;"></label>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <button type="submit" class="primary" style="flex:1;">&#128190; Salva</button>
+      <button type="button" class="secondary" onclick="document.getElementById('pm').classList.remove('on')">Annulla</button>
+      <button type="button" class="btn-danger" style="font-size:.76rem;" onclick="rmP()">&#10005; Rimuovi</button>
+    </div></form></div></div>
+<script>
+var _sid=0;
+function oM(id,name,r,c,sp){_sid=id;document.getElementById('ptit').textContent=id?'Posizione: '+name:'Cella vuota';document.getElementById('pr').value=r;document.getElementById('pc').value=c;document.getElementById('ps').value=sp;document.getElementById('pm').classList.add('on');}
+document.getElementById('pm').addEventListener('click',function(e){if(e.target===this)this.classList.remove('on');});
+document.getElementById('pf').addEventListener('submit',function(e){e.preventDefault();if(!_sid)return document.getElementById('pm').classList.remove('on');fetch('/admin/groups/'+_sid+'/map-position',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'map_row='+document.getElementById('pr').value+'&map_col='+document.getElementById('pc').value+'&map_span='+document.getElementById('ps').value}).then(function(){location.reload();});});
+function rmP(){if(!_sid)return;fetch('/admin/groups/'+_sid+'/map-position',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'map_row=&map_col=&map_span=1'}).then(function(){location.reload();});}
+</script>
+<% } %>
+<%- include('partials/footer') %>
