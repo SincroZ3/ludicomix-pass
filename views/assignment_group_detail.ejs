@@ -175,11 +175,13 @@
       </label>
       <button type="submit" class="primary">&#128424; Genera pass selezionati</button>
     </div>
+    <% } %>
     <div id="bulk-status-bar" class="card"
          style="display:none;gap:.75rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:.75rem;background:#f7f6f2;border:1.5px solid #e2e8f0;">
       <label style="margin:0;flex:1;min-width:160px;font-size:.85rem;font-weight:700;">&#128260; Cambia stato ai selezionati<br>
         <select id="bulk-status-select" style="margin-top:.3rem;width:100%;">
-          <% PASS_STATUSES.forEach(function(s){ %><option value="<%=s%>"><%=s%></option><% }); %>
+          <% var _bulkSt = isViewer ? ['SCARICATO','STAMPATO','CONSEGNATO','RICONSEGNATO'] : PASS_STATUSES; %>
+          <% _bulkSt.forEach(function(s){ %><option value="<%=s%>"><%=s%></option><% }); %>
         </select>
       </label>
       <button type="button" class="primary" onclick="applyBulkStatus()">
@@ -189,7 +191,6 @@
         &#10005; Deseleziona tutti
       </button>
     </div>
-    <% } %>
     <% if(!isViewer){ %>
     <details style="margin-bottom:.75rem;" id="import-details"
       <% if(typeof importOk!=='undefined'&&importOk!==null){ %>open<% } %>>
@@ -231,7 +232,7 @@
       <table>
         <thead>
           <tr>
-            <% if (!isViewer) { %><th><input type="checkbox" title="Seleziona tutti" onclick="document.querySelectorAll('.chk-group').forEach(function(c){c.checked=this.checked;}.bind(this))"></th><% } %>
+            <th><input type="checkbox" title="Seleziona tutti" onclick="document.querySelectorAll('.chk-group').forEach(function(c){c.checked=this.checked;}.bind(this))"></th>
             <th>Cognome e Nome</th>
             <th>Email</th>
             <th>Cod. Riferimento</th>
@@ -243,9 +244,7 @@
         <tbody>
           <% participants.forEach(function(p){ %>
             <tr>
-              <% if (!isViewer) { %>
               <td><input type="checkbox" class="chk-group" name="participant_ids" value="<%= p.id %>" data-pass-id="<%= p.last_pass_id||0 %>"></td>
-              <% } %>
               <td><strong><%= p.last_name %> <%= p.first_name %></strong></td>
               <td style="font-size:0.8rem;"><%= p.email || '' %></td>
               <td style="font-size:0.8rem;font-family:monospace;"><%= p.ref_code || '' %></td>

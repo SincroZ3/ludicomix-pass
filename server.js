@@ -1154,11 +1154,13 @@ function checkGroupLimit(gid){
   app.post('/admin/settings/smtp',requireAuth,requireAdmin,function(req,res){var fields=['smtp_host','smtp_port','smtp_secure','smtp_user','smtp_pass','smtp_from','smtp_to'],done=0;fields.forEach(function(k){db.run('INSERT OR REPLACE INTO app_settings(key,value)VALUES(?,?)',[k,req.body[k]||''],function(){if(++done===fields.length)res.redirect('/admin/settings#notifiche');});});});
   app.post('/admin/settings/smtp-test',requireAuth,requireAdmin,function(req,res){var c=req.body;if(!c.smtp_host||!c.smtp_to)return res.json({ok:false,error:'Host e destinatario obbligatori'});nodemailer.createTransport({host:c.smtp_host,port:parseInt(c.smtp_port||'587',10),secure:c.smtp_secure==='1',auth:c.smtp_user?{user:c.smtp_user,pass:c.smtp_pass}:undefined,tls:{rejectUnauthorized:false}}).sendMail({from:c.smtp_from||'noreply@ludicomix.it',to:c.smtp_to,subject:'[Ludicomix] Test SMTP',html:'<p>Test OK!</p>'},function(err){res.json(err?{ok:false,error:err.message}:{ok:true});});});
 
-  app.post('/passes/bulk-status', requireAuth, requireNotViewer, function(req,res){
+  app.post('/passes/bulk-status', requireAuth, function(req,res){
     var ids = Array.isArray(req.body.pass_ids) ? req.body.pass_ids : (req.body.pass_ids ? [req.body.pass_ids] : []);
     var status = req.body.status, gid = req.body.group_id;
     if(!ids.length || !status) return res.status(400).send('Parametri mancanti');
-    if(!PASS_STATUSES.includes(status)) return res.status(400).send('Stato non valido');
+    var isViewer = req.session.user && req.session.user.role === 'viewer';
+    var allowed  = isViewer ? ['SCARICATO','STAMPATO','CONSEGNATO','RICONSEGNATO'] : PASS_STATUSES;
+    if(!allowed.includes(status)) return res.status(403).send('Stato non consentito al tuo ruolo');
     var done=0;
     ids.forEach(function(pid){
       var id=parseInt(pid,10);
