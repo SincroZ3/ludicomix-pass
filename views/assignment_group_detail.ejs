@@ -164,6 +164,43 @@
 <% if (participants.length === 0) { %>
   <div class="alert alert-info"><span>&#8505;&#65039;</span> Nessun nominativo inserito per questo gruppo.</div>
 <% } else { %>
+  <% if(!isViewer){ %>
+  <details style="margin-bottom:.75rem;" id="import-details"
+  <% if(typeof importOk!=='undefined'&&importOk!==null){ %>open<% } %>>
+    <summary style="cursor:pointer;font-weight:700;font-size:.85rem;color:var(--accent-blue);padding:.4rem 0;list-style:none;">
+      <span style="user-select:none;">&#128229; Import massivo assegnatari (CSV / Excel)</span>
+    </summary>
+    <div class="card" style="margin-top:.5rem;padding:1rem;">
+    <% if(typeof importOk!=='undefined'&&importOk!==null){ %>
+      <div style="background:<%= importErrs&&importErrs.length?'#fdf0f0':'#f0fdf4' %>;
+             border:1.5px solid <%= importErrs&&importErrs.length?'#c0392b':'#2d6a4f' %>;
+             border-radius:8px;padding:.6rem .9rem;font-size:.83rem;margin-bottom:.75rem;">
+        <strong><%= importOk %> importati</strong> &middot;
+        <span style="color:#c9a227"><%= importSkip %> saltati</span>
+      <% if(importErrs&&importErrs.length){ %>
+        <ul style="margin:.3rem 0 0 1rem;font-size:.76rem;color:#c0392b;">
+        <% importErrs.forEach(function(e){ if(e){ %><li><%=e%></li><% } }); %>
+        </ul><% } %>
+      </div>
+    <% } %>
+      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:.7rem;">
+          Formato: <code>.csv</code> o <code>.xlsx</code> &mdash;
+          Colonne: <code>cognome; nome; email; ruolo</code>
+          &nbsp;<a href="/import/template.csv" style="font-size:.78rem;">&#11015; Template</a>
+      </p>
+      <form method="post"
+              action="/assignment-groups/<%= groupInfo.id %>/import"
+              enctype="multipart/form-data"
+              style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap;">
+        <label style="font-size:.82rem;font-weight:700;">File<br>
+          <input type="file" name="file" accept=".csv,.xlsx,.xls" required
+                   style="margin-top:.3rem;font-size:.82rem;">
+        </label>
+        <button type="submit" class="primary" style="font-size:.82rem;">&#128228; Importa</button>
+      </form>
+    </div>
+  </details>
+  <% } %>
   <form method="post" action="/passes/bulk">
     <input type="hidden" name="assignment_group_id" value="<%= groupInfo.id %>">
     <% if (!isViewer) { %>
@@ -191,43 +228,6 @@
         &#10005; Deseleziona tutti
       </button>
     </div>
-    <% if(!isViewer){ %>
-    <details style="margin-bottom:.75rem;" id="import-details"
-      <% if(typeof importOk!=='undefined'&&importOk!==null){ %>open<% } %>>
-      <summary style="cursor:pointer;font-weight:700;font-size:.85rem;color:var(--accent-blue);padding:.4rem 0;list-style:none;">
-        <span style="user-select:none;">&#128229; Import massivo assegnatari (CSV / Excel)</span>
-      </summary>
-      <div class="card" style="margin-top:.5rem;padding:1rem;">
-        <% if(typeof importOk!=='undefined'&&importOk!==null){ %>
-        <div style="background:<%= importErrs&&importErrs.length?'#fdf0f0':'#f0fdf4' %>;
-             border:1.5px solid <%= importErrs&&importErrs.length?'#c0392b':'#2d6a4f' %>;
-             border-radius:8px;padding:.6rem .9rem;font-size:.83rem;margin-bottom:.75rem;">
-          <strong><%= importOk %> importati</strong> &middot;
-          <span style="color:#c9a227"><%= importSkip %> saltati</span>
-          <% if(importErrs&&importErrs.length){ %>
-          <ul style="margin:.3rem 0 0 1rem;font-size:.76rem;color:#c0392b;">
-            <% importErrs.forEach(function(e){ if(e){ %><li><%=e%></li><% } }); %>
-          </ul><% } %>
-        </div>
-        <% } %>
-        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:.7rem;">
-          Formato: <code>.csv</code> o <code>.xlsx</code> &mdash;
-          Colonne: <code>cognome; nome; email; ruolo</code>
-          &nbsp;<a href="/import/template.csv" style="font-size:.78rem;">&#11015; Template</a>
-        </p>
-        <form method="post"
-              action="/assignment-groups/<%= groupInfo.id %>/import"
-              enctype="multipart/form-data"
-              style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap;">
-          <label style="font-size:.82rem;font-weight:700;">File<br>
-            <input type="file" name="file" accept=".csv,.xlsx,.xls" required
-                   style="margin-top:.3rem;font-size:.82rem;">
-          </label>
-          <button type="submit" class="primary" style="font-size:.82rem;">&#128228; Importa</button>
-        </form>
-      </div>
-    </details>
-    <% } %>
     <div class="table-wrapper">
       <table>
         <thead>
