@@ -175,6 +175,57 @@
       </label>
       <button type="submit" class="primary">&#128424; Genera pass selezionati</button>
     </div>
+    <div id="bulk-status-bar" class="card"
+         style="display:none;gap:.75rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:.75rem;background:#f7f6f2;border:1.5px solid #e2e8f0;">
+      <label style="margin:0;flex:1;min-width:160px;font-size:.85rem;font-weight:700;">&#128260; Cambia stato ai selezionati<br>
+        <select id="bulk-status-select" style="margin-top:.3rem;width:100%;">
+          <% PASS_STATUSES.forEach(function(s){ %><option value="<%=s%>"><%=s%></option><% }); %>
+        </select>
+      </label>
+      <button type="button" class="primary" onclick="applyBulkStatus()">
+        &#10003; Applica stato ai selezionati
+      </button>
+      <button type="button" class="secondary" onclick="deselectAll()" style="font-size:.82rem;">
+        &#10005; Deseleziona tutti
+      </button>
+    </div>
+    <% } %>
+    <% if(!isViewer){ %>
+    <details style="margin-bottom:.75rem;" id="import-details"
+      <% if(typeof importOk!=='undefined'&&importOk!==null){ %>open<% } %>>
+      <summary style="cursor:pointer;font-weight:700;font-size:.85rem;color:var(--accent-blue);padding:.4rem 0;list-style:none;">
+        <span style="user-select:none;">&#128229; Import massivo assegnatari (CSV / Excel)</span>
+      </summary>
+      <div class="card" style="margin-top:.5rem;padding:1rem;">
+        <% if(typeof importOk!=='undefined'&&importOk!==null){ %>
+        <div style="background:<%= importErrs&&importErrs.length?'#fdf0f0':'#f0fdf4' %>;
+             border:1.5px solid <%= importErrs&&importErrs.length?'#c0392b':'#2d6a4f' %>;
+             border-radius:8px;padding:.6rem .9rem;font-size:.83rem;margin-bottom:.75rem;">
+          <strong><%= importOk %> importati</strong> &middot;
+          <span style="color:#c9a227"><%= importSkip %> saltati</span>
+          <% if(importErrs&&importErrs.length){ %>
+          <ul style="margin:.3rem 0 0 1rem;font-size:.76rem;color:#c0392b;">
+            <% importErrs.forEach(function(e){ if(e){ %><li><%=e%></li><% } }); %>
+          </ul><% } %>
+        </div>
+        <% } %>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:.7rem;">
+          Formato: <code>.csv</code> o <code>.xlsx</code> &mdash;
+          Colonne: <code>cognome; nome; email; ruolo</code>
+          &nbsp;<a href="/import/template.csv" style="font-size:.78rem;">&#11015; Template</a>
+        </p>
+        <form method="post"
+              action="/assignment-groups/<%= groupInfo.id %>/import"
+              enctype="multipart/form-data"
+              style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap;">
+          <label style="font-size:.82rem;font-weight:700;">File<br>
+            <input type="file" name="file" accept=".csv,.xlsx,.xls" required
+                   style="margin-top:.3rem;font-size:.82rem;">
+          </label>
+          <button type="submit" class="primary" style="font-size:.82rem;">&#128228; Importa</button>
+        </form>
+      </div>
+    </details>
     <% } %>
     <div class="table-wrapper">
       <table>
@@ -193,22 +244,22 @@
           <% participants.forEach(function(p){ %>
             <tr>
               <% if (!isViewer) { %>
-              <td><input type="checkbox" class="chk-group" name="participant_ids" value="<%= p.id %>"></td>
+              <td><input type="checkbox" class="chk-group" name="participant_ids" value="<%= p.id %>" data-pass-id="<%= p.last_pass_id||0 %>"></td>
               <% } %>
               <td><strong><%= p.last_name %> <%= p.first_name %></strong></td>
               <td style="font-size:0.8rem;"><%= p.email || '' %></td>
               <td style="font-size:0.8rem;font-family:monospace;"><%= p.ref_code || '' %></td>
               <td>
                 <% if (p.last_pass_id) { %>
-                  <form method="post" action="/passes/<%= p.last_pass_id %>/status" class="status-form">
-                    <input type="hidden" name="redirect_to_group" value="<%= groupInfo.id %>">
-                    <select name="status" onchange="this.form.submit()">
-                      <% const allowedStatuses = isViewer ? VIEWER_STATUSES : PASS_STATUSES; %>
-                      <% allowedStatuses.forEach(function(s){ %>
-                        <option value="<%= s %>" <%= p.last_status === s ? 'selected' : '' %>><%= s %></option>
-                      <% }); %>
-                    </select>
-                  </form>
+                  <%
+                    var _sc={GENERATO:"#6b3fa0",SCARICATO:"#1d6fa4",STAMPATO:"#c9a227",
+                             CONSEGNATO:"#2d6a4f",RICONSEGNATO:"#c0392b",INVALIDATO:"#9ca3af"};
+                  %>
+                  <span style="display:inline-flex;padding:.2rem .55rem;border-radius:9999px;
+                    font-size:.68rem;font-weight:700;color:#fff;
+                    background:<%=_sc[p.last_status]||'#9ca3af'%>;white-space:nowrap;">
+                    <%=p.last_status||'—'%>
+                  </span>
                 <% } else { %>
                   <span style="color:var(--text-muted);font-size:0.78rem;">nessun pass</span>
                 <% } %>
@@ -506,6 +557,45 @@ function genTok(id){if(!confirm('Generare nuovo token?'))return;fetch('/admin/gr
 function togP(id){fetch('/admin/groups/'+id+'/portal/toggle',{method:'POST'}).then(function(){location.reload();});}
 document.getElementById('mpf')&&document.getElementById('mpf').addEventListener('submit',function(e){e.preventDefault();var msg=document.getElementById('mpmsg');fetch('/admin/groups/<%= groupInfo.id %>/map-position',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'map_row='+document.getElementById('mr').value+'&map_col='+document.getElementById('mc').value+'&map_span='+document.getElementById('ms').value}).then(function(r){return r.json();}).then(function(d){msg.style.display='block';msg.style.color=d.ok?'#2d6a4f':'#c0392b';msg.textContent=d.ok?'Salvato!':'Errore:'+(d.error||'?');setTimeout(function(){msg.style.display='none';},3000);});});
 function rmM(id){fetch('/admin/groups/'+id+'/map-position',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'map_row=&map_col=&map_span=1'}).then(function(){location.reload();});}
+
+// ── Bulk status ─────────────────────────────────────────────
+function updateBulkBar(){
+  var checked=document.querySelectorAll('.chk-group:checked');
+  var bar=document.getElementById('bulk-status-bar');
+  if(bar) bar.style.display=checked.length>0?'flex':'none';
+}
+document.querySelectorAll('.chk-group').forEach(function(c){
+  c.addEventListener('change',updateBulkBar);
+});
+var hdrChk=document.querySelector('thead input[type=checkbox]');
+if(hdrChk) hdrChk.addEventListener('change',updateBulkBar);
+
+function deselectAll(){
+  document.querySelectorAll('.chk-group').forEach(function(c){c.checked=false;});
+  var hdr=document.querySelector('thead input[type=checkbox]');
+  if(hdr) hdr.checked=false;
+  updateBulkBar();
+}
+
+function applyBulkStatus(){
+  var checked=document.querySelectorAll('.chk-group:checked');
+  if(!checked.length){alert('Seleziona almeno un pass.');return;}
+  var status=document.getElementById('bulk-status-select').value;
+  var passIds=[];
+  checked.forEach(function(c){
+    var pid=c.getAttribute('data-pass-id');
+    if(pid&&pid!=='0') passIds.push(pid);
+  });
+  if(!passIds.length){alert('I partecipanti selezionati non hanno pass da aggiornare.');return;}
+  if(!confirm('Impostare "'+status+'" su '+passIds.length+' pass?')) return;
+  var form=document.createElement('form');
+  form.method='POST'; form.action='/passes/bulk-status';
+  var addF=function(n,v){var i=document.createElement('input');i.type='hidden';i.name=n;i.value=v;form.appendChild(i);};
+  passIds.forEach(function(id){addF('pass_ids',id);});
+  addF('status',status);
+  addF('group_id','<%= groupInfo.id %>');
+  document.body.appendChild(form); form.submit();
+}
 </script>
 <% } %>
 <%-include('partials/footer') %>

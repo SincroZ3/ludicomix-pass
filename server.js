@@ -296,7 +296,10 @@ function checkGroupLimit(gid){
           const dupSkipped = req.query.dup_skipped ? parseInt(req.query.dup_skipped, 10) : 0;
         const dupTotal   = req.query.dup_total   ? parseInt(req.query.dup_total,   10) : 0;
         db.all('SELECT * FROM zones ORDER BY sort_order, name', [], (errZ, zones) => {
-          res.render('assignment_group_detail', { groupInfo, types, participants, PASS_STATUSES, dupSkipped, dupTotal, zones: zones || [] });
+          const importOk   = req.query.import_ok   ? parseInt(req.query.import_ok,10)   : null;
+          const importSkip = req.query.import_skip ? parseInt(req.query.import_skip,10) : null;
+          const importErrs = req.query.import_errs ? decodeURIComponent(req.query.import_errs).split('|') : [];
+          res.render('assignment_group_detail', { groupInfo, types, participants, PASS_STATUSES, dupSkipped, dupTotal, zones: zones || [], importOk, importSkip, importErrs });
         });
         });
       });
@@ -1150,6 +1153,59 @@ function checkGroupLimit(gid){
   app.post('/notifications/read-all',requireAuth,requireAdmin,function(req,res){db.run("UPDATE notifications SET read_at=datetime('now') WHERE read_at IS NULL",function(){res.redirect('/notifications');});});
   app.post('/admin/settings/smtp',requireAuth,requireAdmin,function(req,res){var fields=['smtp_host','smtp_port','smtp_secure','smtp_user','smtp_pass','smtp_from','smtp_to'],done=0;fields.forEach(function(k){db.run('INSERT OR REPLACE INTO app_settings(key,value)VALUES(?,?)',[k,req.body[k]||''],function(){if(++done===fields.length)res.redirect('/admin/settings#notifiche');});});});
   app.post('/admin/settings/smtp-test',requireAuth,requireAdmin,function(req,res){var c=req.body;if(!c.smtp_host||!c.smtp_to)return res.json({ok:false,error:'Host e destinatario obbligatori'});nodemailer.createTransport({host:c.smtp_host,port:parseInt(c.smtp_port||'587',10),secure:c.smtp_secure==='1',auth:c.smtp_user?{user:c.smtp_user,pass:c.smtp_pass}:undefined,tls:{rejectUnauthorized:false}}).sendMail({from:c.smtp_from||'noreply@ludicomix.it',to:c.smtp_to,subject:'[Ludicomix] Test SMTP',html:'<p>Test OK!</p>'},function(err){res.json(err?{ok:false,error:err.message}:{ok:true});});});
+
+  app.post('/passes/bulk-status', requireAuth, requireNotViewer, function(req,res){
+    var ids = Array.isArray(req.body.pass_ids) ? req.body.pass_ids : (req.body.pass_ids ? [req.body.pass_ids] : []);
+    var status = req.body.status, gid = req.body.group_id;
+    if(!ids.length || !status) return res.status(400).send('Parametri mancanti');
+    if(!PASS_STATUSES.includes(status)) return res.status(400).send('Stato non valido');
+    var done=0;
+    ids.forEach(function(pid){
+      var id=parseInt(pid,10);
+      db.run('UPDATE passes SET status=? WHERE id=?',[status,id],function(){
+        db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[id,status,req.session.user.id]);
+        if(++done===ids.length){
+          logAction(req.session.user.id,'bulk_status','pass',null,'Stato '+status+' a '+ids.length+' pass nel gruppo #'+gid);
+          res.redirect(gid ? '/assignment-groups/'+gid : '/passes');
+        }
+      });
+    });
+  });
+
+  app.post('/assignment-groups/:id/import', requireAuth, requireNotViewer, upload.single('file'), function(req,res){
+    var gid=parseInt(req.params.id,10);
+    if(!gid||!req.file) return res.redirect('/assignment-groups/'+gid+'?import_errs=File+mancante');
+    var rows;
+    try{ var wb=XLSX.read(req.file.buffer,{type:'buffer'}); rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',raw:false}); }
+    catch(e){ return res.redirect('/assignment-groups/'+gid+'?import_errs='+encodeURIComponent('Errore: '+e.message)); }
+    if(!rows||!rows.length) return res.redirect('/assignment-groups/'+gid+'?import_errs=File+vuoto');
+    var ok=0,skip=0,errors=[];
+    function ins(i){
+      if(i>=rows.length){
+        logAction(req.session.user.id,'import_csv','group',gid,'Import '+ok+' nel gruppo #'+gid);
+        createNotification('import','Import CSV completato','Importati <strong>'+ok+'</strong> nel gruppo #'+gid+'. Saltati: '+skip+'.','group',gid);
+        var q='/assignment-groups/'+gid+'?import_ok='+ok+'&import_skip='+skip;
+        if(errors.length) q+='&import_errs='+encodeURIComponent(errors.slice(0,5).join('|'));
+        return res.redirect(q);
+      }
+      var r=rows[i];
+      var last=(r.cognome||r.Cognome||'').toString().trim();
+      var first=(r.nome||r.Nome||'').toString().trim();
+      var email=(r.email||r.Email||'').toString().trim().toLowerCase();
+      var role=(r.ruolo||r.Ruolo||'Espositore').toString().trim();
+      if(!last&&!first){skip++;return ins(i+1);}
+      db.get('SELECT id FROM participants WHERE LOWER(first_name)=? AND LOWER(last_name)=? AND assignment_group_id=?',
+        [first.toLowerCase(),last.toLowerCase(),gid],function(e,dup){
+          if(dup){skip++;return ins(i+1);}
+          db.run('INSERT INTO participants(first_name,last_name,email,role,assignment_group_id)VALUES(?,?,?,?,?)',
+            [first,last,email||null,role,gid],function(e2){
+              if(e2) errors.push('Riga '+(i+2)+': '+e2.message); else ok++;
+              ins(i+1);
+            });
+        });
+    }
+    ins(0);
+  });
   // -------- Ricerca & Reports --------
 
   app.get('/search', requireAuth, (req, res) => {
