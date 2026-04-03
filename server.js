@@ -30,6 +30,25 @@ function checkGroupLimit(gid){
     if(pct>=100)createNotification('limit_reached','Limite gruppo raggiunto','Gruppo <strong>'+row.name+'</strong> al 100% ('+row.cnt+'/'+row.max_passes+').','group',gid);
     else if(pct>=90)createNotification('limit_warning','Gruppo vicino al limite','Gruppo <strong>'+row.name+'</strong> al '+pct+'% ('+row.cnt+'/'+row.max_passes+').','group',gid);});}
 
+function createNotification(type,title,message,rT,rI){
+  db.run("INSERT INTO notifications(type,title,message,related_type,related_id)VALUES(?,?,?,?,?)",[type,title,message,rT||null,rI||null],function(err){if(!err)trySendEmail(title,message);});}
+function trySendEmail(subj,html){
+  db.all("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'",[],function(e,rows){
+    if(e||!rows||rows.length<2)return;var c={};rows.forEach(function(r){c[r.key]=r.value;});
+    if(!c.smtp_host||!c.smtp_to)return;
+    nodemailer.createTransport({host:c.smtp_host,port:parseInt(c.smtp_port||'587',10),secure:c.smtp_secure==='1',
+      auth:c.smtp_user?{user:c.smtp_user,pass:c.smtp_pass}:undefined,tls:{rejectUnauthorized:false}
+    }).sendMail({from:c.smtp_from||'noreply@ludicomix.it',to:c.smtp_to,
+      subject:'[Ludicomix] '+subj,html:'<div style="font-family:sans-serif">'+html+'</div>'},
+      function(err2){if(err2)console.error('Email:',err2.message);});});}
+function checkGroupLimit(gid){
+  db.get(`SELECT ag.max_passes,ag.name,COUNT(CASE WHEN p.status!='INVALIDATO' THEN 1 END)AS cnt
+    FROM assignment_groups ag LEFT JOIN participants pa ON pa.assignment_group_id=ag.id
+    LEFT JOIN passes p ON p.participant_id=pa.id WHERE ag.id=? GROUP BY ag.id`,[gid],function(err,row){
+    if(err||!row||!row.max_passes)return;var pct=Math.round(row.cnt/row.max_passes*100);
+    if(pct>=100)createNotification('limit_reached','Limite gruppo raggiunto','Gruppo <strong>'+row.name+'</strong> al 100% ('+row.cnt+'/'+row.max_passes+').','group',gid);
+    else if(pct>=90)createNotification('limit_warning','Gruppo vicino al limite','Gruppo <strong>'+row.name+'</strong> al '+pct+'% ('+row.cnt+'/'+row.max_passes+').','group',gid);});}
+
   const app = express();
   const PORT = process.env.PORT || 3000;
 
@@ -978,7 +997,10 @@ function checkGroupLimit(gid){
           if (err3) return res.status(500).send('Errore DB zone');
           db.all('SELECT id, username, role, created_at FROM users ORDER BY username ASC', [], (err4, users) => {
             if (err4) return res.status(500).send('Errore DB utenti');
-            res.render('admin_settings', { groups, types, zones, users });
+            db.all("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'",[],function(e5,smtpRows){
+              var smtp={}; (smtpRows||[]).forEach(function(r){smtp[r.key]=r.value;});
+              res.render('admin_settings',{groups,types,zones,users,smtp});
+            });
           });
         });
       });
@@ -1060,6 +1082,40 @@ function checkGroupLimit(gid){
     });
   });
 
+
+  app.get('/import',requireAuth,requireNotViewer,function(req,res){db.all(`SELECT ag.id,ag.name,g.name AS cat FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id ORDER BY g.name,ag.name`,[],function(err,groups){res.render('import',{groups:groups||[],result:null});});});
+  app.get('/import/template.csv',requireAuth,function(req,res){res.setHeader('Content-Type','text/csv;charset=utf-8');res.setHeader('Content-Disposition','attachment;filename="template_import.csv"');res.send('\xEF\xBB\xBFcognome;nome;email;ruolo\nRossi;Marco;marco@ex.com;Espositore\n');});
+  app.post('/import',requireAuth,requireNotViewer,upload.single('file'),function(req,res){
+    var gid=parseInt(req.body.group_id,10);if(!gid||!req.file)return res.status(400).send('Gruppo e file obbligatori');
+    var rows;try{var wb=XLSX.read(req.file.buffer,{type:'buffer'});rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',raw:false});}catch(e){return res.status(400).send('Errore:'+e.message);}
+    if(!rows||!rows.length)return res.status(400).send('File vuoto');
+    var ok=0,skip=0,errors=[];
+    function ins(i){if(i>=rows.length){logAction(req.session.user.id,'import_csv','import',gid,'Import '+ok+' nel gruppo #'+gid);createNotification('import','Import CSV completato','Importati <strong>'+ok+'</strong> nel gruppo #'+gid+'. Saltati:'+skip+'.','group',gid);return db.all(`SELECT ag.id,ag.name,g.name AS cat FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id ORDER BY g.name,ag.name`,[],function(e,groups){res.render('import',{groups:groups||[],result:{ok,skip,errors}});});}
+      var r=rows[i];var last=(r.cognome||r.Cognome||'').toString().trim(),first=(r.nome||r.Nome||'').toString().trim(),email=(r.email||r.Email||'').toString().trim().toLowerCase(),role=(r.ruolo||r.Ruolo||'Espositore').toString().trim();
+      if(!last&&!first){skip++;return ins(i+1);}
+      db.get('SELECT id FROM participants WHERE LOWER(first_name)=? AND LOWER(last_name)=? AND assignment_group_id=?',[first.toLowerCase(),last.toLowerCase(),gid],function(e,dup){if(dup){skip++;return ins(i+1);}
+        db.run('INSERT INTO participants(first_name,last_name,email,role,assignment_group_id)VALUES(?,?,?,?,?)',[first,last,email||null,role,gid],function(e2){if(e2)errors.push('Riga '+(i+2)+':'+e2.message);else ok++;ins(i+1);});});}
+    ins(0);});
+  app.post('/passes/:id/replace',requireAuth,requireNotViewer,function(req,res){
+    var oldId=parseInt(req.params.id,10);
+    db.get(`SELECT p.*,pt.name AS type_name,pa.first_name,pa.last_name FROM passes p JOIN pass_types pt ON pt.id=p.pass_type_id JOIN participants pa ON pa.id=p.participant_id WHERE p.id=? AND p.status!='INVALIDATO'`,[oldId],function(err,old){
+      if(err||!old)return res.status(404).send('Pass non trovato');
+      db.run("UPDATE passes SET status='INVALIDATO' WHERE id=?",[oldId]);db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[oldId,'INVALIDATO',req.session.user.id]);
+      db.run('INSERT INTO passes(participant_id,pass_type_id,status,code)VALUES(?,?,?,?)',[old.participant_id,old.pass_type_id,'GENERATO','LDX-'+Date.now()],function(e2){if(e2)return res.status(500).send('Errore');
+        var nid=this.lastID;db.run('UPDATE passes SET replaced_by=? WHERE id=?',[nid,oldId]);db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[nid,'GENERATO',req.session.user.id]);
+        logAction(req.session.user.id,'replace_pass','pass',oldId,'Pass #'+oldId+' -> #'+nid);createNotification('replace','Pass sostituito','Pass #'+oldId+' di <strong>'+old.first_name+' '+old.last_name+'</strong> -> nuovo #'+nid+'.','pass',nid);
+        res.redirect('/passes?replaced='+nid);});});});
+  app.post('/admin/groups/:id/portal/token',requireAuth,requireAdmin,function(req,res){var id=parseInt(req.params.id,10),token=require('crypto').randomBytes(24).toString('hex');db.run('UPDATE assignment_groups SET portal_token=?,portal_enabled=1 WHERE id=?',[token,id],function(err){if(err)return res.status(500).json({error:err.message});res.json({token});});});
+  app.post('/admin/groups/:id/portal/toggle',requireAuth,requireAdmin,function(req,res){var id=parseInt(req.params.id,10);db.get('SELECT portal_enabled FROM assignment_groups WHERE id=?',[id],function(e,row){if(!row)return res.status(404).json({error:'not found'});var v=row.portal_enabled?0:1;db.run('UPDATE assignment_groups SET portal_enabled=? WHERE id=?',[v,id],function(){res.json({enabled:v});});});});
+  app.get('/portale/:token',function(req,res){db.get(`SELECT ag.*,g.name AS cat_name FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id WHERE ag.portal_token=? AND ag.portal_enabled=1`,[req.params.token],function(err,group){if(err||!group)return res.status(404).send('<h2 style="font-family:sans-serif;padding:2rem">Portale non disponibile.</h2>');db.all(`SELECT pa.first_name,pa.last_name,pa.email,pa.role,p.id AS pass_id,p.code,p.status,pt.name AS type_name FROM participants pa LEFT JOIN passes p ON p.participant_id=pa.id AND p.status!='INVALIDATO' LEFT JOIN pass_types pt ON pt.id=p.pass_type_id WHERE pa.assignment_group_id=? ORDER BY pa.last_name,pa.first_name`,[group.id],function(e2,parts){res.render('portale',{group,parts:parts||[],token:req.params.token});});});});
+  app.get('/portale/:token/download/:passId',function(req,res){db.get(`SELECT ag.portal_enabled FROM assignment_groups ag JOIN participants pa ON pa.assignment_group_id=ag.id JOIN passes p ON p.participant_id=pa.id WHERE ag.portal_token=? AND p.id=?`,[req.params.token,req.params.passId],function(err,row){if(err||!row||!row.portal_enabled)return res.status(403).send('Accesso negato');res.redirect('/passes/'+req.params.passId+'/download?portal_token='+req.params.token);});});
+  app.get('/mappa',requireAuth,function(req,res){db.all(`SELECT ag.id,ag.name AS stand_name,ag.zone,ag.map_row,ag.map_col,ag.map_span,ag.max_passes,COUNT(CASE WHEN p.status!='INVALIDATO' THEN 1 END)AS pass_count,SUM(CASE WHEN p.status IN('CONSEGNATO','RICONSEGNATO') THEN 1 ELSE 0 END)AS consegnati FROM assignment_groups ag LEFT JOIN participants pa ON pa.assignment_group_id=ag.id LEFT JOIN passes p ON p.participant_id=pa.id GROUP BY ag.id ORDER BY ag.map_row,ag.map_col`,[],function(err,stands){if(err)return res.status(500).send('Errore DB');res.render('mappa',{stands:stands||[],isAdmin:!!(req.session.user&&req.session.user.role==='admin')});});});
+  app.post('/admin/groups/:id/map-position',requireAuth,requireAdmin,function(req,res){var id=parseInt(req.params.id,10),row=parseInt(req.body.map_row,10)||null,col=parseInt(req.body.map_col,10)||null,span=Math.max(1,Math.min(8,parseInt(req.body.map_span,10)||1));db.run('UPDATE assignment_groups SET map_row=?,map_col=?,map_span=? WHERE id=?',[row,col,span,id],function(err){res.json(err?{error:err.message}:{ok:true});});});
+  app.get('/notifications',requireAuth,requireAdmin,function(req,res){db.run("UPDATE notifications SET read_at=datetime('now') WHERE read_at IS NULL");db.all('SELECT * FROM notifications ORDER BY id DESC LIMIT 200',[],function(err,notifs){res.render('notifications',{notifs:notifs||[]});});});
+  app.get('/api/notifications/count',requireAuth,requireAdmin,function(req,res){db.get('SELECT COUNT(*) as n FROM notifications WHERE read_at IS NULL',[],function(e,r){res.json({count:r?r.n:0});});});
+  app.post('/notifications/read-all',requireAuth,requireAdmin,function(req,res){db.run("UPDATE notifications SET read_at=datetime('now') WHERE read_at IS NULL",function(){res.redirect('/notifications');});});
+  app.post('/admin/settings/smtp',requireAuth,requireAdmin,function(req,res){var fields=['smtp_host','smtp_port','smtp_secure','smtp_user','smtp_pass','smtp_from','smtp_to'],done=0;fields.forEach(function(k){db.run('INSERT OR REPLACE INTO app_settings(key,value)VALUES(?,?)',[k,req.body[k]||''],function(){if(++done===fields.length)res.redirect('/admin/settings#notifiche');});});});
+  app.post('/admin/settings/smtp-test',requireAuth,requireAdmin,function(req,res){var c=req.body;if(!c.smtp_host||!c.smtp_to)return res.json({ok:false,error:'Host e destinatario obbligatori'});nodemailer.createTransport({host:c.smtp_host,port:parseInt(c.smtp_port||'587',10),secure:c.smtp_secure==='1',auth:c.smtp_user?{user:c.smtp_user,pass:c.smtp_pass}:undefined,tls:{rejectUnauthorized:false}}).sendMail({from:c.smtp_from||'noreply@ludicomix.it',to:c.smtp_to,subject:'[Ludicomix] Test SMTP',html:'<p>Test OK!</p>'},function(err){res.json(err?{ok:false,error:err.message}:{ok:true});});});
 
   app.get('/import',requireAuth,requireNotViewer,function(req,res){db.all(`SELECT ag.id,ag.name,g.name AS cat FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id ORDER BY g.name,ag.name`,[],function(err,groups){res.render('import',{groups:groups||[],result:null});});});
   app.get('/import/template.csv',requireAuth,function(req,res){res.setHeader('Content-Type','text/csv;charset=utf-8');res.setHeader('Content-Disposition','attachment;filename="template_import.csv"');res.send('\xEF\xBB\xBFcognome;nome;email;ruolo\nRossi;Marco;marco@ex.com;Espositore\n');});
