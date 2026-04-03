@@ -232,7 +232,7 @@
       <table>
         <thead>
           <tr>
-            <th><input type="checkbox" title="Seleziona tutti" onclick="document.querySelectorAll('.chk-group').forEach(function(c){c.checked=this.checked;}.bind(this))"></th>
+            <th><input type="checkbox" id="chk-all" title="Seleziona tutti" onclick="document.querySelectorAll('.chk-group').forEach(function(c){c.checked=this.checked;}.bind(this));updateBulkBar();"></th>
             <th>Cognome e Nome</th>
             <th>Email</th>
             <th>Cod. Riferimento</th>
@@ -557,25 +557,34 @@ function togP(id){fetch('/admin/groups/'+id+'/portal/toggle',{method:'POST'}).th
 document.getElementById('mpf')&&document.getElementById('mpf').addEventListener('submit',function(e){e.preventDefault();var msg=document.getElementById('mpmsg');fetch('/admin/groups/<%= groupInfo.id %>/map-position',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'map_row='+document.getElementById('mr').value+'&map_col='+document.getElementById('mc').value+'&map_span='+document.getElementById('ms').value}).then(function(r){return r.json();}).then(function(d){msg.style.display='block';msg.style.color=d.ok?'#2d6a4f':'#c0392b';msg.textContent=d.ok?'Salvato!':'Errore:'+(d.error||'?');setTimeout(function(){msg.style.display='none';},3000);});});
 function rmM(id){fetch('/admin/groups/'+id+'/map-position',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'map_row=&map_col=&map_span=1'}).then(function(){location.reload();});}
 
-// ── Bulk status ─────────────────────────────────────────────
+</script>
+<% } %>
+
+<script>
+// ── Bulk status (visibile a tutti, incluso il visualizzatore) ──
 function updateBulkBar(){
   var checked=document.querySelectorAll('.chk-group:checked');
   var bar=document.getElementById('bulk-status-bar');
   if(bar) bar.style.display=checked.length>0?'flex':'none';
 }
-document.querySelectorAll('.chk-group').forEach(function(c){
-  c.addEventListener('change',updateBulkBar);
+document.addEventListener('DOMContentLoaded',function(){
+  document.querySelectorAll('.chk-group').forEach(function(c){
+    c.addEventListener('change',updateBulkBar);
+  });
+  var hdrChk=document.querySelector('thead input[type=checkbox]');
+  if(hdrChk){
+    hdrChk.addEventListener('change',function(){
+      document.querySelectorAll('.chk-group').forEach(function(c){c.checked=this.checked;}.bind(this));
+      updateBulkBar();
+    });
+  }
 });
-var hdrChk=document.querySelector('thead input[type=checkbox]');
-if(hdrChk) hdrChk.addEventListener('change',updateBulkBar);
-
 function deselectAll(){
   document.querySelectorAll('.chk-group').forEach(function(c){c.checked=false;});
   var hdr=document.querySelector('thead input[type=checkbox]');
   if(hdr) hdr.checked=false;
   updateBulkBar();
 }
-
 function applyBulkStatus(){
   var checked=document.querySelectorAll('.chk-group:checked');
   if(!checked.length){alert('Seleziona almeno un pass.');return;}
@@ -596,5 +605,4 @@ function applyBulkStatus(){
   document.body.appendChild(form); form.submit();
 }
 </script>
-<% } %>
 <%-include('partials/footer') %>
