@@ -807,7 +807,7 @@ function checkGroupLimit(gid){
     `;
     db.all(sql, [], (err, passes) => {
       if (err) return res.status(500).send('Errore DB pass');
-      res.render('passes', { passes, statuses: PASS_STATUSES });
+      res.render('passes', { passes, statuses: PASS_STATUSES, replaced: req.query.replaced||null });
     });
   });
 
