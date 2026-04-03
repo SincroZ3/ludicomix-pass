@@ -10,7 +10,6 @@
   <button type="button" class="pill-tab" data-tab="raggruppamenti">&#128193; Raggruppamenti Pass</button>
   <button type="button" class="pill-tab" data-tab="tipologie">&#127931; Tipologie Pass PDF</button>
   <button type="button" class="pill-tab" data-tab="notifiche">&#128276; Notifiche &amp; Email</button>
-    <button type="button" class="pill-tab" data-tab="notifiche">&#128276; Notifiche &amp; Email</button>
     <button type="button" class="pill-tab" data-tab="backup">&#128190; Backup &amp; Restore</button>
   <button type="button" class="pill-tab" data-tab="utenti">&#128100; Gestione Utenti</button>
 </div>
@@ -312,10 +311,7 @@
     <div class="card-title" style="color:#c0392b;">&#9888;&#65039; Ripristina database</div>
     <div class="alert alert-info" style="margin-bottom:1rem;">
       <span>&#9432;</span>
-      <strong>Attenzione:</strong> questa operazione sostituir&agrave; <em>completamente</em>
-      il database corrente con il file caricato e il server si riavvier&agrave;
-      automaticamente (2&ndash;3 sec). Usa solo un file <code>.sqlite</code>
-      scaricato da questo pannello.
+      <div><strong>Attenzione:</strong> questa operazione sostituir&agrave; <em>completamente</em> il database corrente con il file caricato e il server si riavvier&agrave; automaticamente (2&ndash;3 sec). Usa solo un file <code>.sqlite</code> scaricato da questo pannello.</div>
     </div>
     <form method="post" action="/admin/restore" enctype="multipart/form-data"
       onsubmit="return confirm('ATTENZIONE: il database corrente verra sostituito completamente. Continuare?');" 

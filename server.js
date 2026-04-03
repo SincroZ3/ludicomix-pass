@@ -171,7 +171,7 @@ function checkGroupLimit(gid){
         db.all('SELECT status, COUNT(*) as count FROM passes GROUP BY status', [], (e3, sRows) => {
           const passesByStatus = {};
           (sRows || []).forEach(r => { passesByStatus[r.status] = r.count; });
-          db.get('SELECT COUNT(*) as total FROM participants WHERE id NOT IN (SELECT DISTINCT participant_id FROM passes)',
+          db.get("SELECT COUNT(*) as total FROM participants WHERE id NOT IN (SELECT DISTINCT participant_id FROM passes WHERE status!='INVALIDATO')",
             [], (e4, r4) => {
               const senzaPass = r4 ? r4.total : 0;
               db.all(`SELECT ag.name, ag.max_passes, COUNT(p.id) as pass_count
@@ -1180,7 +1180,7 @@ function checkGroupLimit(gid){
   });
 
   app.get('/reports', requireAuth, (req, res) => {
-    db.all('SELECT status, COUNT(*) as count FROM passes GROUP BY status', [], (e, statusCounts) => {
+    db.all("SELECT status, COUNT(*) as count FROM passes WHERE status!='INVALIDATO' GROUP BY status", [], (e, statusCounts) => {
       db.all(`SELECT ag.id, ag.name as group_name, g.name as category_name, ag.zone,
           ag.max_passes, COUNT(p.id) as pass_count,
           SUM(CASE WHEN p.status IN ('CONSEGNATO','RICONSEGNATO') THEN 1 ELSE 0 END) as consegnati
@@ -1190,7 +1190,7 @@ function checkGroupLimit(gid){
         LEFT JOIN passes p ON p.participant_id = pa.id
         GROUP BY ag.id ORDER BY g.name, ag.name`,
         [], (e2, groupStats) => {
-          db.get('SELECT COUNT(*) as total FROM participants WHERE id NOT IN (SELECT DISTINCT participant_id FROM passes)',
+          db.get("SELECT COUNT(*) as total FROM participants WHERE id NOT IN (SELECT DISTINCT participant_id FROM passes WHERE status!='INVALIDATO')",
             [], (e3, r3) => {
               res.render('reports', {
                 statusCounts: statusCounts || [],

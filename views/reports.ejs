@@ -13,7 +13,7 @@
 
 <div class="card">
   <div class="card-title">Riepilogo stati pass</div>
-  <div style="display:flex;flex-wrap:wrap;gap:.75rem 1.5rem;align-items:flex-end;">
+  <div style="display:flex;flex-wrap:wrap;gap:.75rem 1.5rem;align-items:flex-start;">
     <% statusCounts.forEach(function(r){ %>
       <div style="text-align:center;">
         <div style="font-size:1.6rem;font-weight:800;color:<%= sc[r.status]||'#888' %>"><%= r.count %></div>
@@ -22,10 +22,13 @@
       </div>
     <% }); %>
     <% if(totP===0){ %><p style="color:var(--text-muted);margin:0;">Nessun pass generato.</p><% } %>
-    <div style="margin-left:auto;text-align:right;">
-      <div style="font-size:.75rem;color:var(--text-muted);">Senza pass</div>
-      <div style="font-size:1.6rem;font-weight:800;color:<%= senzaPass>0?'#c0392b':'#2d6a4f' %>"><%= senzaPass %></div>
+    <% if(senzaPass>0){ %>
+    <div style="text-align:center;border-left:2px solid var(--border,#e5e7eb);padding-left:1.5rem;margin-left:.5rem;">
+      <div style="font-size:1.6rem;font-weight:800;color:#c0392b"><%= senzaPass %></div>
+      <span class="stat-badge" style="background:#9ca3af;color:#fff;">SENZA PASS</span>
+      <div style="font-size:.72rem;color:var(--text-muted);margin-top:.2rem;">nessun pass assegnato</div>
     </div>
+    <% } %>
   </div>
 </div>
 
