@@ -163,7 +163,46 @@ function checkGroupLimit(gid){
     });
   });
 
-  app.get('/home', requireAuth, (req, res) => {
+  
+  // -------- API: Dashboard Stats (polling live) --------
+  app.get('/api/dashboard-stats', requireAuth, (req, res) => {
+    db.get('SELECT COUNT(*) as total FROM participants', [], (e, r1) => {
+      const totalParticipants = r1 ? r1.total : 0;
+      db.get('SELECT COUNT(*) as total FROM passes', [], (e2, r2) => {
+        const totalPasses = r2 ? r2.total : 0;
+        db.all('SELECT status, COUNT(*) as count FROM passes GROUP BY status', [], (e3, sRows) => {
+          const passesByStatus = {};
+          (sRows || []).forEach(r => { passesByStatus[r.status] = r.count; });
+          db.get("SELECT COUNT(*) as total FROM participants WHERE id NOT IN (SELECT DISTINCT participant_id FROM passes WHERE status!='INVALIDATO')",
+            [], (e4, r4) => {
+              const senzaPass = r4 ? r4.total : 0;
+              db.all(`SELECT ag.name, ag.max_passes, COUNT(p.id) as pass_count
+                FROM assignment_groups ag
+                LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
+                LEFT JOIN passes p ON p.participant_id = pa.id
+                WHERE ag.max_passes IS NOT NULL AND ag.max_passes > 0
+                GROUP BY ag.id
+                HAVING CAST(pass_count AS FLOAT)/ag.max_passes >= 0.8
+                ORDER BY CAST(pass_count AS FLOAT)/ag.max_passes DESC LIMIT 5`,
+                [], (e5, alertGroups) => {
+                  db.all(`SELECT al.action, al.details, al.created_at, u.username
+                    FROM action_logs al LEFT JOIN users u ON u.id = al.user_id
+                    ORDER BY al.id DESC LIMIT 8`,
+                    [], (e6, recentActivity) => {
+                      res.json({
+                        stats: { totalParticipants, totalPasses, passesByStatus, senzaPass },
+                        alertGroups: alertGroups || [],
+                        recentActivity: recentActivity || []
+                      });
+                    });
+                });
+            });
+        });
+      });
+    });
+  });
+
+app.get('/home', requireAuth, (req, res) => {
     db.get('SELECT COUNT(*) as total FROM participants', [], (e, r1) => {
       const totalParticipants = r1 ? r1.total : 0;
       db.get('SELECT COUNT(*) as total FROM passes', [], (e2, r2) => {
