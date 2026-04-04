@@ -285,8 +285,9 @@ function checkGroupLimit(gid){
         if (err2) return res.status(500).send('Errore DB tipologie pass');
         const sqlParticipants = `
           SELECT pa.*,
-                 (SELECT status FROM passes WHERE participant_id = pa.id ORDER BY created_at DESC, id DESC LIMIT 1) AS last_status,
-                 (SELECT id FROM passes WHERE participant_id = pa.id ORDER BY created_at DESC, id DESC LIMIT 1) AS last_pass_id
+                 (SELECT status FROM passes WHERE participant_id = pa.id AND status!='INVALIDATO' ORDER BY id DESC LIMIT 1) AS last_status,
+                 (SELECT id   FROM passes WHERE participant_id = pa.id AND status!='INVALIDATO' ORDER BY id DESC LIMIT 1) AS last_pass_id,
+                 (SELECT code FROM passes WHERE participant_id = pa.id AND status!='INVALIDATO' ORDER BY id DESC LIMIT 1) AS ref_code
           FROM participants pa
           WHERE pa.assignment_group_id = ?
           ORDER BY pa.last_name, pa.first_name
@@ -299,7 +300,8 @@ function checkGroupLimit(gid){
           const importOk   = req.query.import_ok   ? parseInt(req.query.import_ok,10)   : null;
           const importSkip = req.query.import_skip ? parseInt(req.query.import_skip,10) : null;
           const importErrs = req.query.import_errs ? decodeURIComponent(req.query.import_errs).split('|') : [];
-          res.render('assignment_group_detail', { groupInfo, types, participants, PASS_STATUSES, dupSkipped, dupTotal, zones: zones || [], importOk, importSkip, importErrs });
+          const replaceOk  = req.query.replace_ok === '1';
+          res.render('assignment_group_detail', { groupInfo, types, participants, PASS_STATUSES, dupSkipped, dupTotal, zones: zones || [], importOk, importSkip, importErrs, replaceOk });
         });
         });
       });
@@ -765,7 +767,7 @@ function checkGroupLimit(gid){
                       passId,
                       `Generato pass ${passId} per partecipante ${participant.first_name} ${participant.last_name}`
                     );
-                    resolve();
+                    resolve(passId);
                   }
                 );
               }
@@ -960,7 +962,7 @@ function checkGroupLimit(gid){
     const id = parseInt(req.params.id, 10);
     const { status } = req.body;
     if (!status) return res.redirect('/passes');
-    db.run('UPDATE passes SET status = ? WHERE id = ?', [status, id], function (err) {
+    db.run('UPDATE passes SET status = ? WHERE id = ? AND status != \'INVALIDATO\'', [status, id], function (err) {
       if (err) return res.status(500).send('Errore aggiornamento stato pass');
       if (this.changes > 0) {
         logAction(req.session.user.id, 'update_pass_status', 'pass', id, `Stato aggiornato a ${status}`);
@@ -1101,13 +1103,22 @@ function checkGroupLimit(gid){
     ins(0);});
   app.post('/passes/:id/replace',requireAuth,requireNotViewer,function(req,res){
     var oldId=parseInt(req.params.id,10);
-    db.get(`SELECT p.*,pt.name AS type_name,pa.first_name,pa.last_name FROM passes p JOIN pass_types pt ON pt.id=p.pass_type_id JOIN participants pa ON pa.id=p.participant_id WHERE p.id=? AND p.status!='INVALIDATO'`,[oldId],function(err,old){
-      if(err||!old)return res.status(404).send('Pass non trovato');
-      db.run("UPDATE passes SET status='INVALIDATO' WHERE id=?",[oldId]);db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[oldId,'INVALIDATO',req.session.user.id]);
-      db.run('INSERT INTO passes(participant_id,pass_type_id,status,code)VALUES(?,?,?,?)',[old.participant_id,old.pass_type_id,'GENERATO','LDX-'+Date.now()],function(e2){if(e2)return res.status(500).send('Errore');
-        var nid=this.lastID;db.run('UPDATE passes SET replaced_by=? WHERE id=?',[nid,oldId]);db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[nid,'GENERATO',req.session.user.id]);
-        logAction(req.session.user.id,'replace_pass','pass',oldId,'Pass #'+oldId+' -> #'+nid);createNotification('replace','Pass sostituito','Pass #'+oldId+' di <strong>'+old.first_name+' '+old.last_name+'</strong> -> nuovo #'+nid+'.','pass',nid);
-        res.redirect('/passes?replaced='+nid);});});});
+    db.get(`SELECT p.*,pt.name AS type_name,pa.first_name,pa.last_name,pa.assignment_group_id FROM passes p JOIN pass_types pt ON pt.id=p.pass_type_id JOIN participants pa ON pa.id=p.participant_id WHERE p.id=? AND p.status!='INVALIDATO'`,[oldId],function(err,old){
+      if(err||!old)return res.status(404).send('Pass non trovato o già invalidato');
+      db.run("UPDATE passes SET status='INVALIDATO' WHERE id=?",[oldId]);
+      db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[oldId,'INVALIDATO',req.session.user.id]);
+      generatePassForParticipant(old.participant_id,old.pass_type_id,req.session.user.id)
+        .then(function(nid){
+          db.run('UPDATE passes SET replaced_by=? WHERE id=?',[nid,oldId]);
+          logAction(req.session.user.id,'replace_pass','pass',oldId,'Pass #'+oldId+' -> #'+nid);
+          createNotification('replace','Pass sostituito','Pass #'+oldId+' di <strong>'+old.first_name+' '+old.last_name+'</strong> → nuovo #'+nid+'.','pass',nid);
+          var gid=old.assignment_group_id;
+          if(gid) return res.redirect('/assignment-groups/'+gid+'?replace_ok=1');
+          res.redirect('/passes?replaced='+nid);
+        })
+        .catch(function(e){res.status(500).send('Errore generazione pass: '+(e.message||e));});
+    });
+  });
   app.post('/admin/groups/:id/portal/token',requireAuth,requireAdmin,function(req,res){var id=parseInt(req.params.id,10),token=require('crypto').randomBytes(24).toString('hex');db.run('UPDATE assignment_groups SET portal_token=?,portal_enabled=1 WHERE id=?',[token,id],function(err){if(err)return res.status(500).json({error:err.message});res.json({token});});});
   app.post('/admin/groups/:id/portal/toggle',requireAuth,requireAdmin,function(req,res){var id=parseInt(req.params.id,10);db.get('SELECT portal_enabled FROM assignment_groups WHERE id=?',[id],function(e,row){if(!row)return res.status(404).json({error:'not found'});var v=row.portal_enabled?0:1;db.run('UPDATE assignment_groups SET portal_enabled=? WHERE id=?',[v,id],function(){res.json({enabled:v});});});});
   app.get('/portale/:token',function(req,res){db.get(`SELECT ag.*,g.name AS cat_name FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id WHERE ag.portal_token=? AND ag.portal_enabled=1`,[req.params.token],function(err,group){if(err||!group)return res.status(404).send('<h2 style="font-family:sans-serif;padding:2rem">Portale non disponibile.</h2>');db.all(`SELECT pa.first_name,pa.last_name,pa.email,pa.role,p.id AS pass_id,p.code,p.status,pt.name AS type_name FROM participants pa LEFT JOIN passes p ON p.participant_id=pa.id AND p.status!='INVALIDATO' LEFT JOIN pass_types pt ON pt.id=p.pass_type_id WHERE pa.assignment_group_id=? ORDER BY pa.last_name,pa.first_name`,[group.id],function(e2,parts){res.render('portale',{group,parts:parts||[],token:req.params.token});});});});
@@ -1164,7 +1175,7 @@ function checkGroupLimit(gid){
     var done=0;
     ids.forEach(function(pid){
       var id=parseInt(pid,10);
-      db.run('UPDATE passes SET status=? WHERE id=?',[status,id],function(){
+      db.run('UPDATE passes SET status=? WHERE id=? AND status!=\'INVALIDATO\'',[status,id],function(){
         db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[id,status,req.session.user.id]);
         if(++done===ids.length){
           logAction(req.session.user.id,'bulk_status','pass',null,'Stato '+status+' a '+ids.length+' pass nel gruppo #'+gid);

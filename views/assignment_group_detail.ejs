@@ -6,6 +6,12 @@
    const VIEWER_STATUSES = ['SCARICATO','STAMPATO','CONSEGNATO','RICONSEGNATO'];
 %>
 
+<% if(typeof req !== 'undefined' && false){ %><% } %>
+<% if(locals.replaceOk){ %>
+  <div class="alert" style="background:#f0fdf4;border:1.5px solid #2d6a4f;border-radius:8px;padding:.7rem 1rem;margin-bottom:1rem;">
+    <span>&#10003;</span> Pass sostituito con successo. Il nuovo pass con PDF è visibile qui sotto.
+  </div>
+<% } %>
 <% if (isViewer) { %>
   <div class="alert alert-info"><span>&#128065;</span> Sei in modalit&#224; <strong>Visualizzatore</strong>: puoi consultare i dati e modificare lo stato dei pass, ma non aggiungere o eliminare assegnatari.</div>
 <% } %>
