@@ -141,7 +141,72 @@ function azzeraFiltri() {
   document.getElementById('pass-stato-filter').value = '';
   filtraPass();
 }
+
+
+function mostraStorico(passId) {
+  var modal = document.getElementById('storico-modal');
+  var body  = document.getElementById('storico-body');
+  var title = document.getElementById('storico-pass-id');
+  modal.style.display = 'flex';
+  title.textContent = '#' + passId;
+  body.innerHTML = '<p style="color:#7a7974;font-size:.85rem;">Caricamento...</p>';
+  fetch('/passes/' + passId + '/history')
+    .then(function(r){ return r.json(); })
+    .then(function(rows){
+      if (!rows.length) {
+        body.innerHTML = '<p style="color:#7a7974;font-size:.85rem;">Nessuno storico disponibile.</p>';
+        return;
+      }
+      var sc = {
+  GENERATO:'#6b3fa0',SCARICATO:'#1d6fa4',STAMPATO:'#c9a227',
+  CONSEGNATO:'#2d6a4f',RICONSEGNATO:'#c0392b',INVALIDATO:'#9ca3af'
+};
+      var html = '<table style="width:100%;border-collapse:collapse;font-size:.82rem;">';
+      html += '<thead><tr style="background:#f3f0ec;">'
+            + '<th style="padding:.35rem .6rem;text-align:left;">Stato</th>'
+            + '<th style="padding:.35rem .6rem;text-align:left;">Data / Ora</th>'
+            + '<th style="padding:.35rem .6rem;text-align:left;">Utente</th>'
+            + '</tr></thead><tbody>';
+      rows.forEach(function(r, i){
+        var bg = i%2===0?'#fff':'#fafaf8';
+        var date = r.changed_at ? new Date(r.changed_at).toLocaleString('it-IT') : '—';
+        var col  = sc[r.status] || '#9ca3af';
+        html += '<tr style="background:'+bg+'">'
+              + '<td style="padding:.3rem .6rem;">'
+              + '<span style="display:inline-flex;padding:.15rem .45rem;border-radius:9999px;'
+              + 'font-size:.68rem;font-weight:700;color:#fff;background:'+col+';white-space:nowrap;">'
+              + r.status + '</span></td>'
+              + '<td style="padding:.3rem .6rem;white-space:nowrap;">' + date + '</td>'
+              + '<td style="padding:.3rem .6rem;">' + (r.username || '—') + '</td>'
+              + '</tr>';
+      });
+      html += '</tbody></table>';
+      body.innerHTML = html;
+    })
+    .catch(function(){
+      body.innerHTML = '<p style="color:#c0392b;font-size:.85rem;">Errore nel caricamento.</p>';
+    });
+  // Chiudi cliccando fuori dal modal
+  modal.onclick = function(e){ if(e.target===modal) modal.style.display='none'; };
+}
+}
 </script>
 
 <% } %>
+
+<!-- Modal storico pass -->
+<div id="storico-modal" style="display:none;position:fixed;inset:0;z-index:9999;
+     background:rgba(0,0,0,.45);align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:10px;padding:1.5rem 1.75rem;
+              max-width:520px;width:90%;max-height:80vh;overflow-y:auto;
+              box-shadow:0 8px 32px rgba(0,0,0,.18);position:relative;">
+    <button onclick="document.getElementById('storico-modal').style.display='none'"
+            style="position:absolute;top:.75rem;right:.9rem;background:none;border:none;
+                   font-size:1.3rem;cursor:pointer;color:#7a7974;">&times;</button>
+    <h3 style="margin:0 0 1rem;font-size:1rem;font-weight:700;">&#128203; Storico Pass <span id="storico-pass-id" style="color:#6b3fa0;"></span></h3>
+    <div id="storico-body">
+      <p style="color:#7a7974;font-size:.85rem;">Caricamento...</p>
+    </div>
+  </div>
+</div>
 <%-include('partials/footer') %>
