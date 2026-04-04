@@ -759,29 +759,26 @@ app.get('/home', requireAuth, (req, res) => {
 
             const code = generateRandomCode(18);
             const png = await bwipjs.toBuffer({
-              bcid: 'code128',
+              bcid: 'qrcode',
               text: code,
-              scale: 2,
-              height: 10,
-              includetext: false,
+              scale: 4,
               backgroundcolor: 'FFFFFF',
             });
 
-            const barcodeImage = await pdfDoc.embedPng(png);
-            const barcodeWidth = qWidth * 0.8;
-            const barcodeHeight = 50;
-            const barcodeX = centerX - barcodeWidth / 2;
-            const barcodeY = originY + 80;
+            const qrImage = await pdfDoc.embedPng(png);
+            const qrSize = 90;
+            const qrX = centerX - qrSize / 2;
+            const qrY = originY + 65;
 
-            page.drawImage(barcodeImage, {
-              x: barcodeX,
-              y: barcodeY,
-              width: barcodeWidth,
-              height: barcodeHeight,
+            page.drawImage(qrImage, {
+              x: qrX,
+              y: qrY,
+              width: qrSize,
+              height: qrSize,
             });
 
-            const codeY = barcodeY - 18;
-            drawCentered(code, 12, regularFont, codeY);
+            const codeY = qrY - 18;
+            drawCentered(code, 10, regularFont, codeY);
 
             const pdfBytes = await pdfDoc.save();
 
@@ -1265,7 +1262,48 @@ app.get('/home', requireAuth, (req, res) => {
   });
   // -------- Ricerca & Reports --------
 
-  app.get('/search', requireAuth, (req, res) => {
+  
+  // -------- Scanner QR: API lookup e consegna --------
+
+  app.get('/scan', requireAuth, (req, res) => {
+    res.render('scan');
+  });
+
+  app.get('/api/scan/:code', requireAuth, (req, res) => {
+    const code = (req.params.code || '').trim().toUpperCase();
+    db.get(`SELECT p.id, p.code, p.status,
+               pa.first_name, pa.last_name, pa.email,
+               ag.name AS group_name, pt.name AS pass_type_name
+            FROM passes p
+            JOIN participants pa ON pa.id = p.participant_id
+            LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
+            LEFT JOIN pass_types pt ON pt.id = p.pass_type_id
+            WHERE p.code = ?`, [code], (err, pass) => {
+      if (err) return res.status(500).json({ error: 'Errore DB' });
+      if (!pass) return res.status(404).json({ error: 'Pass non trovato', code });
+      res.json({ pass });
+    });
+  });
+
+  app.post('/api/scan/:code/consegna', requireAuth, (req, res) => {
+    const code = (req.params.code || '').trim().toUpperCase();
+    db.get('SELECT id, status FROM passes WHERE code = ?', [code], (err, pass) => {
+      if (err || !pass) return res.status(404).json({ error: 'Pass non trovato' });
+      if (pass.status === 'INVALIDATO') return res.status(400).json({ error: 'Pass invalidato', status: pass.status });
+      if (pass.status === 'CONSEGNATO' || pass.status === 'RICONSEGNATO') {
+        return res.status(409).json({ error: 'Pass già ' + pass.status.toLowerCase(), status: pass.status });
+      }
+      db.run('UPDATE passes SET status = ? WHERE id = ?', ['CONSEGNATO', pass.id], function(err2) {
+        if (err2) return res.status(500).json({ error: 'Errore DB' });
+        logAction(req.session.user.id, 'scan_consegna', 'pass', pass.id, 'Pass CONSEGNATO via scanner QR');
+        db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',
+          [pass.id, 'CONSEGNATO', req.session.user.id]);
+        res.json({ success: true, passId: pass.id });
+      });
+    });
+  });
+
+app.get('/search', requireAuth, (req, res) => {
     const q = (req.query.q || '').trim();
     if (!q) {
       return res.render('search', { q: '', results: [] });

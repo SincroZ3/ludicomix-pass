@@ -1,0 +1,150 @@
+<%- include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> &rsaquo; <strong>&#128247; Scanner QR</strong></nav>
+<h1 class="page-title">&#128247; Scanner QR</h1>
+<style>
+#scanner-wrap{max-width:420px;margin:0 auto}
+#qr-reader{width:100%;border-radius:var(--radius-md);overflow:hidden;background:#000}
+#result-card{display:none;margin:1rem auto;padding:1.2rem;border-radius:var(--radius-md);background:var(--bg-white);border:2px solid var(--border);box-shadow:var(--shadow-md);transition:border-color .2s}
+#result-card.ok{border-color:#2d6a4f}
+#result-card.warn{border-color:#c9a227}
+#result-card.err{border-color:#c0392b}
+.rbadge{display:inline-block;padding:.2rem .7rem;border-radius:9999px;font-size:.75rem;font-weight:700;color:#fff;margin-bottom:.6rem}
+.rname{font-size:1.15rem;font-weight:800;margin-bottom:.2rem}
+.rmeta{color:var(--text-muted);font-size:.82rem;margin-bottom:.15rem}
+.rcode{font-size:.68rem;color:var(--text-muted);font-family:monospace;margin-bottom:.6rem}
+.rmsg{padding:.5rem .75rem;border-radius:var(--radius-sm);font-size:.83rem;margin-bottom:.6rem}
+.btn-big{display:block;width:100%;padding:.9rem;border:none;border-radius:var(--radius-md);font-size:1.05rem;font-weight:700;cursor:pointer;margin-top:.5rem;transition:background .15s,opacity .15s}
+.btn-consegna{background:#2d6a4f;color:#fff}
+.btn-consegna:hover{background:#1d5a40}
+.btn-consegna:disabled{opacity:.5;cursor:not-allowed}
+.btn-riprendi{background:var(--accent-blue);color:#fff;display:none}
+.scan-ctr{text-align:center;font-size:.82rem;color:var(--text-muted);margin-bottom:.75rem}
+.scan-ctr strong{color:#2d6a4f;font-size:1.05rem}
+</style>
+
+<div id="scanner-wrap">
+  <div class="scan-ctr">Pass consegnati in questa sessione: <strong id="sess-n">0</strong></div>
+  <div id="qr-reader"></div>
+  <div id="result-card">
+    <div id="rbadge" class="rbadge"></div>
+    <div id="rname" class="rname"></div>
+    <div id="rgroup" class="rmeta"></div>
+    <div id="rtype" class="rmeta"></div>
+    <div id="rcode" class="rcode"></div>
+    <div id="rmsg" class="rmsg"></div>
+    <button id="btn-consegna" class="btn-big btn-consegna" onclick="doConsegna()">&#10003; SEGNA COME CONSEGNATO</button>
+    <button id="btn-riprendi" class="btn-big btn-riprendi" onclick="riprendiScan()">&#128260; Scansiona un altro</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+var COLORS={GENERATO:'#6b3fa0',SCARICATO:'#1d6fa4',STAMPATO:'#c9a227',CONSEGNATO:'#2d6a4f',RICONSEGNATO:'#c0392b',INVALIDATO:'#555'};
+var scanning=true, lastCode=null, sessN=0, html5QrCode=null;
+
+html5QrCode = new Html5Qrcode('qr-reader');
+html5QrCode.start(
+  {facingMode:'environment'},
+  {fps:10, qrbox:{width:260,height:260}},
+  function(txt){
+    if(!scanning) return;
+    var code=txt.trim().toUpperCase();
+    if(code===lastCode) return;
+    lastCode=code; scanning=false;
+    if(navigator.vibrate) navigator.vibrate(80);
+    fetch('/api/scan/'+encodeURIComponent(code))
+      .then(function(r){return r.json();})
+      .then(showResult)
+      .catch(function(){showErr('Errore di rete', code);});
+  },
+  function(){}
+).catch(function(){
+  document.getElementById('qr-reader').innerHTML='<p style="color:#c0392b;padding:1.5rem;text-align:center;">&#9888;&#65039; Accesso fotocamera negato.<br>Abilita la fotocamera nelle impostazioni del browser.</p>';
+});
+
+function showResult(d){
+  var card=document.getElementById('result-card');
+  card.style.display='block'; card.className='';
+  var badge=document.getElementById('rbadge');
+  var bc=document.getElementById('btn-consegna');
+  var br=document.getElementById('btn-riprendi');
+  var msg=document.getElementById('rmsg');
+  bc.style.display='none'; br.style.display='block';
+  if(!d.pass){
+    card.className='err';
+    badge.textContent='\u274C NON TROVATO'; badge.style.background='#c0392b';
+    document.getElementById('rname').textContent='Codice non riconosciuto';
+    document.getElementById('rgroup').textContent='';
+    document.getElementById('rtype').textContent='';
+    document.getElementById('rcode').textContent=lastCode;
+    msg.textContent='Nessun pass trovato con questo codice.';
+    msg.style.cssText='background:#fde8e8;color:#c0392b';
+    return;
+  }
+  var p=d.pass, st=p.status;
+  badge.textContent=st; badge.style.background=COLORS[st]||'#888';
+  document.getElementById('rname').textContent=(p.first_name||'')+' '+(p.last_name||'');
+  document.getElementById('rgroup').textContent='\uD83D\uDC65 '+(p.group_name||'Nessun gruppo');
+  document.getElementById('rtype').textContent='\uD83C\uDFAB '+(p.pass_type_name||'');
+  document.getElementById('rcode').textContent=p.code;
+  if(st==='INVALIDATO'){
+    card.className='err';
+    msg.textContent='\u26D4 Pass invalidato, non consegnabile.';
+    msg.style.cssText='background:#fde8e8;color:#c0392b';
+  } else if(st==='CONSEGNATO'||st==='RICONSEGNATO'){
+    card.className='warn';
+    msg.textContent='\u26A0\uFE0F Pass già '+st.toLowerCase()+'.';
+    msg.style.cssText='background:#fef9e7;color:#c9a227';
+  } else {
+    card.className='ok';
+    msg.textContent='\u2705 Pass valido. Conferma la consegna.';
+    msg.style.cssText='background:#eaf5ef;color:#2d6a4f';
+    bc.style.display='block'; bc.disabled=false;
+    bc.textContent='\u2713 SEGNA COME CONSEGNATO';
+    bc.style.background='#2d6a4f';
+    bc.setAttribute('data-code', p.code);
+  }
+}
+
+function showErr(msg,code){
+  var card=document.getElementById('result-card');
+  card.style.display='block'; card.className='err';
+  document.getElementById('rbadge').textContent='\u274C ERRORE';
+  document.getElementById('rbadge').style.background='#c0392b';
+  document.getElementById('rname').textContent=msg;
+  document.getElementById('rgroup').textContent='';
+  document.getElementById('rtype').textContent='';
+  document.getElementById('rcode').textContent=code||'';
+  var m=document.getElementById('rmsg');
+  m.textContent='Errore. Riprova.'; m.style.cssText='background:#fde8e8;color:#c0392b';
+  document.getElementById('btn-consegna').style.display='none';
+  document.getElementById('btn-riprendi').style.display='block';
+}
+
+function doConsegna(){
+  var code=document.getElementById('btn-consegna').getAttribute('data-code');
+  var bc=document.getElementById('btn-consegna');
+  bc.disabled=true; bc.textContent='Salvataggio...';
+  fetch('/api/scan/'+encodeURIComponent(code)+'/consegna',{method:'POST'})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.success){
+        sessN++; document.getElementById('sess-n').textContent=sessN;
+        if(navigator.vibrate) navigator.vibrate([80,40,80]);
+        bc.textContent='\u2713 CONSEGNATO!'; bc.style.background='#1a5c3a';
+        document.getElementById('rmsg').textContent='\uD83C\uDF89 Pass segnato come CONSEGNATO!';
+        setTimeout(riprendiScan, 2500);
+      } else {
+        bc.disabled=false; bc.textContent='\u2713 SEGNA COME CONSEGNATO';
+        alert(d.error||'Errore durante la consegna');
+      }
+    })
+    .catch(function(){bc.disabled=false;bc.textContent='\u2713 SEGNA COME CONSEGNATO';alert('Errore di rete');});
+}
+
+function riprendiScan(){
+  lastCode=null; scanning=true;
+  document.getElementById('result-card').style.display='none';
+}
+</script>
+<%- include('partials/footer') %>
