@@ -244,6 +244,7 @@
             <th>Cod. Riferimento</th>
             <th>Stato Pass</th>
             <th>PDF</th>
+            <% if (!isViewer) { %><th style="white-space:nowrap;">Sostituisci</th><% } %>
             <% if (!isViewer) { %><th>Cancella</th><% } %>
           </tr>
         </thead>
@@ -276,6 +277,17 @@
                   <span style="color:var(--text-muted);">&mdash;</span>
                 <% } %>
               </td>
+              <% if (!isViewer) { %>
+              <td style="white-space:nowrap;">
+                <% if(p.last_pass_id){ %>
+                <button type="button"
+                  style="font-size:.75rem;padding:.22rem .55rem;background:#c9a227;color:#fff;border:none;border-radius:4px;cursor:pointer;"
+                  onclick="if(confirm('Sostituire il pass di <%= p.last_name %> <%= p.first_name %>? Il vecchio verrà invalidato e verrà generato un nuovo PDF.')){var f=document.createElement('form');f.method='POST';f.action='/passes/<%= p.last_pass_id %>/replace';document.body.appendChild(f);f.submit();}">
+                  &#128260; Sost.
+                </button>
+                <% } else { %><span style="color:var(--text-muted);">&mdash;</span><% } %>
+              </td>
+              <% } %>
               <% if (!isViewer) { %>
               <td>
                 <button type="button" class="btn-danger"
@@ -527,7 +539,7 @@ function maronnoForza() {
 }
 </script>
 
-<% if(currentUser&&currentUser.role==='admin'){ %>
+<% if(!isViewer){ %>
 <div class="card" style="border-top:3px solid #1d6fa4;margin-top:1rem;">
   <div class="card-title">&#127970; Portale Espositore</div>
   <% if(groupInfo.portal_token&&groupInfo.portal_enabled){ %>
