@@ -767,6 +767,7 @@ function checkGroupLimit(gid){
                       passId,
                       `Generato pass ${passId} per partecipante ${participant.first_name} ${participant.last_name}`
                     );
+                    db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[passId,'GENERATO',userId]);
                     resolve(passId);
                   }
                 );
@@ -940,6 +941,8 @@ function checkGroupLimit(gid){
       const filePath = path.join(process.env.DATA_DIR || __dirname, 'generated', pass.pdf_file);
       db.run('UPDATE passes SET status = ? WHERE id = ?', ['SCARICATO', id], (err2) => {
         if (err2) console.error('Errore aggiornamento stato scaricato', err2);
+        const uid = req.session && req.session.user ? req.session.user.id : null;
+        db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[id,'SCARICATO',uid]);
         res.sendFile(filePath);
       });
     });
