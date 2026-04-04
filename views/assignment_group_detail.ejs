@@ -278,10 +278,8 @@
               </td>
               <% if (!isViewer) { %>
               <td>
-                <form method="post" action="/participants/<%= p.id %>/delete" onsubmit="return confirm('Eliminare <%= p.last_name %> <%= p.first_name %>?');">
-                  <input type="hidden" name="redirect_to_group_id" value="<%= groupInfo.id %>">
-                  <button type="submit" class="btn-danger">&#10005;</button>
-                </form>
+                <button type="button" class="btn-danger"
+                  onclick="if(confirm('Eliminare <%= p.last_name %> <%= p.first_name %>?')){var f=document.createElement('form');f.method='POST';f.action='/participants/<%= p.id %>/delete';var i=document.createElement('input');i.type='hidden';i.name='redirect_to_group_id';i.value='<%= groupInfo.id %>';f.appendChild(i);document.body.appendChild(f);f.submit();}">&#10005;</button>
               </td>
               <% } %>
             </tr>
