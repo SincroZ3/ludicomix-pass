@@ -223,7 +223,7 @@
          style="display:none;gap:.75rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:.75rem;background:#f7f6f2;border:1.5px solid #e2e8f0;">
       <label style="margin:0;flex:1;min-width:160px;font-size:.85rem;font-weight:700;">&#128260; Cambia stato ai selezionati<br>
         <select id="bulk-status-select" style="margin-top:.3rem;width:100%;">
-          <% var _bulkSt = isViewer ? ['SCARICATO','STAMPATO','CONSEGNATO','RICONSEGNATO'] : PASS_STATUSES; %>
+          <% var _bulkSt = isViewer ? ['SCARICATO','STAMPATO','CONSEGNATO','RICONSEGNATO'] : PASS_STATUSES.filter(function(s){return s!=='GENERATO';}); %>
           <% _bulkSt.forEach(function(s){ %><option value="<%=s%>"><%=s%></option><% }); %>
         </select>
       </label>

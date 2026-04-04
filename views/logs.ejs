@@ -5,7 +5,7 @@
 <div class="table-wrapper">
   <table>
     <thead>
-      <tr><th>ID</th><th>Data/Ora</th><th>Utente</th><th>Azione</th><th>Entità</th><th>Dettagli</th></tr>
+      <tr><th>ID</th><th>Data/Ora</th><th>Utente</th><th>Azione</th><th>Entità</th><th>Assegnatario</th><th>Gruppo</th><th>Dettagli</th></tr>
     </thead>
     <tbody>
       <% logs.forEach(l => { %>
@@ -15,6 +15,8 @@
           <td><strong><%= l.username || 'N/D' %></strong></td>
           <td style="font-family:monospace;font-size:0.78rem;"><%= l.action %></td>
           <td style="font-size:0.78rem;"><%= (l.entity_type || '') + (l.entity_id ? ' #' + l.entity_id : '') %></td>
+          <td style="font-size:0.78rem;"><%= l.participant_name || '—' %></td>
+          <td style="font-size:0.78rem;color:var(--text-muted);"><%= l.group_name || '—' %></td>
           <td style="font-size:0.8rem;color:var(--text-secondary);"><%= l.details || '' %></td>
         </tr>
       <% }) %>

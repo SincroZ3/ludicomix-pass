@@ -934,17 +934,18 @@ function checkGroupLimit(gid){
   app.get('/passes/:id/download', function(req,res,next){if(req.query.portal_token||(req.session&&req.session.user))return next();return res.redirect('/login');
   }, (req, res) => {
     const id = parseInt(req.params.id, 10);
-    db.get('SELECT pdf_file FROM passes WHERE id = ?', [id], (err, pass) => {
+    db.get('SELECT pdf_file, status FROM passes WHERE id = ?', [id], (err, pass) => {
       if (err || !pass || !pass.pdf_file) {
         return res.status(404).send('Pass non trovato');
       }
       const filePath = path.join(process.env.DATA_DIR || __dirname, 'generated', pass.pdf_file);
-      db.run('UPDATE passes SET status = ? WHERE id = ?', ['SCARICATO', id], (err2) => {
-        if (err2) console.error('Errore aggiornamento stato scaricato', err2);
+      // Imposta SCARICATO solo se il pass è ancora in stato GENERATO (prima apertura)
+      if (pass.status === 'GENERATO') {
         const uid = req.session && req.session.user ? req.session.user.id : null;
+        db.run('UPDATE passes SET status=\'SCARICATO\' WHERE id=? AND status=\'GENERATO\'',[id]);
         db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[id,'SCARICATO',uid]);
-        res.sendFile(filePath);
-      });
+      }
+      res.sendFile(filePath);
     });
   });
 
@@ -965,7 +966,8 @@ function checkGroupLimit(gid){
     const id = parseInt(req.params.id, 10);
     const { status } = req.body;
     if (!status) return res.redirect('/passes');
-    db.run('UPDATE passes SET status = ? WHERE id = ? AND status != \'INVALIDATO\'', [status, id], function (err) {
+    if (status === 'GENERATO') return res.status(400).send('Lo stato GENERATO non può essere riassegnato manualmente.');
+    db.run('UPDATE passes SET status = ? WHERE id = ? AND status != \'INVALIDATO\' AND status != \'GENERATO\'', [status, id], function (err) {
       if (err) return res.status(500).send('Errore aggiornamento stato pass');
       if (this.changes > 0) {
         logAction(req.session.user.id, 'update_pass_status', 'pass', id, `Stato aggiornato a ${status}`);
@@ -1173,7 +1175,7 @@ function checkGroupLimit(gid){
     var status = req.body.status, gid = req.body.group_id;
     if(!ids.length || !status) return res.status(400).send('Parametri mancanti');
     var isViewer = req.session.user && req.session.user.role === 'viewer';
-    var allowed  = isViewer ? ['SCARICATO','STAMPATO','CONSEGNATO','RICONSEGNATO'] : PASS_STATUSES;
+    var allowed  = isViewer ? ['SCARICATO','STAMPATO','CONSEGNATO','RICONSEGNATO'] : PASS_STATUSES.filter(function(s){return s!=='GENERATO';});
     if(!allowed.includes(status)) return res.status(403).send('Stato non consentito al tuo ruolo');
     var done=0;
     ids.forEach(function(pid){
@@ -1419,9 +1421,14 @@ function checkGroupLimit(gid){
   app.get('/admin/logs', requireAdmin, (req, res) => {
     const sql = `
       SELECT l.id, l.action, l.entity_type, l.entity_id, l.details, l.created_at,
-             u.username
+             u.username,
+             CASE WHEN l.entity_type='pass' THEN pa.last_name||' '||pa.first_name ELSE NULL END AS participant_name,
+             CASE WHEN l.entity_type='pass' THEN ag.name ELSE NULL END AS group_name
       FROM action_logs l
       LEFT JOIN users u ON u.id = l.user_id
+      LEFT JOIN passes p ON l.entity_type='pass' AND l.entity_id=p.id
+      LEFT JOIN participants pa ON pa.id=p.participant_id
+      LEFT JOIN assignment_groups ag ON ag.id=pa.assignment_group_id
       ORDER BY l.id DESC
       LIMIT 500
     `;

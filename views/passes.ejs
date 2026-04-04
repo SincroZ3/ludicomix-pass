@@ -67,7 +67,7 @@
           <td>
             <form method="post" action="/passes/<%= p.id %>/status" class="status-form">
               <select name="status" onchange="this.form.submit()">
-                <% statuses.forEach(function(s){ %>
+                <% statuses.filter(function(s){return s!=='GENERATO';}).forEach(function(s){ %>
                   <option value="<%= s %>" <%= p.status === s ? 'selected' : '' %>><%= s %></option>
                 <% }); %>
               </select>
