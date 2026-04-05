@@ -1164,9 +1164,77 @@ app.get('/home', requireAuth, (req, res) => {
   app.post('/admin/groups/:id/portal/toggle',requireAuth,requireNotViewer,function(req,res){var id=parseInt(req.params.id,10);db.get('SELECT portal_enabled FROM assignment_groups WHERE id=?',[id],function(e,row){if(!row)return res.status(404).json({error:'not found'});var v=row.portal_enabled?0:1;db.run('UPDATE assignment_groups SET portal_enabled=? WHERE id=?',[v,id],function(){res.json({enabled:v});});});});
   app.get('/portale/:token',function(req,res){db.get(`SELECT ag.*,g.name AS cat_name FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id WHERE ag.portal_token=? AND ag.portal_enabled=1`,[req.params.token],function(err,group){if(err||!group)return res.status(404).send('<h2 style="font-family:sans-serif;padding:2rem">Portale non disponibile.</h2>');db.all(`SELECT pa.first_name,pa.last_name,pa.email,pa.role,p.id AS pass_id,p.code,p.status,pt.name AS type_name FROM participants pa LEFT JOIN passes p ON p.participant_id=pa.id AND p.status!='INVALIDATO' LEFT JOIN pass_types pt ON pt.id=p.pass_type_id WHERE pa.assignment_group_id=? ORDER BY pa.last_name,pa.first_name`,[group.id],function(e2,parts){res.render('portale',{group,parts:parts||[],token:req.params.token});});});});
   app.get('/portale/:token/download/:passId',function(req,res){db.get(`SELECT ag.portal_enabled FROM assignment_groups ag JOIN participants pa ON pa.assignment_group_id=ag.id JOIN passes p ON p.participant_id=pa.id WHERE ag.portal_token=? AND p.id=?`,[req.params.token,req.params.passId],function(err,row){if(err||!row||!row.portal_enabled)return res.status(403).send('Accesso negato');res.redirect('/passes/'+req.params.passId+'/download?portal_token='+req.params.token);});});
-  app.get('/mappa',requireAuth,function(req,res){db.all(`SELECT ag.id,ag.name AS stand_name,ag.zone,ag.map_row,ag.map_col,ag.map_span,ag.max_passes,COUNT(CASE WHEN p.status!='INVALIDATO' THEN 1 END)AS pass_count,SUM(CASE WHEN p.status IN('CONSEGNATO','RICONSEGNATO') THEN 1 ELSE 0 END)AS consegnati FROM assignment_groups ag LEFT JOIN participants pa ON pa.assignment_group_id=ag.id LEFT JOIN passes p ON p.participant_id=pa.id GROUP BY ag.id ORDER BY ag.map_row,ag.map_col`,[],function(err,stands){if(err)return res.status(500).send('Errore DB');res.render('mappa',{stands:stands||[],isAdmin:!!(req.session.user&&req.session.user.role==='admin')});});});
-  app.post('/admin/groups/:id/map-position',requireAuth,requireNotViewer,function(req,res){var id=parseInt(req.params.id,10),row=parseInt(req.body.map_row,10)||null,col=parseInt(req.body.map_col,10)||null,span=Math.max(1,Math.min(8,parseInt(req.body.map_span,10)||1));db.run('UPDATE assignment_groups SET map_row=?,map_col=?,map_span=? WHERE id=?',[row,col,span,id],function(err){res.json(err?{error:err.message}:{ok:true});});});
-  app.get('/notifications',requireAuth,requireAdmin,function(req,res){db.run("UPDATE notifications SET read_at=datetime('now') WHERE read_at IS NULL");db.all('SELECT * FROM notifications ORDER BY id DESC LIMIT 200',[],function(err,notifs){res.render('notifications',{notifs:notifs||[]});});});
+  
+  // -------- Mappa interattiva per zone --------
+  const bgUpload = multer({
+    dest: path.join(process.env.DATA_DIR || __dirname, 'generated'),
+    fileFilter: function(req, file, cb){ cb(null, /image\//.test(file.mimetype)); }
+  });
+
+  app.get('/zone-bg/:filename', requireAuth, function(req, res) {
+    res.sendFile(path.join(process.env.DATA_DIR || __dirname, 'generated', path.basename(req.params.filename)));
+  });
+
+  app.get('/mappa', requireAuth, function(req, res) {
+    db.all('SELECT * FROM zones ORDER BY sort_order, name', [], function(err, zones) {
+      if (err) return res.status(500).send('Errore DB');
+      db.all(`SELECT ag.id, ag.name AS stand_name, ag.zone, ag.map_x, ag.map_y, ag.max_passes,
+                COUNT(CASE WHEN p.status!='INVALIDATO' THEN 1 END) AS pass_count,
+                SUM(CASE WHEN p.status IN('CONSEGNATO','RICONSEGNATO') THEN 1 ELSE 0 END) AS consegnati
+              FROM assignment_groups ag
+              LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
+              LEFT JOIN passes p ON p.participant_id = pa.id
+              GROUP BY ag.id ORDER BY ag.zone, ag.name`, [], function(err2, groups) {
+        if (err2) return res.status(500).send('Errore DB');
+        res.render('mappa', { zones: zones||[], groups: groups||[], isAdmin: !!(req.session.user && req.session.user.role==='admin') });
+      });
+    });
+  });
+
+  app.post('/admin/zones/:id/upload-bg', requireAuth, requireAdmin, bgUpload.single('bg_image'), function(req, res) {
+    var zoneId = parseInt(req.params.id, 10);
+    if (!req.file) return res.redirect('/mappa');
+    var ext = (req.file.originalname.match(/\.\w+$/) || ['.jpg'])[0].toLowerCase();
+    var newName = 'zone-bg-' + zoneId + '-' + Date.now() + ext;
+    var newPath = path.join(process.env.DATA_DIR || __dirname, 'generated', newName);
+    db.get('SELECT background_image FROM zones WHERE id=?', [zoneId], function(e, row) {
+      if (row && row.background_image) {
+        try { fs.unlinkSync(path.join(process.env.DATA_DIR || __dirname, 'generated', row.background_image)); } catch(e2) {}
+      }
+      fs.renameSync(req.file.path, newPath);
+      db.run('UPDATE zones SET background_image=? WHERE id=?', [newName, zoneId], function() { res.redirect('/mappa'); });
+    });
+  });
+
+  app.post('/admin/zones/:id/delete-bg', requireAuth, requireAdmin, function(req, res) {
+    var zoneId = parseInt(req.params.id, 10);
+    db.get('SELECT background_image FROM zones WHERE id=?', [zoneId], function(e, row) {
+      if (row && row.background_image) {
+        try { fs.unlinkSync(path.join(process.env.DATA_DIR || __dirname, 'generated', row.background_image)); } catch(e2) {}
+      }
+      db.run('UPDATE zones SET background_image=NULL WHERE id=?', [zoneId], function() { res.redirect('/mappa'); });
+    });
+  });
+
+  app.post('/admin/groups/:id/map-position', requireAuth, requireNotViewer, function(req, res) {
+    var id = parseInt(req.params.id, 10),
+        row = parseInt(req.body.map_row, 10)||null, col = parseInt(req.body.map_col, 10)||null,
+        span = Math.max(1, Math.min(8, parseInt(req.body.map_span, 10)||1));
+    db.run('UPDATE assignment_groups SET map_row=?,map_col=?,map_span=? WHERE id=?', [row,col,span,id], function(err) {
+      res.json(err ? {error:err.message} : {ok:true});
+    });
+  });
+
+  app.post('/admin/groups/:id/map-xy', requireAuth, requireNotViewer, function(req, res) {
+    var id = parseInt(req.params.id, 10);
+    var x = (req.body.map_x !== '' && req.body.map_x != null) ? parseFloat(req.body.map_x) : null;
+    var y = (req.body.map_y !== '' && req.body.map_y != null) ? parseFloat(req.body.map_y) : null;
+    db.run('UPDATE assignment_groups SET map_x=?,map_y=? WHERE id=?', [x,y,id], function(err) {
+      res.json(err ? {error:err.message} : {ok:true});
+    });
+  });
+
+app.get('/notifications',requireAuth,requireAdmin,function(req,res){db.run("UPDATE notifications SET read_at=datetime('now') WHERE read_at IS NULL");db.all('SELECT * FROM notifications ORDER BY id DESC LIMIT 200',[],function(err,notifs){res.render('notifications',{notifs:notifs||[]});});});
   app.get('/api/notifications/count',requireAuth,requireAdmin,function(req,res){db.get('SELECT COUNT(*) as n FROM notifications WHERE read_at IS NULL',[],function(e,r){res.json({count:r?r.n:0});});});
   app.post('/notifications/read-all',requireAuth,requireAdmin,function(req,res){db.run("UPDATE notifications SET read_at=datetime('now') WHERE read_at IS NULL",function(){res.redirect('/notifications');});});
   app.post('/admin/settings/smtp',requireAuth,requireAdmin,function(req,res){var fields=['smtp_host','smtp_port','smtp_secure','smtp_user','smtp_pass','smtp_from','smtp_to'],done=0;fields.forEach(function(k){db.run('INSERT OR REPLACE INTO app_settings(key,value)VALUES(?,?)',[k,req.body[k]||''],function(){if(++done===fields.length)res.redirect('/admin/settings#notifiche');});});});
