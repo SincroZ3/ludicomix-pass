@@ -12,6 +12,7 @@
   <button type="button" class="pill-tab" data-tab="notifiche">&#128276; Notifiche &amp; Email</button>
     <button type="button" class="pill-tab" data-tab="backup">&#128190; Backup &amp; Restore</button>
   <button type="button" class="pill-tab" data-tab="utenti">&#128100; Gestione Utenti</button>
+  <button type="button" class="pill-tab" data-tab="scan">&#128269; Tentativi Scan</button>
 </div>
 
 <!-- ===== TAB 1: ZONE ===== -->
@@ -399,9 +400,59 @@
 
 </div>
 
+
+<div id="panel-scan" class="settings-panel" style="display:none;">
+  <div class="card" style="overflow-x:auto">
+    <%
+    var SA_LABELS={SUCCESS:'Consegnato',NOT_FOUND:'Non trovato',INVALIDATO:'Invalidato',GIA_CONSEGNATO:'Gia consegnato',GIA_RICONSEGNATO:'Gia riconsegnato'};
+    var SA_CLS={SUCCESS:'sa-ok',NOT_FOUND:'sa-err',INVALIDATO:'sa-err',GIA_CONSEGNATO:'sa-warn',GIA_RICONSEGNATO:'sa-warn'};
+    %>
+    <style>
+    .sa-badge{display:inline-flex;align-items:center;padding:.16rem .55rem;border-radius:9999px;font-size:.68rem;font-weight:700}
+    .sa-ok{background:#2d6a4f;color:#fff}.sa-err{background:#c0392b;color:#fff}.sa-warn{background:#c9a227;color:#1a2744}
+    .sa-table{width:100%;border-collapse:collapse;font-size:.81rem}
+    .sa-table th{background:var(--bg-offset,#f0f2f5);padding:.55rem .8rem;text-align:left;font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);border-bottom:2px solid var(--border,#d1d9e6)}
+    .sa-table td{padding:.48rem .8rem;border-bottom:1px solid var(--border-light,#e8ecf3)}
+    .sa-table tr:hover td{background:var(--bg-hover,#f8fafc)}
+    </style>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;">
+      <input type="text" id="sa-search" placeholder="&#128269; Cerca codice, nome, gruppo..." style="padding:.35rem .7rem;border:1px solid var(--border,#d1d9e6);border-radius:8px;font-size:.8rem;min-width:220px">
+      <select id="sa-filter" style="padding:.35rem .7rem;border:1px solid var(--border,#d1d9e6);border-radius:8px;font-size:.8rem">
+        <option value="">Tutti gli esiti</option>
+        <option value="SUCCESS">&#9989; Consegnato</option>
+        <option value="NOT_FOUND">&#10060; Non trovato</option>
+        <option value="INVALIDATO">&#128683; Invalidato</option>
+        <option value="GIA_CONSEGNATO">&#9888;&#65039; Gia consegnato</option>
+        <option value="GIA_RICONSEGNATO">&#9888;&#65039; Gia riconsegnato</option>
+      </select>
+      <span id="sa-count" style="font-size:.78rem;color:var(--text-muted);align-self:center"></span>
+    </div>
+    <% if(!scanAttempts||!scanAttempts.length){ %>
+      <p style="color:var(--text-muted);padding:1.5rem 0;text-align:center;">Nessun tentativo di scansione registrato.</p>
+    <% }else{ %>
+    <table class="sa-table" id="sa-table">
+      <thead><tr><th>Data / Ora</th><th>Codice QR</th><th>Esito</th><th>Assegnatario</th><th>Gruppo</th><th>Operatore</th><th>IP</th></tr></thead>
+      <tbody>
+      <% scanAttempts.forEach(function(a){ %>
+      <tr data-result="<%=a.result%>">
+        <td style="white-space:nowrap;color:var(--text-muted);font-size:.74rem;"><%=a.created_at%></td>
+        <td><code style="font-size:.78rem"><%=a.code%></code></td>
+        <td><span class="sa-badge <%=SA_CLS[a.result]||'sa-warn'%>"><%=SA_LABELS[a.result]||a.result%></span></td>
+        <td><%=a.participant_name||'&mdash;'%></td>
+        <td><%=a.group_name||'&mdash;'%></td>
+        <td style="font-weight:600">@<%=a.username||'?'%></td>
+        <td style="font-size:.72rem;color:var(--text-muted)"><%=a.ip||'&mdash;'%></td>
+      </tr>
+      <% }); %>
+      </tbody>
+    </table>
+    <% } %>
+  </div>
+</div>
+
 <script>
 (function () {
-  var PANELS = { zone: 'panel-zone', raggruppamenti: 'panel-raggruppamenti', tipologie: 'panel-tipologie', backup:'panel-backup',notifiche:'panel-notifiche', utenti: 'panel-utenti' };
+  var PANELS = { zone: 'panel-zone', raggruppamenti: 'panel-raggruppamenti', tipologie: 'panel-tipologie', backup:'panel-backup',notifiche:'panel-notifiche', utenti: 'panel-utenti', scan: 'panel-scan' };
   var tabs   = document.querySelectorAll('[data-tab]');
 
   function showTab(key) {
@@ -435,6 +486,24 @@ function apriModificaGruppo(id, name, priority, passTypeId) {
   document.getElementById('form-edit-group').action = '/groups/' + id + '/edit';
   document.getElementById('modal-edit-group').style.display = 'flex';
 }
+
+(function(){
+  var rows=Array.from(document.querySelectorAll('#sa-table tbody tr'));
+  var cnt=document.getElementById('sa-count');
+  function update(){
+    var q=(document.getElementById('sa-search')?document.getElementById('sa-search').value:'').toLowerCase();
+    var r=document.getElementById('sa-filter')?document.getElementById('sa-filter').value:'';
+    var v=0;
+    rows.forEach(function(row){
+      var show=(!q||row.textContent.toLowerCase().includes(q))&&(!r||row.getAttribute('data-result')===r);
+      row.style.display=show?'':'none';if(show)v++;
+    });
+    if(cnt)cnt.textContent=v+' / '+rows.length+' righe';
+  }
+  var s=document.getElementById('sa-search');var f=document.getElementById('sa-filter');
+  if(s)s.addEventListener('input',update);if(f)f.addEventListener('change',update);
+  if(rows.length)update();
+})();
 </script>
 
 <%- include('partials/footer') %>

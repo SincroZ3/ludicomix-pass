@@ -1057,7 +1057,9 @@ app.get('/home', requireAuth, (req, res) => {
             if (err4) return res.status(500).send('Errore DB utenti');
             db.all("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'",[],function(e5,smtpRows){
               var smtp={}; (smtpRows||[]).forEach(function(r){smtp[r.key]=r.value;});
-              res.render('admin_settings',{groups,types,zones,users,smtp});
+              db.all('SELECT sa.*,u.username FROM scan_attempts sa LEFT JOIN users u ON u.id=sa.user_id ORDER BY sa.id DESC LIMIT 500',[],function(errSA,scanAttempts){
+              res.render('admin_settings',{groups,types,zones,users,smtp,scanAttempts:scanAttempts||[]});
+            });
             });
           });
         });
@@ -1436,6 +1438,19 @@ app.get('/notifications',requireAuth,requireAdmin,function(req,res){db.run("UPDA
           res.send(Buffer.from(out));
           logAction(req.session.user.id, 'batch_pdf', 'assignment_group', id,
             'Batch PDF scaricato (' + passes.length + ' pass)');
+          // Aggiorna GENERATO -> SCARICATO per i pass del gruppo inclusi nel batch
+          db.all(`SELECT p.id FROM passes p
+                  JOIN participants pa ON pa.id=p.participant_id
+                  WHERE pa.assignment_group_id=? AND p.status='GENERATO'`,
+            [id], function(e2, toUpdate){
+              if(!toUpdate||!toUpdate.length) return;
+              toUpdate.forEach(function(p){
+                db.run("UPDATE passes SET status='SCARICATO' WHERE id=?",[p.id]);
+                db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',
+                  [p.id,'SCARICATO',req.session.user.id]);
+                logAction(req.session.user.id,'batch_pdf_scaricato','pass',p.id,'Stato aggiornato GENERATO->SCARICATO via batch PDF');
+              });
+            });
         } catch(e) {
           res.status(500).send('Errore generazione PDF: ' + e.message);
         }

@@ -1,14 +1,6 @@
 <%-include('partials/header') %>
 <nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <a href="/participants">Assegnatari Pass</a> <span class="sep">›</span> <%= groupInfo.category_name %> <span class="sep">›</span> <strong><%= groupInfo.name %></strong></nav>
 <h1 class="page-title"><%= groupInfo.name %></h1>
-<div style="margin-bottom:1rem;">
-  <a href="/assignment-groups/<%= groupInfo.id %>/batch-pdf" target="_blank"
-     style="display:inline-flex;align-items:center;gap:.4rem;padding:.42rem 1rem;
-            background:var(--brand-dark,#1e2d4e);color:#fff;border-radius:8px;
-            font-size:.8rem;font-weight:700;text-decoration:none;">
-    &#128438;&nbsp;Stampa batch PDF
-  </a>
-</div>
 
 <% const isViewer = currentUser && currentUser.role === 'viewer';
    const VIEWER_STATUSES = ['SCARICATO','STAMPATO','CONSEGNATO','RICONSEGNATO'];
@@ -317,6 +309,18 @@
     </div>
   </form>
 <% } %>
+
+<div style="margin-top:1rem;margin-bottom:1.5rem;">
+  <a href="/assignment-groups/<%= groupInfo.id %>/batch-pdf" target="_blank"
+     style="display:inline-flex;align-items:center;gap:.4rem;padding:.45rem 1.1rem;
+            background:var(--brand-dark,#1e2d4e);color:#fff;border-radius:8px;
+            font-size:.8rem;font-weight:700;text-decoration:none;box-shadow:0 1px 4px rgba(0,0,0,.12);">
+    &#128438;&nbsp;Stampa batch PDF
+  </a>
+  <span style="font-size:.72rem;color:var(--text-muted,#64748b);margin-left:.6rem;">
+    Scarica tutti i pass del gruppo in un unico PDF &mdash; i pass in stato <strong>Generato</strong> verranno aggiornati a <strong>Scaricato</strong>
+  </span>
+</div>
 
 <!-- MODALE STALLO ALLA MESSICANA -->
 <div class="modal-overlay" id="modal-stallo" style="display:none">
