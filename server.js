@@ -1192,7 +1192,7 @@ app.get('/home', requireAuth, (req, res) => {
   app.get('/mappa', requireAuth, function(req, res) {
     db.all('SELECT * FROM zones ORDER BY sort_order, name', [], function(err, zones) {
       if (err) return res.status(500).send('Errore DB');
-      db.all(`SELECT ag.id, ag.name AS stand_name, ag.zone, ag.map_x, ag.map_y, ag.max_passes,
+      db.all(`SELECT ag.id, ag.name AS stand_name, ag.zone, ag.map_x, ag.map_y, ag.max_passes, ag.notes,
                 COUNT(CASE WHEN p.status!='INVALIDATO' THEN 1 END) AS pass_count,
                 SUM(CASE WHEN p.status IN('CONSEGNATO','RICONSEGNATO') THEN 1 ELSE 0 END) AS consegnati
               FROM assignment_groups ag
