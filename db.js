@@ -145,5 +145,16 @@ db.serialize(() => {
    'ALTER TABLE assignment_groups ADD COLUMN map_y REAL'
   ].forEach(function(sql){db.run(sql,function(err){
     if(err&&!err.message.includes('duplicate column name'))console.warn('migrate:',err.message);});});
+  db.run(`CREATE TABLE IF NOT EXISTS scan_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT NOT NULL,
+    result TEXT NOT NULL,
+    pass_id INTEGER,
+    participant_name TEXT,
+    group_name TEXT,
+    user_id INTEGER,
+    ip TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
 db.dbPath = dbPath;
 module.exports = db;

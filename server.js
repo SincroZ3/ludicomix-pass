@@ -1360,26 +1360,96 @@ app.get('/notifications',requireAuth,requireAdmin,function(req,res){db.run("UPDA
             LEFT JOIN pass_types pt ON pt.id = p.pass_type_id
             WHERE p.code = ?`, [code], (err, pass) => {
       if (err) return res.status(500).json({ error: 'Errore DB' });
-      if (!pass) return res.status(404).json({ error: 'Pass non trovato', code });
+      if (!pass) {
+        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        db.run('INSERT INTO scan_attempts(code,result,user_id,ip) VALUES(?,?,?,?)',
+          [code, 'NOT_FOUND', req.session.user.id, ip]);
+        return res.status(404).json({ error: 'Pass non trovato', code });
+      }
       res.json({ pass });
     });
   });
 
   app.post('/api/scan/:code/consegna', requireAuth, (req, res) => {
     const code = (req.params.code || '').trim().toUpperCase();
-    db.get('SELECT id, status FROM passes WHERE code = ?', [code], (err, pass) => {
-      if (err || !pass) return res.status(404).json({ error: 'Pass non trovato' });
-      if (pass.status === 'INVALIDATO') return res.status(400).json({ error: 'Pass invalidato', status: pass.status });
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const uid = req.session.user.id;
+    db.get(`SELECT p.id, p.status, pa.first_name, pa.last_name, ag.name AS group_name
+            FROM passes p
+            JOIN participants pa ON pa.id = p.participant_id
+            LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
+            WHERE p.code = ?`, [code], (err, pass) => {
+      if (err || !pass) {
+        db.run('INSERT INTO scan_attempts(code,result,user_id,ip) VALUES(?,?,?,?)',
+          [code, 'NOT_FOUND', uid, ip]);
+        return res.status(404).json({ error: 'Pass non trovato' });
+      }
+      const pname = pass.first_name + ' ' + pass.last_name;
+      if (pass.status === 'INVALIDATO') {
+        db.run('INSERT INTO scan_attempts(code,result,pass_id,participant_name,group_name,user_id,ip) VALUES(?,?,?,?,?,?,?)',
+          [code, 'INVALIDATO', pass.id, pname, pass.group_name, uid, ip]);
+        return res.status(400).json({ error: 'Pass invalidato', status: pass.status });
+      }
       if (pass.status === 'CONSEGNATO' || pass.status === 'RICONSEGNATO') {
-        return res.status(409).json({ error: 'Pass già ' + pass.status.toLowerCase(), status: pass.status });
+        db.run('INSERT INTO scan_attempts(code,result,pass_id,participant_name,group_name,user_id,ip) VALUES(?,?,?,?,?,?,?)',
+          [code, 'GIA_' + pass.status, pass.id, pname, pass.group_name, uid, ip]);
+        return res.status(409).json({ error: 'Pass gia\u0027 ' + pass.status.toLowerCase(), status: pass.status });
       }
       db.run('UPDATE passes SET status = ? WHERE id = ?', ['CONSEGNATO', pass.id], function(err2) {
         if (err2) return res.status(500).json({ error: 'Errore DB' });
-        logAction(req.session.user.id, 'scan_consegna', 'pass', pass.id, 'Pass CONSEGNATO via scanner QR');
-        db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',
-          [pass.id, 'CONSEGNATO', req.session.user.id]);
+        db.run('INSERT INTO scan_attempts(code,result,pass_id,participant_name,group_name,user_id,ip) VALUES(?,?,?,?,?,?,?)',
+          [code, 'SUCCESS', pass.id, pname, pass.group_name, uid, ip]);
+        logAction(uid, 'scan_consegna', 'pass', pass.id, 'Pass CONSEGNATO via scanner QR');
+        db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)', [pass.id, 'CONSEGNATO', uid]);
         res.json({ success: true, passId: pass.id });
       });
+    });
+  });
+
+// ── BATCH PDF gruppo ──
+  app.get('/assignment-groups/:id/batch-pdf', requireAuth, async (req, res) => {
+    const { PDFDocument } = require('pdf-lib');
+    const id = parseInt(req.params.id, 10);
+    db.get('SELECT name FROM assignment_groups WHERE id = ?', [id], (err, grp) => {
+      if (err || !grp) return res.status(404).send('Gruppo non trovato');
+      db.all(`SELECT p.pdf_file, pa.first_name, pa.last_name
+              FROM passes p
+              JOIN participants pa ON pa.id = p.participant_id
+              WHERE pa.assignment_group_id = ? AND p.pdf_file IS NOT NULL AND p.status != 'INVALIDATO'
+              ORDER BY pa.last_name, pa.first_name`, [id], async (err2, passes) => {
+        if (err2 || !passes || !passes.length)
+          return res.status(404).send('Nessun PDF disponibile per questo gruppo');
+        try {
+          const merged = await PDFDocument.create();
+          for (const p of passes) {
+            const fp = path.join(process.env.DATA_DIR || __dirname, 'generated', p.pdf_file);
+            if (!require('fs').existsSync(fp)) continue;
+            const bytes = require('fs').readFileSync(fp);
+            const doc = await PDFDocument.load(bytes);
+            const pages = await merged.copyPages(doc, doc.getPageIndices());
+            pages.forEach(pg => merged.addPage(pg));
+          }
+          const out = await merged.save();
+          const safeName = grp.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', 'attachment; filename="batch_' + safeName + '.pdf"');
+          res.send(Buffer.from(out));
+          logAction(req.session.user.id, 'batch_pdf', 'assignment_group', id,
+            'Batch PDF scaricato (' + passes.length + ' pass)');
+        } catch(e) {
+          res.status(500).send('Errore generazione PDF: ' + e.message);
+        }
+      });
+    });
+  });
+
+  // ── Cronologia tentativi scan ──
+  app.get('/scan-attempts', requireAuth, requireAdmin, (req, res) => {
+    db.all(`SELECT sa.*, u.username
+            FROM scan_attempts sa
+            LEFT JOIN users u ON u.id = sa.user_id
+            ORDER BY sa.id DESC LIMIT 500`, [], (err, rows) => {
+      res.render('scan_attempts', { attempts: rows || [] });
     });
   });
 
