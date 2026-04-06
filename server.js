@@ -176,14 +176,20 @@ function checkGroupLimit(gid){
           db.get("SELECT COUNT(*) as total FROM participants WHERE id NOT IN (SELECT DISTINCT participant_id FROM passes WHERE status!='INVALIDATO')",
             [], (e4, r4) => {
               const senzaPass = r4 ? r4.total : 0;
-              db.all(`SELECT ag.name, ag.max_passes, COUNT(p.id) as pass_count
+              db.all(`SELECT ag.id, ag.name, ag.zone, ag.max_passes,
+                COUNT(DISTINCT pa.id) AS participant_count,
+                COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0) AS pass_count
                 FROM assignment_groups ag
                 LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
                 LEFT JOIN passes p ON p.participant_id = pa.id
-                WHERE ag.max_passes IS NOT NULL AND ag.max_passes > 0
                 GROUP BY ag.id
-                HAVING CAST(pass_count AS FLOAT)/ag.max_passes >= 0.8
-                ORDER BY CAST(pass_count AS FLOAT)/ag.max_passes DESC LIMIT 5`,
+                HAVING
+                  (COUNT(DISTINCT pa.id)>0 AND COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0)=0)
+                  OR (ag.max_passes IS NOT NULL AND ag.max_passes>0 AND COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0)<ag.max_passes)
+                ORDER BY
+                  CASE WHEN COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0)=0 AND COUNT(DISTINCT pa.id)>0 THEN 0 ELSE 1 END ASC,
+                  (CASE WHEN ag.max_passes IS NOT NULL AND ag.max_passes>0 THEN ag.max_passes-COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0) ELSE 0 END) DESC
+                LIMIT 12`,
                 [], (e5, alertGroups) => {
                   db.all(`SELECT al.action, al.details, al.created_at, u.username
                     FROM action_logs al LEFT JOIN users u ON u.id = al.user_id
@@ -213,14 +219,20 @@ app.get('/home', requireAuth, (req, res) => {
           db.get("SELECT COUNT(*) as total FROM participants WHERE id NOT IN (SELECT DISTINCT participant_id FROM passes WHERE status!='INVALIDATO')",
             [], (e4, r4) => {
               const senzaPass = r4 ? r4.total : 0;
-              db.all(`SELECT ag.name, ag.max_passes, COUNT(p.id) as pass_count
+              db.all(`SELECT ag.id, ag.name, ag.zone, ag.max_passes,
+                COUNT(DISTINCT pa.id) AS participant_count,
+                COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0) AS pass_count
                 FROM assignment_groups ag
                 LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
                 LEFT JOIN passes p ON p.participant_id = pa.id
-                WHERE ag.max_passes IS NOT NULL AND ag.max_passes > 0
                 GROUP BY ag.id
-                HAVING CAST(pass_count AS FLOAT)/ag.max_passes >= 0.8
-                ORDER BY CAST(pass_count AS FLOAT)/ag.max_passes DESC LIMIT 5`,
+                HAVING
+                  (COUNT(DISTINCT pa.id)>0 AND COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0)=0)
+                  OR (ag.max_passes IS NOT NULL AND ag.max_passes>0 AND COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0)<ag.max_passes)
+                ORDER BY
+                  CASE WHEN COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0)=0 AND COUNT(DISTINCT pa.id)>0 THEN 0 ELSE 1 END ASC,
+                  (CASE WHEN ag.max_passes IS NOT NULL AND ag.max_passes>0 THEN ag.max_passes-COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0) ELSE 0 END) DESC
+                LIMIT 12`,
                 [], (e5, alertGroups) => {
                   db.all(`SELECT al.action, al.details, al.created_at, u.username
                     FROM action_logs al LEFT JOIN users u ON u.id = al.user_id
