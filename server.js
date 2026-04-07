@@ -1192,7 +1192,9 @@ app.get('/home', requireAuth, (req, res) => {
   app.get('/mappa', requireAuth, function(req, res) {
     db.all('SELECT * FROM zones ORDER BY sort_order, name', [], function(err, zones) {
       if (err) return res.status(500).send('Errore DB');
-      db.all(`SELECT ag.id, ag.name AS stand_name, ag.zone, ag.map_x, ag.map_y, ag.max_passes, ag.notes,
+      db.all(`SELECT ag.id, ag.name AS stand_name, ag.stand_name AS stand_loc, ag.stand_code,
+                ag.zone, ag.map_x, ag.map_y, ag.map_w, ag.map_h, ag.map_shape,
+                ag.max_passes, ag.notes,
                 COUNT(CASE WHEN p.status!='INVALIDATO' THEN 1 END) AS pass_count,
                 SUM(CASE WHEN p.status IN('CONSEGNATO','RICONSEGNATO') THEN 1 ELSE 0 END) AS consegnati
               FROM assignment_groups ag
@@ -1200,7 +1202,7 @@ app.get('/home', requireAuth, (req, res) => {
               LEFT JOIN passes p ON p.participant_id = pa.id
               GROUP BY ag.id ORDER BY ag.zone, ag.name`, [], function(err2, groups) {
         if (err2) return res.status(500).send('Errore DB');
-        res.render('mappa', { zones: zones||[], groups: groups||[], isAdmin: !!(req.session.user && req.session.user.role==='admin') });
+        res.render('mappa', { zones: zones||[], groups: groups||[], isAdmin: !!(req.session.user && req.session.user.role==='admin'), canEdit: !!(req.session.user && req.session.user.role !== 'viewer') });
       });
     });
   });
@@ -1243,8 +1245,18 @@ app.get('/home', requireAuth, (req, res) => {
     var id = parseInt(req.params.id, 10);
     var x = (req.body.map_x !== '' && req.body.map_x != null) ? parseFloat(req.body.map_x) : null;
     var y = (req.body.map_y !== '' && req.body.map_y != null) ? parseFloat(req.body.map_y) : null;
-    db.run('UPDATE assignment_groups SET map_x=?,map_y=? WHERE id=?', [x,y,id], function(err) {
-      res.json(err ? {error:err.message} : {ok:true});
+    var w = (req.body.map_w !== '' && req.body.map_w != null) ? parseFloat(req.body.map_w) : null;
+    var h = (req.body.map_h !== '' && req.body.map_h != null) ? parseFloat(req.body.map_h) : null;
+    var shape = (req.body.map_shape && req.body.map_shape.trim()) ? req.body.map_shape.trim() : null;
+    var fields = 'map_x=?, map_y=?';
+    var params = [x, y];
+    if (w !== null) { fields += ', map_w=?'; params.push(w); }
+    if (h !== null) { fields += ', map_h=?'; params.push(h); }
+    if (req.body.map_shape !== undefined) { fields += ', map_shape=?'; params.push(shape); }
+    params.push(id);
+    db.run('UPDATE assignment_groups SET ' + fields + ' WHERE id=?', params, function(err) {
+      if (err) return res.json({ ok: false, error: err.message });
+      res.json({ ok: true });
     });
   });
 

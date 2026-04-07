@@ -142,7 +142,10 @@ db.serialize(() => {
    'ALTER TABLE passes ADD COLUMN replaced_by INTEGER',
    'ALTER TABLE zones ADD COLUMN background_image TEXT',
    'ALTER TABLE assignment_groups ADD COLUMN map_x REAL',
-   'ALTER TABLE assignment_groups ADD COLUMN map_y REAL'
+   'ALTER TABLE assignment_groups ADD COLUMN map_y REAL',
+   'ALTER TABLE assignment_groups ADD COLUMN map_w REAL',
+   'ALTER TABLE assignment_groups ADD COLUMN map_h REAL',
+   'ALTER TABLE assignment_groups ADD COLUMN map_shape TEXT'
   ].forEach(function(sql){db.run(sql,function(err){
     if(err&&!err.message.includes('duplicate column name'))console.warn('migrate:',err.message);});});
   db.run(`CREATE TABLE IF NOT EXISTS scan_attempts (
