@@ -251,21 +251,59 @@ function saveXY(gid,x,y,zid){
   fetch('/admin/groups/'+gid+'/map-xy',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'map_x='+x.toFixed(2)+'&map_y='+y.toFixed(2)})
   .then(function(r){return r.json();}).then(function(d){
     if(!d.ok)return;
-    var old=document.getElementById('sbox-'+gid);if(old)old.remove();
-    var g=GDATA.find(function(x){return x.id==gid;});if(!g)return;
-    var box=document.createElement('div');
-    box.className='stand-box';box.id='sbox-'+gid;box.setAttribute('data-gid',gid);box.draggable=true;
-    box.style.cssText='left:'+x.toFixed(2)+'%;top:'+y.toFixed(2)+'%;background:'+gColor(g);
-    box.title='Doppio click per rimuovere dalla mappa';
-    box.innerHTML='<div class="sn">'+(g.stand_name||'')+'</div><div class="sp">'+(g.consegnati||0)+'/'+(g.pass_count||0)+'</div>';
-    box.addEventListener('dragstart',function(e){onDragStart(e,gid);});
-    box.addEventListener('dblclick',function(){removeFromMap(gid,zid);});
-    document.getElementById('map-area-'+zid).appendChild(box);
-    var hint=document.getElementById('hint-'+zid);if(hint)hint.style.display='none';
-    var ctr=document.getElementById('unp-count-'+zid);if(ctr)ctr.textContent=Math.max(0,parseInt(ctr.textContent)-1);
+    var g=GDATA.find(function(xx){return xx.id==gid;});if(!g)return;
+    g.map_x=x;g.map_y=y;
+    var existing=document.getElementById('sbox-'+gid);
+    var onMap=existing&&existing.closest('.map-area');
+    if(onMap){
+      // Già in mappa: aggiorna solo posizione, mantieni tutto il resto
+      existing.style.left=x.toFixed(2)+'%';
+      existing.style.top=y.toFixed(2)+'%';
+      existing.classList.remove('dragging');
+      // Se shape-edit attivo su questo stand, aggiorna SS e re-render handles
+      if(typeof SS!=='undefined'&&SS.active&&SS.gid==gid){
+        SS.mx=x;SS.my=y;
+        _renderHandles(existing.closest('.map-area'));
+      }
+    }else{
+      // Prima volta in mappa (viene dalla sidebar o da un'altra zona)
+      if(existing)existing.remove();
+      var box=_mkBox(g,x,y,zid);
+      document.getElementById('map-area-'+zid).appendChild(box);
+      var hint=document.getElementById('hint-'+zid);if(hint)hint.style.display='none';
+      var ctr=document.getElementById('unp-count-'+zid);if(ctr)ctr.textContent=Math.max(0,parseInt(ctr.textContent||'0')-1);
+    }
     showSaved();
   });
 }
+function _mkBox(g,x,y,zid){
+  var gid=g.id,gw=g.map_w||8,gh=g.map_h||5;
+  var box=document.createElement('div');
+  box.className='stand-box';box.id='sbox-'+gid;
+  box.setAttribute('data-gid',String(gid));
+  box.setAttribute('data-name',g.stand_name||'');
+  box.setAttribute('data-loc',g.stand_loc||'');
+  box.setAttribute('data-code',g.stand_code||'');
+  box.setAttribute('data-pc',String(g.pass_count||0));
+  box.setAttribute('data-cs',String(g.consegnati||0));
+  box.setAttribute('data-mp',String(g.max_passes||''));
+  box.setAttribute('data-mw',String(gw));
+  box.setAttribute('data-mh',String(gh));
+  if(g.notes)box.setAttribute('data-notes',g.notes.replace(/"/g,'&quot;').replace(/\n/g,'&#10;'));
+  if(g.map_shape)box.setAttribute('data-map-shape',g.map_shape);
+  box.draggable=true;
+  var sty='left:'+x.toFixed(2)+'%;top:'+y.toFixed(2)+'%;background:'+gColor(g)+';width:'+gw+'%;height:'+gh+'%;';
+  if(g.map_shape){try{var sp=JSON.parse(g.map_shape);sty+='clip-path:polygon('+sp.map(function(p){return p[0]+'% '+p[1]+'%';}).join(',')+')';}catch(e){}}
+  box.style.cssText=sty;
+  var nHtml=g.notes?'<span class="note-icon" onclick="event.stopPropagation();openNoteModal(event,\''+_ea(g.stand_name)+'\',\''+_ea(g.notes)+'\')">&#128221;</span>':'';
+  box.innerHTML=nHtml+'<div class="sn">'+(g.stand_name||'')+'</div><div class="sp">'+(g.consegnati||0)+'/'+(g.pass_count||0)+'</div>';
+  box.addEventListener('click',function(e){openStandPopup(e,box);});
+  box.addEventListener('dragstart',function(e){onDragStart(e,gid);});
+  box.addEventListener('dblclick',function(){removeFromMap(gid,zid);});
+  return box;
+}
+function _ea(s){return String(s||'').replace(/'/g,"&#39;").replace(/\n/g,"&#10;");}
+
 function removeFromMap(gid,zid){
   if(!confirm('Rimuovere dalla mappa?'))return;
   fetch('/admin/groups/'+gid+'/map-xy',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'map_x=&map_y='})
@@ -397,7 +435,7 @@ function enterShapeMode(gid){
   var el=document.getElementById('sbox-'+gid);
   if(!el)return;
   el.classList.add('shape-editing');
-  el.setAttribute('draggable','false');
+  // draggable resta true: l'utente può spostare lo stand anche in modalità modifica forma
   var ma=el.closest('.map-area');
   var tb=ma.querySelector('.shape-toolbar');
   if(tb){tb.querySelector('.stb-name').textContent=g.stand_name||'';tb.classList.add('active');}
@@ -409,7 +447,6 @@ function exitShapeMode(cancel){
   if(el){
     var ma=el.closest('.map-area');
     el.classList.remove('shape-editing');
-    el.setAttribute('draggable','true');
     if(cancel){
       var d=_md(ma);
       el.style.width=(SS.origMw/100*d.w)+'px';el.style.height=(SS.origMh/100*d.h)+'px';
