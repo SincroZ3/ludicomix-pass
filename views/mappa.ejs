@@ -7,8 +7,8 @@
 .ztab.active{background:var(--brand-dark,#1e2d4e);color:#fff;border-color:var(--brand-dark,#1e2d4e)}
 .ztab:hover:not(.active){border-color:var(--accent-blue);color:var(--accent-blue)}
 .zone-panel{display:none}.zone-panel.active{display:block}
-.map-wrap{display:flex;gap:1rem;align-items:flex-start}
-.map-area-wrap{flex:1;min-width:0}
+.map-wrap{display:block}
+.map-area-wrap{width:100%}
 .map-area{position:relative;width:100%;min-height:520px;background:#e8ecf3;border-radius:var(--radius-lg);border:2px dashed #ccd2df;background-size:contain;background-repeat:no-repeat;background-position:center top;overflow:hidden;transition:border-color .15s}
 .map-area.drag-over{border-color:var(--accent-blue);background-color:rgba(29,111,164,.04)}
 .map-area.has-bg{background-color:#f0f2f5}
@@ -62,12 +62,21 @@
 .tb-reset{background:rgba(255,160,0,.7);color:#fff}.tb-reset:hover{background:rgba(255,140,0,.9)}
 .stand-box .sn{font-size:.67rem;font-weight:800;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:100px}
 .stand-box .sp{font-size:.57rem;opacity:.85;margin-top:.1rem}
-.map-sidebar{width:210px;flex-shrink:0}
-.sidebar-title{font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:.6rem;display:flex;justify-content:space-between;align-items:center}
-.sidebar-box{background:var(--bg-white);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.45rem .6rem;margin-bottom:.4rem;font-size:.78rem;cursor:grab;transition:box-shadow .12s,border-color .12s}
-.sidebar-box:hover{box-shadow:var(--shadow-sm);border-color:var(--accent-blue)}.sidebar-box.dragging{opacity:.35}
-.sbn{font-weight:700;font-size:.78rem;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.sbm{font-size:.68rem;color:var(--text-muted);margin-top:.1rem}
+.map-sidebar{display:none} /* compatibilità — non più usata */
+/* Tray sotto mappa */
+.unp-tray{margin-top:.6rem;background:var(--bg-white,#fff);border:1px solid var(--border,#d1d9e6);border-radius:var(--radius-lg,10px);padding:.55rem .75rem}
+.unp-tray-hdr{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem}
+.unp-badge{background:var(--border);border-radius:9999px;padding:.1rem .45rem;font-size:.68rem;font-weight:700;color:var(--text-muted)}
+.unp-chips{display:flex;flex-wrap:wrap;gap:.35rem;max-height:192px;overflow-y:auto;padding-right:2px}
+.unp-chips.compact{max-height:none} /* no-scroll quando poche righe */
+.chip-box{display:flex;align-items:center;gap:.35rem;background:var(--bg-offset,#f3f0ec);border:1px solid var(--border,#d1d9e6);border-radius:6px;padding:.28rem .55rem;font-size:.75rem;cursor:grab;transition:box-shadow .1s,border-color .1s;user-select:none;max-width:160px}
+.chip-box:hover{box-shadow:0 2px 8px rgba(0,0,0,.12);border-color:var(--accent-blue,#1d6fa4)}
+.chip-box.dragging{opacity:.35}
+.chip-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.chip-info{min-width:0;overflow:hidden}
+.chip-name{font-weight:700;font-size:.73rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px}
+.chip-stat{font-size:.63rem;color:var(--text-muted);margin-top:.05rem}
+.chip-all-ok{font-size:.78rem;color:var(--text-muted);padding:.25rem 0}
 .map-empty-msg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-muted);font-size:.85rem;text-align:center;padding:2rem;gap:.5rem;pointer-events:none}
 .map-toolbar{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin-bottom:.6rem}
 .leg{display:inline-flex;padding:.2rem .65rem;border-radius:9999px;font-size:.75rem;font-weight:700;color:#fff}
@@ -166,24 +175,31 @@ var noZoneGroups=groups.filter(function(g){return !g.zone||zoneNames.indexOf(g.z
         <% } %>
       </div>
     </div>
-    <div class="map-sidebar">
-      <div class="sidebar-title">
-        <span>&#128204; Non posizionati</span>
-        <span id="unp-count-<%=z.id%>" style="background:var(--border);border-radius:9999px;padding:.1rem .45rem;font-size:.68rem;"><%=unpositioned.length%></span>
-      </div>
-      <div id="sidebar-<%=z.id%>">
-        <% if(unpositioned.length===0){ %>
-        <div style="font-size:.78rem;color:var(--text-muted);text-align:center;padding:.75rem 0;">&#10003; Tutti posizionati!</div>
-        <% }else{ unpositioned.forEach(function(g){ %>
-        <div class="sidebar-box" id="sbox-<%=g.id%>" data-gid="<%=g.id%>" style="border-left:3px solid <%=sc(g)%>"
-             <% if(isAdmin){ %>draggable="true" ondragstart="onDragStart(event,<%=g.id%>)"<% } %>>
-          <div class="sbn"><%=g.stand_name%><% if(g.notes){ %> <span onclick="openNoteModal(event,'<%=g.stand_name%>','<%=g.notes.replace(/'/g,"&#39;").replace(/\n/g,"&#10;")%>')" title="Vedi note" style="cursor:pointer;font-size:.75rem;">&#128221;</span><% } %></div>
-          <div class="sbm"><%=g.consegnati%>/<%=g.pass_count%> consegnati</div>
+  <!-- Tray gruppi non posizionati — sotto mappa, chip orizzontali -->
+  <% if(canEdit){ %>
+  <div class="unp-tray" id="tray-<%=z.id%>"<%if(unpositioned.length===0){%> style="display:none"<%}%>>
+    <div class="unp-tray-hdr">
+      &#128204; Non posizionati
+      <span id="unp-count-<%=z.id%>" class="unp-badge"><%=unpositioned.length%></span>
+      <span style="font-size:.65rem;font-weight:400;margin-left:.3rem;color:var(--text-muted)">&#8599; trascina sulla mappa</span>
+    </div>
+    <div class="unp-chips" id="sidebar-<%=z.id%>">
+      <% if(unpositioned.length===0){ %>
+        <span class="chip-all-ok">&#10003; Tutti posizionati!</span>
+      <% }else{ unpositioned.forEach(function(g){ %>
+        <div class="chip-box" id="sbox-<%=g.id%>" data-gid="<%=g.id%>"
+             draggable="true" ondragstart="onDragStart(event,<%=g.id%>)"
+             title="<%=g.stand_name%> &#8212; <%=g.consegnati%>/<%=g.pass_count%> pass">
+          <span class="chip-dot" style="background:<%=sc(g)%>"></span>
+          <div class="chip-info">
+            <div class="chip-name"><%=g.stand_name%></div>
+            <div class="chip-stat"><%=g.consegnati%>/<%=g.pass_count%> pass</div>
+          </div>
         </div>
-        <% });} %>
-      </div>
+      <% });} %>
     </div>
   </div>
+  <% } %>
 </div>
 <% }); %>
 
@@ -272,6 +288,13 @@ function saveXY(gid,x,y,zid){
       document.getElementById('map-area-'+zid).appendChild(box);
       var hint=document.getElementById('hint-'+zid);if(hint)hint.style.display='none';
       var ctr=document.getElementById('unp-count-'+zid);if(ctr)ctr.textContent=Math.max(0,parseInt(ctr.textContent||'0')-1);
+      // Nascondi tray se vuoto
+      var chips=document.getElementById('sidebar-'+zid);
+      var tray=document.getElementById('tray-'+zid);
+      if(tray&&chips&&chips.querySelectorAll('.chip-box').length===0){
+        chips.innerHTML='<span class="chip-all-ok">&#10003; Tutti posizionati!</span>';
+        tray.style.display='none';
+      }
     }
     showSaved();
   });
@@ -311,15 +334,22 @@ function removeFromMap(gid,zid){
     if(!d.ok)return;
     var box=document.getElementById('sbox-'+gid);if(box)box.remove();
     var g=GDATA.find(function(x){return x.id==gid;});if(!g)return;
+    g.map_x=null;g.map_y=null;
     var sb=document.getElementById('sidebar-'+zid);if(!sb)return;
-    var empty=sb.querySelector('[style*="Tutti posizionati"]');if(empty)empty.remove();
-    var sbox=document.createElement('div');
-    sbox.className='sidebar-box';sbox.id='sbox-'+gid;sbox.setAttribute('data-gid',gid);sbox.draggable=true;
-    sbox.style.borderLeft='3px solid '+gColor(g);
-    sbox.innerHTML='<div class="sbn">'+(g.stand_name||'')+'</div><div class="sbm">'+(g.consegnati||0)+'/'+(g.pass_count||0)+' consegnati</div>';
-    sbox.addEventListener('dragstart',function(e){onDragStart(e,gid);});
-    sb.appendChild(sbox);
-    var ctr=document.getElementById('unp-count-'+zid);if(ctr)ctr.textContent=parseInt(ctr.textContent)+1;
+    // Rimuovi messaggio "tutti posizionati" se presente
+    var ok=sb.querySelector('.chip-all-ok');if(ok)ok.remove();
+    // Crea chip
+    var chip=document.createElement('div');
+    chip.className='chip-box';chip.id='sbox-'+gid;chip.setAttribute('data-gid',gid);
+    chip.draggable=true;chip.title=(g.stand_name||'')+'  — '+(g.consegnati||0)+'/'+(g.pass_count||0)+' pass';
+    chip.innerHTML='<span class="chip-dot" style="background:'+gColor(g)+';width:8px;height:8px;border-radius:50%;flex-shrink:0"></span>'
+      +'<div class="chip-info"><div class="chip-name">'+(g.stand_name||'')+'</div>'
+      +'<div class="chip-stat">'+(g.consegnati||0)+'/'+(g.pass_count||0)+' pass</div></div>';
+    chip.addEventListener('dragstart',function(e){onDragStart(e,gid);});
+    sb.appendChild(chip);
+    // Mostra il tray se era nascosto
+    var tray=document.getElementById('tray-'+zid);if(tray)tray.style.display='';
+    var ctr=document.getElementById('unp-count-'+zid);if(ctr)ctr.textContent=parseInt(ctr.textContent||'0')+1;
     showSaved();
   });
 }
@@ -558,4 +588,18 @@ document.addEventListener('touchend',function(){SS.dragging=-1;});
 </script>
 <% } %>
 
+
+<script>
+// Auto-detect se il tray va in scroll (>4 righe)
+(function(){
+  function checkTrays(){
+    document.querySelectorAll('.unp-chips').forEach(function(chips){
+      var lineH=40; // altezza stimata chip+gap
+      chips.classList.toggle('compact', chips.scrollHeight<=lineH*4+8);
+    });
+  }
+  checkTrays();
+  window.addEventListener('resize',checkTrays);
+})();
+</script>
 <%- include('partials/footer') %>
