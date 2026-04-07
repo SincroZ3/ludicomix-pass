@@ -145,7 +145,7 @@ db.serialize(() => {
    'ALTER TABLE assignment_groups ADD COLUMN map_y REAL',
    'ALTER TABLE assignment_groups ADD COLUMN map_w REAL',
    'ALTER TABLE assignment_groups ADD COLUMN map_h REAL',
-   'ALTER TABLE assignment_groups ADD COLUMN map_shape TEXT'
+   'ALTER TABLE assignment_groups ADD COLUMN map_shape TEXT',
    'ALTER TABLE assignment_groups ADD COLUMN max_auto_passes INTEGER DEFAULT 0'
   ].forEach(function(sql){db.run(sql,function(err){
     if(err&&!err.message.includes('duplicate column name'))console.warn('migrate:',err.message);});});
