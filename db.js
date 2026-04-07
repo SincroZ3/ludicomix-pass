@@ -146,8 +146,25 @@ db.serialize(() => {
    'ALTER TABLE assignment_groups ADD COLUMN map_w REAL',
    'ALTER TABLE assignment_groups ADD COLUMN map_h REAL',
    'ALTER TABLE assignment_groups ADD COLUMN map_shape TEXT'
+   'ALTER TABLE assignment_groups ADD COLUMN max_auto_passes INTEGER DEFAULT 0'
   ].forEach(function(sql){db.run(sql,function(err){
     if(err&&!err.message.includes('duplicate column name'))console.warn('migrate:',err.message);});});
+  db.run(`CREATE TABLE IF NOT EXISTS auto_passes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    assignment_group_id INTEGER NOT NULL,
+    code TEXT UNIQUE,
+    status TEXT DEFAULT 'GENERATO',
+    pdf_file TEXT,
+    pass_number INTEGER,
+    total_passes INTEGER,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id)
+  )`);
+  /* Seed impostazioni coordinate pass auto (tutte ignorabili se già presenti) */
+  [['ap_template',''],['ap_esp_x','350'],['ap_esp_y','125'],['ap_esp_size','20'],
+   ['ap_num_x','95'],['ap_num_y','125'],['ap_tot_x','95'],['ap_tot_y','95'],
+   ['ap_qr_x','660'],['ap_qr_y','45'],['ap_qr_size','80']
+  ].forEach(function(p){db.run('INSERT OR IGNORE INTO app_settings(key,value)VALUES(?,?)',p);});
   db.run(`CREATE TABLE IF NOT EXISTS scan_attempts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     code TEXT NOT NULL,

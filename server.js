@@ -352,7 +352,9 @@ app.get('/home', requireAuth, (req, res) => {
           const importSkip = req.query.import_skip ? parseInt(req.query.import_skip,10) : null;
           const importErrs = req.query.import_errs ? decodeURIComponent(req.query.import_errs).split('|') : [];
           const replaceOk  = req.query.replace_ok === '1';
-          res.render('assignment_group_detail', { groupInfo, types, participants, PASS_STATUSES, dupSkipped, dupTotal, zones: zones || [], importOk, importSkip, importErrs, replaceOk });
+          db.all('SELECT * FROM auto_passes WHERE assignment_group_id=? ORDER BY pass_number',[id],(e_ap,autoPasses)=>{
+              res.render('assignment_group_detail', { groupInfo, types, participants, PASS_STATUSES, dupSkipped, dupTotal, zones: zones || [], importOk, importSkip, importErrs, replaceOk, autoPasses: autoPasses||[] });
+            });
         });
         });
       });
@@ -1058,7 +1060,10 @@ app.get('/home', requireAuth, (req, res) => {
             db.all("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'",[],function(e5,smtpRows){
               var smtp={}; (smtpRows||[]).forEach(function(r){smtp[r.key]=r.value;});
               db.all('SELECT sa.*,u.username FROM scan_attempts sa LEFT JOIN users u ON u.id=sa.user_id ORDER BY sa.id DESC LIMIT 500',[],function(errSA,scanAttempts){
-              res.render('admin_settings',{groups,types,zones,users,smtp,scanAttempts:scanAttempts||[]});
+              db.all('SELECT * FROM app_settings',[],function(e_ap,apRows){
+              const apSettings={};(apRows||[]).forEach(r=>{apSettings[r.key]=r.value;});
+              res.render('admin_settings',{groups,types,zones,users,smtp,scanAttempts:scanAttempts||[],apSettings});
+            });
             });
             });
           });
@@ -1694,6 +1699,185 @@ app.get('/search', requireAuth, (req, res) => {
 
   app.get('/account/security', requireAuth, (req, res) => {
     res.render('security');
+  });
+
+
+  // ════════════════════════════════════════════════
+  // AUTO-PASS (pass parcheggio per gruppo)
+  // ════════════════════════════════════════════════
+
+  // Funzione generazione PDF auto-pass
+  async function generateAutoPass(group, passNumber, totalPasses, apSettings) {
+    const templatePath = path.join(process.env.DATA_DIR || __dirname, 'templates', apSettings.ap_template || 'auto_pass_template.pdf');
+    if (!require('fs').existsSync(templatePath)) throw new Error('Template auto-pass non trovato. Caricalo nelle Impostazioni > Pass Auto.');
+    const templateBytes = require('fs').readFileSync(templatePath);
+    const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
+    const pdfDoc = await PDFDocument.load(templateBytes);
+    const page = pdfDoc.getPages()[0];
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const standName = sanitizeForPdf((group.stand_name || group.name || '').toUpperCase());
+    const N = parseInt(apSettings.ap_esp_size||20,10);
+    // Nome espositore
+    page.drawText(standName, { x: parseInt(apSettings.ap_esp_x||350,10), y: parseInt(apSettings.ap_esp_y||125,10), size: N, font: boldFont, color: rgb(0,0,0) });
+    // n. X
+    page.drawText(String(passNumber), { x: parseInt(apSettings.ap_num_x||95,10), y: parseInt(apSettings.ap_num_y||125,10), size: N, font: boldFont, color: rgb(0,0,0) });
+    // di Y
+    page.drawText(String(totalPasses), { x: parseInt(apSettings.ap_tot_x||95,10), y: parseInt(apSettings.ap_tot_y||95,10), size: N, font: boldFont, color: rgb(0,0,0) });
+    // QR tracking
+    const code = generateRandomCode(18);
+    const bwipjs = require('bwip-js');
+    const qrPng = await bwipjs.toBuffer({ bcid:'qrcode', text:code, scale:4, backgroundcolor:'FFFFFF' });
+    const qrImg = await pdfDoc.embedPng(qrPng);
+    const qrSz = parseInt(apSettings.ap_qr_size||80,10);
+    page.drawImage(qrImg, { x: parseInt(apSettings.ap_qr_x||660,10), y: parseInt(apSettings.ap_qr_y||45,10), width: qrSz, height: qrSz });
+    const pdfBytes = await pdfDoc.save();
+    return { pdfBytes, code };
+  }
+
+  // Aggiorna o imposta max_auto_passes per il gruppo
+  app.post('/assignment-groups/:id/max-auto-passes', requireAuth, requireNotViewer, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const val = Math.max(0, parseInt(req.body.max_auto_passes||0,10));
+    db.run('UPDATE assignment_groups SET max_auto_passes=? WHERE id=?',[val,id], err=>{
+      if(err) return res.status(500).json({ok:false});
+      logAction(req.session.user.id,'set_max_auto_passes','assignment_group',id,'Limite auto-pass impostato a '+val);
+      res.redirect('/assignment-groups/'+id);
+    });
+  });
+
+  // Genera auto-pass per il gruppo
+  app.post('/assignment-groups/:id/auto-passes/generate', requireAuth, requireNotViewer, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    db.get('SELECT ag.*, g.name AS category_name FROM assignment_groups ag JOIN groups g ON g.id=ag.group_id WHERE ag.id=?',[id],(err,group)=>{
+      if(err||!group) return res.status(404).send('Gruppo non trovato');
+      const total = group.max_auto_passes||0;
+      if(total<1) return res.status(400).send('Imposta prima il numero massimo di pass auto per questo gruppo.');
+      db.all('SELECT * FROM app_settings',[],async(e2,rows)=>{
+        const S = {};
+        (rows||[]).forEach(r=>{ S[r.key]=r.value; });
+        // Invalida vecchi (se presenti)
+        db.run("UPDATE auto_passes SET status='INVALIDATO' WHERE assignment_group_id=?",[id],async()=>{
+          // Cancella PDF vecchi
+          db.all('SELECT pdf_file FROM auto_passes WHERE assignment_group_id=?',[id],(e3,oldPasses)=>{
+            (oldPasses||[]).forEach(op=>{ if(op.pdf_file){ try{ require('fs').unlinkSync(path.join(process.env.DATA_DIR||__dirname,'generated',op.pdf_file)); }catch(_){} } });
+          });
+          db.run('DELETE FROM auto_passes WHERE assignment_group_id=?',[id],async()=>{
+            const generated = [];
+            try {
+              for(let i=1;i<=total;i++){
+                const {pdfBytes, code} = await generateAutoPass(group, i, total, S);
+                const filename = 'autopass_'+id+'_'+i+'_'+Date.now()+'.pdf';
+                require('fs').writeFileSync(path.join(process.env.DATA_DIR||__dirname,'generated',filename),pdfBytes);
+                await new Promise((resolve,reject)=>{
+                  db.run('INSERT INTO auto_passes(assignment_group_id,code,status,pdf_file,pass_number,total_passes)VALUES(?,?,?,?,?,?)',
+                    [id,code,'GENERATO',filename,i,total],function(e4){ if(e4)reject(e4); else resolve(this.lastID); });
+                });
+                logAction(req.session.user.id,'generate_auto_pass','assignment_group',id,'Auto-pass '+i+'/'+total+' generato per '+group.name);
+              }
+              res.redirect('/assignment-groups/'+id+'?ap_ok=1');
+            } catch(ex) {
+              res.status(500).send('Errore generazione: '+ex.message);
+            }
+          });
+        });
+      });
+    });
+  });
+
+  // Download PDF singolo auto-pass
+  app.get('/auto-passes/:id/pdf', requireAuth, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    db.get('SELECT ap.*, ag.name AS group_name FROM auto_passes ap JOIN assignment_groups ag ON ag.id=ap.assignment_group_id WHERE ap.id=?',[id],(err,ap)=>{
+      if(err||!ap||!ap.pdf_file) return res.status(404).send('Pass non trovato');
+      const fpath = path.join(process.env.DATA_DIR||__dirname,'generated',ap.pdf_file);
+      if(!require('fs').existsSync(fpath)) return res.status(404).send('File non trovato');
+      db.run("UPDATE auto_passes SET status='SCARICATO' WHERE id=? AND status='GENERATO'",[id]);
+      db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[id,'SCARICATO',req.session.user.id]);
+      logAction(req.session.user.id,'download_auto_pass','auto_pass',id,'Auto-pass scaricato');
+      res.download(fpath, 'pass_auto_'+ap.group_name+'_'+ap.pass_number+'.pdf');
+    });
+  });
+
+  // Batch PDF auto-pass gruppo
+  app.get('/assignment-groups/:id/auto-passes/batch-pdf', requireAuth, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    db.all("SELECT * FROM auto_passes WHERE assignment_group_id=? AND status!='INVALIDATO' ORDER BY pass_number",[id],async(err,passes)=>{
+      if(err||!passes.length) return res.status(404).send('Nessun auto-pass disponibile');
+      const { PDFDocument } = require('pdf-lib');
+      const merged = await PDFDocument.create();
+      for(const p of passes){
+        const fpath = path.join(process.env.DATA_DIR||__dirname,'generated',p.pdf_file||'');
+        if(!require('fs').existsSync(fpath)) continue;
+        const bytes = require('fs').readFileSync(fpath);
+        const src = await PDFDocument.load(bytes);
+        const [page] = await merged.copyPages(src,[0]);
+        merged.addPage(page);
+        if(p.status==='GENERATO') db.run("UPDATE auto_passes SET status='SCARICATO' WHERE id=?",[p.id]);
+      }
+      const out = await merged.save();
+      db.get('SELECT name FROM assignment_groups WHERE id=?',[id],(e2,g)=>{
+        logAction(req.session.user.id,'batch_auto_pass','assignment_group',id,'Batch auto-pass scaricato');
+        res.setHeader('Content-Type','application/pdf');
+        res.setHeader('Content-Disposition','attachment; filename="autopass_batch_'+encodeURIComponent(g?g.name:'gruppo')+'.pdf"');
+        res.send(Buffer.from(out));
+      });
+    });
+  });
+
+  // Aggiorna stato auto-pass
+  app.post('/auto-passes/:id/status', requireAuth, requireNotViewer, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const {status} = req.body;
+    const valid = ['SCARICATO','STAMPATO','CONSEGNATO','RICONSEGNATO'];
+    if(!valid.includes(status)) return res.status(400).send('Stato non valido');
+    db.run("UPDATE auto_passes SET status=? WHERE id=? AND status!='INVALIDATO'",[status,id], err=>{
+      if(err) return res.status(500).send('Errore DB');
+      db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[id,status,req.session.user.id]);
+      logAction(req.session.user.id,'status_auto_pass','auto_pass',id,'Stato auto-pass aggiornato a '+status);
+      db.get('SELECT assignment_group_id FROM auto_passes WHERE id=?',[id],(e2,ap)=>{
+        res.redirect('/assignment-groups/'+(ap?ap.assignment_group_id:'')); });
+    });
+  });
+
+  // Invalida auto-pass
+  app.post('/auto-passes/:id/invalidate', requireAuth, requireAdmin, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    db.run("UPDATE auto_passes SET status='INVALIDATO' WHERE id=?",[id], err=>{
+      if(err) return res.status(500).send('Errore DB');
+      logAction(req.session.user.id,'invalidate_auto_pass','auto_pass',id,'Auto-pass invalidato');
+      db.get('SELECT assignment_group_id FROM auto_passes WHERE id=?',[id],(e2,ap)=>{
+        res.redirect('/assignment-groups/'+(ap?ap.assignment_group_id:'')); });
+    });
+  });
+
+  // Upload template PDF auto-pass (admin only)
+  app.post('/admin/settings/auto-pass-template', requireAuth, requireAdmin,
+    require('multer')({dest: path.join(process.env.DATA_DIR||__dirname,'uploads','tmp')}).single('auto_pass_template'),
+    (req, res) => {
+      if(!req.file) return res.status(400).send('File richiesto');
+      const ext = path.extname(req.file.originalname).toLowerCase();
+      if(ext!=='.pdf') { require('fs').unlinkSync(req.file.path); return res.status(400).send('Solo file PDF'); }
+      const dest = path.join(process.env.DATA_DIR||__dirname,'templates','auto_pass_template.pdf');
+      require('fs').mkdirSync(path.dirname(dest),{recursive:true});
+      require('fs').copyFileSync(req.file.path, dest);
+      require('fs').unlinkSync(req.file.path);
+      db.run("INSERT OR REPLACE INTO app_settings(key,value)VALUES('ap_template','auto_pass_template.pdf')",()=>{
+        logAction(req.session.user.id,'upload_auto_pass_template','settings',0,'Template auto-pass aggiornato');
+        res.redirect('/admin/settings?tab=auto_pass&saved=1');
+      });
+    });
+
+  // Salva coordinate auto-pass
+  app.post('/admin/settings/auto-pass-coords', requireAuth, requireAdmin, (req, res) => {
+    const keys = ['ap_esp_x','ap_esp_y','ap_esp_size','ap_num_x','ap_num_y','ap_tot_x','ap_tot_y','ap_qr_x','ap_qr_y','ap_qr_size'];
+    let done = 0;
+    keys.forEach(k=>{
+      if(req.body[k]!==undefined){
+        db.run("INSERT OR REPLACE INTO app_settings(key,value)VALUES(?,?)",[k,parseInt(req.body[k],10)||0],()=>{
+          if(++done===keys.length) res.redirect('/admin/settings?tab=auto_pass&saved=1');
+        });
+      } else { if(++done===keys.length) res.redirect('/admin/settings?tab=auto_pass&saved=1'); }
+    });
   });
 
   app.listen(PORT, () => {
