@@ -40,6 +40,9 @@ function checkGroupLimit(gid){
   const app = express();
   const PORT = process.env.PORT || 8080;
 
+  // ✅ FIX: Railway usa reverse proxy - necessario per express-rate-limit e sessioni sicure
+  app.set('trust proxy', 1);
+
   const DATA_DIR = process.env.DATA_DIR || __dirname;
   ['templates', 'generated'].forEach((dir) => {
     const fullPath = path.join(DATA_DIR, dir);
@@ -77,6 +80,7 @@ function checkGroupLimit(gid){
     message: 'Troppi tentativi di accesso. Riprova tra 15 minuti.',
     standardHeaders: true,
     legacyHeaders: false,
+    validate: { xForwardedForHeader: false },
   });
   app.use('/login', loginLimiter);
 
