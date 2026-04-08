@@ -420,6 +420,101 @@
   <% } %>
 </div>
 
+<!-- ════ SEZIONE PASS AUTO/PARCHEGGIO ════ -->
+<div class="card" style="margin-bottom:1.5rem;">
+  <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.9rem;flex-wrap:wrap;">
+    <h3 style="margin:0;font-size:.95rem;">&#128664; Pass Parcheggio</h3>
+    <% const apActive = autoPasses && autoPasses.filter(p=>p.status!='INVALIDATO').length; %>
+    <% if(apActive){ %>
+      <span class="chip" style="background:#e0f2fe;color:#0369a1;"><%=apActive%> attivi</span>
+    <% } %>
+    <% if(groupInfo.max_auto_passes){ %>
+      <span class="chip" style="background:#f0fdf4;color:#166534;">Limite: <%=groupInfo.max_auto_passes%></span>
+    <% } %>
+  </div>
+
+  <% if(!isViewer){ %>
+  <form method="POST" action="/assignment-groups/<%=groupInfo.id%>/max-auto-passes"
+        style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.85rem;">
+    <label style="font-size:.82rem;font-weight:600;">Max pass parcheggio:
+      <input type="number" name="max_auto_passes" value="<%=groupInfo.max_auto_passes||0%>" min="0" max="99"
+             style="width:70px;padding:.28rem .45rem;border:1px solid var(--border);border-radius:6px;font-size:.84rem;margin-left:.35rem;">
+    </label>
+    <button type="submit" class="btn" style="font-size:.78rem;padding:.3rem .75rem;">&#128190; Salva</button>
+  </form>
+  <% if(groupInfo.max_auto_passes > 0){ %>
+  <form method="POST" action="/assignment-groups/<%=groupInfo.id%>/auto-passes/generate"
+        onsubmit="return !(autoPasses&&autoPasses.length)||confirm('I pass parcheggio esistenti verranno invalidati e rigenerati. Procedere?')"
+        style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem;">
+    <button type="submit" class="btn btn-primary" style="font-size:.82rem;padding:.38rem .9rem;">
+      &#9889; <%= (autoPasses&&autoPasses.length)?'Rigenera':'Genera' %> <%=groupInfo.max_auto_passes%> pass parcheggio
+    </button>
+    <% if(autoPasses&&autoPasses.length){ %>
+      <a href="/assignment-groups/<%=groupInfo.id%>/auto-passes/batch-pdf"
+         style="display:inline-flex;align-items:center;gap:.35rem;padding:.38rem .9rem;background:#1e2d4e;color:#fff;border-radius:7px;font-size:.8rem;font-weight:700;text-decoration:none;">
+        &#128438; Stampa tutti
+      </a>
+    <% } %>
+  </form>
+  <% } %>
+  <% } %>
+
+  <% if(autoPasses && autoPasses.length){ %>
+  <table style="width:100%;border-collapse:collapse;font-size:.8rem;">
+    <thead>
+      <tr style="background:var(--bg-offset,#f3f0ec);">
+        <th style="padding:.4rem .6rem;text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);">N.</th>
+        <th style="padding:.4rem .6rem;text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);">Codice</th>
+        <th style="padding:.4rem .6rem;text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);">Stato</th>
+        <th style="padding:.4rem .6rem;text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);">Azioni</th>
+      </tr>
+    </thead>
+    <tbody>
+    <% autoPasses.forEach(function(ap){ %>
+    <tr style="border-bottom:1px solid var(--border-light,#e8ecf3);<% if(ap.status==='INVALIDATO'){%>opacity:.45;<% } %>">
+      <td style="padding:.4rem .6rem;font-weight:700;"><%=ap.pass_number%>&nbsp;<span style="color:var(--text-muted);font-weight:400;">di <%=ap.total_passes%></span></td>
+      <td style="padding:.4rem .6rem;"><code style="font-size:.72rem;"><%=(ap.code||'—').substring(0,12)%>&hellip;</code></td>
+      <td style="padding:.4rem .6rem;">
+        <%
+          const apCols={GENERATO:'#e0e7ff|#3730a3',SCARICATO:'#dbeafe|#1d4ed8',STAMPATO:'#fef9c3|#854d0e',
+                         CONSEGNATO:'#dcfce7|#166534',RICONSEGNATO:'#f0fdf4|#15803d',INVALIDATO:'#fee2e2|#991b1b'};
+          const [apBg,apFg]=(apCols[ap.status]||'#f3f4f6|#374151').split('|');
+        %>
+        <span style="display:inline-block;padding:.15rem .5rem;border-radius:9999px;font-size:.68rem;font-weight:700;background:<%=apBg%>;color:<%=apFg%>;"><%=ap.status%></span>
+      </td>
+      <td style="padding:.4rem .6rem;">
+        <div style="display:flex;gap:.35rem;flex-wrap:wrap;align-items:center;">
+          <% if(ap.status!=='INVALIDATO'){ %>
+          <a href="/auto-passes/<%=ap.id%>/pdf" style="font-size:.72rem;padding:.2rem .5rem;background:#1e2d4e;color:#fff;border-radius:5px;text-decoration:none;">&#128438; PDF</a>
+          <% if(!isViewer){ %>
+          <% const APnext={GENERATO:'SCARICATO',SCARICATO:'STAMPATO',STAMPATO:'CONSEGNATO',CONSEGNATO:'RICONSEGNATO'}; %>
+          <% if(APnext[ap.status]){ %>
+          <form method="POST" action="/auto-passes/<%=ap.id%>/status" style="display:inline">
+            <input type="hidden" name="status" value="<%=APnext[ap.status]%>">
+            <button type="submit" style="font-size:.72rem;padding:.2rem .5rem;background:#2d6a4f;color:#fff;border:none;border-radius:5px;cursor:pointer;">&#8594; <%=APnext[ap.status]%></button>
+          </form>
+          <% } %>
+          <% if(currentUser && currentUser.role==='admin'){ %>
+          <form method="POST" action="/auto-passes/<%=ap.id%>/invalidate" style="display:inline" onsubmit="return confirm('Invalidare questo pass parcheggio?')">
+            <button type="submit" style="font-size:.72rem;padding:.2rem .5rem;background:#dc2626;color:#fff;border:none;border-radius:5px;cursor:pointer;">&#128683;</button>
+          </form>
+          <% } %>
+          <% } %>
+          <% } %>
+        </div>
+      </td>
+    </tr>
+    <% }); %>
+    </tbody>
+  </table>
+  <% }else{ %>
+    <p style="font-size:.8rem;color:var(--text-muted);margin:0;">
+      <% if(groupInfo.max_auto_passes>0){ %>&#9888;&#65039; Nessun pass parcheggio generato ancora.
+      <% }else{ %>Imposta il numero massimo di pass parcheggio per abilitare la generazione.<% } %>
+    </p>
+  <% } %>
+</div>
+
 <!-- MODALE STALLO ALLA MESSICANA -->
 <div class="modal-overlay" id="modal-stallo" style="display:none">
   <div class="modal" style="max-width:540px;">

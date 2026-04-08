@@ -302,6 +302,46 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
   </div>
   <% } %>
 
+  <!-- ═══ PASS PARCHEGGIO ═══ -->
+  <% if(autoPasses && autoPasses.length > 0){ %>
+  <div style="margin-top:1.6rem;">
+    <div class="sec-title" style="color:var(--navy);display:flex;align-items:center;gap:.5rem;">
+      &#128664; Pass Parcheggio
+      <span style="font-size:.65rem;background:#e0e7ff;color:#3730a3;padding:.15rem .5rem;border-radius:9999px;font-weight:700;"><%=autoPasses.length%> assegnati</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.75rem;">
+      <% autoPasses.forEach(function(ap){ %>
+      <div style="background:var(--surface);border:1px solid var(--border-light);border-radius:var(--radius-sm);
+                  box-shadow:var(--shadow);padding:1rem 1.1rem;display:flex;flex-direction:column;gap:.65rem;">
+        <div style="display:flex;align-items:center;gap:.6rem;">
+          <div style="width:36px;height:36px;border-radius:50%;background:#e0e7ff;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">&#128664;</div>
+          <div>
+            <div style="font-weight:700;font-size:.88rem;">Pass Parcheggio</div>
+            <div style="font-size:.7rem;color:var(--muted);">n. <%=ap.pass_number%> di <%=ap.total_passes%></div>
+          </div>
+        </div>
+        <%
+          const apColors={GENERATO:'#e0e7ff|#3730a3',SCARICATO:'#dbeafe|#1d4ed8',STAMPATO:'#fef9c3|#854d0e',
+                          CONSEGNATO:'#dcfce7|#166534',RICONSEGNATO:'#f0fdf4|#15803d'};
+          const [apBg,apFg]=(apColors[ap.status]||'#f3f4f6|#374151').split('|');
+        %>
+        <div>
+          <span style="display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .55rem;border-radius:9999px;font-size:.67rem;font-weight:700;background:<%=apBg%>;color:<%=apFg%>;">
+            <span style="width:6px;height:6px;border-radius:50%;background:<%=apFg%>;display:inline-block;"></span>
+            <%=ap.status%>
+          </span>
+        </div>
+        <a href="/portale/<%= token %>/download-auto/<%= ap.id %>" class="btn-dl" target="_blank"
+           style="display:flex;align-items:center;justify-content:center;gap:.4rem;background:var(--navy);color:#fff;
+                  border-radius:var(--radius-xs);padding:.5rem .9rem;font-size:.78rem;font-weight:700;text-decoration:none;">
+          &#11015;&#65039;&nbsp; Scarica PDF
+        </a>
+      </div>
+      <% }); %>
+    </div>
+  </div>
+  <% } %>
+
   <div class="footer">
     <strong>Ludicomix</strong> &mdash; Portale Espositore &middot; Per assistenza contatta l&rsquo;organizzazione
   </div>

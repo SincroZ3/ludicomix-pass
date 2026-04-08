@@ -13,6 +13,7 @@
     <button type="button" class="pill-tab" data-tab="backup">&#128190; Backup &amp; Restore</button>
   <button type="button" class="pill-tab" data-tab="utenti">&#128100; Gestione Utenti</button>
   <button type="button" class="pill-tab" data-tab="auto_pass">&#128664; Pass Auto</button>
+  <button type="button" class="pill-tab" data-tab="auto_pass">&#128664; Pass Auto</button>
   <button type="button" class="pill-tab" data-tab="scan">&#128269; Tentativi Scan</button>
 </div>
 
@@ -486,6 +487,55 @@
     <form method="POST" action="/admin/settings/auto-pass-coords">
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem;margin-bottom:1rem;">
         <% const apS = apSettings||{}; %>
+        <label style="font-size:.8rem;display:grid;gap:.2rem;">Nome espositore X<input type="number" name="ap_esp_x" value="<%=apS.ap_esp_x||350%>" class="form-control" style="font-size:.82rem;padding:.3rem .5rem;"></label>
+        <label style="font-size:.8rem;display:grid;gap:.2rem;">Nome espositore Y<input type="number" name="ap_esp_y" value="<%=apS.ap_esp_y||125%>" class="form-control" style="font-size:.82rem;padding:.3rem .5rem;"></label>
+        <label style="font-size:.8rem;display:grid;gap:.2rem;">Dimensione font (pt)<input type="number" name="ap_esp_size" value="<%=apS.ap_esp_size||20%>" class="form-control" style="font-size:.82rem;padding:.3rem .5rem;"></label>
+        <label style="font-size:.8rem;display:grid;gap:.2rem;">Numero pass X<input type="number" name="ap_num_x" value="<%=apS.ap_num_x||95%>" class="form-control" style="font-size:.82rem;padding:.3rem .5rem;"></label>
+        <label style="font-size:.8rem;display:grid;gap:.2rem;">Numero pass Y<input type="number" name="ap_num_y" value="<%=apS.ap_num_y||125%>" class="form-control" style="font-size:.82rem;padding:.3rem .5rem;"></label>
+        <label style="font-size:.8rem;display:grid;gap:.2rem;">Totale ("di") X<input type="number" name="ap_tot_x" value="<%=apS.ap_tot_x||95%>" class="form-control" style="font-size:.82rem;padding:.3rem .5rem;"></label>
+        <label style="font-size:.8rem;display:grid;gap:.2rem;">Totale ("di") Y<input type="number" name="ap_tot_y" value="<%=apS.ap_tot_y||95%>" class="form-control" style="font-size:.82rem;padding:.3rem .5rem;"></label>
+        <label style="font-size:.8rem;display:grid;gap:.2rem;">QR tracking X<input type="number" name="ap_qr_x" value="<%=apS.ap_qr_x||660%>" class="form-control" style="font-size:.82rem;padding:.3rem .5rem;"></label>
+        <label style="font-size:.8rem;display:grid;gap:.2rem;">QR tracking Y<input type="number" name="ap_qr_y" value="<%=apS.ap_qr_y||45%>" class="form-control" style="font-size:.82rem;padding:.3rem .5rem;"></label>
+        <label style="font-size:.8rem;display:grid;gap:.2rem;">QR tracking dimensione<input type="number" name="ap_qr_size" value="<%=apS.ap_qr_size||80%>" class="form-control" style="font-size:.82rem;padding:.3rem .5rem;"></label>
+      </div>
+      <button type="submit" class="btn btn-primary" style="font-size:.8rem;padding:.38rem .9rem;">&#10003; Salva coordinate</button>
+    </form>
+  </div>
+</div>
+
+
+<div id="panel-auto_pass" class="settings-panel" style="display:none;">
+  <% const apTmpl = (apSettings && apSettings.ap_template) ? apSettings.ap_template : null; %>
+
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="card-title">&#128196; Template PDF base</div>
+    <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:.75rem;">
+      Carica il PDF base del pass parcheggio. I campi <strong>Espositore</strong>, <strong>n.</strong> e <strong>di</strong> verranno compilati automaticamente.
+    </p>
+    <% if(apTmpl){ %>
+      <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.75rem;font-size:.82rem;">
+        <span style="color:#2d6a4f;">&#9989;</span>
+        <strong>Template attivo:</strong> <code><%=apTmpl%></code>
+      </div>
+    <% }else{ %>
+      <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.75rem;font-size:.82rem;color:#b91c1c;">
+        &#9888;&#65039; Nessun template caricato &mdash; la generazione non sarà possibile.
+      </div>
+    <% } %>
+    <form method="POST" action="/admin/settings/auto-pass-template" enctype="multipart/form-data" style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">
+      <input type="file" name="auto_pass_template" accept=".pdf" required style="font-size:.82rem;">
+      <button type="submit" class="btn btn-primary" style="font-size:.8rem;padding:.38rem .9rem;">&#128640; Carica template</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-title">&#127919; Posizione campi sul PDF</div>
+    <p style="font-size:.81rem;color:var(--text-muted);margin-bottom:.85rem;">
+      Coordinate in <strong>punti PDF</strong> (origine = angolo in basso a sinistra). Genera un pass di prova e aggiusta finché i campi si posizionano correttamente.
+    </p>
+    <form method="POST" action="/admin/settings/auto-pass-coords">
+      <% const apS = apSettings||{}; %>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem;margin-bottom:1rem;">
         <label style="font-size:.8rem;display:grid;gap:.2rem;">Nome espositore X<input type="number" name="ap_esp_x" value="<%=apS.ap_esp_x||350%>" class="form-control" style="font-size:.82rem;padding:.3rem .5rem;"></label>
         <label style="font-size:.8rem;display:grid;gap:.2rem;">Nome espositore Y<input type="number" name="ap_esp_y" value="<%=apS.ap_esp_y||125%>" class="form-control" style="font-size:.82rem;padding:.3rem .5rem;"></label>
         <label style="font-size:.8rem;display:grid;gap:.2rem;">Dimensione font (pt)<input type="number" name="ap_esp_size" value="<%=apS.ap_esp_size||20%>" class="form-control" style="font-size:.82rem;padding:.3rem .5rem;"></label>
