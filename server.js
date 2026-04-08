@@ -1,34 +1,22 @@
 
-  const express = require('express');
-  const path = require('path');
-const os   = require('os');
-  const fs = require('fs');
-  const multer = require('multer');
-  const session = require('express-session');
-  const bcrypt = require('bcryptjs');
-  const bwipjs = require('bwip-js');
-  const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
-
-  const db = require('./db');
-
-function createNotification(type,title,message,rT,rI){
-  db.run("INSERT INTO notifications(type,title,message,related_type,related_id)VALUES(?,?,?,?,?)",[type,title,message,rT||null,rI||null],function(err){if(!err)trySendEmail(title,message);});}
-function trySendEmail(subj,html){
-  db.all("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'",[],function(e,rows){
-    if(e||!rows||rows.length<2)return;var c={};rows.forEach(function(r){c[r.key]=r.value;});
-    if(!c.smtp_host||!c.smtp_to)return;
-    nodemailer.createTransport({host:c.smtp_host,port:parseInt(c.smtp_port||'587',10),secure:c.smtp_secure==='1',
-      auth:c.smtp_user?{user:c.smtp_user,pass:c.smtp_pass}:undefined,tls:{rejectUnauthorized:false}
-    }).sendMail({from:c.smtp_from||'noreply@ludicomix.it',to:c.smtp_to,
-      subject:'[Ludicomix] '+subj,html:'<div style="font-family:sans-serif">'+html+'</div>'},
-      function(err2){if(err2)console.error('Email:',err2.message);});});}
-function checkGroupLimit(gid){
-  db.get(`SELECT ag.max_passes,ag.name,COUNT(CASE WHEN p.status!='INVALIDATO' THEN 1 END)AS cnt
-    FROM assignment_groups ag LEFT JOIN participants pa ON pa.assignment_group_id=ag.id
-    LEFT JOIN passes p ON p.participant_id=pa.id WHERE ag.id=? GROUP BY ag.id`,[gid],function(err,row){
-    if(err||!row||!row.max_passes)return;var pct=Math.round(row.cnt/row.max_passes*100);
-    if(pct>=100)createNotification('limit_reached','Limite gruppo raggiunto','Gruppo <strong>'+row.name+'</strong> al 100% ('+row.cnt+'/'+row.max_passes+').','group',gid);
-    else if(pct>=90)createNotification('limit_warning','Gruppo vicino al limite','Gruppo <strong>'+row.name+'</strong> al '+pct+'% ('+row.cnt+'/'+row.max_passes+').','group',gid);});}
+const express     = require('express');
+const path        = require('path');
+const os          = require('os');
+const fs          = require('fs');
+const multer      = require('multer');
+const session     = require('express-session');
+const bcrypt      = require('bcryptjs');
+const bwipjs      = require('bwip-js');
+const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
+const nodemailer  = require('nodemailer');          // ✅ FIX: era mancante
+const helmet      = require('helmet');              // ✅ FIX: security headers
+const rateLimit   = require('express-rate-limit'); // ✅ FIX: brute-force protection
+const SQLiteStore = require('connect-sqlite3')(session); // ✅ FIX: session persistence
+const db          = require('./db');
+const { promisify } = require('util');
+const dbAll = promisify(db.all.bind(db));
+const dbGet = promisify(db.get.bind(db));
+const dbRun = promisify(db.run.bind(db));
 
 function createNotification(type,title,message,rT,rI){
   db.run("INSERT INTO notifications(type,title,message,related_type,related_id)VALUES(?,?,?,?,?)",[type,title,message,rT||null,rI||null],function(err){if(!err)trySendEmail(title,message);});}
@@ -50,30 +38,47 @@ function checkGroupLimit(gid){
     else if(pct>=90)createNotification('limit_warning','Gruppo vicino al limite','Gruppo <strong>'+row.name+'</strong> al '+pct+'% ('+row.cnt+'/'+row.max_passes+').','group',gid);});}
 
   const app = express();
-  const PORT = process.env.PORT || 3000;
+  const PORT = process.env.PORT || 8080;
 
   const DATA_DIR = process.env.DATA_DIR || __dirname;
   ['templates', 'generated'].forEach((dir) => {
     const fullPath = path.join(DATA_DIR, dir);
-    if (!fs.existsSync(fullPath)) {
-      fs.mkdirSync(fullPath, { recursive: true });
-    }
+    if (!fs.existsSync(fullPath)) fs.mkdirSync(fullPath, { recursive: true });
   });
 
   app.set('view engine', 'ejs');
   app.set('views', path.join(__dirname, 'views'));
 
+  // ✅ FIX: security HTTP headers
+  app.use(helmet({ contentSecurityPolicy: false }));
+  app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use(express.static(path.join(__dirname, 'public')));
-  app.use('/generated', express.static(path.join(process.env.DATA_DIR || __dirname, 'generated')));
+  app.use('/generated', express.static(path.join(DATA_DIR, 'generated')));
 
-  app.use(
-    session({
-      secret: process.env.SESSION_SECRET || 'ludicomix-secret-2024',
-      resave: false,
-      saveUninitialized: false,
-    })
-  );
+  // ✅ FIX: sessione persistente su SQLite (sopravvive ai restart Railway)
+  app.use(session({
+    store: new SQLiteStore({ db: 'sessions.sqlite', dir: DATA_DIR }),
+    secret: process.env.SESSION_SECRET || 'ludicomix-secret-changeme-in-prod',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      sameSite: 'strict',
+      maxAge: 8 * 60 * 60 * 1000
+    }
+  }));
+
+  // ✅ FIX: brute-force protection sul login
+  const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    message: 'Troppi tentativi di accesso. Riprova tra 15 minuti.',
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  app.use('/login', loginLimiter);
 
   const upload = multer({ dest: path.join(process.env.DATA_DIR || __dirname, 'templates') });
   const uploadMemory = multer({ storage: multer.memoryStorage(), limits:{ fileSize:2*1024*1024 } });
@@ -1104,34 +1109,27 @@ app.get('/home', requireAuth, (req, res) => {
 
   // -------- Impostazioni Admin (Zone, Raggruppamenti, Tipologie) --------
 
-  app.get('/admin/settings', requireAuth, requireAdmin, (req, res) => {
-    const sqlG = `
-      SELECT g.id, g.name, g.priority, g.pass_type_id, pt.name AS pass_type_name
-      FROM groups g
-      LEFT JOIN pass_types pt ON pt.id = g.pass_type_id
-      ORDER BY g.priority ASC, g.name ASC
-    `;
-    db.all(sqlG, [], (err, groups) => {
-      if (err) return res.status(500).send('Errore DB raggruppamenti');
-      db.all('SELECT * FROM pass_types ORDER BY id DESC', [], (err2, types) => {
-        if (err2) return res.status(500).send('Errore DB tipologie pass');
-        db.all('SELECT * FROM zones ORDER BY sort_order, name', [], (err3, zones) => {
-          if (err3) return res.status(500).send('Errore DB zone');
-          db.all('SELECT id, username, role, created_at FROM users ORDER BY username ASC', [], (err4, users) => {
-            if (err4) return res.status(500).send('Errore DB utenti');
-            db.all("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'",[],function(e5,smtpRows){
-              var smtp={}; (smtpRows||[]).forEach(function(r){smtp[r.key]=r.value;});
-              db.all('SELECT sa.*,u.username FROM scan_attempts sa LEFT JOIN users u ON u.id=sa.user_id ORDER BY sa.id DESC LIMIT 500',[],function(errSA,scanAttempts){
-              db.all('SELECT * FROM app_settings',[],function(e_ap,apRows){
-              const apSettings={};(apRows||[]).forEach(r=>{apSettings[r.key]=r.value;});
-              res.render('admin_settings',{groups,types,zones,users,smtp,scanAttempts:scanAttempts||[],apSettings});
-            });
-            });
-            });
-          });
-        });
-      });
-    });
+  // ✅ FIX: refactored con async/await + Promise.all (parallelizza 7 query)
+  app.get('/admin/settings', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const [groups, types, zones, users, smtpRows, scanAttempts, apRows] = await Promise.all([
+        dbAll(`SELECT g.id, g.name, g.priority, g.pass_type_id, pt.name AS pass_type_name
+               FROM groups g LEFT JOIN pass_types pt ON pt.id = g.pass_type_id
+               ORDER BY g.priority ASC, g.name ASC`),
+        dbAll('SELECT * FROM pass_types ORDER BY id DESC'),
+        dbAll('SELECT * FROM zones ORDER BY sort_order, name'),
+        dbAll('SELECT id, username, role, created_at FROM users ORDER BY username ASC'),
+        dbAll("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'"),
+        dbAll('SELECT sa.*, u.username FROM scan_attempts sa LEFT JOIN users u ON u.id=sa.user_id ORDER BY sa.id DESC LIMIT 500'),
+        dbAll('SELECT * FROM app_settings')
+      ]);
+      const smtp = Object.fromEntries((smtpRows||[]).map(r => [r.key, r.value]));
+      const apSettings = Object.fromEntries((apRows||[]).map(r => [r.key, r.value]));
+      res.render('admin_settings', { groups, types, zones, users, smtp, scanAttempts: scanAttempts||[], apSettings });
+    } catch (err) {
+      console.error('Errore /admin/settings:', err);
+      res.status(500).send('Errore interno del server');
+    }
   });
 
   app.post('/admin/zones', requireAuth, requireAdmin, (req, res) => {
@@ -1355,61 +1353,6 @@ app.get('/notifications',requireAuth,requireAdmin,function(req,res){db.run("UPDA
   app.post('/admin/settings/smtp',requireAuth,requireAdmin,function(req,res){var fields=['smtp_host','smtp_port','smtp_secure','smtp_user','smtp_pass','smtp_from','smtp_to'],done=0;fields.forEach(function(k){db.run('INSERT OR REPLACE INTO app_settings(key,value)VALUES(?,?)',[k,req.body[k]||''],function(){if(++done===fields.length)res.redirect('/admin/settings#notifiche');});});});
   app.post('/admin/settings/smtp-test',requireAuth,requireAdmin,function(req,res){var c=req.body;if(!c.smtp_host||!c.smtp_to)return res.json({ok:false,error:'Host e destinatario obbligatori'});nodemailer.createTransport({host:c.smtp_host,port:parseInt(c.smtp_port||'587',10),secure:c.smtp_secure==='1',auth:c.smtp_user?{user:c.smtp_user,pass:c.smtp_pass}:undefined,tls:{rejectUnauthorized:false}}).sendMail({from:c.smtp_from||'noreply@ludicomix.it',to:c.smtp_to,subject:'[Ludicomix] Test SMTP',html:'<p>Test OK!</p>'},function(err){res.json(err?{ok:false,error:err.message}:{ok:true});});});
 
-  app.get('/import',requireAuth,requireNotViewer,function(req,res){db.all(`SELECT ag.id,ag.name,g.name AS cat FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id ORDER BY g.name,ag.name`,[],function(err,groups){res.render('import',{groups:groups||[],result:null});});});
-  app.get('/import/template.csv',requireAuth,function(req,res){res.setHeader('Content-Type','text/csv;charset=utf-8');res.setHeader('Content-Disposition','attachment;filename="template_import.csv"');res.send('\xEF\xBB\xBFcognome;nome;email;ruolo\nRossi;Marco;marco@ex.com;Espositore\n');});
-  app.post('/import',requireAuth,requireNotViewer,upload.single('file'),function(req,res){
-    var gid=parseInt(req.body.group_id,10);if(!gid||!req.file)return res.status(400).send('Gruppo e file obbligatori');
-    var rows;try{var wb=XLSX.read(req.file.buffer,{type:'buffer'});rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',raw:false});}catch(e){return res.status(400).send('Errore:'+e.message);}
-    if(!rows||!rows.length)return res.status(400).send('File vuoto');
-    var ok=0,skip=0,errors=[];
-    function ins(i){if(i>=rows.length){logAction(req.session.user.id,'import_csv','import',gid,'Import '+ok+' nel gruppo #'+gid);createNotification('import','Import CSV completato','Importati <strong>'+ok+'</strong> nel gruppo #'+gid+'. Saltati:'+skip+'.','group',gid);return db.all(`SELECT ag.id,ag.name,g.name AS cat FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id ORDER BY g.name,ag.name`,[],function(e,groups){res.render('import',{groups:groups||[],result:{ok,skip,errors}});});}
-      var r=rows[i];var last=(r.cognome||r.Cognome||'').toString().trim(),first=(r.nome||r.Nome||'').toString().trim(),email=(r.email||r.Email||'').toString().trim().toLowerCase(),role=(r.ruolo||r.Ruolo||'Espositore').toString().trim();
-      if(!last&&!first){skip++;return ins(i+1);}
-      db.get('SELECT id FROM participants WHERE LOWER(first_name)=? AND LOWER(last_name)=? AND assignment_group_id=?',[first.toLowerCase(),last.toLowerCase(),gid],function(e,dup){if(dup){skip++;return ins(i+1);}
-        db.run('INSERT INTO participants(first_name,last_name,email,role,assignment_group_id)VALUES(?,?,?,?,?)',[first,last,email||null,role,gid],function(e2){if(e2)errors.push('Riga '+(i+2)+':'+e2.message);else ok++;ins(i+1);});});}
-    ins(0);});
-  app.post('/passes/:id/replace',requireAuth,requireNotViewer,function(req,res){
-    var oldId=parseInt(req.params.id,10);
-    db.get(`SELECT p.*,pt.name AS type_name,pa.first_name,pa.last_name FROM passes p JOIN pass_types pt ON pt.id=p.pass_type_id JOIN participants pa ON pa.id=p.participant_id WHERE p.id=? AND p.status!='INVALIDATO'`,[oldId],function(err,old){
-      if(err||!old)return res.status(404).send('Pass non trovato');
-      db.run("UPDATE passes SET status='INVALIDATO' WHERE id=?",[oldId]);db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[oldId,'INVALIDATO',req.session.user.id]);
-      db.run('INSERT INTO passes(participant_id,pass_type_id,status,code)VALUES(?,?,?,?)',[old.participant_id,old.pass_type_id,'GENERATO','LDX-'+Date.now()],function(e2){if(e2)return res.status(500).send('Errore');
-        var nid=this.lastID;db.run('UPDATE passes SET replaced_by=? WHERE id=?',[nid,oldId]);db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[nid,'GENERATO',req.session.user.id]);
-        logAction(req.session.user.id,'replace_pass','pass',oldId,'Pass #'+oldId+' -> #'+nid);createNotification('replace','Pass sostituito','Pass #'+oldId+' di <strong>'+old.first_name+' '+old.last_name+'</strong> -> nuovo #'+nid+'.','pass',nid);
-        res.redirect('/passes?replaced='+nid);});});});
-  app.post('/admin/groups/:id/portal/token',requireAuth,requireNotViewer,function(req,res){var id=parseInt(req.params.id,10),token=require('crypto').randomBytes(24).toString('hex');db.run('UPDATE assignment_groups SET portal_token=?,portal_enabled=1 WHERE id=?',[token,id],function(err){if(err)return res.status(500).json({error:err.message});res.json({token});});});
-  app.post('/admin/groups/:id/portal/toggle',requireAuth,requireNotViewer,function(req,res){var id=parseInt(req.params.id,10);db.get('SELECT portal_enabled FROM assignment_groups WHERE id=?',[id],function(e,row){if(!row)return res.status(404).json({error:'not found'});var v=row.portal_enabled?0:1;db.run('UPDATE assignment_groups SET portal_enabled=? WHERE id=?',[v,id],function(){res.json({enabled:v});});});});
-  app.get('/portale/:token',function(req,res){db.get(`SELECT ag.*,g.name AS cat_name FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id WHERE ag.portal_token=? AND ag.portal_enabled=1`,[req.params.token],function(err,group){if(err||!group)return res.status(404).send('<h2 style="font-family:sans-serif;padding:2rem">Portale non disponibile.</h2>');db.all(`SELECT pa.first_name,pa.last_name,pa.email,pa.role,p.id AS pass_id,p.code,p.status,pt.name AS type_name FROM participants pa LEFT JOIN passes p ON p.participant_id=pa.id AND p.status!='INVALIDATO' LEFT JOIN pass_types pt ON pt.id=p.pass_type_id WHERE pa.assignment_group_id=? ORDER BY pa.last_name,pa.first_name`,[group.id],function(e2,parts){db.all("SELECT * FROM auto_passes WHERE assignment_group_id=? AND status!='INVALIDATO' ORDER BY pass_number",[group.id],function(e3,autoPasses){res.render('portale',{group,parts:parts||[],token:req.params.token,autoPasses:autoPasses||[]});});});});});
-  app.get('/portale/:token/download/:passId',function(req,res){db.get(`SELECT ag.portal_enabled FROM assignment_groups ag JOIN participants pa ON pa.assignment_group_id=ag.id JOIN passes p ON p.participant_id=pa.id WHERE ag.portal_token=? AND p.id=?`,[req.params.token,req.params.passId],function(err,row){if(err||!row||!row.portal_enabled)return res.status(403).send('Accesso negato');res.redirect('/passes/'+req.params.passId+'/download?portal_token='+req.params.token);});});
-  app.get('/portale/:token/download-auto/:apId',function(req,res){
-    db.get(
-      `SELECT ag.portal_enabled, ag.id AS group_id, ag.name AS group_name,
-              ap.pdf_file, ap.pass_number, ap.total_passes, ap.status
-       FROM auto_passes ap
-       JOIN assignment_groups ag ON ag.id=ap.assignment_group_id
-       WHERE ag.portal_token=? AND ap.id=? AND ap.status!='INVALIDATO'`,
-      [req.params.token, req.params.apId],
-      function(err,row){
-        if(err||!row||!row.portal_enabled) return res.status(403).send('Accesso negato');
-        const fpath = path.join(process.env.DATA_DIR||__dirname,'generated',row.pdf_file||'');
-        if(!fs.existsSync(fpath)) return res.status(404).send('File non trovato');
-        if(row.status==='GENERATO'){
-          db.run("UPDATE auto_passes SET status='SCARICATO' WHERE id=?",[req.params.apId]);
-          db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[req.params.apId,'SCARICATO',null]);
-        }
-        logAction(null,'portal_download_auto_pass','auto_pass',req.params.apId,
-          'Pass parcheggio n.'+row.pass_number+'/'+row.total_passes+' scaricato dal portale espositore ('+row.group_name+')');
-        res.download(fpath,'pass_parcheggio_'+row.pass_number+'_di_'+row.total_passes+'.pdf');
-      }
-    );
-  });
-  app.get('/mappa',requireAuth,function(req,res){db.all(`SELECT ag.id,ag.name AS stand_name,ag.zone,ag.map_row,ag.map_col,ag.map_span,ag.max_passes,COUNT(CASE WHEN p.status!='INVALIDATO' THEN 1 END)AS pass_count,SUM(CASE WHEN p.status IN('CONSEGNATO','RICONSEGNATO') THEN 1 ELSE 0 END)AS consegnati FROM assignment_groups ag LEFT JOIN participants pa ON pa.assignment_group_id=ag.id LEFT JOIN passes p ON p.participant_id=pa.id GROUP BY ag.id ORDER BY ag.map_row,ag.map_col`,[],function(err,stands){if(err)return res.status(500).send('Errore DB');res.render('mappa',{stands:stands||[],isAdmin:!!(req.session.user&&req.session.user.role==='admin')});});});
-  app.post('/admin/groups/:id/map-position',requireAuth,requireNotViewer,function(req,res){var id=parseInt(req.params.id,10),row=parseInt(req.body.map_row,10)||null,col=parseInt(req.body.map_col,10)||null,span=Math.max(1,Math.min(8,parseInt(req.body.map_span,10)||1));db.run('UPDATE assignment_groups SET map_row=?,map_col=?,map_span=? WHERE id=?',[row,col,span,id],function(err){res.json(err?{error:err.message}:{ok:true});});});
-  app.get('/notifications',requireAuth,requireAdmin,function(req,res){db.run("UPDATE notifications SET read_at=datetime('now') WHERE read_at IS NULL");db.all('SELECT * FROM notifications ORDER BY id DESC LIMIT 200',[],function(err,notifs){res.render('notifications',{notifs:notifs||[]});});});
-  app.get('/api/notifications/count',requireAuth,requireAdmin,function(req,res){db.get('SELECT COUNT(*) as n FROM notifications WHERE read_at IS NULL',[],function(e,r){res.json({count:r?r.n:0});});});
-  app.post('/notifications/read-all',requireAuth,requireAdmin,function(req,res){db.run("UPDATE notifications SET read_at=datetime('now') WHERE read_at IS NULL",function(){res.redirect('/notifications');});});
-  app.post('/admin/settings/smtp',requireAuth,requireAdmin,function(req,res){var fields=['smtp_host','smtp_port','smtp_secure','smtp_user','smtp_pass','smtp_from','smtp_to'],done=0;fields.forEach(function(k){db.run('INSERT OR REPLACE INTO app_settings(key,value)VALUES(?,?)',[k,req.body[k]||''],function(){if(++done===fields.length)res.redirect('/admin/settings#notifiche');});});});
-  app.post('/admin/settings/smtp-test',requireAuth,requireAdmin,function(req,res){var c=req.body;if(!c.smtp_host||!c.smtp_to)return res.json({ok:false,error:'Host e destinatario obbligatori'});nodemailer.createTransport({host:c.smtp_host,port:parseInt(c.smtp_port||'587',10),secure:c.smtp_secure==='1',auth:c.smtp_user?{user:c.smtp_user,pass:c.smtp_pass}:undefined,tls:{rejectUnauthorized:false}}).sendMail({from:c.smtp_from||'noreply@ludicomix.it',to:c.smtp_to,subject:'[Ludicomix] Test SMTP',html:'<p>Test OK!</p>'},function(err){res.json(err?{ok:false,error:err.message}:{ok:true});});});
 
   app.post('/passes/bulk-status', requireAuth, function(req,res){
     var ids = Array.isArray(req.body.pass_ids) ? req.body.pass_ids : (req.body.pass_ids ? [req.body.pass_ids] : []);
@@ -2013,147 +1956,6 @@ app.get('/search', requireAuth, (req, res) => {
     return { pdfBytes: await pdfDoc.save(), code };
   }
 
-  /* Imposta max_auto_passes */
-  app.post('/assignment-groups/:id/max-auto-passes', requireAuth, requireNotViewer, (req, res) => {
-    const id  = parseInt(req.params.id, 10);
-    const val = Math.max(0, parseInt(req.body.max_auto_passes||0,10));
-    db.run('UPDATE assignment_groups SET max_auto_passes=? WHERE id=?',[val,id], err=>{
-      if(err) return res.status(500).send('Errore DB');
-      logAction(req.session.user.id,'set_max_auto_passes','assignment_group',id,'Limite auto-pass impostato a '+val);
-      res.redirect('/assignment-groups/'+id);
-    });
-  });
-
-  /* Genera auto-pass */
-  app.post('/assignment-groups/:id/auto-passes/generate', requireAuth, requireNotViewer, (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    db.get('SELECT ag.*, g.name AS category_name FROM assignment_groups ag JOIN groups g ON g.id=ag.group_id WHERE ag.id=?',[id],(err,group)=>{
-      if(err||!group) return res.status(404).send('Gruppo non trovato');
-      const total = group.max_auto_passes||0;
-      if(total<1) return res.status(400).send('Imposta prima il numero massimo di pass auto per questo gruppo.');
-      db.all('SELECT * FROM app_settings',[],async(e2,rows)=>{
-        const S={}; (rows||[]).forEach(r=>{S[r.key]=r.value;});
-        db.all('SELECT pdf_file FROM auto_passes WHERE assignment_group_id=?',[id],(e3,oldPasses)=>{
-          (oldPasses||[]).forEach(op=>{ if(op.pdf_file){ try{fs.unlinkSync(path.join(process.env.DATA_DIR||__dirname,'generated',op.pdf_file));}catch(_){} } });
-          db.run('DELETE FROM auto_passes WHERE assignment_group_id=?',[id],async()=>{
-            try {
-              for(let i=1;i<=total;i++){
-                const {pdfBytes,code} = await generateAutoPass(group,i,total,S);
-                const filename = 'autopass_'+id+'_'+i+'_'+Date.now()+'.pdf';
-                fs.writeFileSync(path.join(process.env.DATA_DIR||__dirname,'generated',filename),pdfBytes);
-                await new Promise((resolve,reject)=>{
-                  db.run('INSERT INTO auto_passes(assignment_group_id,code,status,pdf_file,pass_number,total_passes)VALUES(?,?,?,?,?,?)',
-                    [id,code,'GENERATO',filename,i,total],function(e4){ if(e4)reject(e4); else resolve(); });
-                });
-              }
-              logAction(req.session.user.id,'generate_auto_passes','assignment_group',id,'Generati '+total+' pass parcheggio per '+group.name);
-              res.redirect('/assignment-groups/'+id+'?ap_ok=1');
-            } catch(ex){ res.status(500).send('Errore generazione: '+ex.message); }
-          });
-        });
-      });
-    });
-  });
-
-  /* Download singolo (admin/operatore) */
-  app.get('/auto-passes/:id/pdf', requireAuth, (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    db.get('SELECT ap.*, ag.name AS group_name FROM auto_passes ap JOIN assignment_groups ag ON ag.id=ap.assignment_group_id WHERE ap.id=?',[id],(err,ap)=>{
-      if(err||!ap||!ap.pdf_file) return res.status(404).send('Pass non trovato');
-      const fpath = path.join(process.env.DATA_DIR||__dirname,'generated',ap.pdf_file);
-      if(!fs.existsSync(fpath)) return res.status(404).send('File non trovato');
-      if(ap.status==='GENERATO'){
-        db.run("UPDATE auto_passes SET status='SCARICATO' WHERE id=?",[id]);
-        db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[id,'SCARICATO',req.session.user.id]);
-      }
-      logAction(req.session.user.id,'download_auto_pass','auto_pass',id,'Auto-pass n.'+ap.pass_number+' scaricato ('+ap.group_name+')');
-      res.download(fpath,'pass_parcheggio_'+ap.pass_number+'_di_'+ap.total_passes+'.pdf');
-    });
-  });
-
-  /* Batch PDF (admin/operatore) */
-  app.get('/assignment-groups/:id/auto-passes/batch-pdf', requireAuth, (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    db.all("SELECT * FROM auto_passes WHERE assignment_group_id=? AND status!='INVALIDATO' ORDER BY pass_number",[id],async(err,passes)=>{
-      if(err||!passes.length) return res.status(404).send('Nessun auto-pass disponibile');
-      const { PDFDocument } = require('pdf-lib');
-      const merged = await PDFDocument.create();
-      for(const p of passes){
-        const fpath = path.join(process.env.DATA_DIR||__dirname,'generated',p.pdf_file||'');
-        if(!fs.existsSync(fpath)) continue;
-        const src = await PDFDocument.load(fs.readFileSync(fpath));
-        const [page] = await merged.copyPages(src,[0]);
-        merged.addPage(page);
-        if(p.status==='GENERATO'){
-          db.run("UPDATE auto_passes SET status='SCARICATO' WHERE id=?",[p.id]);
-          db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[p.id,'SCARICATO',req.session.user.id]);
-        }
-      }
-      const out = await merged.save();
-      db.get('SELECT name FROM assignment_groups WHERE id=?',[id],(e2,g)=>{
-        logAction(req.session.user.id,'batch_download_auto_passes','assignment_group',id,'Batch '+passes.length+' pass parcheggio ('+(g?g.name:id)+')');
-        res.setHeader('Content-Type','application/pdf');
-        res.setHeader('Content-Disposition','attachment; filename="autopass_batch_'+encodeURIComponent(g?g.name:'gruppo')+'.pdf"');
-        res.send(Buffer.from(out));
-      });
-    });
-  });
-
-  /* Aggiorna stato */
-  app.post('/auto-passes/:id/status', requireAuth, requireNotViewer, (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    const {status} = req.body;
-    if(!['SCARICATO','STAMPATO','CONSEGNATO','RICONSEGNATO'].includes(status)) return res.status(400).send('Stato non valido');
-    db.run("UPDATE auto_passes SET status=? WHERE id=? AND status!='INVALIDATO'",[status,id], err=>{
-      if(err) return res.status(500).send('Errore DB');
-      db.run('INSERT INTO pass_status_history(pass_id,status,user_id)VALUES(?,?,?)',[id,status,req.session.user.id]);
-      logAction(req.session.user.id,'status_auto_pass','auto_pass',id,'Stato auto-pass → '+status);
-      db.get('SELECT assignment_group_id FROM auto_passes WHERE id=?',[id],(e2,ap)=>{
-        res.redirect('/assignment-groups/'+(ap?ap.assignment_group_id:''));
-      });
-    });
-  });
-
-  /* Invalida */
-  app.post('/auto-passes/:id/invalidate', requireAuth, requireAdmin, (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    db.run("UPDATE auto_passes SET status='INVALIDATO' WHERE id=?",[id], err=>{
-      if(err) return res.status(500).send('Errore DB');
-      logAction(req.session.user.id,'invalidate_auto_pass','auto_pass',id,'Auto-pass invalidato');
-      db.get('SELECT assignment_group_id FROM auto_passes WHERE id=?',[id],(e2,ap)=>{
-        res.redirect('/assignment-groups/'+(ap?ap.assignment_group_id:''));
-      });
-    });
-  });
-
-  /* Upload template PDF */
-  app.post('/admin/settings/auto-pass-template', requireAuth, requireAdmin,
-    multer({dest: path.join(process.env.DATA_DIR||__dirname,'uploads','tmp')}).single('auto_pass_template'),
-    (req, res) => {
-      if(!req.file) return res.status(400).send('File richiesto');
-      if(path.extname(req.file.originalname).toLowerCase()!=='.pdf'){
-        fs.unlinkSync(req.file.path); return res.status(400).send('Solo file PDF');
-      }
-      const dest = path.join(process.env.DATA_DIR||__dirname,'templates','auto_pass_template.pdf');
-      fs.mkdirSync(path.dirname(dest),{recursive:true});
-      fs.copyFileSync(req.file.path, dest);
-      fs.unlinkSync(req.file.path);
-      db.run("INSERT OR REPLACE INTO app_settings(key,value)VALUES('ap_template','auto_pass_template.pdf')",()=>{
-        logAction(req.session.user.id,'upload_auto_pass_template','settings',0,'Template auto-pass aggiornato');
-        res.redirect('/admin/settings?tab=auto_pass&saved=1');
-      });
-    });
-
-  /* Salva coordinate campi PDF */
-  app.post('/admin/settings/auto-pass-coords', requireAuth, requireAdmin, (req, res) => {
-    const keys=['ap_esp_x','ap_esp_y','ap_esp_size','ap_num_x','ap_num_y','ap_tot_x','ap_tot_y','ap_qr_x','ap_qr_y','ap_qr_size'];
-    let done=0;
-    keys.forEach(k=>{
-      db.run("INSERT OR REPLACE INTO app_settings(key,value)VALUES(?,?)",[k,parseInt(req.body[k]||0,10)],()=>{
-        if(++done===keys.length) res.redirect('/admin/settings?tab=auto_pass&saved=1');
-      });
-    });
-  });
 
   app.listen(PORT, () => {
     console.log(`Server avviato su http://localhost:${PORT}`);

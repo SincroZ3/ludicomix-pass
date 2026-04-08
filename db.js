@@ -89,7 +89,6 @@ db.serialize(() => {
     FOREIGN KEY(user_id) REFERENCES users(id)
   )`);
 
-
   db.run(`CREATE TABLE IF NOT EXISTS pass_status_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     pass_id INTEGER NOT NULL,
@@ -127,71 +126,75 @@ db.serialize(() => {
   });
 });
 
+db.run(`CREATE TABLE IF NOT EXISTS notifications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  type TEXT NOT NULL, title TEXT NOT NULL, message TEXT NOT NULL,
+  related_type TEXT, related_id INTEGER,
+  created_at TEXT DEFAULT (datetime('now')), read_at TEXT)`);
 
-  db.run(`CREATE TABLE IF NOT EXISTS notifications (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    type TEXT NOT NULL, title TEXT NOT NULL, message TEXT NOT NULL,
-    related_type TEXT, related_id INTEGER,
-    created_at TEXT DEFAULT (datetime('now')), read_at TEXT)`);
-  db.run(`CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT)`);
-  ['ALTER TABLE assignment_groups ADD COLUMN portal_token TEXT',
-   'ALTER TABLE assignment_groups ADD COLUMN portal_enabled INTEGER DEFAULT 0',
-   'ALTER TABLE assignment_groups ADD COLUMN map_row INTEGER',
-   'ALTER TABLE assignment_groups ADD COLUMN map_col INTEGER',
-   'ALTER TABLE assignment_groups ADD COLUMN map_span INTEGER DEFAULT 1',
-   'ALTER TABLE passes ADD COLUMN replaced_by INTEGER',
-   'ALTER TABLE zones ADD COLUMN background_image TEXT',
-   'ALTER TABLE assignment_groups ADD COLUMN map_x REAL',
-   'ALTER TABLE assignment_groups ADD COLUMN map_y REAL',
-   'ALTER TABLE assignment_groups ADD COLUMN map_w REAL',
-   'ALTER TABLE assignment_groups ADD COLUMN map_h REAL',
-   'ALTER TABLE assignment_groups ADD COLUMN map_shape TEXT',
-   'ALTER TABLE assignment_groups ADD COLUMN max_auto_passes INTEGER DEFAULT 0',
-   'ALTER TABLE pass_types ADD COLUMN qr_color TEXT DEFAULT \'#000000\''
-  ].forEach(function(sql){db.run(sql,function(err){
-    if(err&&!err.message.includes('duplicate column name'))console.warn('migrate:',err.message);});});
-  db.run(`CREATE TABLE IF NOT EXISTS auto_passes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    assignment_group_id INTEGER NOT NULL,
-    code TEXT UNIQUE,
-    status TEXT DEFAULT 'GENERATO',
-    pdf_file TEXT,
-    pass_number INTEGER,
-    total_passes INTEGER,
-    created_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id)
-  )`);
-  [['ap_template',''],['ap_esp_x','350'],['ap_esp_y','125'],['ap_esp_size','20'],
-   ['ap_num_x','95'],['ap_num_y','125'],['ap_tot_x','95'],['ap_tot_y','95'],
-   ['ap_qr_x','660'],['ap_qr_y','45'],['ap_qr_size','80']
-  ].forEach(function(p){db.run('INSERT OR IGNORE INTO app_settings(key,value)VALUES(?,?)',p);});
-  db.run("INSERT OR IGNORE INTO app_settings(key,value) VALUES('qr_logo_b64','')");
-  db.run(`CREATE TABLE IF NOT EXISTS auto_passes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    assignment_group_id INTEGER NOT NULL,
-    code TEXT UNIQUE,
-    status TEXT DEFAULT 'GENERATO',
-    pdf_file TEXT,
-    pass_number INTEGER,
-    total_passes INTEGER,
-    created_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id)
-  )`);
-  /* Seed impostazioni coordinate pass auto (tutte ignorabili se già presenti) */
-  [['ap_template',''],['ap_esp_x','350'],['ap_esp_y','125'],['ap_esp_size','20'],
-   ['ap_num_x','95'],['ap_num_y','125'],['ap_tot_x','95'],['ap_tot_y','95'],
-   ['ap_qr_x','660'],['ap_qr_y','45'],['ap_qr_size','80']
-  ].forEach(function(p){db.run('INSERT OR IGNORE INTO app_settings(key,value)VALUES(?,?)',p);});
-  db.run(`CREATE TABLE IF NOT EXISTS scan_attempts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    code TEXT NOT NULL,
-    result TEXT NOT NULL,
-    pass_id INTEGER,
-    participant_name TEXT,
-    group_name TEXT,
-    user_id INTEGER,
-    ip TEXT,
-    created_at TEXT DEFAULT (datetime('now'))
-  )`);
+db.run(`CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT)`);
+
+[
+  'ALTER TABLE assignment_groups ADD COLUMN portal_token TEXT',
+  'ALTER TABLE assignment_groups ADD COLUMN portal_enabled INTEGER DEFAULT 0',
+  'ALTER TABLE assignment_groups ADD COLUMN map_row INTEGER',
+  'ALTER TABLE assignment_groups ADD COLUMN map_col INTEGER',
+  'ALTER TABLE assignment_groups ADD COLUMN map_span INTEGER DEFAULT 1',
+  'ALTER TABLE passes ADD COLUMN replaced_by INTEGER',
+  'ALTER TABLE zones ADD COLUMN background_image TEXT',
+  'ALTER TABLE assignment_groups ADD COLUMN map_x REAL',
+  'ALTER TABLE assignment_groups ADD COLUMN map_y REAL',
+  'ALTER TABLE assignment_groups ADD COLUMN map_w REAL',
+  'ALTER TABLE assignment_groups ADD COLUMN map_h REAL',
+  'ALTER TABLE assignment_groups ADD COLUMN map_shape TEXT',
+  'ALTER TABLE assignment_groups ADD COLUMN max_auto_passes INTEGER DEFAULT 0',
+  "ALTER TABLE pass_types ADD COLUMN qr_color TEXT DEFAULT '#000000'"
+].forEach(function(sql) {
+  db.run(sql, function(err) {
+    if (err && !err.message.includes('duplicate column name')) console.warn('migrate:', err.message);
+  });
+});
+
+// ✅ FIX: rimosso blocco CREATE TABLE auto_passes duplicato
+db.run(`CREATE TABLE IF NOT EXISTS auto_passes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  assignment_group_id INTEGER NOT NULL,
+  code TEXT UNIQUE,
+  status TEXT DEFAULT 'GENERATO',
+  pdf_file TEXT,
+  pass_number INTEGER,
+  total_passes INTEGER,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id)
+)`);
+
+[
+  ['ap_template',''], ['ap_esp_x','350'], ['ap_esp_y','125'], ['ap_esp_size','20'],
+  ['ap_num_x','95'],  ['ap_num_y','125'], ['ap_tot_x','95'],  ['ap_tot_y','95'],
+  ['ap_qr_x','660'],  ['ap_qr_y','45'],  ['ap_qr_size','80']
+].forEach(function(p) { db.run('INSERT OR IGNORE INTO app_settings(key,value)VALUES(?,?)', p); });
+
+db.run("INSERT OR IGNORE INTO app_settings(key,value) VALUES('qr_logo_b64','')");
+
+db.run(`CREATE TABLE IF NOT EXISTS scan_attempts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL,
+  result TEXT NOT NULL,
+  pass_id INTEGER,
+  participant_name TEXT,
+  group_name TEXT,
+  user_id INTEGER,
+  ip TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+)`);
+
+// ✅ Performance indexes
+db.run(`CREATE INDEX IF NOT EXISTS idx_passes_participant  ON passes(participant_id)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_passes_status       ON passes(status)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_participants_group  ON participants(assignment_group_id)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_pass_history_pass   ON pass_status_history(pass_id)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_scan_attempts_code  ON scan_attempts(code)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_action_logs_user    ON action_logs(user_id)`);
+
 db.dbPath = dbPath;
 module.exports = db;
