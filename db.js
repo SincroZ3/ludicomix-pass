@@ -146,7 +146,8 @@ db.serialize(() => {
    'ALTER TABLE assignment_groups ADD COLUMN map_w REAL',
    'ALTER TABLE assignment_groups ADD COLUMN map_h REAL',
    'ALTER TABLE assignment_groups ADD COLUMN map_shape TEXT',
-   'ALTER TABLE assignment_groups ADD COLUMN max_auto_passes INTEGER DEFAULT 0'
+   'ALTER TABLE assignment_groups ADD COLUMN max_auto_passes INTEGER DEFAULT 0',
+   'ALTER TABLE pass_types ADD COLUMN qr_color TEXT DEFAULT \'#000000\''
   ].forEach(function(sql){db.run(sql,function(err){
     if(err&&!err.message.includes('duplicate column name'))console.warn('migrate:',err.message);});});
   db.run(`CREATE TABLE IF NOT EXISTS auto_passes (
@@ -164,6 +165,7 @@ db.serialize(() => {
    ['ap_num_x','95'],['ap_num_y','125'],['ap_tot_x','95'],['ap_tot_y','95'],
    ['ap_qr_x','660'],['ap_qr_y','45'],['ap_qr_size','80']
   ].forEach(function(p){db.run('INSERT OR IGNORE INTO app_settings(key,value)VALUES(?,?)',p);});
+  db.run("INSERT OR IGNORE INTO app_settings(key,value) VALUES('qr_logo_b64','')");
   db.run(`CREATE TABLE IF NOT EXISTS auto_passes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     assignment_group_id INTEGER NOT NULL,

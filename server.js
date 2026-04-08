@@ -76,6 +76,7 @@ function checkGroupLimit(gid){
   );
 
   const upload = multer({ dest: path.join(process.env.DATA_DIR || __dirname, 'templates') });
+  const uploadMemory = multer({ storage: multer.memoryStorage(), limits:{ fileSize:2*1024*1024 } });
 
   function requireAuth(req, res, next) {
     if (!req.session.user) {
@@ -585,8 +586,8 @@ app.get('/home', requireAuth, (req, res) => {
     fs.renameSync(oldPath, newPath);
 
     db.run(
-      `INSERT INTO pass_types (name, description, template_file, name_x, name_y, role_x, role_y)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO pass_types (name, description, template_file, name_x, name_y, role_x, role_y, qr_color)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         name,
         description || null,
@@ -595,6 +596,7 @@ app.get('/home', requireAuth, (req, res) => {
         parseInt(name_y || 400, 10),
         parseInt(role_x || 100, 10),
         parseInt(role_y || 370, 10),
+        ('#' + (req.body.qr_color || '000000').replace('#','').substring(0,6)),
       ],
       function (err) {
         if (err) return res.status(500).send('Errore salvataggio tipo pass');
@@ -611,6 +613,36 @@ app.get('/home', requireAuth, (req, res) => {
       if (this.changes > 0) {
         logAction(req.session.user.id, 'delete_pass_type', 'pass_type', id, 'Tipo pass eliminato');
       }
+      res.redirect('/admin/settings#tipologie');
+    });
+  });
+
+  // ── Colore QR per tipo pass ───────────────────────────────────────
+  app.post('/pass-types/:id/qr-color', requireAuth, requireAdmin, (req,res)=>{
+    const id    = parseInt(req.params.id,10);
+    const color = '#'+(req.body.qr_color||'000000').replace('#','').substring(0,6);
+    db.run('UPDATE pass_types SET qr_color=? WHERE id=?',[color,id],function(err){
+      if(err) return res.status(500).send('Errore salvataggio colore QR');
+      logAction(req.session.user.id,'update_pt_qr_color','pass_type',id,'Colore QR: '+color);
+      res.redirect('/admin/settings#tipologie');
+    });
+  });
+
+  // ── Upload logo QR ─────────────────────────────────────────────
+  app.post('/admin/settings/qr-logo', requireAuth, requireAdmin, uploadMemory.single('qr_logo'), (req,res)=>{
+    if(!req.file) return res.status(400).send('File richiesto');
+    const b64 = req.file.buffer.toString('base64');
+    db.run("INSERT OR REPLACE INTO app_settings(key,value) VALUES('qr_logo_b64',?)",[b64],function(err){
+      if(err) return res.status(500).send('Errore salvataggio logo QR');
+      logAction(req.session.user.id,'update_qr_logo','settings',null,'Logo QR aggiornato');
+      res.redirect('/admin/settings#tipologie');
+    });
+  });
+
+  app.get('/admin/settings/qr-logo/remove', requireAuth, requireAdmin, (req,res)=>{
+    db.run("UPDATE app_settings SET value='' WHERE key='qr_logo_b64'",[],function(err){
+      if(err) return res.status(500).send('Errore rimozione logo QR');
+      logAction(req.session.user.id,'remove_qr_logo','settings',null,'Logo QR rimosso');
       res.redirect('/admin/settings#tipologie');
     });
   });
@@ -772,24 +804,54 @@ app.get('/home', requireAuth, (req, res) => {
             }
 
             const code = generateRandomCode(18);
+            // ── QR BRANDIZZATO ──────────────────────────
+            const qrColorHex = (type.qr_color || '000000').replace('#','');
+            const qrLogoRow  = await new Promise(ok =>
+              db.get("SELECT value FROM app_settings WHERE key='qr_logo_b64'",[],(_,r)=>ok(r))
+            );
+            const qrLogoB64 = qrLogoRow && qrLogoRow.value ? qrLogoRow.value : null;
+
             const png = await bwipjs.toBuffer({
               bcid: 'qrcode',
               text: code,
               scale: 4,
               backgroundcolor: 'FFFFFF',
+              barcolor: qrColorHex,
+              eclevel: 'H',
             });
 
             const qrImage = await pdfDoc.embedPng(png);
-            const qrSize = 90;
-            const qrX = centerX - qrSize / 2;
-            const qrY = originY + 65;
+            const qrSize  = 90;
+            const qrX     = centerX - qrSize / 2;
+            const qrY     = originY + 65;
 
-            page.drawImage(qrImage, {
-              x: qrX,
-              y: qrY,
-              width: qrSize,
-              height: qrSize,
-            });
+            page.drawImage(qrImage, { x:qrX, y:qrY, width:qrSize, height:qrSize });
+
+            // Logo overlay centrato sul QR
+            const logoSz = Math.round(qrSize * 0.22);
+            const logoX  = qrX + (qrSize - logoSz) / 2;
+            const logoY  = qrY + (qrSize - logoSz) / 2;
+            // sfondo bianco
+            page.drawRectangle({ x:logoX-2, y:logoY-2, width:logoSz+4, height:logoSz+4, color:rgb(1,1,1) });
+            if (qrLogoB64) {
+              try {
+                const logoPng = await pdfDoc.embedPng(Buffer.from(qrLogoB64,'base64'));
+                page.drawImage(logoPng, { x:logoX, y:logoY, width:logoSz, height:logoSz });
+              } catch(_e) { /* logo non valido — ignora */ }
+            } else {
+              // fallback: testo "LC" con il colore del QR
+              const r16=parseInt(qrColorHex.slice(0,2),16)/255;
+              const g16=parseInt(qrColorHex.slice(2,4),16)/255;
+              const b16=parseInt(qrColorHex.slice(4,6),16)/255;
+              const iFsz=logoSz*0.68;
+              const iTxt='LC';
+              const iW=boldFont.widthOfTextAtSize(iTxt,iFsz);
+              page.drawText(iTxt,{
+                x:logoX+(logoSz-iW)/2, y:logoY+(logoSz-iFsz*0.85)/2,
+                size:iFsz, font:boldFont, color:rgb(r16,g16,b16)
+              });
+            }
+            // ── Fine QR brandizzato ──
 
             const codeY = qrY - 18;
             drawCentered(code, 10, regularFont, codeY);
