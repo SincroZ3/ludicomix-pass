@@ -303,6 +303,7 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
   <% } %>
 
   <!-- ═══ PASS PARCHEGGIO ═══ -->
+  <% const autoPasses = locals.autoPasses || []; %>
   <% if(autoPasses && autoPasses.length > 0){ %>
   <div style="margin-top:1.6rem;">
     <div class="sec-title" style="color:var(--navy);display:flex;align-items:center;gap:.5rem;">

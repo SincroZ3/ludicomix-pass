@@ -326,6 +326,7 @@
 <div class="card" style="margin-bottom:1.5rem;">
   <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.9rem;flex-wrap:wrap;">
     <h3 style="margin:0;font-size:.95rem;">&#128664; Pass Parcheggio</h3>
+    <% const autoPasses = locals.autoPasses || []; %>
     <% const apActive = autoPasses && autoPasses.filter(p=>p.status!='INVALIDATO').length; %>
     <% if(apActive){ %>
       <span class="chip" style="background:#e0f2fe;color:#0369a1;"><%=apActive%> attivi</span>
