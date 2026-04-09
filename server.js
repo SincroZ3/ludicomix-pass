@@ -1423,7 +1423,7 @@ app.get('/home', requireAuth, (req, res) => {
       );
       if (!group) return res.status(404).send('<h2 style="font-family:sans-serif;padding:2rem">Portale non disponibile.</h2>');
 
-      const [parts, autoPasses, announcements, unreadRow] = await Promise.all([
+      const [parts, autoPasses, announcements, unreadRow, zoneInfo, zoneStands] = await Promise.all([
         dbAll(
           `SELECT pa.first_name, pa.last_name, pa.email, pa.role,
                   p.id AS pass_id, p.code, p.status, pt.name AS type_name
@@ -1454,7 +1454,20 @@ app.get('/home', requireAuth, (req, res) => {
                WHERE ar.announcement_id=a.id AND ar.portal_token=?
              )`,
           [token]
-        )
+        ),
+        // NEW: dati zona per la mappa "Dove siete?"
+        group.zone ? dbGet(
+          `SELECT z.id, z.name, z.background_image FROM zones z WHERE z.name=? LIMIT 1`,
+          [group.zone]
+        ) : Promise.resolve(null),
+        group.zone ? dbAll(
+          `SELECT ag.id, ag.name AS stand_name, ag.stand_code,
+                  ag.map_x, ag.map_y, ag.map_w, ag.map_h, ag.map_shape
+           FROM assignment_groups ag
+           WHERE ag.zone=? AND ag.map_x IS NOT NULL AND ag.map_y IS NOT NULL
+           ORDER BY ag.name`,
+          [group.zone]
+        ) : Promise.resolve([])
       ]);
 
       res.render('portale', {
@@ -1463,7 +1476,9 @@ app.get('/home', requireAuth, (req, res) => {
         token,
         autoPasses:   autoPasses  || [],
         announcements: announcements || [],
-        unreadCount:  unreadRow ? unreadRow.cnt : 0
+        unreadCount:  unreadRow ? unreadRow.cnt : 0,
+        zoneInfo:     zoneInfo    || null,
+        zoneStands:   zoneStands  || []
       });
     } catch(err) {
       console.error('Errore GET /portale/:token:', err);
