@@ -262,10 +262,11 @@ function onDrop(e,zid){
   var ma=document.getElementById('map-area-'+zid),rect=ma.getBoundingClientRect();
   var x=Math.max(2,Math.min(98,((e.clientX-rect.left)/rect.width)*100));
   var y=Math.max(2,Math.min(96,((e.clientY-rect.top)/rect.height)*100));
-  saveXY(gid,x,y,zid);
+  saveXY(gid,x,y,zid,Math.round(rect.width),Math.round(rect.height));
 }
-function saveXY(gid,x,y,zid){
-  fetch('/admin/groups/'+gid+'/map-xy',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'map_x='+x.toFixed(2)+'&map_y='+y.toFixed(2)})
+function saveXY(gid,x,y,zid,refW,refH){
+  var extra=(refW&&refH)?'&ref_w='+refW+'&ref_h='+refH:'';
+  fetch('/admin/groups/'+gid+'/map-xy',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'map_x='+x.toFixed(2)+'&map_y='+y.toFixed(2)+extra})
   .then(function(r){return r.json();}).then(function(d){
     if(!d.ok)return;
     var g=GDATA.find(function(xx){return xx.id==gid;});if(!g)return;

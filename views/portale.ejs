@@ -681,81 +681,70 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
     var MY_ZONE = '<%= (group.zone || '').replace(/'/g, "\\'") %>';
     var BG_IMG  = '<% if(zoneInfo && zoneInfo.background_image){ %>/zone-bg/<%= zoneInfo.background_image %><% } %>';
     var ALL_STANDS = <%- JSON.stringify(zoneStands || []) %>;
-    var MY_STAND = ALL_STANDS.find(function(s){ return s.id === MY_ID; }) || {
-      id: MY_ID,
-      map_x: <%= group.map_x || 50 %>,
-      map_y: <%= group.map_y || 50 %>,
-      map_w: <%= group.map_w || 8 %>,
-      map_h: <%= group.map_h || 5 %>
-    };
 
-    // Se lo stand corrente non è in ALL_STANDS (non aveva coord) lo aggiungiamo
-    if (!ALL_STANDS.find(function(s){return s.id===MY_ID;})) {
-      ALL_STANDS.push(MY_STAND);
+    // ── COORDINATE REFERENCE ─────────────────────────────────────────────────
+    // map_x/map_y sono % del div admin (width=REF_W, height=REF_H).
+    // Usiamo queste stesse dimensioni come spazio coordinate interno del canvas:
+    // il canvas avrà canvas.width=REF_W, canvas.height=REF_H e verrà scalato
+    // al 100% del container via CSS → coordinate identiche alla mappa admin.
+    var REF_W = <%= (typeof mapRefW !== 'undefined' && mapRefW) ? mapRefW : 1200 %>;
+    var REF_H = <%= (typeof mapRefH !== 'undefined' && mapRefH) ? mapRefH : 520 %>;
+
+    // Assicura che lo stand corrente sia in ALL_STANDS
+    if (!ALL_STANDS.find(function(s){ return s.id === MY_ID; })) {
+      ALL_STANDS.push({
+        id: MY_ID,
+        map_x: <%= group.map_x || 50 %>,
+        map_y: <%= group.map_y || 50 %>,
+        map_w: <%= group.map_w || 8 %>,
+        map_h: <%= group.map_h || 5 %>
+      });
     }
 
+    // ── RENDERING ────────────────────────────────────────────────────────────
     function drawMap(canvas, highlightPulse) {
       if (!canvas) return;
+
+      // Il canvas usa le stesse coordinate del div admin
+      canvas.width  = REF_W;
+      canvas.height = REF_H;
+      canvas.style.width  = '100%';
+      canvas.style.height = 'auto';
+
       var ctx = canvas.getContext('2d');
-      var W = canvas.width, H = canvas.height;
+      var W = REF_W, H = REF_H;
       ctx.clearRect(0, 0, W, H);
 
-      // ── BUG FIX #2: background-size:contain; background-position:center top ──
-      // Replica esattamente il comportamento CSS della mappa admin.
-      // Calcola offset e scala per disegnare l'immagine mantenendo aspect ratio.
-      function calcContainTopCenter(img, cw, ch) {
-        var scale = Math.min(cw / img.naturalWidth, ch / img.naturalHeight);
-        var dw = img.naturalWidth  * scale;
-        var dh = img.naturalHeight * scale;
-        var dx = (cw - dw) / 2;   // center orizzontale
-        var dy = 0;                // top allineato
-        return { dx: dx, dy: dy, dw: dw, dh: dh, scale: scale };
-      }
-
-      function renderStands(bgFit) { // bgFit reserved for future use
-        // bgFit = { dx, dy, dw, dh } — offset immagine nel canvas (null se no immagine)
-        // Con sfondo: le percentuali si applicano alla stessa area del canvas (non all'immagine!)
-        // così come fa CSS: le % sono del contenitore, non dell'immagine.
-        if (!BG_IMG) {
-          ctx.fillStyle = '#e8ecf3';
-          ctx.fillRect(0, 0, W, H);
-          ctx.strokeStyle = 'rgba(148,163,184,.25)';
-          ctx.lineWidth = 1;
-          for (var gx=0; gx<=W; gx+=W/20){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
-          for (var gy=0; gy<=H; gy+=H/20){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
-        }
-
-        // Disegna tutti gli stand
+      function renderStands() {
         ALL_STANDS.forEach(function(s) {
           var sw = (s.map_w || 8) / 100 * W;
           var sh = (s.map_h || 5) / 100 * H;
-          // ── BUG FIX #1: map_x/map_y è il CENTRO dello stand (transform:translate(-50%,-50%))
-          // Sottrai metà larghezza/altezza per ottenere il top-left del rettangolo
+          // map_x/map_y = CENTRO stand (transform:translate(-50%,-50%) nel admin)
           var sx = s.map_x / 100 * W - sw / 2;
           var sy = s.map_y / 100 * H - sh / 2;
           var isMe = s.id === MY_ID;
 
           if (isMe) {
-            ctx.shadowColor = 'rgba(245,200,66,.8)';
-            ctx.shadowBlur  = highlightPulse ? 22 : 14;
-            ctx.fillStyle   = 'rgba(245,200,66,.9)';
+            ctx.shadowColor = 'rgba(245,200,66,.85)';
+            ctx.shadowBlur  = highlightPulse ? 24 : 16;
+            ctx.fillStyle   = 'rgba(245,200,66,.92)';
             ctx.strokeStyle = '#c9a227';
             ctx.lineWidth   = 3;
           } else {
             ctx.shadowBlur  = 0;
-            ctx.fillStyle   = 'rgba(100,116,139,.18)';
-            ctx.strokeStyle = 'rgba(100,116,139,.45)';
+            ctx.fillStyle   = 'rgba(100,116,139,.20)';
+            ctx.strokeStyle = 'rgba(100,116,139,.50)';
             ctx.lineWidth   = 1;
           }
 
-          // Forma (rect o polygon)
+          // Forma (polygon o rect)
           var shape = null;
           if (s.map_shape) { try { shape = JSON.parse(s.map_shape); } catch(e){} }
           if (shape && Array.isArray(shape) && shape.length > 2) {
             ctx.beginPath();
-            // BUG FIX: usa sx,sy (top-left) come base per il polygon, non x,y centro
             ctx.moveTo(sx + shape[0][0]/100*sw, sy + shape[0][1]/100*sh);
-            for (var i=1;i<shape.length;i++) ctx.lineTo(sx + shape[i][0]/100*sw, sy + shape[i][1]/100*sh);
+            for (var i=1; i<shape.length; i++)
+              ctx.lineTo(sx + shape[i][0]/100*sw, sy + shape[i][1]/100*sh);
             ctx.closePath();
             ctx.fill(); ctx.stroke();
           } else {
@@ -767,42 +756,42 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
 
           // Etichetta solo per lo stand corrente
           if (isMe) {
-            var label = MY_CODE ? ('Stand ' + MY_CODE) : MY_NAME;
-            var fontSize = Math.max(11, Math.min(16, sw * 0.18));
-            ctx.font = 'bold ' + fontSize + 'px Inter,sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
+            var label    = MY_CODE ? ('Stand ' + MY_CODE) : MY_NAME;
+            var fontSize = Math.max(11, Math.min(18, sw * 0.16));
+            ctx.font          = 'bold ' + fontSize + 'px Inter,sans-serif';
+            ctx.textAlign     = 'center';
+            ctx.textBaseline  = 'bottom';
 
-            // Sfondo etichetta (usa sx,sy — top-left corretto)
-            var tw = ctx.measureText(label).width + 12;
-            var th = fontSize + 8;
+            var tw = ctx.measureText(label).width + 14;
+            var th = fontSize + 10;
             var lx = sx + sw/2 - tw/2;
-            var ly = sy - th - 4;
-            if (ly < 2) ly = sy + sh + 4;
-            ctx.fillStyle = 'rgba(30,45,78,.85)';
+            var ly = sy - th - 5;
+            if (ly < 2) ly = sy + sh + 5;
+
+            ctx.fillStyle = 'rgba(30,45,78,.88)';
             ctx.beginPath();
             ctx.roundRect ? ctx.roundRect(lx,ly,tw,th,4) : ctx.rect(lx,ly,tw,th);
             ctx.fill();
 
             ctx.fillStyle = '#f5c842';
-            ctx.fillText(label, sx+sw/2, ly+th-4);
+            ctx.fillText(label, sx + sw/2, ly + th - 4);
 
-            // Indicatore PIN centrato sullo stand
-            ctx.fillStyle = '#c9a227';
+            // Stella al centro
+            ctx.fillStyle    = '#c9a227';
             ctx.beginPath();
-            ctx.arc(sx+sw/2, sy+sh/2, Math.min(sw,sh)*0.12, 0, Math.PI*2);
+            ctx.arc(sx+sw/2, sy+sh/2, Math.min(sw,sh)*0.13, 0, Math.PI*2);
             ctx.fill();
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold ' + Math.max(10,Math.min(sw,sh)*0.18) + 'px sans-serif';
+            ctx.fillStyle    = '#fff';
+            ctx.font         = 'bold ' + Math.max(9, Math.min(sw,sh)*0.18) + 'px sans-serif';
             ctx.textBaseline = 'middle';
             ctx.fillText('★', sx+sw/2, sy+sh/2);
           }
         });
 
-        // Watermark Ludicomix
+        // Watermark
         ctx.save();
-        ctx.font = 'bold 11px Inter,sans-serif';
-        ctx.fillStyle = 'rgba(30,45,78,.35)';
+        ctx.font      = 'bold 11px Inter,sans-serif';
+        ctx.fillStyle = 'rgba(30,45,78,.30)';
         ctx.textAlign = 'right';
         ctx.textBaseline = 'bottom';
         ctx.fillText('Ludicomix — ' + MY_ZONE, W-8, H-6);
@@ -813,26 +802,34 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
         var img = new Image();
         img.crossOrigin = 'anonymous';
         img.onload = function() {
-          // BUG FIX #2: replica background-size:contain; background-position:center top
-          var fit = calcContainTopCenter(img, W, H);
-          // Sfondo neutro dietro l'immagine (bande laterali/inferiori)
+          // Replica esatta CSS admin: background-size:contain; background-position:center top
+          var scale = Math.min(W / img.naturalWidth, H / img.naturalHeight);
+          var dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
+          var dx = (W - dw) / 2; // center horizontale
+          var dy = 0;            // top
           ctx.fillStyle = '#e8ecf3';
           ctx.fillRect(0, 0, W, H);
-          ctx.drawImage(img, fit.dx, fit.dy, fit.dw, fit.dh);
-          renderStands(fit);
+          ctx.drawImage(img, dx, dy, dw, dh);
+          renderStands();
         };
-        img.onerror = function() { BG_IMG = ''; renderStands(null); };
+        img.onerror = function() { BG_IMG = ''; ctx.fillStyle='#e8ecf3'; ctx.fillRect(0,0,W,H); renderStands(); };
         img.src = BG_IMG;
       } else {
-        renderStands(null);
+        ctx.fillStyle = '#e8ecf3';
+        ctx.fillRect(0, 0, W, H);
+        // Grid leggera
+        ctx.strokeStyle = 'rgba(148,163,184,.2)';
+        ctx.lineWidth = 1;
+        for (var gx=0; gx<=W; gx+=W/24){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
+        for (var gy=0; gy<=H; gy+=H/12){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+        renderStands();
       }
     }
 
-    // Render iniziale canvas preview
+    // Prima render
     var smallCanvas = document.getElementById('dove-canvas');
     if (smallCanvas) {
       drawMap(smallCanvas, false);
-      // Pulse ogni 2s
       var pulse = false;
       setInterval(function(){
         pulse = !pulse;
@@ -840,97 +837,91 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
       }, 2000);
     }
 
+    // Modal
     window.openMapModal = function() {
       var modal = document.getElementById('dove-modal');
       if (!modal) return;
       modal.classList.add('open');
-      var lc = document.getElementById('dove-canvas-large');
-      drawMap(lc, true);
+      drawMap(document.getElementById('dove-canvas-large'), true);
     };
     window.closeMapModal = function() {
       var modal = document.getElementById('dove-modal');
       if (modal) modal.classList.remove('open');
     };
 
-    window.downloadMapImage = function(fromModal) {
-      var src = fromModal
-        ? document.getElementById('dove-canvas-large')
-        : document.getElementById('dove-canvas');
-      // Crea un canvas export ad alta risoluzione
+    // Download immagine
+    window.downloadMapImage = function() {
       var exp = document.createElement('canvas');
-      exp.width = 1200; exp.height = 720;
-      // Prima render, poi export
-      var eCtx = exp.getContext('2d');
-      // Forzatura sincrona: ridisegniamo su exp
-      function exportNow(bgLoaded) {
-        var ctx2 = exp.getContext('2d');
+      exp.width  = REF_W * 2;   // doppia risoluzione per qualità social
+      exp.height = REF_H * 2;
+      var ctx2 = exp.getContext('2d');
+      var EW = exp.width, EH = exp.height;
+
+      function exportDraw(bgImg) {
         ctx2.fillStyle = '#e8ecf3';
-        ctx2.fillRect(0,0,W,H);
-        if (bgLoaded) {
-          // BUG FIX: contain+center top per l'export
-          var escale = Math.min(W/bgLoaded.naturalWidth, H/bgLoaded.naturalHeight);
-          var edw = bgLoaded.naturalWidth*escale, edh = bgLoaded.naturalHeight*escale;
-          var edx = (W-edw)/2, edy = 0;
-          ctx2.drawImage(bgLoaded, edx, edy, edw, edh);
+        ctx2.fillRect(0, 0, EW, EH);
+
+        if (bgImg) {
+          var scale = Math.min(EW / bgImg.naturalWidth, EH / bgImg.naturalHeight);
+          var dw = bgImg.naturalWidth * scale, dh = bgImg.naturalHeight * scale;
+          ctx2.drawImage(bgImg, (EW-dw)/2, 0, dw, dh);
         }
-        // Ridisegna stand su exp come drawMap ma senza img reload
-        var W=1200,H=720;
-        ALL_STANDS.forEach(function(s){
-          // BUG FIX: usa center-based coords come nella mappa admin
-          var sw=(s.map_w||8)/100*W, sh=(s.map_h||5)/100*H;
-          var sx=s.map_x/100*W - sw/2, sy=s.map_y/100*H - sh/2;
-          var isMe=s.id===MY_ID;
-          ctx2.shadowBlur=0;
-          if(isMe){ctx2.shadowColor='rgba(245,200,66,.8)';ctx2.shadowBlur=20;ctx2.fillStyle='rgba(245,200,66,.9)';ctx2.strokeStyle='#c9a227';ctx2.lineWidth=4;}
-          else{ctx2.fillStyle='rgba(100,116,139,.18)';ctx2.strokeStyle='rgba(100,116,139,.45)';ctx2.lineWidth=1;}
-          // Shape support nell'export
-          var shape=null;if(s.map_shape){try{shape=JSON.parse(s.map_shape);}catch(e){}}
-          if(shape&&Array.isArray(shape)&&shape.length>2){
+
+        // Stand
+        ALL_STANDS.forEach(function(s) {
+          var sw = (s.map_w||8)/100*EW, sh = (s.map_h||5)/100*EH;
+          var sx = s.map_x/100*EW - sw/2, sy = s.map_y/100*EH - sh/2;
+          var isMe = s.id === MY_ID;
+          var shape = null;
+          if (s.map_shape){try{shape=JSON.parse(s.map_shape);}catch(e){}}
+          ctx2.shadowBlur = 0;
+          if (isMe){ ctx2.shadowColor='rgba(245,200,66,.85)';ctx2.shadowBlur=32;ctx2.fillStyle='rgba(245,200,66,.92)';ctx2.strokeStyle='#c9a227';ctx2.lineWidth=5; }
+          else      { ctx2.fillStyle='rgba(100,116,139,.20)';ctx2.strokeStyle='rgba(100,116,139,.50)';ctx2.lineWidth=1.5; }
+          if (shape&&shape.length>2){
             ctx2.beginPath();ctx2.moveTo(sx+shape[0][0]/100*sw,sy+shape[0][1]/100*sh);
             for(var i=1;i<shape.length;i++)ctx2.lineTo(sx+shape[i][0]/100*sw,sy+shape[i][1]/100*sh);
-            ctx2.closePath();ctx2.fill();ctx2.stroke();
-          } else {
-            ctx2.beginPath();ctx2.rect(sx,sy,sw,sh);ctx2.fill();ctx2.stroke();
-          }
-          ctx2.shadowBlur=0;
-          if(isMe){
+            ctx2.closePath();
+          } else { ctx2.beginPath();ctx2.rect(sx,sy,sw,sh); }
+          ctx2.fill(); ctx2.stroke();
+          ctx2.shadowBlur = 0;
+          if (isMe) {
             var label=MY_CODE?('Stand '+MY_CODE):MY_NAME;
-            ctx2.font='bold 18px Inter,sans-serif';ctx2.textAlign='center';ctx2.textBaseline='bottom';
-            var tw=ctx2.measureText(label).width+16,th=26;
-            var lx=sx+sw/2-tw/2,ly=sy-th-6;if(ly<2)ly=sy+sh+6;
-            ctx2.fillStyle='rgba(30,45,78,.85)';ctx2.fillRect(lx,ly,tw,th);
-            ctx2.fillStyle='#f5c842';ctx2.fillText(label,sx+sw/2,ly+th-4);
+            ctx2.font='bold 22px Inter,sans-serif';ctx2.textAlign='center';ctx2.textBaseline='bottom';
+            var tw=ctx2.measureText(label).width+18,th=32;
+            var lx=sx+sw/2-tw/2,ly=sy-th-7;if(ly<2)ly=sy+sh+7;
+            ctx2.fillStyle='rgba(30,45,78,.88)';ctx2.fillRect(lx,ly,tw,th);
+            ctx2.fillStyle='#f5c842';ctx2.fillText(label,sx+sw/2,ly+th-5);
           }
         });
-        // Titolo in alto
-        ctx2.fillStyle='rgba(30,45,78,.85)';
-        ctx2.fillRect(0,0,1200,48);
+
+        // Header banner
+        ctx2.fillStyle='rgba(30,45,78,.90)';
+        ctx2.fillRect(0, 0, EW, 56);
+        ctx2.font='bold 22px Inter,sans-serif';
         ctx2.fillStyle='#f5c842';
-        ctx2.font='bold 20px Inter,sans-serif';
         ctx2.textAlign='left';ctx2.textBaseline='middle';
-        ctx2.fillText('📍 ' + MY_NAME + (MY_CODE?' — Stand '+MY_CODE:'') + '   ·   ' + MY_ZONE, 18, 24);
-        ctx2.fillStyle='rgba(255,255,255,.5)';
-        ctx2.font='13px Inter,sans-serif';
+        ctx2.fillText('📍 '+(MY_CODE?'Stand '+MY_CODE+' — ':'')+MY_NAME+'   ·   '+MY_ZONE, 18, 28);
+        ctx2.fillStyle='rgba(255,255,255,.45)';
+        ctx2.font='14px Inter,sans-serif';
         ctx2.textAlign='right';
-        ctx2.fillText('ludicomix.it', 1190, 24);
+        ctx2.fillText('ludicomix.it', EW-16, 28);
 
         exp.toBlob(function(blob){
           var a=document.createElement('a');
           a.href=URL.createObjectURL(blob);
-          a.download='dove-sono-' + MY_NAME.toLowerCase().replace(/\s+/g,'-') + '.png';
+          a.download='dove-sono-'+(MY_CODE||MY_NAME).toLowerCase().replace(/\s+/g,'-')+'.png';
           a.click();
         },'image/png');
       }
 
       if (BG_IMG) {
-        var imgEx=new Image();imgEx.crossOrigin='anonymous';
-        imgEx.onload=function(){exportNow(imgEx);};
-        imgEx.onerror=function(){exportNow(null);};
-        imgEx.src=BG_IMG+'?t='+Date.now(); // cache bust per crossOrigin
-      } else { exportNow(null); }
+        var imgE=new Image(); imgE.crossOrigin='anonymous';
+        imgE.onload=function(){exportDraw(imgE);};
+        imgE.onerror=function(){exportDraw(null);};
+        imgE.src=BG_IMG;
+      } else { exportDraw(null); }
     };
 
-    // ESC chiude modal
     document.addEventListener('keydown', function(e){
       if(e.key==='Escape') window.closeMapModal();
     });

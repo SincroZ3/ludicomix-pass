@@ -1423,7 +1423,7 @@ app.get('/home', requireAuth, (req, res) => {
       );
       if (!group) return res.status(404).send('<h2 style="font-family:sans-serif;padding:2rem">Portale non disponibile.</h2>');
 
-      const [parts, autoPasses, announcements, unreadRow, zoneInfo, zoneStands] = await Promise.all([
+      const [parts, autoPasses, announcements, unreadRow, zoneInfo, zoneStands, refWRow, refHRow] = await Promise.all([
         dbAll(
           `SELECT pa.first_name, pa.last_name, pa.email, pa.role,
                   p.id AS pass_id, p.code, p.status, pt.name AS type_name
@@ -1467,7 +1467,9 @@ app.get('/home', requireAuth, (req, res) => {
            WHERE ag.zone=? AND ag.map_x IS NOT NULL AND ag.map_y IS NOT NULL
            ORDER BY ag.name`,
           [group.zone]
-        ) : Promise.resolve([])
+        ) : Promise.resolve([]),
+        dbGet(`SELECT value FROM app_settings WHERE key='map_ref_w'`, []),
+        dbGet(`SELECT value FROM app_settings WHERE key='map_ref_h'`, [])
       ]);
 
       res.render('portale', {
@@ -1478,7 +1480,9 @@ app.get('/home', requireAuth, (req, res) => {
         announcements: announcements || [],
         unreadCount:  unreadRow ? unreadRow.cnt : 0,
         zoneInfo:     zoneInfo    || null,
-        zoneStands:   zoneStands  || []
+        zoneStands:   zoneStands  || [],
+        mapRefW:      (refWRow && refWRow.value) ? parseInt(refWRow.value,10) : null,
+        mapRefH:      (refHRow && refHRow.value) ? parseInt(refHRow.value,10) : null
       });
     } catch(err) {
       console.error('Errore GET /portale/:token:', err);
@@ -1578,6 +1582,8 @@ app.get('/home', requireAuth, (req, res) => {
     var w = (req.body.map_w !== '' && req.body.map_w != null) ? parseFloat(req.body.map_w) : null;
     var h = (req.body.map_h !== '' && req.body.map_h != null) ? parseFloat(req.body.map_h) : null;
     var shape = (req.body.map_shape && req.body.map_shape.trim()) ? req.body.map_shape.trim() : null;
+    var refW = (req.body.ref_w && !isNaN(parseInt(req.body.ref_w,10))) ? parseInt(req.body.ref_w,10) : null;
+    var refH = (req.body.ref_h && !isNaN(parseInt(req.body.ref_h,10))) ? parseInt(req.body.ref_h,10) : null;
     var fields = 'map_x=?, map_y=?';
     var params = [x, y];
     if (w !== null) { fields += ', map_w=?'; params.push(w); }
@@ -1586,6 +1592,11 @@ app.get('/home', requireAuth, (req, res) => {
     params.push(id);
     db.run('UPDATE assignment_groups SET ' + fields + ' WHERE id=?', params, function(err) {
       if (err) return res.json({ ok: false, error: err.message });
+      // Salva dimensioni div admin per allineamento portale espositore
+      if (refW && refH && x !== null) {
+        db.run('INSERT OR REPLACE INTO app_settings(key,value) VALUES(?,?)', ['map_ref_w', String(refW)]);
+        db.run('INSERT OR REPLACE INTO app_settings(key,value) VALUES(?,?)', ['map_ref_h', String(refH)]);
+      }
       res.json({ ok: true });
     });
   });
