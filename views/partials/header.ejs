@@ -527,19 +527,30 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
   </header>
   <% if (currentUser) { %>
   <nav class="main-nav">
-    <a href="/home">&#127968; Home</a>
-    <a href="/participants">&#128101; Assegnatari Pass</a>
-    <a href="/passes">&#127915; Pass generati</a>
-    <a href="/mappa">&#128506; Mappa Stand</a>
-    <% if(currentUser&&currentUser.role!=="viewer"){ %><a href="/import">&#128229; Import CSV</a><% } %>
-    <a href="/reports">&#128202; Reports</a>
-    <a href="/search">&#128269; Ricerca Pass</a>
-    <a href="/scan">&#128247; Scanner QR</a>
-    <a href="/account/password">&#128273; Cambia Password</a>
-    <a href="/account/security">&#128274; Password di Sicurezza</a>
-    <% if (currentUser.role === 'admin') { %>
-      <a href="/admin/settings">&#9881;&#65039; Impostazioni</a>
-      <a href="/admin/bacheca">&#128226; Bacheca</a>
+    <% if(currentUser && currentUser.role === 'scanner'){ %>
+      <a href="/scan">&#128247; Scanner QR</a>
+      <a href="/account/password">&#128273; Cambia Password</a>
+    <% } else { %>
+      <a href="/home">&#127968; Home</a>
+      <a href="/participants">&#128101; Assegnatari Pass</a>
+      <a href="/passes">&#127915; Pass generati</a>
+      <a href="/mappa">&#128506; Mappa Stand</a>
+      <% if(currentUser&&(currentUser.role==='admin'||currentUser.role==='organizer')){ %>
+        <a href="/import">&#128229; Import CSV</a>
+      <% } %>
+      <a href="/reports">&#128202; Reports</a>
+      <a href="/search">&#128269; Ricerca Pass</a>
+      <a href="/scan">&#128247; Scanner QR</a>
+      <a href="/account/password">&#128273; Cambia Password</a>
+      <% if(currentUser&&currentUser.role!=='viewer'){ %>
+        <a href="/account/security">&#128274; Password di Sicurezza</a>
+      <% } %>
+      <% if(currentUser&&(currentUser.role==='admin'||currentUser.role==='organizer')){ %>
+        <a href="/admin/bacheca">&#128226; Bacheca</a>
+      <% } %>
+      <% if(currentUser&&currentUser.role==='admin'){ %>
+        <a href="/admin/settings">&#9881;&#65039; Impostazioni</a>
+      <% } %>
     <% } %>
   </nav>
   <% } %>

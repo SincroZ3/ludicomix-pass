@@ -87,23 +87,76 @@ function checkGroupLimit(gid){
   const upload = multer({ dest: path.join(process.env.DATA_DIR || __dirname, 'templates') });
   const uploadMemory = multer({ storage: multer.memoryStorage(), limits:{ fileSize:2*1024*1024 } });
 
+  // ══════════════════════════════════════════════════════
+  // GERARCHIA RUOLI
+  //   admin      → accesso totale, gestione sistema e utenti
+  //   organizer  → gestione operativa (stand, pass, partecipanti,
+  //                bacheca, import) — NO impostazioni sistema/utenti
+  //   operator   → crea/modifica partecipanti e pass, scan — NO
+  //                struttura (zone, tipologie, raggruppamenti)
+  //   scanner    → SOLO pagina scan — redirect automatico al login
+  //   viewer     → sola lettura su tutto, NO modifiche
+  // ══════════════════════════════════════════════════════
+
+  const ROLES = {
+    ADMIN:     'admin',
+    ORGANIZER: 'organizer',
+    OPERATOR:  'operator',
+    SCANNER:   'scanner',
+    VIEWER:    'viewer',
+  };
+
+  // Ruoli che possono FARE (scrivere) qualcosa
+  const CAN_WRITE   = [ROLES.ADMIN, ROLES.ORGANIZER, ROLES.OPERATOR];
+  // Ruoli che possono modificare la struttura (zone, tipologie, gruppi)
+  const CAN_STRUCTURE = [ROLES.ADMIN, ROLES.ORGANIZER];
+  // Ruoli che possono accedere alle impostazioni di sistema
+  const CAN_ADMIN   = [ROLES.ADMIN];
+  // Ruoli che possono scansionare
+  const CAN_SCAN    = [ROLES.ADMIN, ROLES.ORGANIZER, ROLES.OPERATOR, ROLES.SCANNER];
+
+  function hasRole(user, ...roles) {
+    return user && roles.includes(user.role);
+  }
+
   function requireAuth(req, res, next) {
-    if (!req.session.user) {
-      return res.redirect('/login');
+    if (!req.session.user) return res.redirect('/login');
+    // Lo scanner viene confinato alla sola pagina /scan
+    if (req.session.user.role === ROLES.SCANNER &&
+        !req.path.startsWith('/scan') &&
+        !req.path.startsWith('/api/scan') &&
+        !req.path.startsWith('/logout')) {
+      return res.redirect('/scan');
     }
     next();
   }
 
   function requireAdmin(req, res, next) {
-    if (!req.session.user || req.session.user.role !== 'admin') {
+    if (!hasRole(req.session.user, ...CAN_ADMIN)) {
       return res.status(403).sendFile(path.join(__dirname, 'views', '403.html'));
     }
     next();
   }
 
-  // Blocca i viewer dalle azioni di scrittura
+  // Operazioni di struttura: admin + organizer
+  function requireOrganizer(req, res, next) {
+    if (!hasRole(req.session.user, ...CAN_STRUCTURE)) {
+      return res.status(403).sendFile(path.join(__dirname, 'views', '403.html'));
+    }
+    next();
+  }
+
+  // Operazioni di scrittura: admin + organizer + operator
   function requireNotViewer(req, res, next) {
-    if (req.session.user && req.session.user.role === 'viewer') {
+    if (!hasRole(req.session.user, ...CAN_WRITE)) {
+      return res.status(403).sendFile(path.join(__dirname, 'views', '403.html'));
+    }
+    next();
+  }
+
+  // Scan: tutti tranne viewer
+  function requireCanScan(req, res, next) {
+    if (!hasRole(req.session.user, ...CAN_SCAN)) {
       return res.status(403).sendFile(path.join(__dirname, 'views', '403.html'));
     }
     next();
@@ -161,7 +214,9 @@ function checkGroupLimit(gid){
       }
       req.session.user = { id: user.id, username: user.username, role: user.role };
       logAction(user.id, 'login', 'user', user.id, 'Login eseguito');
-      res.redirect('/home');
+      // Scanner viene diretto subito alla pagina di scan
+      const dest = user.role === ROLES.SCANNER ? '/scan' : '/home';
+      res.redirect(dest);
     });
   });
 
@@ -289,7 +344,7 @@ app.get('/home', requireAuth, (req, res) => {
     });
   });
 
-  app.post('/assignment-groups', requireAuth, requireNotViewer, (req, res) => {
+  app.post('/assignment-groups', requireAuth, requireOrganizer, (req, res) => {
     const { name, group_id, stand_name, zone, stand_code, notes, max_passes, email } = req.body;
     if (!name || !group_id) return res.status(400).send('Nome gruppo e categoria obbligatori');
     const maxVal = max_passes && parseInt(max_passes, 10) > 0 ? parseInt(max_passes, 10) : null;
@@ -306,7 +361,7 @@ app.get('/home', requireAuth, (req, res) => {
 
 
   // POST modifica dati gruppo/stand
-  app.post('/assignment-groups/:id/edit', requireAuth, requireNotViewer, (req, res) => {
+  app.post('/assignment-groups/:id/edit', requireAuth, requireOrganizer, (req, res) => {
     const id = parseInt(req.params.id, 10);
     const { name, stand_name, zone, stand_code } = req.body;
     if (!name) return res.status(400).send('Nome gruppo obbligatorio');
@@ -321,7 +376,7 @@ app.get('/home', requireAuth, (req, res) => {
     );
   });
 
-  app.post('/assignment-groups/:id/delete', requireAuth, requireNotViewer, (req, res) => {
+  app.post('/assignment-groups/:id/delete', requireAuth, requireOrganizer, (req, res) => {
     const id = req.params.id;
     db.run('DELETE FROM assignment_groups WHERE id = ?', [id], function (err) {
       if (err) return res.status(500).send('Errore eliminazione gruppo assegnatari');
@@ -584,7 +639,7 @@ app.get('/home', requireAuth, (req, res) => {
     res.redirect('/admin/settings#tipologie');
   });
 
-  app.post('/pass-types', requireAuth, requireNotViewer, upload.single('template'), (req, res) => {
+  app.post('/pass-types', requireAuth, requireOrganizer, upload.single('template'), (req, res) => {
     const { name, description, name_x, name_y, role_x, role_y } = req.body;
     if (!name || !req.file) {
       return res.status(400).send('Nome e PDF template sono obbligatori');
@@ -615,7 +670,7 @@ app.get('/home', requireAuth, (req, res) => {
     );
   });
 
-  app.post('/pass-types/:id/delete', requireAuth, requireNotViewer, (req, res) => {
+  app.post('/pass-types/:id/delete', requireAuth, requireOrganizer, (req, res) => {
     const id = req.params.id;
     db.run('DELETE FROM pass_types WHERE id = ?', [id], function (err) {
       if (err) return res.status(500).send('Errore eliminazione tipo pass');
@@ -660,7 +715,7 @@ app.get('/home', requireAuth, (req, res) => {
     res.redirect('/admin/settings#raggruppamenti');
   });
 
-  app.post('/groups', requireAuth, requireNotViewer, (req, res) => {
+  app.post('/groups', requireAuth, requireOrganizer, (req, res) => {
     const { name, priority, pass_type_id } = req.body;
     if (!name) return res.status(400).send('Nome raggruppamento obbligatorio');
     db.run(
@@ -676,7 +731,7 @@ app.get('/home', requireAuth, (req, res) => {
 
 
   // POST modifica raggruppamento pass (tipologia PDF)
-  app.post('/groups/:id/edit', requireAuth, requireNotViewer, (req, res) => {
+  app.post('/groups/:id/edit', requireAuth, requireOrganizer, (req, res) => {
     const id = parseInt(req.params.id, 10);
     const { name, priority, pass_type_id } = req.body;
     if (!name) return res.status(400).send('Nome raggruppamento obbligatorio');
@@ -691,7 +746,7 @@ app.get('/home', requireAuth, (req, res) => {
     );
   });
 
-  app.post('/groups/:id/delete', requireAuth, requireNotViewer, (req, res) => {
+  app.post('/groups/:id/delete', requireAuth, requireOrganizer, (req, res) => {
     const id = req.params.id;
     db.run('DELETE FROM groups WHERE id = ?', [id], function (err) {
       if (err) return res.status(500).send('Errore eliminazione raggruppamento');
@@ -1136,7 +1191,7 @@ app.get('/home', requireAuth, (req, res) => {
     }
   });
 
-  app.post('/admin/zones', requireAuth, requireAdmin, (req, res) => {
+  app.post('/admin/zones', requireAuth, requireOrganizer, (req, res) => {
     const { name, sort_order } = req.body;
     if (!name || !name.trim()) return res.status(400).send('Nome zona obbligatorio');
     db.run(
@@ -1169,7 +1224,7 @@ app.get('/home', requireAuth, (req, res) => {
     );
   });
 
-  app.post('/admin/zones/:id/delete', requireAuth, requireAdmin, (req, res) => {
+  app.post('/admin/zones/:id/delete', requireAuth, requireOrganizer, (req, res) => {
     const id = parseInt(req.params.id, 10);
     db.run('DELETE FROM zones WHERE id = ?', [id], function(err) {
       if (err) return res.status(500).send('Errore eliminazione zona');
@@ -1212,9 +1267,9 @@ app.get('/home', requireAuth, (req, res) => {
   });
 
 
-  app.get('/import',requireAuth,requireNotViewer,function(req,res){db.all(`SELECT ag.id,ag.name,g.name AS cat FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id ORDER BY g.name,ag.name`,[],function(err,groups){res.render('import',{groups:groups||[],result:null});});});
+  app.get('/import',requireAuth,requireOrganizer,function(req,res){db.all(`SELECT ag.id,ag.name,g.name AS cat FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id ORDER BY g.name,ag.name`,[],function(err,groups){res.render('import',{groups:groups||[],result:null});});});
   app.get('/import/template.csv',requireAuth,function(req,res){res.setHeader('Content-Type','text/csv;charset=utf-8');res.setHeader('Content-Disposition','attachment;filename="template_import.csv"');res.send('\xEF\xBB\xBFcognome;nome;email;ruolo\nRossi;Marco;marco@ex.com;Espositore\n');});
-  app.post('/import',requireAuth,requireNotViewer,upload.single('file'),function(req,res){
+  app.post('/import',requireAuth,requireOrganizer,upload.single('file'),function(req,res){
     var gid=parseInt(req.body.group_id,10);if(!gid||!req.file)return res.status(400).send('Gruppo e file obbligatori');
     var rows;try{var wb=XLSX.read(req.file.buffer,{type:'buffer'});rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',raw:false});}catch(e){return res.status(400).send('Errore:'+e.message);}
     if(!rows||!rows.length)return res.status(400).send('File vuoto');
@@ -1274,7 +1329,7 @@ app.get('/home', requireAuth, (req, res) => {
   });
 
   // POST /admin/bacheca — crea nuovo annuncio
-  app.post('/admin/bacheca', requireAuth, requireAdmin, async (req, res) => {
+  app.post('/admin/bacheca', requireAuth, requireOrganizer, async (req, res) => {
     const { title, message, emoji, type, is_pinned, expires_at } = req.body;
     if (!title || !message) return res.redirect('/admin/bacheca?saved=err');
     try {
@@ -1300,7 +1355,7 @@ app.get('/home', requireAuth, (req, res) => {
   });
 
   // POST /admin/bacheca/:id/pin — toggle pinned
-  app.post('/admin/bacheca/:id/pin', requireAuth, requireAdmin, async (req, res) => {
+  app.post('/admin/bacheca/:id/pin', requireAuth, requireOrganizer, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     const row = await dbGet('SELECT is_pinned FROM announcements WHERE id=?', [id]);
     if (!row) return res.status(404).json({ error: 'not found' });
@@ -1310,7 +1365,7 @@ app.get('/home', requireAuth, (req, res) => {
   });
 
   // DELETE /admin/bacheca/:id — elimina annuncio
-  app.delete('/admin/bacheca/:id', requireAuth, requireAdmin, async (req, res) => {
+  app.delete('/admin/bacheca/:id', requireAuth, requireOrganizer, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     await dbRun('DELETE FROM announcements WHERE id=?', [id]);
     logAction(req.session.user.id, 'delete_announcement', 'announcement', id, '');
@@ -1547,7 +1602,7 @@ app.get('/notifications',requireAuth,requireAdmin,function(req,res){db.run("UPDA
     });
   });
 
-  app.post('/assignment-groups/:id/import', requireAuth, requireNotViewer, upload.single('file'), function(req,res){
+  app.post('/assignment-groups/:id/import', requireAuth, requireOrganizer, upload.single('file'), function(req,res){
     var gid=parseInt(req.params.id,10);
     if(!gid||!req.file) return res.redirect('/assignment-groups/'+gid+'?import_errs=File+mancante');
     var rows;
@@ -1586,11 +1641,11 @@ app.get('/notifications',requireAuth,requireAdmin,function(req,res){db.run("UPDA
   
   // -------- Scanner QR: API lookup e consegna --------
 
-  app.get('/scan', requireAuth, (req, res) => {
-    res.render('scan');
+  app.get('/scan', requireAuth, requireCanScan, (req, res) => {
+    res.render('scan', { currentUser: req.session.user });
   });
 
-  app.get('/api/scan/:code', requireAuth, (req, res) => {
+  app.get('/api/scan/:code', requireAuth, requireCanScan, (req, res) => {
     const code = (req.params.code || '').trim().toUpperCase();
     db.get(`SELECT p.id, p.code, p.status,
                pa.first_name, pa.last_name, pa.email,
@@ -1883,6 +1938,67 @@ app.get('/search', requireAuth, (req, res) => {
         res.redirect('/admin/settings#utenti');
       }
     );
+  });
+
+
+  // GET /admin/users/:id/edit — form modifica utente
+  app.get('/admin/users/:id/edit', requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const user = await dbGet('SELECT id, username, role, created_at FROM users WHERE id=?', [id]);
+    if (!user) return res.status(404).send('Utente non trovato');
+    res.render('admin_user_edit', {
+      editUser: user,
+      currentUser: req.session.user,
+      saved: req.query.saved,
+      error: req.query.error,
+      ROLES
+    });
+  });
+
+  // POST /admin/users/:id — aggiorna username e/o ruolo
+  app.post('/admin/users/:id', requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { username, role } = req.body;
+    const validRoles = Object.values(ROLES);
+    if (!username || !role || !validRoles.includes(role)) {
+      return res.redirect('/admin/users/'+id+'/edit?error=invalid');
+    }
+    // Impedisci di degradare l'unico admin
+    if (id === req.session.user.id && role !== ROLES.ADMIN) {
+      return res.redirect('/admin/users/'+id+'/edit?error=self-demote');
+    }
+    try {
+      const existing = await dbGet('SELECT id FROM users WHERE username=? AND id!=?', [username, id]);
+      if (existing) return res.redirect('/admin/users/'+id+'/edit?error=username-taken');
+      await dbRun('UPDATE users SET username=?, role=? WHERE id=?', [username.trim(), role, id]);
+      logAction(req.session.user.id, 'edit_user', 'user', id,
+        `Username: ${username.trim()}, Ruolo: ${role}`);
+      res.redirect('/admin/users/'+id+'/edit?saved=1');
+    } catch(err) {
+      console.error('Errore edit user:', err);
+      res.redirect('/admin/users/'+id+'/edit?error=db');
+    }
+  });
+
+  // POST /admin/users/:id/reset-password — reset password da parte dell'admin
+  app.post('/admin/users/:id/reset-password', requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { new_password, confirm_password } = req.body;
+    if (!new_password || new_password.length < 8) {
+      return res.redirect('/admin/users/'+id+'/edit?error=pwd-short');
+    }
+    if (new_password !== confirm_password) {
+      return res.redirect('/admin/users/'+id+'/edit?error=pwd-mismatch');
+    }
+    try {
+      const hash = bcrypt.hashSync(new_password, 10);
+      await dbRun('UPDATE users SET password_hash=? WHERE id=?', [hash, id]);
+      logAction(req.session.user.id, 'reset_user_password', 'user', id, 'Password reimpostata da admin');
+      res.redirect('/admin/users/'+id+'/edit?saved=pwd');
+    } catch(err) {
+      console.error('Errore reset password:', err);
+      res.redirect('/admin/users/'+id+'/edit?error=db');
+    }
   });
 
   app.post('/admin/users/:id/delete', requireAdmin, (req, res) => {

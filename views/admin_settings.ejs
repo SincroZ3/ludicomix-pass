@@ -370,66 +370,136 @@
 <!-- ====== PANEL UTENTI ====== -->
 <div id="panel-utenti" class="settings-panel" style="display:none;">
 
-  <div class="card" style="max-width:480px;">
-    <div class="card-title">Crea nuovo utente</div>
-    <form method="post" action="/admin/users" style="display:grid;gap:.75rem;">
-      <label>Username <span style="color:#c0392b">*</span><br>
-        <input type="text" name="username" required></label>
-      <label>Password <span style="color:#c0392b">*</span><br>
-        <input type="password" name="password" required></label>
-      <label>Ruolo <span style="color:#c0392b">*</span><br>
-        <select name="role" required>
-          <option value="operator">Operatore</option>
-          <option value="viewer">Visualizzatore</option>
-          <option value="admin">Amministratore</option>
-        </select>
-      </label>
-      <div><button type="submit" class="primary">+ Crea Utente</button></div>
-    </form>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start;margin-bottom:1.25rem;">
+
+    <!-- Form creazione -->
+    <div class="card" style="margin:0;">
+      <div class="card-title">&#43; Crea nuovo utente</div>
+      <form method="post" action="/admin/users" style="display:grid;gap:.75rem;">
+        <label>Username <span style="color:#c0392b">*</span><br>
+          <input type="text" name="username" required autocomplete="off"></label>
+        <label>Password iniziale <span style="color:#c0392b">*</span><br>
+          <input type="password" name="password" required minlength="8"
+                 placeholder="Min. 8 caratteri"></label>
+        <label>Ruolo <span style="color:#c0392b">*</span><br>
+          <select name="role" required id="new-role-sel">
+            <option value="organizer">&#128203; Organizzatore</option>
+            <option value="operator">&#127915; Operatore</option>
+            <option value="scanner">&#128247; Scanner</option>
+            <option value="viewer">&#128065; Visualizzatore</option>
+            <option value="admin">&#128273; Amministratore</option>
+          </select>
+        </label>
+        <div id="new-role-desc"
+             style="padding:.45rem .65rem;border-radius:4px;font-size:.77rem;
+                    color:var(--text-secondary);background:var(--bg-section);
+                    border-left:3px solid var(--border);"></div>
+        <div><button type="submit" class="primary">&#43; Crea Utente</button></div>
+      </form>
+    </div>
+
+    <!-- Tabella permessi -->
+    <div class="card" style="margin:0;">
+      <div class="card-title">&#128202; Permessi per ruolo</div>
+      <div style="overflow-x:auto;">
+        <table style="font-size:.75rem;width:100%;">
+          <thead>
+            <tr>
+              <th style="text-align:left;">Funzione</th>
+              <th style="text-align:center;">&#128273; Admin</th>
+              <th style="text-align:center;">&#128203; Org.</th>
+              <th style="text-align:center;">&#127915; Op.</th>
+              <th style="text-align:center;">&#128247; Scan</th>
+              <th style="text-align:center;">&#128065; View</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Visualizza tutto</td>
+              <td style="text-align:center;color:#2d6a4f;">&#10003;</td><td style="text-align:center;color:#2d6a4f;">&#10003;</td>
+              <td style="text-align:center;color:#2d6a4f;">&#10003;</td><td style="text-align:center;color:var(--text-muted);">&#8212;</td>
+              <td style="text-align:center;color:#2d6a4f;">&#10003;</td></tr>
+            <tr><td>Crea/modifica partecipanti e pass</td>
+              <td style="text-align:center;color:#2d6a4f;">&#10003;</td><td style="text-align:center;color:#2d6a4f;">&#10003;</td>
+              <td style="text-align:center;color:#2d6a4f;">&#10003;</td><td style="text-align:center;color:var(--text-muted);">&#8212;</td>
+              <td style="text-align:center;color:var(--text-muted);">&#8212;</td></tr>
+            <tr><td>Scansiona e marca consegnato</td>
+              <td style="text-align:center;color:#2d6a4f;">&#10003;</td><td style="text-align:center;color:#2d6a4f;">&#10003;</td>
+              <td style="text-align:center;color:#2d6a4f;">&#10003;</td><td style="text-align:center;color:#2d6a4f;">&#10003;</td>
+              <td style="text-align:center;color:var(--text-muted);">&#8212;</td></tr>
+            <tr><td>Gestisce stand, zone, tipologie</td>
+              <td style="text-align:center;color:#2d6a4f;">&#10003;</td><td style="text-align:center;color:#2d6a4f;">&#10003;</td>
+              <td style="text-align:center;color:var(--text-muted);">&#8212;</td><td style="text-align:center;color:var(--text-muted);">&#8212;</td>
+              <td style="text-align:center;color:var(--text-muted);">&#8212;</td></tr>
+            <tr><td>Import CSV, bacheca comunicazioni</td>
+              <td style="text-align:center;color:#2d6a4f;">&#10003;</td><td style="text-align:center;color:#2d6a4f;">&#10003;</td>
+              <td style="text-align:center;color:var(--text-muted);">&#8212;</td><td style="text-align:center;color:var(--text-muted);">&#8212;</td>
+              <td style="text-align:center;color:var(--text-muted);">&#8212;</td></tr>
+            <tr><td>Impostazioni sistema, backup</td>
+              <td style="text-align:center;color:#2d6a4f;">&#10003;</td><td style="text-align:center;color:var(--text-muted);">&#8212;</td>
+              <td style="text-align:center;color:var(--text-muted);">&#8212;</td><td style="text-align:center;color:var(--text-muted);">&#8212;</td>
+              <td style="text-align:center;color:var(--text-muted);">&#8212;</td></tr>
+            <tr><td>Gestione utenti</td>
+              <td style="text-align:center;color:#2d6a4f;">&#10003;</td><td style="text-align:center;color:var(--text-muted);">&#8212;</td>
+              <td style="text-align:center;color:var(--text-muted);">&#8212;</td><td style="text-align:center;color:var(--text-muted);">&#8212;</td>
+              <td style="text-align:center;color:var(--text-muted);">&#8212;</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
-  <div class="card" style="max-width:560px;">
-    <div class="card-title">Permessi per ruolo</div>
-    <table style="font-size:.8rem;">
-      <thead><tr><th>Funzione</th><th style="text-align:center;">Admin</th><th style="text-align:center;">Operatore</th><th style="text-align:center;">Viewer</th></tr></thead>
-      <tbody>
-        <tr><td>Visualizzare pass e gruppi</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10003;</td></tr>
-        <tr><td>Modificare stato pass</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10003;</td></tr>
-        <tr><td>Aggiungere / eliminare assegnatari</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10007;</td></tr>
-        <tr><td>Generare pass PDF</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10007;</td></tr>
-        <tr><td>Gestione utenti e log azioni</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10007;</td><td style="text-align:center;">&#10007;</td></tr>
-      </tbody>
-    </table>
-  </div>
-
+  <!-- Elenco utenti -->
   <div class="card">
-    <div class="card-title">Elenco Utenti</div>
+    <div class="card-title">&#128100; Elenco Utenti</div>
     <div class="table-wrapper">
       <table>
-        <thead><tr><th>ID</th><th>Username</th><th>Ruolo</th><th>Creato il</th><th>Elimina</th></tr></thead>
+        <thead>
+          <tr>
+            <th>ID</th><th>Username</th><th>Ruolo</th><th>Creato il</th>
+            <th style="text-align:center;">Modifica</th>
+            <th style="text-align:center;">Elimina</th>
+          </tr>
+        </thead>
         <tbody>
           <% users.forEach(function(u){ %>
+          <%
+            var roleChips = {
+              admin:     ['#e8edf8','#1a2744','&#128273; Amministratore'],
+              organizer: ['#e8f5e9','#1b5e20','&#128203; Organizzatore'],
+              operator:  ['#ede7f6','#4a148c','&#127915; Operatore'],
+              scanner:   ['#fff8e1','#e65100','&#128247; Scanner'],
+              viewer:    ['#fce4ec','#880e4f','&#128065; Visualizzatore'],
+            };
+            var chip = roleChips[u.role] || ['#f3f4f6','#374151', u.role];
+          %>
             <tr>
               <td><span class="chip">#<%= u.id %></span></td>
-              <td><strong><%= u.username %></strong></td>
-              <td>
-                <% if(u.role==='admin'){ %>
-                  <span class="chip" style="background:#e8edf8;color:#1a2744;">Amministratore</span>
-                <% }else if(u.role==='operator'){ %>
-                  <span class="chip" style="background:#e8f5e9;color:#1b5e20;">Operatore</span>
-                <% }else{ %>
-                  <span class="chip" style="background:#fff8e1;color:#e65100;">Visualizzatore</span>
+              <td><strong><%= u.username %></strong>
+                <% if(u.id===currentUser.id){ %>
+                  <span style="font-size:.68rem;color:var(--text-muted);"> (tu)</span>
                 <% } %>
               </td>
-              <td style="font-size:.78rem;color:var(--text-muted);"><%= u.created_at %></td>
               <td>
+                <span class="chip" style="background:<%= chip[0] %>;color:<%= chip[1] %>;">
+                  <%- chip[2] %>
+                </span>
+              </td>
+              <td style="font-size:.78rem;color:var(--text-muted);">
+                <%= (u.created_at||'').substring(0,16).replace('T',' ') %>
+              </td>
+              <td style="text-align:center;">
+                <a href="/admin/users/<%= u.id %>/edit" class="link-action">
+                  &#9999;&#65039; Modifica
+                </a>
+              </td>
+              <td style="text-align:center;">
                 <% if(u.id!==currentUser.id){ %>
                   <form method="post" action="/admin/users/<%= u.id %>/delete"
                     onsubmit="return confirm('Eliminare l\'utente <%= u.username %>?');">
                     <button type="submit" class="btn-danger">&#10005; Elimina</button>
                   </form>
                 <% }else{ %>
-                  <span style="font-size:.78rem;color:var(--text-muted);">Utente corrente</span>
+                  <span style="font-size:.75rem;color:var(--text-muted);">&#8212;</span>
                 <% } %>
               </td>
             </tr>
@@ -438,6 +508,23 @@
       </table>
     </div>
   </div>
+
+  <script>
+  (function(){
+    var defs = {
+      admin:     '&#128273; Accesso totale &#8212; impostazioni sistema, gestione utenti.',
+      organizer: '&#128203; Gestione operativa: stand, pass, partecipanti, import, bacheca. NON pu&#242; gestire utenti o impostazioni di sistema.',
+      operator:  '&#127915; Crea e gestisce partecipanti e pass, pu&#242; scansionare. NON modifica la struttura stand/tipologie.',
+      scanner:   '&#128247; Accede SOLO alla pagina Scanner. Al login viene portato direttamente alla scansione. Ideale per steward.',
+      viewer:    '&#128065; Sola lettura &#8212; vede tutto ma non pu&#242; fare modifiche n&#233; scansionare.',
+    };
+    var colors = {admin:'#1e2d4e',organizer:'#1b5e20',operator:'#4a148c',scanner:'#e65100',viewer:'#880e4f'};
+    var sel = document.getElementById('new-role-sel');
+    var desc = document.getElementById('new-role-desc');
+    function upd(){ desc.innerHTML = defs[sel.value]||''; desc.style.borderColor = colors[sel.value]||'var(--border)'; }
+    sel.addEventListener('change', upd); upd();
+  })();
+  </script>
 
 </div>
 
