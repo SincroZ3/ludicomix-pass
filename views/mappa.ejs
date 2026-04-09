@@ -132,7 +132,7 @@ var noZoneGroups=groups.filter(function(g){return !g.zone||zoneNames.indexOf(g.z
       <div id="map-area-<%=z.id%>"
            class="map-area<%=z.background_image?' has-bg':''%>"
            style="<%if(z.background_image){%>background-image:url('/zone-bg/<%=z.background_image%>');<%}%>"
-           <% if(isAdmin){ %>ondragover="onDragOver(event,<%=z.id%>)" ondragleave="onDragLeave(event,<%=z.id%>)" ondrop="onDrop(event,<%=z.id%>)"<% } %>>
+           <% if(canEdit){ %>ondragover="onDragOver(event,<%=z.id%>)" ondragleave="onDragLeave(event,<%=z.id%>)" ondrop="onDrop(event,<%=z.id%>)"<% } %>>
         <% if(canEdit){ %>
         <div class="shape-toolbar" id="stb-<%=z.id%>">
           <span class="stb-name" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;font-size:.75rem"></span>
@@ -161,7 +161,7 @@ var noZoneGroups=groups.filter(function(g){return !g.zone||zoneNames.indexOf(g.z
              <%if(g.notes){%>data-notes="<%=g.notes.replace(/"/g,'&quot;').replace(/\n/g,'&#10;')%>"<%}%>
              style="<%=_bs%>"
              onclick="openStandPopup(event,this)"
-             <% if(isAdmin){ %>draggable="true" ondragstart="onDragStart(event,<%=g.id%>)" ondblclick="removeFromMap(<%=g.id%>,<%=z.id%>)"<% } %>>
+             <% if(canEdit){ %>draggable="true" ondragstart="onDragStart(event,<%=g.id%>)" ondblclick="removeFromMap(<%=g.id%>,<%=z.id%>)"<% } %>>
           <% if(g.notes){ %><span class="note-icon" onclick="openNoteModal(event,'<%=g.stand_name%>','<%=g.notes.replace(/'/g,"&#39;").replace(/\n/g,"&#10;")%>')" title="Vedi note">&#128221;</span><% } %>
           <div class="sn"><%=g.stand_name%></div>
           <div class="sp"><%=g.consegnati%>/<%=g.pass_count%></div>
@@ -170,7 +170,7 @@ var noZoneGroups=groups.filter(function(g){return !g.zone||zoneNames.indexOf(g.z
         <% if(positioned.length===0){ %>
         <div class="map-empty-msg" id="hint-<%=z.id%>">
           <div style="font-size:2rem;opacity:.4;"><%=z.background_image?'&#128466;':'&#128449;'%></div>
-          <div style="opacity:.5;font-size:.8rem;"><%if(isAdmin){%><%=z.background_image?'Trascina gli stand sulla planimetria':'Carica una planimetria e trascina gli stand'%><%}else{%>Mappa non ancora configurata<%}%></div>
+          <div style="opacity:.5;font-size:.8rem;"><%if(canEdit){%><%=z.background_image?'Trascina gli stand sulla planimetria':'Carica una planimetria e trascina gli stand'%><%}else{%>Mappa non ancora configurata<%}%></div>
         </div>
         <% } %>
       </div>
