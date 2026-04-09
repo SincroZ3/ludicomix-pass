@@ -117,7 +117,7 @@
 
 <!-- ── PARTECIPANTI ── -->
 <% if(participants.length>0){ %>
-<div class="search-section <%=(tab==='all'||tab==='participants')?'visible':''%>" id="sec-participants" style="<%=tab==='all'&&passes.length>0?'margin-top:1.4rem':'%>">
+<div class="search-section <%=(tab==='all'||tab==='participants')?'visible':''%>" id="sec-participants" style="<%=tab==='all'&&passes.length>0?'margin-top:1.4rem':''%>">
   <div class="section-heading">👤 Partecipanti trovati &mdash; <span><%= participants.length %></span></div>
   <div class="table-wrapper">
     <table>
@@ -148,7 +148,7 @@
 
 <!-- ── GRUPPI ── -->
 <% if(groups.length>0){ %>
-<div class="search-section <%=(tab==='all'||tab==='groups')?'visible':''%>" id="sec-groups" style="<%=tab==='all'&&(passes.length>0||participants.length>0)?'margin-top:1.4rem':'%>">
+<div class="search-section <%=(tab==='all'||tab==='groups')?'visible':''%>" id="sec-groups" style="<%=tab==='all'&&(passes.length>0||participants.length>0)?'margin-top:1.4rem':''%>">
   <div class="section-heading">🏪 Gruppi / Stand trovati &mdash; <span><%= groups.length %></span></div>
   <div class="table-wrapper">
     <table>
