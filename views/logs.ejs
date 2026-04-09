@@ -1,26 +1,254 @@
 <%-include('partials/header') %>
-<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <strong>Log Azioni</strong></nav>
-<h1 class="page-title">Log Azioni</h1>
-<p style="font-size:0.83rem;color:var(--text-muted);margin-bottom:1rem;">Ultime 500 azioni registrate (login, creazioni, cancellazioni, modifiche stato).</p>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <a href="/admin/logs">Log Azioni</a></nav>
+<h1 class="page-title">🔎 Audit Log</h1>
+
+<style>
+/* ── filtri ── */
+.log-filters{background:var(--bg-white);border-radius:var(--radius-md);padding:1rem 1.2rem;margin-bottom:1rem;box-shadow:var(--shadow-sm);border-top:3px solid var(--brand-yellow)}
+.log-filters form{display:flex;flex-wrap:wrap;gap:.6rem;align-items:flex-end}
+.log-filters .fg{display:flex;flex-direction:column;gap:.22rem}
+.log-filters label{font-size:.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px}
+.log-filters input,.log-filters select{padding:.3rem .6rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.82rem;font-family:inherit;background:var(--bg-white);color:var(--text-primary)}
+.log-filters input[type=date]{min-width:130px}
+.log-filters .fg-q{flex:1;min-width:180px}
+
+/* ── anomaly banner ── */
+.anomaly-banner{background:#fff7ed;border:1.5px solid #fb923c;border-radius:var(--radius-md);padding:.75rem 1rem;margin-bottom:1rem;display:flex;gap:.75rem;align-items:flex-start}
+.anomaly-banner-icon{font-size:1.3rem;flex-shrink:0}
+.anomaly-banner-body h4{font-size:.85rem;font-weight:800;color:#9a3412;margin:0 0 .2rem}
+.anomaly-banner-body ul{margin:0;padding-left:1.1rem;font-size:.78rem;color:#7c2d12;line-height:1.7}
+
+/* ── action badges ── */
+.act{display:inline-block;padding:.1rem .45rem;border-radius:9999px;font-size:.68rem;font-weight:700;white-space:nowrap;font-family:monospace}
+.act-create{background:#d1fae5;color:#065f46}
+.act-delete{background:#fee2e2;color:#991b1b}
+.act-edit{background:#fef9c3;color:#713f12}
+.act-login{background:#dbeafe;color:#1e40af}
+.act-login-fail{background:#fee2e2;color:#991b1b;border:1px solid #f87171}
+.act-scan{background:#ede9fe;color:#5b21b6}
+.act-import{background:#e0f2fe;color:#075985}
+.act-other{background:#f1f5f9;color:#334155}
+.act-bulk{background:#fde68a;color:#78350f}
+
+/* ── row states ── */
+tr.row-anomaly{background:#fff7ed!important}
+tr.row-anomaly td:first-child{border-left:3px solid #f97316}
+tr.row-delete td{background:#fff5f5}
+tr.row-login-fail{background:#fff5f5}
+
+/* ── diff pill ── */
+.diff-wrap{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap}
+.diff-old{background:#fee2e2;color:#991b1b;border-radius:3px;padding:.05rem .4rem;font-size:.74rem;font-family:monospace;text-decoration:line-through;opacity:.8}
+.diff-new{background:#d1fae5;color:#065f46;border-radius:3px;padding:.05rem .4rem;font-size:.74rem;font-family:monospace}
+.diff-arrow{color:var(--text-muted);font-size:.8rem}
+.diff-plain{font-size:.78rem;color:var(--text-secondary)}
+
+/* ── pagination ── */
+.pager{display:flex;align-items:center;gap:.5rem;margin-top:1rem;font-size:.82rem}
+.pager a{padding:.25rem .6rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-white);color:var(--text-primary);text-decoration:none;font-weight:600;transition:.15s}
+.pager a:hover{background:var(--brand-yellow);color:var(--brand-dark)}
+.pager span{color:var(--text-muted)}
+
+/* ── stats bar ── */
+.log-stats{display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:.8rem}
+.log-stat{background:var(--bg-white);border-radius:var(--radius-sm);padding:.4rem .8rem;font-size:.78rem;font-weight:700;color:var(--text-secondary);border:1px solid var(--border)}
+.log-stat span{color:var(--brand-dark);font-size:1rem;margin-right:.3rem}
+</style>
+
+<!-- ── Anomaly Banner ── -->
+<% if(anomalyDel.length>0||anomalyLogin.length>0){ %>
+<div class="anomaly-banner">
+  <div class="anomaly-banner-icon">⚠️</div>
+  <div class="anomaly-banner-body">
+    <h4>Attività sospette rilevate (ultime 30 giorni)</h4>
+    <ul>
+      <% anomalyDel.forEach(function(a){ %>
+        <li>🗑️ <strong><%= a.username||'N/D' %></strong> ha effettuato <strong><%= a.cnt %> cancellazioni</strong> nello stesso minuto (<%= a.minute %>)</li>
+      <% }); %>
+      <% anomalyLogin.forEach(function(a){ %>
+        <li>🔐 <strong><%= a.cnt %> tentativi di login falliti</strong> per "<%= a.details||'?'%>" alle <%= a.minute %></li>
+      <% }); %>
+    </ul>
+  </div>
+</div>
+<% } %>
+
+<!-- ── Filtri ── -->
+<div class="log-filters">
+  <form method="get" action="/admin/logs">
+    <div class="fg">
+      <label>Utente</label>
+      <select name="u">
+        <option value="">— Tutti —</option>
+        <% users.forEach(function(u){ %>
+          <option value="<%= u.username %>" <%=filters.u===u.username?'selected':''%>><%= u.username %></option>
+        <% }); %>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Azione</label>
+      <select name="a">
+        <option value="">— Tutte —</option>
+        <% [['create','Creazione'],['delete','Cancellazione'],['edit','Modifica'],['update','Aggiornamento'],['login','Login'],['login_failed','Login fallito'],['scan','Scansione'],['import','Import CSV'],['bulk','Bulk'],['replace','Sostituzione pass'],['batch','Batch PDF'],['portal','Portale']].forEach(function(x){ %>
+          <option value="<%= x[0] %>" <%=filters.a===x[0]?'selected':''%>><%= x[1] %></option>
+        <% }); %>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Entità</label>
+      <select name="e">
+        <option value="">— Tutte —</option>
+        <% ['pass','participant','assignment_group','group','zone','pass_type','user','announcement','import','settings','auto_pass'].forEach(function(e){ %>
+          <option value="<%= e %>" <%=filters.e===e?'selected':''%>><%= e %></option>
+        <% }); %>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Da data</label>
+      <input type="date" name="d1" value="<%= filters.d1 %>">
+    </div>
+    <div class="fg">
+      <label>A data</label>
+      <input type="date" name="d2" value="<%= filters.d2 %>">
+    </div>
+    <div class="fg fg-q">
+      <label>Testo nei dettagli</label>
+      <input type="text" name="q" value="<%= filters.q %>" placeholder="es. Mario Rossi, #123…">
+    </div>
+    <button type="submit" class="primary">🔍 Filtra</button>
+    <a href="/admin/logs" class="btn" style="padding:.35rem .75rem;font-size:.82rem">✕ Reset</a>
+  </form>
+</div>
+
+<!-- ── Stats bar ── -->
+<div class="log-stats">
+  <div class="log-stat"><span><%= total %></span>eventi totali</div>
+  <div class="log-stat"><span><%= logs.length %></span>in questa pagina</div>
+  <% if(anomalyDel.length+anomalyLogin.length>0){ %>
+    <div class="log-stat" style="border-color:#fb923c;color:#9a3412"><span>⚠️ <%= anomalyDel.length+anomalyLogin.length %></span>anomalie</div>
+  <% } %>
+  <% if(Object.values(filters).some(function(v){return v;})){%>
+    <div class="log-stat" style="border-color:var(--accent-blue);color:var(--accent-blue)">🔽 Filtri attivi</div>
+  <% } %>
+</div>
+
+<!-- ── Tabella ── -->
 <div class="table-wrapper">
   <table>
     <thead>
-      <tr><th>ID</th><th>Data/Ora</th><th>Utente</th><th>Azione</th><th>Entità</th><th>Assegnatario</th><th>Gruppo</th><th>Dettagli</th></tr>
+      <tr>
+        <th style="width:52px">ID</th>
+        <th style="white-space:nowrap">Data / Ora</th>
+        <th>Utente</th>
+        <th>Azione</th>
+        <th>Entità</th>
+        <th>Chi / Cosa</th>
+        <th>Dettagli / Diff</th>
+      </tr>
     </thead>
     <tbody>
-      <% logs.forEach(l => { %>
-        <tr>
-          <td><span class="chip">#<%= l.id %></span></td>
-          <td style="white-space:nowrap;font-size:0.78rem;color:var(--text-muted);"><%= l.created_at %></td>
-          <td><strong><%= l.username || 'N/D' %></strong></td>
-          <td style="font-family:monospace;font-size:0.78rem;"><%= l.action %></td>
-          <td style="font-size:0.78rem;"><%= (l.entity_type || '') + (l.entity_id ? ' #' + l.entity_id : '') %></td>
-          <td style="font-size:0.78rem;"><%= l.participant_name || '—' %></td>
-          <td style="font-size:0.78rem;color:var(--text-muted);"><%= l.group_name || '—' %></td>
-          <td style="font-size:0.8rem;color:var(--text-secondary);"><%= l.details || '' %></td>
+      <% if(!logs||logs.length===0){ %>
+        <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted)">Nessun log trovato con i filtri selezionati.</td></tr>
+      <% } %>
+      <% logs.forEach(function(l){ %>
+        <%
+          var isAnomaly = anomalyIds.indexOf(l.id) !== -1;
+          var isDel = l.action && l.action.startsWith('delete');
+          var isLoginFail = l.action === 'login_failed';
+          var rowClass = isAnomaly ? 'row-anomaly' : (isDel ? 'row-delete' : (isLoginFail ? 'row-login-fail' : ''));
+
+          // badge classe
+          var badgeClass = 'act-other';
+          var a = l.action || '';
+          if(a.startsWith('create'))            badgeClass='act-create';
+          else if(a.startsWith('delete'))       badgeClass='act-delete';
+          else if(a.startsWith('edit')||a.startsWith('update')||a.startsWith('change')||a.startsWith('remove')) badgeClass='act-edit';
+          else if(a==='login')                  badgeClass='act-login';
+          else if(a==='login_failed')           badgeClass='act-login-fail';
+          else if(a.startsWith('scan'))         badgeClass='act-scan';
+          else if(a.startsWith('import'))       badgeClass='act-import';
+          else if(a.startsWith('bulk'))         badgeClass='act-bulk';
+
+          // icona entità
+          var entityIcon = '';
+          var et = l.entity_type||'';
+          if(et==='pass')             entityIcon='🎫';
+          else if(et==='participant') entityIcon='👤';
+          else if(et==='assignment_group') entityIcon='🏪';
+          else if(et==='group')       entityIcon='📁';
+          else if(et==='user')        entityIcon='🔐';
+          else if(et==='zone')        entityIcon='🗺️';
+          else if(et==='pass_type')   entityIcon='🏷️';
+          else if(et==='announcement')entityIcon='📢';
+          else if(et==='import')      entityIcon='📥';
+          else if(et==='settings')    entityIcon='⚙️';
+          else if(et==='auto_pass')   entityIcon='🅿️';
+
+          // diff visuale da details
+          var details = l.details || '';
+          var diffHtml = '';
+          // Pattern "X -> Y" (pass replacement)
+          var arrowMatch = details.match(/^Pass #(\d+)\s*->\s*#(\d+)/);
+          // Pattern "campo cambiato da A a B"
+          var fromToMatch = details.match(/da (.+?) a (.+)/i);
+          // Pattern "Stato aggiornato a X"
+          var statoMatch = details.match(/Stato (?:aggiornato a|auto-pass aggiornato a) (.+)/i);
+
+          if(arrowMatch){
+            diffHtml='<div class="diff-wrap"><span class="diff-old">#'+arrowMatch[1]+'</span>'
+              +'<span class="diff-arrow">→</span>'
+              +'<span class="diff-new">#'+arrowMatch[2]+'</span></div>';
+          } else if(statoMatch){
+            diffHtml='<div class="diff-wrap"><span class="diff-new">'+statoMatch[1]+'</span></div>';
+          } else if(fromToMatch && details.toLowerCase().indexOf('da ')>-1 && details.toLowerCase().indexOf(' a ')>-1){
+            diffHtml='<div class="diff-wrap"><span class="diff-old">'+fromToMatch[1]+'</span>'
+              +'<span class="diff-arrow">→</span>'
+              +'<span class="diff-new">'+fromToMatch[2]+'</span></div>';
+          } else if(details){
+            diffHtml='<span class="diff-plain">'+details+'</span>';
+          }
+
+          // data leggibile
+          var dt = l.created_at ? l.created_at.replace('T',' ').slice(0,16) : '—';
+        %>
+        <tr class="<%= rowClass %>">
+          <td>
+            <span class="chip" style="font-size:.72rem">#<%= l.id %></span>
+            <% if(isAnomaly){ %><span title="Attività anomala" style="font-size:.8rem">⚠️</span><% } %>
+          </td>
+          <td style="white-space:nowrap;font-size:.76rem;color:var(--text-muted);"><%= dt %></td>
+          <td><strong style="font-size:.82rem"><%= l.username||'<span style="color:var(--text-muted)">sistema</span>' %></strong></td>
+          <td><span class="act <%= badgeClass %>"><%= a %></span></td>
+          <td style="font-size:.78rem;white-space:nowrap;">
+            <% if(entityIcon){ %><%= entityIcon %> <% } %>
+            <span style="color:var(--text-secondary)"><%= et %></span>
+            <% if(l.entity_id){ %><span style="color:var(--text-muted)"> #<%= l.entity_id %></span><% } %>
+          </td>
+          <td style="font-size:.78rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<%= (l.participant_name||'') + (l.group_name?' — '+l.group_name:'') %>">
+            <% if(l.participant_name){ %><strong><%= l.participant_name %></strong><% } %>
+            <% if(l.group_name){ %><span style="color:var(--text-muted)"> / <%= l.group_name %></span><% } %>
+            <% if(!l.participant_name && !l.group_name){ %>—<% } %>
+          </td>
+          <td style="max-width:280px;"><%- diffHtml %></td>
         </tr>
-      <% }) %>
+      <% }); %>
     </tbody>
   </table>
 </div>
+
+<!-- ── Paginazione ── -->
+<% var totalPages = Math.ceil(total / pageSize); %>
+<% if(totalPages > 1){ %>
+<div class="pager">
+  <% if(page > 1){ %>
+    <a href="?u=<%= filters.u %>&a=<%= filters.a %>&e=<%= filters.e %>&d1=<%= filters.d1 %>&d2=<%= filters.d2 %>&q=<%= filters.q %>&p=<%= page-1 %>">← Prec.</a>
+  <% } %>
+  <span>Pagina <strong><%= page %></strong> di <strong><%= totalPages %></strong></span>
+  <% if(page < totalPages){ %>
+    <a href="?u=<%= filters.u %>&a=<%= filters.a %>&e=<%= filters.e %>&d1=<%= filters.d1 %>&d2=<%= filters.d2 %>&q=<%= filters.q %>&p=<%= page+1 %>">Succ. →</a>
+  <% } %>
+  <span style="margin-left:auto;color:var(--text-muted)"><%= total %> eventi totali, <%= pageSize %> per pagina</span>
+</div>
+<% } %>
+
 <%-include('partials/footer') %>
