@@ -196,5 +196,36 @@ db.run(`CREATE INDEX IF NOT EXISTS idx_pass_history_pass   ON pass_status_histor
 db.run(`CREATE INDEX IF NOT EXISTS idx_scan_attempts_code  ON scan_attempts(code)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_action_logs_user    ON action_logs(user_id)`);
 
+// ═══════════════════════════════════════════════════════
+// BACHECA COMUNICAZIONI — tabelle
+// ═══════════════════════════════════════════════════════
+
+// Comunicazioni dell'organizzazione verso i portali espositore
+db.run(`CREATE TABLE IF NOT EXISTS announcements (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  title       TEXT    NOT NULL,
+  message     TEXT    NOT NULL,
+  emoji       TEXT    DEFAULT '📣',
+  type        TEXT    DEFAULT 'info',     -- info | warning | urgent
+  is_pinned   INTEGER DEFAULT 0,
+  created_by  INTEGER,
+  created_at  TEXT    DEFAULT (datetime('now')),
+  expires_at  TEXT,
+  FOREIGN KEY(created_by) REFERENCES users(id)
+)`);
+
+// Traccia quali stand hanno letto quale messaggio
+db.run(`CREATE TABLE IF NOT EXISTS announcement_reads (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  announcement_id INTEGER NOT NULL,
+  portal_token    TEXT    NOT NULL,
+  read_at         TEXT    DEFAULT (datetime('now')),
+  UNIQUE(announcement_id, portal_token),
+  FOREIGN KEY(announcement_id) REFERENCES announcements(id) ON DELETE CASCADE
+)`);
+
+db.run(`CREATE INDEX IF NOT EXISTS idx_ann_reads_token ON announcement_reads(portal_token)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_ann_pinned     ON announcements(is_pinned, created_at)`);
+
 db.dbPath = dbPath;
 module.exports = db;

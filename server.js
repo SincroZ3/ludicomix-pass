@@ -1245,7 +1245,176 @@ app.get('/home', requireAuth, (req, res) => {
   });
   app.post('/admin/groups/:id/portal/token',requireAuth,requireNotViewer,function(req,res){var id=parseInt(req.params.id,10),token=require('crypto').randomBytes(24).toString('hex');db.run('UPDATE assignment_groups SET portal_token=?,portal_enabled=1 WHERE id=?',[token,id],function(err){if(err)return res.status(500).json({error:err.message});res.json({token});});});
   app.post('/admin/groups/:id/portal/toggle',requireAuth,requireNotViewer,function(req,res){var id=parseInt(req.params.id,10);db.get('SELECT portal_enabled FROM assignment_groups WHERE id=?',[id],function(e,row){if(!row)return res.status(404).json({error:'not found'});var v=row.portal_enabled?0:1;db.run('UPDATE assignment_groups SET portal_enabled=? WHERE id=?',[v,id],function(){res.json({enabled:v});});});});
-  app.get('/portale/:token',function(req,res){db.get(`SELECT ag.*,g.name AS cat_name FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id WHERE ag.portal_token=? AND ag.portal_enabled=1`,[req.params.token],function(err,group){if(err||!group)return res.status(404).send('<h2 style="font-family:sans-serif;padding:2rem">Portale non disponibile.</h2>');db.all(`SELECT pa.first_name,pa.last_name,pa.email,pa.role,p.id AS pass_id,p.code,p.status,pt.name AS type_name FROM participants pa LEFT JOIN passes p ON p.participant_id=pa.id AND p.status!='INVALIDATO' LEFT JOIN pass_types pt ON pt.id=p.pass_type_id WHERE pa.assignment_group_id=? ORDER BY pa.last_name,pa.first_name`,[group.id],function(e2,parts){db.all("SELECT * FROM auto_passes WHERE assignment_group_id=? AND status!='INVALIDATO' ORDER BY pass_number",[group.id],function(e3,autoPasses){res.render('portale',{group,parts:parts||[],token:req.params.token,autoPasses:autoPasses||[]});});});});});
+
+  // ═══════════════════════════════════════════════════════════════
+  // BACHECA COMUNICAZIONI
+  // ═══════════════════════════════════════════════════════════════
+
+  // GET  /admin/bacheca — pagina di gestione comunicazioni (admin only)
+  app.get('/admin/bacheca', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const announcements = await dbAll(`
+        SELECT a.*, u.username AS author
+        FROM announcements a
+        LEFT JOIN users u ON u.id = a.created_by
+        ORDER BY a.is_pinned DESC, a.created_at DESC
+      `);
+      const readCounts = await dbAll(`
+        SELECT announcement_id, COUNT(*) AS cnt
+        FROM announcement_reads
+        GROUP BY announcement_id
+      `);
+      const readMap = Object.fromEntries(readCounts.map(r => [r.announcement_id, r.cnt]));
+      const totalStands = (await dbGet(`SELECT COUNT(*) AS n FROM assignment_groups WHERE portal_enabled=1`)).n || 0;
+      res.render('admin_bacheca', { announcements, readMap, totalStands, saved: req.query.saved });
+    } catch(err) {
+      console.error('Errore /admin/bacheca:', err);
+      res.status(500).send('Errore interno');
+    }
+  });
+
+  // POST /admin/bacheca — crea nuovo annuncio
+  app.post('/admin/bacheca', requireAuth, requireAdmin, async (req, res) => {
+    const { title, message, emoji, type, is_pinned, expires_at } = req.body;
+    if (!title || !message) return res.redirect('/admin/bacheca?saved=err');
+    try {
+      await dbRun(
+        `INSERT INTO announcements (title, message, emoji, type, is_pinned, expires_at, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          title.trim(),
+          message.trim(),
+          emoji || '📣',
+          type || 'info',
+          is_pinned ? 1 : 0,
+          expires_at || null,
+          req.session.user.id
+        ]
+      );
+      logAction(req.session.user.id, 'create_announcement', 'announcement', null, `"${title.trim()}"`);
+      res.redirect('/admin/bacheca?saved=1');
+    } catch(err) {
+      console.error('Errore POST /admin/bacheca:', err);
+      res.redirect('/admin/bacheca?saved=err');
+    }
+  });
+
+  // POST /admin/bacheca/:id/pin — toggle pinned
+  app.post('/admin/bacheca/:id/pin', requireAuth, requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const row = await dbGet('SELECT is_pinned FROM announcements WHERE id=?', [id]);
+    if (!row) return res.status(404).json({ error: 'not found' });
+    const newVal = row.is_pinned ? 0 : 1;
+    await dbRun('UPDATE announcements SET is_pinned=? WHERE id=?', [newVal, id]);
+    res.json({ pinned: newVal });
+  });
+
+  // DELETE /admin/bacheca/:id — elimina annuncio
+  app.delete('/admin/bacheca/:id', requireAuth, requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    await dbRun('DELETE FROM announcements WHERE id=?', [id]);
+    logAction(req.session.user.id, 'delete_announcement', 'announcement', id, '');
+    res.json({ ok: true });
+  });
+
+  // POST /portale/:token/bacheca/read — segna tutti come letti per questo stand
+  app.post('/portale/:token/bacheca/read', async (req, res) => {
+    const token = req.params.token;
+    try {
+      const group = await dbGet(
+        'SELECT id FROM assignment_groups WHERE portal_token=? AND portal_enabled=1', [token]
+      );
+      if (!group) return res.status(404).json({ error: 'not found' });
+      const anns = await dbAll(`SELECT id FROM announcements WHERE expires_at IS NULL OR expires_at > datetime('now')`);
+      for (const a of anns) {
+        await dbRun(
+          'INSERT OR IGNORE INTO announcement_reads (announcement_id, portal_token) VALUES (?,?)',
+          [a.id, token]
+        );
+      }
+      res.json({ ok: true });
+    } catch(err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/portale/:token/unread — badge count per polling JS
+  app.get('/api/portale/:token/unread', async (req, res) => {
+    const token = req.params.token;
+    try {
+      const row = await dbGet(`
+        SELECT COUNT(*) AS cnt
+        FROM announcements a
+        WHERE (a.expires_at IS NULL OR a.expires_at > datetime('now'))
+          AND NOT EXISTS (
+            SELECT 1 FROM announcement_reads ar
+            WHERE ar.announcement_id = a.id AND ar.portal_token = ?
+          )
+      `, [token]);
+      res.json({ unread: row ? row.cnt : 0 });
+    } catch(err) {
+      res.json({ unread: 0 });
+    }
+  });
+
+  app.get('/portale/:token', async function(req, res) {
+    const token = req.params.token;
+    try {
+      const group = await dbGet(
+        `SELECT ag.*, g.name AS cat_name FROM assignment_groups ag
+         LEFT JOIN groups g ON g.id = ag.group_id
+         WHERE ag.portal_token=? AND ag.portal_enabled=1`,
+        [token]
+      );
+      if (!group) return res.status(404).send('<h2 style="font-family:sans-serif;padding:2rem">Portale non disponibile.</h2>');
+
+      const [parts, autoPasses, announcements, unreadRow] = await Promise.all([
+        dbAll(
+          `SELECT pa.first_name, pa.last_name, pa.email, pa.role,
+                  p.id AS pass_id, p.code, p.status, pt.name AS type_name
+           FROM participants pa
+           LEFT JOIN passes p ON p.participant_id=pa.id AND p.status!='INVALIDATO'
+           LEFT JOIN pass_types pt ON pt.id=p.pass_type_id
+           WHERE pa.assignment_group_id=?
+           ORDER BY pa.last_name, pa.first_name`,
+          [group.id]
+        ),
+        dbAll(
+          `SELECT * FROM auto_passes WHERE assignment_group_id=? AND status!='INVALIDATO' ORDER BY pass_number`,
+          [group.id]
+        ),
+        dbAll(
+          `SELECT a.*, CASE WHEN ar.id IS NOT NULL THEN 1 ELSE 0 END AS is_read
+           FROM announcements a
+           LEFT JOIN announcement_reads ar ON ar.announcement_id=a.id AND ar.portal_token=?
+           WHERE (a.expires_at IS NULL OR a.expires_at > datetime('now'))
+           ORDER BY a.is_pinned DESC, a.created_at DESC`,
+          [token]
+        ),
+        dbGet(
+          `SELECT COUNT(*) AS cnt FROM announcements a
+           WHERE (a.expires_at IS NULL OR a.expires_at > datetime('now'))
+             AND NOT EXISTS (
+               SELECT 1 FROM announcement_reads ar
+               WHERE ar.announcement_id=a.id AND ar.portal_token=?
+             )`,
+          [token]
+        )
+      ]);
+
+      res.render('portale', {
+        group,
+        parts:        parts       || [],
+        token,
+        autoPasses:   autoPasses  || [],
+        announcements: announcements || [],
+        unreadCount:  unreadRow ? unreadRow.cnt : 0
+      });
+    } catch(err) {
+      console.error('Errore GET /portale/:token:', err);
+      res.status(500).send('Errore interno');
+    }
+  });
   app.get('/portale/:token/download/:passId',function(req,res){db.get(`SELECT ag.portal_enabled FROM assignment_groups ag JOIN participants pa ON pa.assignment_group_id=ag.id JOIN passes p ON p.participant_id=pa.id WHERE ag.portal_token=? AND p.id=?`,[req.params.token,req.params.passId],function(err,row){if(err||!row||!row.portal_enabled)return res.status(403).send('Accesso negato');res.redirect('/passes/'+req.params.passId+'/download?portal_token='+req.params.token);});});
   app.get('/portale/:token/download-auto/:apId',function(req,res){
     db.get(
