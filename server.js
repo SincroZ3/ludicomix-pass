@@ -1306,7 +1306,7 @@ app.get('/home', requireAuth, (req, res) => {
   // ═══════════════════════════════════════════════════════════════
 
   // GET  /admin/bacheca — pagina di gestione comunicazioni (admin only)
-  app.get('/admin/bacheca', requireAuth, requireAdmin, async (req, res) => {
+  app.get('/admin/bacheca', requireAuth, requireOrganizer, async (req, res) => {
     try {
       const announcements = await dbAll(`
         SELECT a.*, u.username AS author

@@ -514,7 +514,14 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
       <div class="brand-text-block">
         <div class="brand-sub">Area di gestione pass</div>
         <% if (currentUser) { %>
-          <div class="brand-user">Accesso come: <strong><%= currentUser.username %></strong> &nbsp;&middot;&nbsp; Ruolo: <strong><%= currentUser.role === 'admin' ? 'Amministratore' : currentUser.role === 'viewer' ? 'Visualizzatore' : 'Operatore' %></strong></div>
+          <div class="brand-user">Accesso come: <strong><%= currentUser.username %></strong> &nbsp;&middot;&nbsp; Ruolo: <strong><%=
+            currentUser.role === 'admin'     ? 'Amministratore' :
+            currentUser.role === 'organizer' ? 'Organizzatore'  :
+            currentUser.role === 'operator'  ? 'Operatore'      :
+            currentUser.role === 'scanner'   ? 'Scanner'        :
+            currentUser.role === 'viewer'    ? 'Visualizzatore' :
+            currentUser.role
+          %></strong></div>
         <% } %>
       </div>
     </div>
