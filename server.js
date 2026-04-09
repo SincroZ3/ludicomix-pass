@@ -113,7 +113,7 @@ function checkGroupLimit(gid){
   // Ruoli che possono accedere alle impostazioni di sistema
   const CAN_ADMIN   = [ROLES.ADMIN];
   // Ruoli che possono scansionare
-  const CAN_SCAN    = [ROLES.ADMIN, ROLES.ORGANIZER, ROLES.OPERATOR, ROLES.SCANNER];
+  const CAN_SCAN    = [ROLES.ADMIN, ROLES.ORGANIZER, ROLES.OPERATOR, ROLES.SCANNER, ROLES.VIEWER];
 
   function hasRole(user, ...roles) {
     return user && roles.includes(user.role);
@@ -154,7 +154,7 @@ function checkGroupLimit(gid){
     next();
   }
 
-  // Scan: tutti tranne viewer
+  // Ruoli che possono scansionare (incluso viewer — sola lettura ma può scansionare)
   function requireCanScan(req, res, next) {
     if (!hasRole(req.session.user, ...CAN_SCAN)) {
       return res.status(403).sendFile(path.join(__dirname, 'views', '403.html'));
