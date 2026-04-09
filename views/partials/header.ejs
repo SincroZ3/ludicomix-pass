@@ -505,6 +505,32 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 }
 
   </style>
+
+/* ============================================================
+   COMMAND PALETTE  (Ctrl+K / Cmd+K)
+   ============================================================ */
+#cp-overlay{display:none;position:fixed;inset:0;background:rgba(10,20,45,.55);z-index:9990;backdrop-filter:blur(2px);align-items:flex-start;justify-content:center;padding-top:10vh}
+#cp-overlay.open{display:flex}
+#cp-box{background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(10,20,45,.35);width:100%;max-width:580px;overflow:hidden}
+#cp-header{display:flex;align-items:center;gap:.55rem;padding:.6rem 1rem;border-bottom:1px solid #e8ecf3;background:#f7f8fa}
+#cp-q{flex:1;border:none;outline:none;font-size:1rem;background:transparent;color:#1a2744;font-family:inherit}
+#cp-q::placeholder{color:#a0aec0}
+#cp-hint{font-size:.72rem;color:#a0aec0;white-space:nowrap}
+#cp-results{max-height:380px;overflow-y:auto}
+.cp-empty{padding:1.5rem;text-align:center;color:#a0aec0;font-size:.88rem}
+.cp-section-title{padding:.35rem .9rem .2rem;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#718096;border-top:1px solid #f0f2f5}
+.cp-item{display:flex;align-items:center;gap:.65rem;padding:.52rem .9rem;cursor:pointer;transition:background .1s;text-decoration:none;color:inherit}
+.cp-item:hover,.cp-item.focused{background:#eef1f7;text-decoration:none;color:inherit}
+.cp-icon{font-size:1rem;flex-shrink:0;width:22px;text-align:center}
+.cp-label{flex:1;min-width:0}
+.cp-name{font-size:.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cp-sub{font-size:.72rem;color:#718096;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cp-badge{font-size:.66rem;padding:.1rem .4rem;border-radius:9999px;font-weight:700;white-space:nowrap;flex-shrink:0}
+.cp-badge-gen{background:#e0e7ff;color:#3730a3}
+.cp-badge-cons{background:#d1fae5;color:#065f46}
+.cp-badge-inv{background:#fee2e2;color:#991b1b}
+.cp-footer{padding:.4rem .9rem;border-top:1px solid #f0f2f5;display:flex;gap:1.1rem;font-size:.72rem;color:#a0aec0}
+.cp-footer kbd{background:#f0f2f5;border:1px solid #d1d9e6;border-radius:3px;padding:.05rem .3rem;font-size:.68rem;font-family:monospace;color:#4a5568}
 </head>
 <body>
   <header class="topbar">
@@ -561,4 +587,128 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
     <% } %>
   </nav>
   <% } %>
+<% if (currentUser) { %>
+<!-- COMMAND PALETTE -->
+<div id="cp-overlay" role="dialog" aria-modal="true" aria-label="Ricerca rapida">
+  <div id="cp-box">
+    <div id="cp-header">
+      <span style="font-size:1.1rem;opacity:.5">🔍</span>
+      <input id="cp-q" type="text" placeholder="Cerca partecipanti, pass, gruppi…" autocomplete="off" spellcheck="false">
+      <span id="cp-hint"><kbd>ESC</kbd> chiude</span>
+    </div>
+    <div id="cp-results"><div class="cp-empty">Inizia a digitare…</div></div>
+    <div class="cp-footer">
+      <span><kbd>↑</kbd><kbd>↓</kbd> naviga</span>
+      <span><kbd>↵</kbd> apri</span>
+      <span><kbd>Ctrl</kbd>+<kbd>K</kbd> apri/chiudi</span>
+      <span style="margin-left:auto"><a href="/search" style="color:#a0aec0;text-decoration:none;font-size:.72rem">Ricerca avanzata →</a></span>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var overlay=document.getElementById('cp-overlay');
+  var input=document.getElementById('cp-q');
+  var resultsEl=document.getElementById('cp-results');
+  var timer=null, focusIdx=-1, items=[];
+
+  function open(){overlay.classList.add('open');input.value='';renderEmpty();setTimeout(function(){input.focus();},10);}
+  function close(){overlay.classList.remove('open');focusIdx=-1;}
+  function renderEmpty(){resultsEl.innerHTML='<div class="cp-empty">Inizia a digitare…</div>';}
+  function renderLoading(){resultsEl.innerHTML='<div class="cp-empty">Ricerca in corso…</div>';}
+
+  document.addEventListener('keydown',function(e){
+    if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();overlay.classList.contains('open')?close():open();return;}
+    if(!overlay.classList.contains('open'))return;
+    if(e.key==='Escape'){close();return;}
+    if(e.key==='ArrowDown'){e.preventDefault();moveFocus(1);return;}
+    if(e.key==='ArrowUp'){e.preventDefault();moveFocus(-1);return;}
+    if(e.key==='Enter'){e.preventDefault();activateFocused();return;}
+  });
+
+  overlay.addEventListener('click',function(e){if(e.target===overlay)close();});
+
+  function moveFocus(d){
+    items=resultsEl.querySelectorAll('.cp-item');
+    if(!items.length)return;
+    items.forEach(function(i){i.classList.remove('focused');});
+    focusIdx=(focusIdx+d+items.length)%items.length;
+    items[focusIdx].classList.add('focused');
+    items[focusIdx].scrollIntoView({block:'nearest'});
+  }
+
+  function activateFocused(){
+    items=resultsEl.querySelectorAll('.cp-item');
+    var focused=focusIdx>=0&&items[focusIdx]?items[focusIdx]:items[0];
+    if(focused){var href=focused.getAttribute('data-href');if(href)window.location.href=href;}
+  }
+
+  function statusBadge(s){
+    if(!s)return'';
+    var cls='cp-badge-gen';
+    if(s==='CONSEGNATO'||s==='RICONSEGNATO')cls='cp-badge-cons';
+    if(s==='INVALIDATO')cls='cp-badge-inv';
+    return '<span class="cp-badge '+cls+'">'+s+'</span>';
+  }
+
+  function buildItem(href,icon,name,sub,badge){
+    return '<a class="cp-item" data-href="'+href+'" href="'+href+'">'
+      +'<span class="cp-icon">'+icon+'</span>'
+      +'<span class="cp-label">'
+        +'<div class="cp-name">'+escH(name)+'</div>'
+        +(sub?'<div class="cp-sub">'+escH(sub)+'</div>':'')
+      +'</span>'
+      +(badge||'')
+      +'</a>';
+  }
+  function escH(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+  function render(data){
+    focusIdx=-1;
+    var html='';
+    if(data.passes&&data.passes.length){
+      html+='<div class="cp-section-title">🎫 Pass</div>';
+      data.passes.forEach(function(p){
+        html+=buildItem('/search?q='+encodeURIComponent(p.code||p.participant_name)+'&tab=passes',
+          '🎫', p.participant_name, (p.stand_name||'')+' · '+p.pass_type_name, statusBadge(p.status));
+      });
+    }
+    if(data.participants&&data.participants.length){
+      html+='<div class="cp-section-title">👤 Partecipanti</div>';
+      data.participants.forEach(function(p){
+        html+=buildItem('/search?q='+encodeURIComponent(p.first_name+' '+p.last_name)+'&tab=participants',
+          '👤', p.first_name+' '+p.last_name, (p.role||'')+(p.stand_name?' · '+p.stand_name:''), '');
+      });
+    }
+    if(data.groups&&data.groups.length){
+      html+='<div class="cp-section-title">🏪 Gruppi / Stand</div>';
+      data.groups.forEach(function(g){
+        html+=buildItem('/assignment-groups/'+g.id,
+          '🏪', g.stand_name||g.name, (g.zone||'')+(g.name?' · '+g.name:''), '');
+      });
+    }
+    var total=(data.passes?data.passes.length:0)+(data.participants?data.participants.length:0)+(data.groups?data.groups.length:0);
+    if(!total) html='<div class="cp-empty">Nessun risultato trovato.</div>';
+    html+='<a class="cp-item" data-href="/search?q='+encodeURIComponent(input.value)+'&tab=all" href="/search?q='+encodeURIComponent(input.value)+'&tab=all" style="border-top:1px solid #f0f2f5;color:var(--accent-blue)">'
+      +'<span class="cp-icon">🔍</span>'
+      +'<span class="cp-label"><div class="cp-name">Mostra tutti i risultati nella pagina avanzata</div></span>'
+      +'</a>';
+    resultsEl.innerHTML=html;
+  }
+
+  input.addEventListener('input',function(){
+    clearTimeout(timer);
+    var q=input.value.trim();
+    if(q.length<2){renderEmpty();return;}
+    renderLoading();
+    timer=setTimeout(function(){
+      fetch('/api/search?q='+encodeURIComponent(q))
+        .then(function(r){return r.json();})
+        .then(render)
+        .catch(function(){resultsEl.innerHTML='<div class="cp-empty">Errore di rete.</div>';});
+    },200);
+  });
+})();
+</script>
+<% } %>
   <main class="content">

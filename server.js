@@ -1762,30 +1762,78 @@ app.get('/notifications',requireAuth,requireAdmin,function(req,res){db.run("UPDA
     });
   });
 
+app.get('/api/search', requireAuth, (req, res) => {
+    const q = (req.query.q || '').trim();
+    if (!q || q.length < 2) return res.json({ passes: [], participants: [], groups: [] });
+    const like = `%${q}%`;
+    const sqlP = `SELECT p.id, p.code, p.status, pt.name AS pass_type_name,
+             pa.first_name||' '||pa.last_name AS participant_name, ag.stand_name
+      FROM passes p
+      JOIN pass_types pt ON pt.id=p.pass_type_id
+      JOIN participants pa ON pa.id=p.participant_id
+      LEFT JOIN assignment_groups ag ON ag.id=pa.assignment_group_id
+      WHERE pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ?
+         OR pt.name LIKE ? OR p.code LIKE ? OR ag.name LIKE ? OR ag.stand_name LIKE ?
+      ORDER BY p.id DESC LIMIT 8`;
+    const sqlPa = `SELECT pa.id, pa.first_name, pa.last_name, pa.role, ag.stand_name
+      FROM participants pa
+      LEFT JOIN assignment_groups ag ON ag.id=pa.assignment_group_id
+      WHERE pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ? OR pa.role LIKE ?
+      ORDER BY pa.last_name LIMIT 6`;
+    const sqlG = `SELECT ag.id, ag.name, ag.stand_name, ag.zone
+      FROM assignment_groups ag
+      WHERE ag.name LIKE ? OR ag.stand_name LIKE ? OR ag.zone LIKE ? OR ag.stand_code LIKE ?
+      ORDER BY ag.name LIMIT 5`;
+    db.all(sqlP, [like,like,like,like,like,like,like], (e1, passes) => {
+      db.all(sqlPa, [like,like,like,like], (e2, participants) => {
+        db.all(sqlG, [like,like,like,like], (e3, groups) => {
+          res.json({ passes: passes||[], participants: participants||[], groups: groups||[] });
+        });
+      });
+    });
+  });
+
 app.get('/search', requireAuth, (req, res) => {
     const q = (req.query.q || '').trim();
-    if (!q) {
-      return res.render('search', { q: '', results: [] });
-    }
+    const tab = req.query.tab || 'all';
+    if (!q) return res.render('search', { q:'', tab, passes:[], participants:[], groups:[] });
     const like = `%${q}%`;
-    const sql = `
-      SELECT p.id, p.created_at, p.pdf_file, p.code, p.status,
+    const sqlP = `SELECT p.id, p.created_at, p.pdf_file, p.code, p.status,
              pt.name AS pass_type_name,
-             pa.first_name || ' ' || pa.last_name AS participant_name,
-             ag.name AS group_name,
-             ag.stand_name AS stand_name
+             pa.first_name||' '||pa.last_name AS participant_name,
+             ag.name AS group_name, ag.stand_name
       FROM passes p
-      JOIN pass_types pt ON pt.id = p.pass_type_id
-      JOIN participants pa ON pa.id = p.participant_id
-      LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
+      JOIN pass_types pt ON pt.id=p.pass_type_id
+      JOIN participants pa ON pa.id=p.participant_id
+      LEFT JOIN assignment_groups ag ON ag.id=pa.assignment_group_id
       WHERE pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ?
-         OR pt.name LIKE ? OR p.code LIKE ?
-         OR ag.name LIKE ? OR ag.stand_name LIKE ?
-      ORDER BY p.id DESC
-    `;
-    db.all(sql, [like, like, like, like, like, like, like], (err, rows) => {
-      if (err) return res.status(500).send('Errore ricerca pass');
-      res.render('search', { q, results: rows });
+         OR pt.name LIKE ? OR p.code LIKE ? OR ag.name LIKE ? OR ag.stand_name LIKE ?
+      ORDER BY p.id DESC LIMIT 300`;
+    const sqlPa = `SELECT pa.id, pa.first_name, pa.last_name, pa.email, pa.role, pa.ref_code,
+             ag.name AS group_name, ag.stand_name,
+             (SELECT COUNT(*) FROM passes pp WHERE pp.participant_id=pa.id AND pp.status!='INVALIDATO') AS pass_count
+      FROM participants pa
+      LEFT JOIN assignment_groups ag ON ag.id=pa.assignment_group_id
+      WHERE pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ?
+         OR pa.role LIKE ? OR pa.ref_code LIKE ?
+      ORDER BY pa.last_name, pa.first_name LIMIT 100`;
+    const sqlG = `SELECT ag.id, ag.name, ag.stand_name, ag.zone, ag.stand_code,
+             g.name AS category_name, ag.max_passes,
+             COUNT(DISTINCT pa.id) AS participant_count,
+             SUM(CASE WHEN p.status IN ('CONSEGNATO','RICONSEGNATO') THEN 1 ELSE 0 END) AS consegnati,
+             COUNT(DISTINCT p.id) AS pass_count
+      FROM assignment_groups ag
+      LEFT JOIN groups g ON g.id=ag.group_id
+      LEFT JOIN participants pa ON pa.assignment_group_id=ag.id
+      LEFT JOIN passes p ON p.participant_id=pa.id AND p.status!='INVALIDATO'
+      WHERE ag.name LIKE ? OR ag.stand_name LIKE ? OR ag.zone LIKE ? OR ag.stand_code LIKE ?
+      GROUP BY ag.id ORDER BY ag.name LIMIT 80`;
+    db.all(sqlP, [like,like,like,like,like,like,like], (e1, passes) => {
+      db.all(sqlPa, [like,like,like,like,like], (e2, participants) => {
+        db.all(sqlG, [like,like,like,like], (e3, groups) => {
+          res.render('search', { q, tab, passes:passes||[], participants:participants||[], groups:groups||[] });
+        });
+      });
     });
   });
 
