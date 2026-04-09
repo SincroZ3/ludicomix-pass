@@ -700,12 +700,25 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
       var W = canvas.width, H = canvas.height;
       ctx.clearRect(0, 0, W, H);
 
-      function renderStands() {
-        // Sfondo neutro se no immagine
+      // ── BUG FIX #2: background-size:contain; background-position:center top ──
+      // Replica esattamente il comportamento CSS della mappa admin.
+      // Calcola offset e scala per disegnare l'immagine mantenendo aspect ratio.
+      function calcContainTopCenter(img, cw, ch) {
+        var scale = Math.min(cw / img.naturalWidth, ch / img.naturalHeight);
+        var dw = img.naturalWidth  * scale;
+        var dh = img.naturalHeight * scale;
+        var dx = (cw - dw) / 2;   // center orizzontale
+        var dy = 0;                // top allineato
+        return { dx: dx, dy: dy, dw: dw, dh: dh, scale: scale };
+      }
+
+      function renderStands(bgFit) { // bgFit reserved for future use
+        // bgFit = { dx, dy, dw, dh } — offset immagine nel canvas (null se no immagine)
+        // Con sfondo: le percentuali si applicano alla stessa area del canvas (non all'immagine!)
+        // così come fa CSS: le % sono del contenitore, non dell'immagine.
         if (!BG_IMG) {
           ctx.fillStyle = '#e8ecf3';
           ctx.fillRect(0, 0, W, H);
-          // Grid leggera
           ctx.strokeStyle = 'rgba(148,163,184,.25)';
           ctx.lineWidth = 1;
           for (var gx=0; gx<=W; gx+=W/20){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
@@ -714,16 +727,17 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
 
         // Disegna tutti gli stand
         ALL_STANDS.forEach(function(s) {
-          var x = s.map_x / 100 * W;
-          var y = s.map_y / 100 * H;
-          var w = (s.map_w || 8) / 100 * W;
-          var h = (s.map_h || 5) / 100 * H;
+          var sw = (s.map_w || 8) / 100 * W;
+          var sh = (s.map_h || 5) / 100 * H;
+          // ── BUG FIX #1: map_x/map_y è il CENTRO dello stand (transform:translate(-50%,-50%))
+          // Sottrai metà larghezza/altezza per ottenere il top-left del rettangolo
+          var sx = s.map_x / 100 * W - sw / 2;
+          var sy = s.map_y / 100 * H - sh / 2;
           var isMe = s.id === MY_ID;
 
           if (isMe) {
-            // Glow giallo
             ctx.shadowColor = 'rgba(245,200,66,.8)';
-            ctx.shadowBlur  = highlightPulse ? 20 : 14;
+            ctx.shadowBlur  = highlightPulse ? 22 : 14;
             ctx.fillStyle   = 'rgba(245,200,66,.9)';
             ctx.strokeStyle = '#c9a227';
             ctx.lineWidth   = 3;
@@ -739,13 +753,14 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
           if (s.map_shape) { try { shape = JSON.parse(s.map_shape); } catch(e){} }
           if (shape && Array.isArray(shape) && shape.length > 2) {
             ctx.beginPath();
-            ctx.moveTo(x + shape[0][0]/100*w, y + shape[0][1]/100*h);
-            for (var i=1;i<shape.length;i++) ctx.lineTo(x + shape[i][0]/100*w, y + shape[i][1]/100*h);
+            // BUG FIX: usa sx,sy (top-left) come base per il polygon, non x,y centro
+            ctx.moveTo(sx + shape[0][0]/100*sw, sy + shape[0][1]/100*sh);
+            for (var i=1;i<shape.length;i++) ctx.lineTo(sx + shape[i][0]/100*sw, sy + shape[i][1]/100*sh);
             ctx.closePath();
             ctx.fill(); ctx.stroke();
           } else {
             ctx.beginPath();
-            ctx.roundRect ? ctx.roundRect(x,y,w,h,3) : ctx.rect(x,y,w,h);
+            ctx.roundRect ? ctx.roundRect(sx,sy,sw,sh,3) : ctx.rect(sx,sy,sw,sh);
             ctx.fill(); ctx.stroke();
           }
           ctx.shadowBlur = 0;
@@ -753,35 +768,34 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
           // Etichetta solo per lo stand corrente
           if (isMe) {
             var label = MY_CODE ? ('Stand ' + MY_CODE) : MY_NAME;
-            var fontSize = Math.max(11, Math.min(16, w * 0.18));
+            var fontSize = Math.max(11, Math.min(16, sw * 0.18));
             ctx.font = 'bold ' + fontSize + 'px Inter,sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
 
-            // Sfondo etichetta
+            // Sfondo etichetta (usa sx,sy — top-left corretto)
             var tw = ctx.measureText(label).width + 12;
             var th = fontSize + 8;
-            var lx = x + w/2 - tw/2;
-            var ly = y - th - 4;
-            // assicura che l'etichetta non esca in alto
-            if (ly < 2) ly = y + h + 4;
+            var lx = sx + sw/2 - tw/2;
+            var ly = sy - th - 4;
+            if (ly < 2) ly = sy + sh + 4;
             ctx.fillStyle = 'rgba(30,45,78,.85)';
             ctx.beginPath();
             ctx.roundRect ? ctx.roundRect(lx,ly,tw,th,4) : ctx.rect(lx,ly,tw,th);
             ctx.fill();
 
             ctx.fillStyle = '#f5c842';
-            ctx.fillText(label, x+w/2, ly+th-4);
+            ctx.fillText(label, sx+sw/2, ly+th-4);
 
-            // Indicatore PIN
+            // Indicatore PIN centrato sullo stand
             ctx.fillStyle = '#c9a227';
             ctx.beginPath();
-            ctx.arc(x+w/2, y + h/2, Math.min(w,h)*0.12, 0, Math.PI*2);
+            ctx.arc(sx+sw/2, sy+sh/2, Math.min(sw,sh)*0.12, 0, Math.PI*2);
             ctx.fill();
             ctx.fillStyle = '#fff';
-            ctx.font = 'bold ' + Math.max(10,Math.min(w,h)*0.18) + 'px sans-serif';
+            ctx.font = 'bold ' + Math.max(10,Math.min(sw,sh)*0.18) + 'px sans-serif';
             ctx.textBaseline = 'middle';
-            ctx.fillText('★', x+w/2, y+h/2);
+            ctx.fillText('★', sx+sw/2, sy+sh/2);
           }
         });
 
@@ -799,13 +813,18 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
         var img = new Image();
         img.crossOrigin = 'anonymous';
         img.onload = function() {
-          ctx.drawImage(img, 0, 0, W, H);
-          renderStands();
+          // BUG FIX #2: replica background-size:contain; background-position:center top
+          var fit = calcContainTopCenter(img, W, H);
+          // Sfondo neutro dietro l'immagine (bande laterali/inferiori)
+          ctx.fillStyle = '#e8ecf3';
+          ctx.fillRect(0, 0, W, H);
+          ctx.drawImage(img, fit.dx, fit.dy, fit.dw, fit.dh);
+          renderStands(fit);
         };
-        img.onerror = function() { BG_IMG = ''; renderStands(); };
+        img.onerror = function() { BG_IMG = ''; renderStands(null); };
         img.src = BG_IMG;
       } else {
-        renderStands();
+        renderStands(null);
       }
     }
 
@@ -845,29 +864,42 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
       // Forzatura sincrona: ridisegniamo su exp
       function exportNow(bgLoaded) {
         var ctx2 = exp.getContext('2d');
-        if (bgLoaded) { ctx2.drawImage(bgLoaded, 0, 0, 1200, 720); }
-        else {
-          ctx2.fillStyle = '#e8ecf3';
-          ctx2.fillRect(0,0,1200,720);
+        ctx2.fillStyle = '#e8ecf3';
+        ctx2.fillRect(0,0,W,H);
+        if (bgLoaded) {
+          // BUG FIX: contain+center top per l'export
+          var escale = Math.min(W/bgLoaded.naturalWidth, H/bgLoaded.naturalHeight);
+          var edw = bgLoaded.naturalWidth*escale, edh = bgLoaded.naturalHeight*escale;
+          var edx = (W-edw)/2, edy = 0;
+          ctx2.drawImage(bgLoaded, edx, edy, edw, edh);
         }
         // Ridisegna stand su exp come drawMap ma senza img reload
         var W=1200,H=720;
         ALL_STANDS.forEach(function(s){
-          var x=s.map_x/100*W,y=s.map_y/100*H;
-          var w=(s.map_w||8)/100*W,h=(s.map_h||5)/100*H;
+          // BUG FIX: usa center-based coords come nella mappa admin
+          var sw=(s.map_w||8)/100*W, sh=(s.map_h||5)/100*H;
+          var sx=s.map_x/100*W - sw/2, sy=s.map_y/100*H - sh/2;
           var isMe=s.id===MY_ID;
           ctx2.shadowBlur=0;
           if(isMe){ctx2.shadowColor='rgba(245,200,66,.8)';ctx2.shadowBlur=20;ctx2.fillStyle='rgba(245,200,66,.9)';ctx2.strokeStyle='#c9a227';ctx2.lineWidth=4;}
           else{ctx2.fillStyle='rgba(100,116,139,.18)';ctx2.strokeStyle='rgba(100,116,139,.45)';ctx2.lineWidth=1;}
-          ctx2.beginPath();ctx2.rect(x,y,w,h);ctx2.fill();ctx2.stroke();
+          // Shape support nell'export
+          var shape=null;if(s.map_shape){try{shape=JSON.parse(s.map_shape);}catch(e){}}
+          if(shape&&Array.isArray(shape)&&shape.length>2){
+            ctx2.beginPath();ctx2.moveTo(sx+shape[0][0]/100*sw,sy+shape[0][1]/100*sh);
+            for(var i=1;i<shape.length;i++)ctx2.lineTo(sx+shape[i][0]/100*sw,sy+shape[i][1]/100*sh);
+            ctx2.closePath();ctx2.fill();ctx2.stroke();
+          } else {
+            ctx2.beginPath();ctx2.rect(sx,sy,sw,sh);ctx2.fill();ctx2.stroke();
+          }
           ctx2.shadowBlur=0;
           if(isMe){
             var label=MY_CODE?('Stand '+MY_CODE):MY_NAME;
             ctx2.font='bold 18px Inter,sans-serif';ctx2.textAlign='center';ctx2.textBaseline='bottom';
             var tw=ctx2.measureText(label).width+16,th=26;
-            var lx=x+w/2-tw/2,ly=y-th-6;if(ly<2)ly=y+h+6;
+            var lx=sx+sw/2-tw/2,ly=sy-th-6;if(ly<2)ly=sy+sh+6;
             ctx2.fillStyle='rgba(30,45,78,.85)';ctx2.fillRect(lx,ly,tw,th);
-            ctx2.fillStyle='#f5c842';ctx2.fillText(label,x+w/2,ly+th-4);
+            ctx2.fillStyle='#f5c842';ctx2.fillText(label,sx+sw/2,ly+th-4);
           }
         });
         // Titolo in alto
@@ -894,7 +926,7 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
         var imgEx=new Image();imgEx.crossOrigin='anonymous';
         imgEx.onload=function(){exportNow(imgEx);};
         imgEx.onerror=function(){exportNow(null);};
-        imgEx.src=BG_IMG;
+        imgEx.src=BG_IMG+'?t='+Date.now(); // cache bust per crossOrigin
       } else { exportNow(null); }
     };
 
