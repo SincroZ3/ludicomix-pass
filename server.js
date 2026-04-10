@@ -1271,7 +1271,7 @@ app.get('/home', requireAuth, (req, res) => {
   // ══════════════════════════════════════════════
   // IMPORT CSV — flusso Preview → Confirm → Undo
   // ══════════════════════════════════════════════
-  function _parseCsvBuffer(buf){var wb=XLSX.read(buf,{type:'buffer'});return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',raw:false});}
+  function _parseCsvBuffer(buf){var wb=XLSX.read(buf,{type:'buffer'});var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',raw:false});return rows.map(function(r){var c={};Object.keys(r).forEach(function(k){c[k.replace(/^\uFEFF/,'')]=r[k];});return c;});}
 
   app.get('/import',requireAuth,requireOrganizer,function(req,res){
     db.all(`SELECT ag.id,ag.name,g.name AS cat FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id ORDER BY g.name,ag.name`,[],function(err,groups){
@@ -1285,7 +1285,7 @@ app.get('/home', requireAuth, (req, res) => {
     });
   });
 
-  app.get('/import/template.csv',requireAuth,function(req,res){res.setHeader('Content-Type','text/csv;charset=utf-8');res.setHeader('Content-Disposition','attachment;filename="template_import.csv"');res.send('\xEF\xBB\xBFcognome;nome;email;ruolo\nRossi;Marco;marco@ex.com;Espositore\n');});
+  app.get('/import/template.csv',requireAuth,function(req,res){res.setHeader('Content-Type','text/csv;charset=utf-8');res.setHeader('Content-Disposition','attachment;filename="template_import.csv"');res.send('cognome;nome;email;ruolo\nRossi;Marco;marco@ex.com;Espositore\n');});
 
   // PREVIEW — parse + salva temp file + controlla duplicati (nessuna scrittura DB)
   app.post('/import/preview',requireAuth,requireOrganizer,uploadMemory.single('file'),function(req,res){
@@ -1365,6 +1365,47 @@ app.get('/home', requireAuth, (req, res) => {
     ins(0);
   });
 
+
+  // CONFIRM-AJAX — restituisce JSON (usato dal modal nel detail gruppo)
+  app.post('/import/confirm-ajax',requireAuth,requireOrganizer,function(req,res){
+    var tempId=req.body.temp_id,gid=parseInt(req.body.group_id,10);
+    if(!tempId||!gid)return res.json({error:'Dati mancanti'});
+    var tempPath=path.join(process.env.DATA_DIR||__dirname,'generated','import_temp_'+tempId);
+    if(!fs.existsSync(tempPath))return res.json({error:'Sessione scaduta: ricaricare il file'});
+    var buf;try{buf=fs.readFileSync(tempPath);}catch(e){return res.json({error:'Errore lettura temp'});}
+    var rows;try{rows=_parseCsvBuffer(buf);}catch(e){return res.json({error:'Errore parsing: '+e.message});}
+    try{fs.unlinkSync(tempPath);}catch(e){}
+    if(!rows||!rows.length)return res.json({error:'File vuoto'});
+    var batchId=require('crypto').randomBytes(8).toString('hex')+'_'+Date.now();
+    var ok=0,skip=0,errors=[],seen={};
+    function ins(i){
+      if(i>=rows.length){
+        db.run("INSERT OR REPLACE INTO app_settings(key,value)VALUES('last_import_batch_id',?)",[batchId]);
+        db.run("INSERT OR REPLACE INTO app_settings(key,value)VALUES('last_import_batch_gid',?)",[String(gid)]);
+        db.run("INSERT OR REPLACE INTO app_settings(key,value)VALUES('last_import_batch_ok',?)",[String(ok)]);
+        if(errors.length){var eFile=path.join(process.env.DATA_DIR||__dirname,'generated','import_errors_'+batchId+'.csv');
+          try{fs.writeFileSync(eFile,'\xEF\xBB\xBFriga;cognome;nome;email;motivo\n'+errors.map(function(e){return e.csv;}).join('\n'),'utf8');}catch(ex){}}
+        logAction(req.session.user.id,'import_csv','import',gid,'Import '+ok+' nel gruppo #'+gid+' (batch:'+batchId+')');
+        createNotification('import','Import CSV','Importati <strong>'+ok+'</strong> nel gruppo #'+gid+'. Saltati: '+skip+'.','group',gid);
+        return res.json({ok:true,imported:ok,skipped:skip,batchId,hasErrors:errors.length>0,errors:errors.map(function(e){return e.msg;})});
+      }
+      var r=rows[i];
+      var last=(r.cognome||r.Cognome||'').toString().trim(),first=(r.nome||r.Nome||'').toString().trim();
+      var email=(r.email||r.Email||'').toString().trim().toLowerCase(),role=(r.ruolo||r.Ruolo||'Espositore').toString().trim();
+      if(!last&&!first){errors.push({msg:'Riga '+(i+2)+': nome e cognome mancanti',csv:(i+2)+';;;Nome e cognome mancanti'});skip++;return ins(i+1);}
+      var key=(first+'|'+last).toLowerCase();
+      if(seen[key]){errors.push({msg:'Riga '+(i+2)+': '+last+' '+first+' duplicato nel file',csv:(i+2)+';'+last+';'+first+';'+email+';Duplicato nel file'});skip++;return ins(i+1);}
+      seen[key]=1;
+      db.get('SELECT id FROM participants WHERE LOWER(first_name)=? AND LOWER(last_name)=? AND assignment_group_id=?',[first.toLowerCase(),last.toLowerCase(),gid],function(e,dup){
+        if(dup){errors.push({msg:'Riga '+(i+2)+': '+last+' '+first+' già presente',csv:(i+2)+';'+last+';'+first+';'+email+';Già presente nel gruppo'});skip++;return ins(i+1);}
+        db.run('INSERT INTO participants(first_name,last_name,email,role,assignment_group_id,import_batch_id)VALUES(?,?,?,?,?,?)',[first,last,email||null,role,gid,batchId],function(e2){
+          if(e2){errors.push({msg:'Riga '+(i+2)+': errore DB',csv:(i+2)+';'+last+';'+first+';'+email+';Errore DB: '+e2.message});skip++;}else ok++;
+          ins(i+1);
+        });
+      });
+    }
+    ins(0);
+  });
   // UNDO — cancella tutto l'ultimo batch (inclusi i loro pass)
   app.post('/import/undo',requireAuth,requireOrganizer,function(req,res){
     db.get("SELECT value FROM app_settings WHERE key='last_import_batch_id'",[],function(e,row){

@@ -168,41 +168,207 @@
 <h2>Elenco assegnatari <span class="chip"><%= participants.length %></span></h2>
 
 <% if(!isViewer){ %>
-  <details style="margin-bottom:.75rem;" id="import-details"
-  <% if(typeof importOk!=='undefined'&&importOk!==null){ %>open<% } %>>
-    <summary style="cursor:pointer;font-weight:700;font-size:.85rem;color:var(--accent-blue);padding:.4rem 0;list-style:none;">
-      <span style="user-select:none;">&#128229; Import massivo assegnatari (CSV / Excel)</span>
-    </summary>
-    <div class="card" style="margin-top:.5rem;padding:1rem;">
-    <% if(typeof importOk!=='undefined'&&importOk!==null){ %>
-      <div style="background:<%= importErrs&&importErrs.length?'#fdf0f0':'#f0fdf4' %>;
-             border:1.5px solid <%= importErrs&&importErrs.length?'#c0392b':'#2d6a4f' %>;
-             border-radius:8px;padding:.6rem .9rem;font-size:.83rem;margin-bottom:.75rem;">
-        <strong><%= importOk %> importati</strong> &middot;
-        <span style="color:#c9a227"><%= importSkip %> saltati</span>
-      <% if(importErrs&&importErrs.length){ %>
-        <ul style="margin:.3rem 0 0 1rem;font-size:.76rem;color:#c0392b;">
-        <% importErrs.forEach(function(e){ if(e){ %><li><%=e%></li><% } }); %>
-        </ul><% } %>
-      </div>
-    <% } %>
-      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:.7rem;">
-          Formato: <code>.csv</code> o <code>.xlsx</code> &mdash;
-          Colonne: <code>cognome; nome; email; ruolo</code>
-          &nbsp;<a href="/import/template.csv" style="font-size:.78rem;">&#11015; Template</a>
-      </p>
-      <form method="post"
-              action="/assignment-groups/<%= groupInfo.id %>/import"
-              enctype="multipart/form-data"
-              style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap;">
-        <label style="font-size:.82rem;font-weight:700;">File<br>
-          <input type="file" name="file" accept=".csv,.xlsx,.xls" required
-                   style="margin-top:.3rem;font-size:.82rem;">
-        </label>
-        <button type="submit" class="primary" style="font-size:.82rem;">&#128228; Importa</button>
-      </form>
+<button onclick="document.getElementById('imp-modal').style.display='flex'"
+  style="margin-bottom:.75rem;font-size:.82rem;background:var(--accent-blue,#1d6fa4);color:#fff;border:none;padding:.42rem 1rem;border-radius:6px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;">
+  &#128229; Import CSV / Excel
+</button>
+
+<!-- ══ MODAL IMPORT ══ -->
+<div id="imp-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.52);align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:12px;width:100%;max-width:720px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;">
+    <!-- header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:.9rem 1.2rem;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
+      <strong style="font-size:.95rem;">&#128229; Import massivo assegnatari</strong>
+      <button onclick="impClose()" style="font-size:1.2rem;background:none;border:none;cursor:pointer;color:#6b7280;line-height:1;">&times;</button>
     </div>
-  </details>
+    <!-- body -->
+    <div style="padding:1.1rem 1.2rem;flex:1;">
+
+      <!-- STEP 1: selezione file -->
+      <div id="imp-s1">
+        <p style="font-size:.82rem;color:#6b7280;margin-bottom:.9rem;">
+          Formato: <code>.csv</code> / <code>.xlsx</code> &mdash; Colonne: <code>cognome</code> <code>nome</code> <code>email</code> <code>ruolo</code>
+          &nbsp;<a href="/import/template.csv" target="_blank" style="font-size:.77rem;">&#11015; Template</a>
+        </p>
+        <label style="display:block;font-weight:700;font-size:.85rem;margin-bottom:.55rem;">File CSV o Excel <span style="color:#c0392b">*</span></label>
+        <input type="file" id="imp-file" accept=".csv,.xlsx,.xls"
+               style="display:block;width:100%;margin-bottom:1rem;font-size:.83rem;">
+        <div style="display:flex;gap:.6rem;">
+          <button id="imp-btn-preview" class="primary" onclick="impPreview()" disabled
+            style="font-size:.82rem;">&#128269; Analizza file</button>
+          <button onclick="impClose()" class="secondary" style="font-size:.82rem;">Annulla</button>
+        </div>
+        <div id="imp-err" style="display:none;margin-top:.75rem;padding:.55rem .8rem;border-radius:7px;background:#fef2f2;border:1px solid #fca5a5;font-size:.8rem;color:#991b1b;"></div>
+      </div>
+
+      <!-- STEP 2: preview -->
+      <div id="imp-s2" style="display:none;">
+        <div id="imp-stats" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.85rem;"></div>
+        <div style="overflow-x:auto;">
+          <table id="imp-tbl" style="width:100%;border-collapse:collapse;font-size:.77rem;">
+            <thead><tr style="background:#f3f4f6;">
+              <th style="padding:.38rem .6rem;text-align:left;border-bottom:2px solid #d1d5db;font-size:.7rem;text-transform:uppercase;letter-spacing:.4px;">Riga</th>
+              <th style="padding:.38rem .6rem;text-align:left;border-bottom:2px solid #d1d5db;">Cognome</th>
+              <th style="padding:.38rem .6rem;text-align:left;border-bottom:2px solid #d1d5db;">Nome</th>
+              <th style="padding:.38rem .6rem;text-align:left;border-bottom:2px solid #d1d5db;">Email</th>
+              <th style="padding:.38rem .6rem;text-align:left;border-bottom:2px solid #d1d5db;">Stato</th>
+            </tr></thead>
+            <tbody id="imp-tbody"></tbody>
+          </table>
+        </div>
+        <p id="imp-more" style="font-size:.74rem;color:#6b7280;text-align:center;margin:.5rem 0 0;display:none;"></p>
+        <div style="display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap;">
+          <button id="imp-btn-confirm" onclick="impConfirm()"
+            style="font-size:.82rem;background:#166534;color:#fff;border:none;padding:.42rem 1rem;border-radius:6px;font-weight:700;cursor:pointer;">
+            &#128228; Conferma importazione
+          </button>
+          <button onclick="impReset()" class="secondary" style="font-size:.82rem;">&#9664; Torna</button>
+        </div>
+      </div>
+
+      <!-- STEP 3: risultato -->
+      <div id="imp-s3" style="display:none;">
+        <div id="imp-result-box" style="border-radius:8px;padding:.9rem 1rem;margin-bottom:.85rem;border:1.5px solid;font-size:.85rem;"></div>
+        <ul id="imp-err-list" style="display:none;list-style:none;padding:0;max-height:200px;overflow-y:auto;margin-bottom:.85rem;"></ul>
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
+          <button id="imp-btn-undo" onclick="impUndo(this)"
+            style="display:none;font-size:.82rem;background:#d97706;color:#fff;border:none;padding:.42rem 1rem;border-radius:6px;font-weight:700;cursor:pointer;">
+            &#128465; Annulla importazione
+          </button>
+          <a id="imp-err-dl" href="/import/errors.csv" target="_blank"
+             style="display:none;font-size:.82rem;padding:.42rem 1rem;border-radius:6px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;text-decoration:none;font-weight:700;">
+            &#11015; Scarica errori CSV
+          </a>
+          <button onclick="location.reload()" class="primary" style="font-size:.82rem;">&#10003; Fatto — ricarica pagina</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var GID = <%= groupInfo.id %>;
+  var tempId = null;
+
+  document.getElementById('imp-file').addEventListener('change', function(){
+    document.getElementById('imp-btn-preview').disabled = !this.files.length;
+    document.getElementById('imp-err').style.display = 'none';
+  });
+
+  function show(step){ ['imp-s1','imp-s2','imp-s3'].forEach(function(id){
+    document.getElementById(id).style.display = (id===step)?'':'none';
+  }); }
+  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  window.impClose = function(){ document.getElementById('imp-modal').style.display='none'; impReset(); };
+  window.impReset = function(){
+    show('imp-s1');
+    document.getElementById('imp-file').value='';
+    document.getElementById('imp-btn-preview').disabled=true;
+    document.getElementById('imp-err').style.display='none';
+    tempId=null;
+  };
+
+  window.impPreview = function(){
+    var f = document.getElementById('imp-file').files[0];
+    if(!f) return;
+    var btn = document.getElementById('imp-btn-preview');
+    btn.textContent='⏳ Analisi...'; btn.disabled=true;
+    document.getElementById('imp-err').style.display='none';
+    var fd = new FormData();
+    fd.append('group_id', GID);
+    fd.append('file', f);
+    fetch('/import/preview',{method:'POST',body:fd})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        btn.textContent='🔍 Analizza file'; btn.disabled=false;
+        if(d.error){ document.getElementById('imp-err').textContent=d.error; document.getElementById('imp-err').style.display=''; return; }
+        tempId = d.tempId;
+        // stats
+        var sc = document.getElementById('imp-stats');
+        sc.innerHTML =
+          '<span style="padding:.28rem .75rem;border-radius:9999px;font-size:.76rem;font-weight:700;background:#dbeafe;color:#1e40af">📋 '+d.total+' righe</span>' +
+          '<span style="padding:.28rem .75rem;border-radius:9999px;font-size:.76rem;font-weight:700;background:#dcfce7;color:#166534">✅ '+d.willImport+' da importare</span>' +
+          (d.willSkip>0?'<span style="padding:.28rem .75rem;border-radius:9999px;font-size:.76rem;font-weight:700;background:#fef9c3;color:#854d0e">⚠️ '+d.willSkip+' da saltare</span>':'');
+        // table
+        var tb = document.getElementById('imp-tbody');
+        tb.innerHTML = d.preview.map(function(r){
+          var dup = r.issues && r.issues.some(function(i){return i.includes('Già presente');});
+          var warn = r.issues && r.issues.length && !dup;
+          var bg = r.ok?'':'background:'+(dup?'#fef2f2':'#fffbea');
+          var stato = r.ok
+            ? '<span style="color:#166534;font-weight:700">✓ OK</span>'
+            : (r.issues||[]).map(function(i){
+                return '<span style="display:inline-block;padding:.08rem .38rem;border-radius:9999px;font-size:.66rem;font-weight:700;background:'+(i.includes('Già')?'#fee2e2':'#fef3c7')+';color:'+(i.includes('Già')?'#991b1b':'#92400e')+'">'+esc(i)+'</span>';
+              }).join(' ');
+          return '<tr style="'+bg+'"><td style="padding:.32rem .6rem;border-bottom:1px solid #f0f0f0;">'+r.row+'</td><td style="padding:.32rem .6rem;border-bottom:1px solid #f0f0f0;">'+esc(r.last)+'</td><td style="padding:.32rem .6rem;border-bottom:1px solid #f0f0f0;">'+esc(r.first)+'</td><td style="padding:.32rem .6rem;border-bottom:1px solid #f0f0f0;color:#6b7280;">'+esc(r.email||'—')+'</td><td style="padding:.32rem .6rem;border-bottom:1px solid #f0f0f0;">'+stato+'</td></tr>';
+        }).join('');
+        var more = document.getElementById('imp-more');
+        if(d.hasMore){ more.textContent='... e altre '+(d.total-10)+' righe (mostrate le prime 10)'; more.style.display=''; }
+        else { more.style.display='none'; }
+        document.getElementById('imp-btn-confirm').disabled = d.willImport===0;
+        show('imp-s2');
+      })
+      .catch(function(e){
+        btn.textContent='🔍 Analizza file'; btn.disabled=false;
+        document.getElementById('imp-err').textContent='Errore di rete: '+e.message;
+        document.getElementById('imp-err').style.display='';
+      });
+  };
+
+  window.impConfirm = function(){
+    if(!tempId) return;
+    var btn = document.getElementById('imp-btn-confirm');
+    btn.textContent='⏳ Import in corso...'; btn.disabled=true;
+    fetch('/import/confirm-ajax',{
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'temp_id='+encodeURIComponent(tempId)+'&group_id='+GID
+    })
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var box = document.getElementById('imp-result-box');
+      if(d.error){ box.style.cssText='border-radius:8px;padding:.9rem 1rem;border:1.5px solid #c0392b;background:#fef2f2;font-size:.85rem;'; box.innerHTML='<strong>❌ Errore:</strong> '+esc(d.error); show('imp-s3'); return; }
+      var isWarn = d.skipped>0;
+      box.style.cssText='border-radius:8px;padding:.9rem 1rem;border:1.5px solid '+(isWarn?'#d97706':'#166534')+';background:'+(isWarn?'#fffbea':'#f0fdf4')+';font-size:.85rem;';
+      box.innerHTML='<strong>'+(isWarn?'⚠️':'✅')+' Import completato</strong><br><span style="color:#166534;font-weight:700">'+d.imported+' importati</span>'+(d.skipped>0?' &middot; <span style="color:#d97706;font-weight:700">'+d.skipped+' saltati</span>':'');
+      // errori list
+      var el = document.getElementById('imp-err-list');
+      if(d.errors&&d.errors.length){
+        el.innerHTML=d.errors.map(function(e){return '<li style="padding:.28rem .5rem;border-radius:5px;font-size:.76rem;background:#fef2f2;color:#991b1b;margin-bottom:.22rem;border-left:3px solid #fca5a5;">'+esc(e)+'</li>';}).join('');
+        el.style.display='';
+      } else { el.style.display='none'; }
+      // pulsanti
+      if(d.imported>0){ document.getElementById('imp-btn-undo').style.display=''; }
+      if(d.hasErrors){ document.getElementById('imp-err-dl').style.display=''; }
+      show('imp-s3');
+    })
+    .catch(function(e){
+      document.getElementById('imp-result-box').style.cssText='border:1.5px solid #c0392b;background:#fef2f2;padding:.9rem;border-radius:8px;';
+      document.getElementById('imp-result-box').innerHTML='Errore di rete: '+esc(e.message);
+      show('imp-s3');
+    });
+  };
+
+  window.impUndo = function(btn){
+    if(!confirm('Sei sicuro? Elimina tutti i partecipanti appena importati e i loro pass. Irreversibile.')) return;
+    btn.textContent='⏳...'; btn.disabled=true;
+    fetch('/import/undo',{method:'POST',headers:{'Content-Type':'application/json'}})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(d.ok){ alert('✅ Annullati '+d.deleted+' partecipanti.'); location.reload(); }
+        else{ alert('❌ '+(d.error||'Errore sconosciuto')); btn.disabled=false; btn.textContent='🗑 Annulla importazione'; }
+      }).catch(function(e){ alert('Errore di rete: '+e.message); btn.disabled=false; });
+  };
+
+  // chiudi con ESC
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape') impClose(); });
+  // chiudi click fuori
+  document.getElementById('imp-modal').addEventListener('click',function(e){ if(e.target===this) impClose(); });
+})();
+</script>
 <% } %>
 <% if (participants.length === 0) { %>
   <div class="alert alert-info"><span>&#8505;&#65039;</span> Nessun nominativo inserito per questo gruppo.</div>
