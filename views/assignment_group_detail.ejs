@@ -167,10 +167,7 @@
 <!-- TABELLA ASSEGNATARI -->
 <h2>Elenco assegnatari <span class="chip"><%= participants.length %></span></h2>
 
-<% if (participants.length === 0) { %>
-  <div class="alert alert-info"><span>&#8505;&#65039;</span> Nessun nominativo inserito per questo gruppo.</div>
-<% } else { %>
-  <% if(!isViewer){ %>
+<% if(!isViewer){ %>
   <details style="margin-bottom:.75rem;" id="import-details"
   <% if(typeof importOk!=='undefined'&&importOk!==null){ %>open<% } %>>
     <summary style="cursor:pointer;font-weight:700;font-size:.85rem;color:var(--accent-blue);padding:.4rem 0;list-style:none;">
@@ -206,7 +203,10 @@
       </form>
     </div>
   </details>
-  <% } %>
+<% } %>
+<% if (participants.length === 0) { %>
+  <div class="alert alert-info"><span>&#8505;&#65039;</span> Nessun nominativo inserito per questo gruppo.</div>
+<% } else { %>
   <form method="post" action="/passes/bulk">
     <input type="hidden" name="assignment_group_id" value="<%= groupInfo.id %>">
     <% if (!isViewer) { %>

@@ -12,6 +12,7 @@ const nodemailer  = require('nodemailer');          // ✅ FIX: era mancante
 const helmet      = require('helmet');              // ✅ FIX: security headers
 const rateLimit   = require('express-rate-limit'); // ✅ FIX: brute-force protection
 const SQLiteStore = require('connect-sqlite3')(session); // ✅ FIX: session persistence
+const XLSX        = require('xlsx');                        // ✅ FIX: parser CSV/Excel
 const db          = require('./db');
 const { promisify } = require('util');
 const dbAll = promisify(db.all.bind(db));
@@ -1746,7 +1747,7 @@ app.get('/notifications',requireAuth,requireAdmin,function(req,res){db.run("UPDA
     });
   });
 
-  app.post('/assignment-groups/:id/import', requireAuth, requireOrganizer, upload.single('file'), function(req,res){
+  app.post('/assignment-groups/:id/import', requireAuth, requireOrganizer, uploadMemory.single('file'), function(req,res){
     var gid=parseInt(req.params.id,10);
     if(!gid||!req.file) return res.redirect('/assignment-groups/'+gid+'?import_errs=File+mancante');
     var rows;
