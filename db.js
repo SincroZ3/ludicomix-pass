@@ -148,7 +148,8 @@ db.run(`CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEX
   'ALTER TABLE assignment_groups ADD COLUMN map_h REAL',
   'ALTER TABLE assignment_groups ADD COLUMN map_shape TEXT',
   'ALTER TABLE assignment_groups ADD COLUMN max_auto_passes INTEGER DEFAULT 0',
-  "ALTER TABLE pass_types ADD COLUMN qr_color TEXT DEFAULT '#000000'"
+  "ALTER TABLE pass_types ADD COLUMN qr_color TEXT DEFAULT '#000000'",
+  'ALTER TABLE participants ADD COLUMN import_batch_id TEXT'
 ].forEach(function(sql) {
   db.run(sql, function(err) {
     if (err && !err.message.includes('duplicate column name')) console.warn('migrate:', err.message);

@@ -1,25 +1,255 @@
 <%- include('partials/header') %>
 <nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">&rsaquo;</span> <strong>Import CSV/Excel</strong></nav>
 <h1 class="page-title">&#128229; Import massivo assegnatari</h1>
+
+<style>
+.import-steps{display:flex;gap:.5rem;margin-bottom:1.5rem;align-items:center}
+.step{display:flex;align-items:center;gap:.45rem;font-size:.78rem;font-weight:700;color:var(--text-muted);padding:.3rem .75rem;border-radius:9999px;border:1.5px solid var(--border)}
+.step.active{background:var(--accent-blue,#1d6fa4);color:#fff;border-color:transparent}
+.step.done{background:#2d6a4f;color:#fff;border-color:transparent}
+.step-sep{color:var(--text-muted);font-size:.8rem}
+
+.preview-table-wrap{overflow-x:auto;margin-top:.75rem}
+.preview-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.preview-table th{background:var(--bg-offset,#f3f0ec);padding:.45rem .65rem;text-align:left;font-weight:700;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border)}
+.preview-table td{padding:.42rem .65rem;border-bottom:1px solid var(--border-light);vertical-align:top}
+.preview-table tr.row-ok td{background:transparent}
+.preview-table tr.row-warn td{background:#fffbea}
+.preview-table tr.row-dup td{background:#fef2f2}
+.issue-badge{display:inline-block;padding:.1rem .45rem;border-radius:9999px;font-size:.67rem;font-weight:700;background:#fee2e2;color:#991b1b;margin:.1rem .1rem 0 0}
+.issue-badge.warn{background:#fef3c7;color:#92400e}
+
+.stat-bar{display:flex;gap:.65rem;flex-wrap:wrap;margin:.75rem 0 1rem}
+.stat-chip{padding:.35rem .9rem;border-radius:9999px;font-size:.8rem;font-weight:700}
+.stat-green{background:#dcfce7;color:#166534}
+.stat-yellow{background:#fef9c3;color:#854d0e}
+.stat-blue{background:#dbeafe;color:#1e40af}
+
+.result-card{border-radius:10px;padding:1.1rem 1.3rem;margin-bottom:1rem;border:1.5px solid}
+.result-ok{background:#f0fdf4;border-color:#2d6a4f}
+.result-warn{background:#fffbea;border-color:#d97706}
+.error-list{margin:.6rem 0 0 0;padding:0;list-style:none;max-height:280px;overflow-y:auto}
+.error-list li{padding:.3rem .5rem;border-radius:5px;font-size:.78rem;background:#fef2f2;color:#991b1b;margin-bottom:.25rem;border-left:3px solid #fca5a5}
+.undo-zone{background:#fff7ed;border:1.5px dashed #d97706;border-radius:10px;padding:1rem 1.2rem;margin-top:1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.undo-info{font-size:.82rem;color:#92400e}
+.btn-undo{background:#d97706;color:#fff;border:none;padding:.45rem 1rem;border-radius:6px;font-weight:700;font-size:.82rem;cursor:pointer}
+.btn-undo:hover{background:#b45309}
+
+.spinner{display:inline-block;width:16px;height:16px;border:2.5px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:.35rem}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+
 <% if(result){ %>
-  <div style="background:<%= result.errors&&result.errors.length?'#fdf0f0':'#f0fdf4' %>;border:1.5px solid <%= result.errors&&result.errors.length?'#c0392b':'#2d6a4f' %>;border-radius:8px;padding:.8rem 1rem;display:flex;gap:.75rem;margin-bottom:1rem;font-size:.85rem;">
-    <span><%= result.errors&&result.errors.length?'&#9888;':'&#9989;' %></span>
-    <div><strong>Import completato</strong><br>
-      <span style="color:#2d6a4f;font-weight:700"><%= result.ok %> importati</span> &middot;
-      <span style="color:#c9a227;font-weight:700"><%= result.skip %> saltati</span>
-      <% if(result.errors&&result.errors.length){ %><ul style="margin:.3rem 0 0 1rem;font-size:.78rem;color:#c0392b;"><% result.errors.slice(0,10).forEach(function(e){ %><li><%= e %></li><% }); %></ul><% } %>
-    </div></div>
+  <!-- ── RISULTATO IMPORT ── -->
+  <div class="result-card <%= result.skip>0?'result-warn':'result-ok' %>">
+    <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+      <span style="font-size:1.5rem"><%= result.skip>0?'⚠️':'✅' %></span>
+      <div>
+        <div style="font-weight:800;font-size:1rem">Import completato</div>
+        <div style="font-size:.83rem;margin-top:.2rem">
+          <strong style="color:#166534"><%= result.ok %> importati</strong>
+          <% if(result.skip>0){ %> &middot; <strong style="color:#d97706"><%= result.skip %> saltati</strong><% } %>
+          <% if(result.batchId){ %> &middot; <span style="color:var(--text-muted);font-size:.75rem">batch: <%= result.batchId %></span><% } %>
+        </div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:.5rem;flex-wrap:wrap">
+        <% if(result.gid){ %>
+          <a href="/assignment-groups/<%= result.gid %>" class="secondary" style="font-size:.8rem">&#128101; Vedi gruppo</a>
+        <% } %>
+        <% if(result.hasErrors){ %>
+          <a href="/import/errors.csv" class="secondary" style="font-size:.8rem;background:#fee2e2;border-color:#fca5a5;color:#991b1b">&#11015; Scarica errori CSV</a>
+        <% } %>
+      </div>
+    </div>
+    <% if(result.errors && result.errors.length){ %>
+      <ul class="error-list" style="margin-top:.75rem">
+        <% result.errors.forEach(function(e){ %><li><%= e %></li><% }); %>
+      </ul>
+    <% } %>
+  </div>
+
+  <% if(result.ok > 0 && result.batchId){ %>
+  <div class="undo-zone">
+    <div class="undo-info">
+      <strong>&#8635; Annulla importazione</strong><br>
+      Elimina tutti i <strong><%= result.ok %></strong> partecipanti appena aggiunti (e i loro eventuali pass). Azione irreversibile.
+    </div>
+    <button class="btn-undo" onclick="doUndo(this)">&#128465; Annulla questa importazione</button>
+  </div>
+  <% } %>
+
+  <hr style="margin:1.5rem 0;border:none;border-top:1px solid var(--border)">
 <% } %>
-<div class="card"><p style="font-size:.85rem;margin-bottom:.9rem;">Formato: <code>.csv</code> / <code>.xlsx</code> — Colonne: <code>cognome;nome;email;ruolo</code></p>
-  <a href="/import/template.csv" class="secondary" style="font-size:.82rem;">&#11015; Scarica template CSV</a></div>
-<div class="card"><div class="card-title">Carica file</div>
-  <form method="post" action="/import" enctype="multipart/form-data" style="display:grid;gap:.85rem;max-width:480px;">
-    <label style="font-weight:700;font-size:.88rem;">Gruppo <span style="color:#c0392b">*</span><br>
-      <select name="group_id" required style="margin-top:.35rem;width:100%;"><option value="">— seleziona —</option>
-        <% groups.forEach(function(g){ %><option value="<%= g.id %>"><%= g.cat?g.cat+' › ':'' %><%= g.name %></option><% }); %>
-      </select></label>
-    <label style="font-weight:700;font-size:.88rem;">File <span style="color:#c0392b">*</span><br>
-      <input type="file" name="file" accept=".csv,.xlsx,.xls" required style="margin-top:.35rem;display:block;"></label>
-    <div style="display:flex;gap:.75rem;"><button type="submit" class="primary">&#128228; Avvia import</button><a href="/participants" class="secondary">Annulla</a></div>
-  </form></div>
+
+<% if(!result && lastBatch && lastBatch.batchId){ %>
+  <div class="undo-zone" style="margin-bottom:1.2rem">
+    <div class="undo-info">
+      <strong>&#8635; Ultimo import disponibile</strong><br>
+      <strong><%= lastBatch.ok %></strong> partecipanti nel gruppo #<%= lastBatch.gid %>
+      <span style="font-size:.72rem;opacity:.7"> — batch <%= lastBatch.batchId %></span>
+    </div>
+    <button class="btn-undo" onclick="doUndo(this)">&#128465; Annulla ultimo import</button>
+  </div>
+<% } %>
+
+<!-- ── FORM UPLOAD ── -->
+<div class="card">
+  <div class="card-title">&#128228; Carica file</div>
+  <p style="font-size:.83rem;color:var(--text-muted);margin-bottom:.9rem">
+    Formato: <code>.csv</code> / <code>.xlsx</code> &mdash; Colonne obbligatorie: <code>cognome</code> <code>nome</code> &mdash; Opzionali: <code>email</code> <code>ruolo</code>
+    &nbsp;<a href="/import/template.csv" style="font-size:.78rem">&#11015; Template CSV</a>
+  </p>
+  <form id="upload-form" style="display:grid;gap:.85rem;max-width:500px;">
+    <label style="font-weight:700;font-size:.88rem;">Gruppo destinazione <span style="color:#c0392b">*</span><br>
+      <select id="sel-group" name="group_id" required style="margin-top:.35rem;width:100%">
+        <option value="">— seleziona —</option>
+        <% groups.forEach(function(g){ %>
+          <option value="<%= g.id %>"><%= g.cat?g.cat+' › ':'' %><%= g.name %></option>
+        <% }); %>
+      </select>
+    </label>
+    <label style="font-weight:700;font-size:.88rem;">File CSV / Excel <span style="color:#c0392b">*</span><br>
+      <input type="file" id="sel-file" name="file" accept=".csv,.xlsx,.xls" required style="margin-top:.35rem;display:block;">
+    </label>
+    <div>
+      <button type="button" id="btn-preview" class="primary" onclick="runPreview()" disabled>
+        &#128269; Analizza file
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- ── SEZIONE PREVIEW (nascosta finché non arriva la risposta) ── -->
+<div id="preview-section" style="display:none">
+  <div class="card">
+    <div class="card-title">&#128203; Anteprima import</div>
+    <div class="stat-bar" id="stat-bar"></div>
+    <div id="preview-table-container"></div>
+    <div style="display:flex;gap:.75rem;margin-top:1rem;flex-wrap:wrap">
+      <button class="primary" id="btn-confirm" onclick="runConfirm()">&#128228; Conferma importazione</button>
+      <button class="secondary" onclick="resetForm()">&#10005; Annulla</button>
+    </div>
+  </div>
+</div>
+
+<div id="preview-error" style="display:none" class="result-card result-warn">
+  <strong>&#9888; Errore</strong> <span id="preview-error-msg"></span>
+</div>
+
 <%- include('partials/footer') %>
+<script>
+(function(){
+  var selGroup=document.getElementById('sel-group');
+  var selFile=document.getElementById('sel-file');
+  var btnPreview=document.getElementById('btn-preview');
+  var currentTempId=null;
+
+  function checkReady(){
+    btnPreview.disabled=!(selGroup.value&&selFile.files&&selFile.files.length);
+  }
+  selGroup.addEventListener('change',checkReady);
+  selFile.addEventListener('change',checkReady);
+
+  window.runPreview=function(){
+    var fd=new FormData();
+    fd.append('group_id',selGroup.value);
+    fd.append('file',selFile.files[0]);
+    btnPreview.innerHTML='<span class="spinner"></span> Analisi...';
+    btnPreview.disabled=true;
+    document.getElementById('preview-section').style.display='none';
+    document.getElementById('preview-error').style.display='none';
+
+    fetch('/import/preview',{method:'POST',body:fd})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        btnPreview.innerHTML='&#128269; Analizza file';
+        btnPreview.disabled=false;
+        if(d.error){
+          document.getElementById('preview-error-msg').textContent=d.error;
+          document.getElementById('preview-error').style.display='';
+          return;
+        }
+        currentTempId=d.tempId;
+        renderPreview(d);
+      })
+      .catch(function(e){
+        btnPreview.innerHTML='&#128269; Analizza file';
+        btnPreview.disabled=false;
+        document.getElementById('preview-error-msg').textContent='Errore di rete: '+e.message;
+        document.getElementById('preview-error').style.display='';
+      });
+  };
+
+  function renderPreview(d){
+    var bar=document.getElementById('stat-bar');
+    bar.innerHTML='<span class="stat-chip stat-blue">&#128221; '+d.total+' righe totali</span>'
+      +'<span class="stat-chip stat-green">&#9989; '+d.willImport+' da importare</span>'
+      +(d.willSkip>0?'<span class="stat-chip stat-yellow">&#9888;&#65039; '+d.willSkip+' da saltare</span>':'');
+
+    var html='<div class="preview-table-wrap"><table class="preview-table">'
+      +'<thead><tr><th>Riga</th><th>Cognome</th><th>Nome</th><th>Email</th><th>Ruolo</th><th>Stato</th></tr></thead><tbody>';
+    d.preview.forEach(function(r){
+      var cls=r.ok?'row-ok':(r.issues.some(function(i){return i.includes('Già presente');})?'row-dup':'row-warn');
+      html+='<tr class="'+cls+'"><td>'+r.row+'</td><td>'+esc(r.last)+'</td><td>'+esc(r.first)+'</td>'
+        +'<td>'+esc(r.email||'—')+'</td><td>'+esc(r.role||'—')+'</td><td>';
+      if(r.ok){html+='<span style="color:#166534;font-weight:700">&#10003; OK</span>';}
+      else{r.issues.forEach(function(i){html+='<span class="issue-badge '+(i.includes('Già')?' ':' warn')+'">'+esc(i)+'</span>';});}
+      html+='</td></tr>';
+    });
+    if(d.hasMore)html+='<tr><td colspan="6" style="text-align:center;color:var(--text-muted);font-size:.75rem;padding:.5rem">... e altre '+(d.total-10)+' righe (mostrate solo le prime 10)</td></tr>';
+    html+='</tbody></table></div>';
+    document.getElementById('preview-table-container').innerHTML=html;
+    document.getElementById('preview-section').style.display='';
+
+    // Disabilita conferma se tutto saltato
+    document.getElementById('btn-confirm').disabled=(d.willImport===0);
+    if(d.willImport===0)document.getElementById('btn-confirm').title='Nessun record valido da importare';
+  }
+
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+  window.runConfirm=function(){
+    if(!currentTempId)return;
+    var btn=document.getElementById('btn-confirm');
+    btn.innerHTML='<span class="spinner"></span> Import in corso...';
+    btn.disabled=true;
+    var form=document.createElement('form');
+    form.method='POST';form.action='/import/confirm';
+    var t=document.createElement('input');t.type='hidden';t.name='temp_id';t.value=currentTempId;form.appendChild(t);
+    var g=document.createElement('input');g.type='hidden';g.name='group_id';g.value=selGroup.value;form.appendChild(g);
+    document.body.appendChild(form);
+    form.submit();
+  };
+
+  window.resetForm=function(){
+    document.getElementById('preview-section').style.display='none';
+    document.getElementById('preview-error').style.display='none';
+    selFile.value='';
+    currentTempId=null;
+    checkReady();
+  };
+
+  window.doUndo=function(btn){
+    if(!confirm('Sei sicuro? Questa operazione elimina tutti i partecipanti dell\'ultimo import e i loro pass. Azione irreversibile.'))return;
+    btn.innerHTML='<span class="spinner"></span> Annullamento...';
+    btn.disabled=true;
+    fetch('/import/undo',{method:'POST',headers:{'Content-Type':'application/json'}})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(d.ok){
+          alert('✅ Annullati '+d.deleted+' partecipanti (e i loro pass) con successo.');
+          location.reload();
+        } else {
+          alert('❌ Errore: '+(d.error||'sconosciuto'));
+          btn.disabled=false;
+          btn.innerHTML='&#128465; Annulla importazione';
+        }
+      })
+      .catch(function(e){
+        alert('Errore di rete: '+e.message);
+        btn.disabled=false;
+        btn.innerHTML='&#128465; Annulla importazione';
+      });
+  };
+})();
+</script>

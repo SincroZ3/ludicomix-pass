@@ -1267,19 +1267,137 @@ app.get('/home', requireAuth, (req, res) => {
   });
 
 
-  app.get('/import',requireAuth,requireOrganizer,function(req,res){db.all(`SELECT ag.id,ag.name,g.name AS cat FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id ORDER BY g.name,ag.name`,[],function(err,groups){res.render('import',{groups:groups||[],result:null});});});
+  // ══════════════════════════════════════════════
+  // IMPORT CSV — flusso Preview → Confirm → Undo
+  // ══════════════════════════════════════════════
+  function _parseCsvBuffer(buf){var wb=XLSX.read(buf,{type:'buffer'});return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',raw:false});}
+
+  app.get('/import',requireAuth,requireOrganizer,function(req,res){
+    db.all(`SELECT ag.id,ag.name,g.name AS cat FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id ORDER BY g.name,ag.name`,[],function(err,groups){
+      db.get("SELECT value FROM app_settings WHERE key='last_import_batch_id'",[],function(e2,bRow){
+        db.get("SELECT value FROM app_settings WHERE key='last_import_batch_gid'",[],function(e3,gRow){
+          db.get("SELECT value FROM app_settings WHERE key='last_import_batch_ok'",[],function(e4,okRow){
+            res.render('import',{groups:groups||[],result:null,lastBatch:bRow?{batchId:bRow.value,gid:gRow&&gRow.value,ok:okRow&&okRow.value}:null});
+          });
+        });
+      });
+    });
+  });
+
   app.get('/import/template.csv',requireAuth,function(req,res){res.setHeader('Content-Type','text/csv;charset=utf-8');res.setHeader('Content-Disposition','attachment;filename="template_import.csv"');res.send('\xEF\xBB\xBFcognome;nome;email;ruolo\nRossi;Marco;marco@ex.com;Espositore\n');});
-  app.post('/import',requireAuth,requireOrganizer,upload.single('file'),function(req,res){
-    var gid=parseInt(req.body.group_id,10);if(!gid||!req.file)return res.status(400).send('Gruppo e file obbligatori');
-    var rows;try{var wb=XLSX.read(req.file.buffer,{type:'buffer'});rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',raw:false});}catch(e){return res.status(400).send('Errore:'+e.message);}
+
+  // PREVIEW — parse + salva temp file + controlla duplicati (nessuna scrittura DB)
+  app.post('/import/preview',requireAuth,requireOrganizer,uploadMemory.single('file'),function(req,res){
+    var gid=parseInt(req.body.group_id,10);
+    if(!gid||!req.file)return res.json({error:'Seleziona gruppo e file'});
+    var rows;try{rows=_parseCsvBuffer(req.file.buffer);}catch(e){return res.json({error:'Errore parsing: '+e.message});}
+    if(!rows||!rows.length)return res.json({error:'File vuoto o non leggibile'});
+    var tempId=require('crypto').randomBytes(12).toString('hex');
+    var tempPath=path.join(process.env.DATA_DIR||__dirname,'generated','import_temp_'+tempId);
+    try{fs.writeFileSync(tempPath,req.file.buffer);}catch(e){return res.json({error:'Errore salvataggio temp: '+e.message});}
+    db.all('SELECT LOWER(first_name) AS fn,LOWER(last_name) AS ln FROM participants WHERE assignment_group_id=?',[gid],function(err,existing){
+      var exSet={};if(!err&&existing)existing.forEach(function(e){exSet[e.fn+'|'+e.ln]=1;});
+      var seenFile={},total=rows.length,willImport=0,willSkip=0;
+      var preview=[];
+      rows.forEach(function(r,i){
+        var last=(r.cognome||r.Cognome||'').toString().trim();
+        var first=(r.nome||r.Nome||'').toString().trim();
+        var email=(r.email||r.Email||'').toString().trim();
+        var role=(r.ruolo||r.Ruolo||'Espositore').toString().trim();
+        var issues=[];
+        if(!last&&!first)issues.push('Nome e cognome mancanti');
+        else{if(!last)issues.push('Cognome mancante');if(!first)issues.push('Nome mancante');}
+        var key=(first+'|'+last).toLowerCase();
+        if(seenFile[key])issues.push('Duplicato nel file');else seenFile[key]=1;
+        var inDb=exSet[key]||false;
+        if(inDb)issues.push('Già presente nel gruppo');
+        var willAdd=issues.length===0;
+        if(willAdd)willImport++;else willSkip++;
+        if(i<10)preview.push({row:i+2,last,first,email,role,issues,ok:willAdd});
+      });
+      res.json({tempId,gid,total,willImport,willSkip,preview,hasMore:rows.length>10});
+    });
+  });
+
+  // CONFIRM — legge temp file e importa con batch_id
+  app.post('/import/confirm',requireAuth,requireOrganizer,function(req,res){
+    var tempId=req.body.temp_id,gid=parseInt(req.body.group_id,10);
+    if(!tempId||!gid)return res.status(400).send('Dati mancanti');
+    var tempPath=path.join(process.env.DATA_DIR||__dirname,'generated','import_temp_'+tempId);
+    if(!fs.existsSync(tempPath))return res.status(400).send('Sessione scaduta: ricaricare il file');
+    var buf;try{buf=fs.readFileSync(tempPath);}catch(e){return res.status(500).send('Errore lettura temp');}
+    var rows;try{rows=_parseCsvBuffer(buf);}catch(e){return res.status(400).send('Errore parsing: '+e.message);}
+    try{fs.unlinkSync(tempPath);}catch(e){}
     if(!rows||!rows.length)return res.status(400).send('File vuoto');
-    var ok=0,skip=0,errors=[];
-    function ins(i){if(i>=rows.length){logAction(req.session.user.id,'import_csv','import',gid,'Import '+ok+' nel gruppo #'+gid);createNotification('import','Import CSV completato','Importati <strong>'+ok+'</strong> nel gruppo #'+gid+'. Saltati:'+skip+'.','group',gid);return db.all(`SELECT ag.id,ag.name,g.name AS cat FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id ORDER BY g.name,ag.name`,[],function(e,groups){res.render('import',{groups:groups||[],result:{ok,skip,errors}});});}
-      var r=rows[i];var last=(r.cognome||r.Cognome||'').toString().trim(),first=(r.nome||r.Nome||'').toString().trim(),email=(r.email||r.Email||'').toString().trim().toLowerCase(),role=(r.ruolo||r.Ruolo||'Espositore').toString().trim();
-      if(!last&&!first){skip++;return ins(i+1);}
-      db.get('SELECT id FROM participants WHERE LOWER(first_name)=? AND LOWER(last_name)=? AND assignment_group_id=?',[first.toLowerCase(),last.toLowerCase(),gid],function(e,dup){if(dup){skip++;return ins(i+1);}
-        db.run('INSERT INTO participants(first_name,last_name,email,role,assignment_group_id)VALUES(?,?,?,?,?)',[first,last,email||null,role,gid],function(e2){if(e2)errors.push('Riga '+(i+2)+':'+e2.message);else ok++;ins(i+1);});});}
-    ins(0);});
+    var batchId=require('crypto').randomBytes(8).toString('hex')+'_'+Date.now();
+    var ok=0,skip=0,errors=[],seen={};
+    function ins(i){
+      if(i>=rows.length){
+        db.run("INSERT OR REPLACE INTO app_settings(key,value)VALUES('last_import_batch_id',?)",[batchId]);
+        db.run("INSERT OR REPLACE INTO app_settings(key,value)VALUES('last_import_batch_gid',?)",[String(gid)]);
+        db.run("INSERT OR REPLACE INTO app_settings(key,value)VALUES('last_import_batch_ok',?)",[String(ok)]);
+        if(errors.length){
+          var eFile=path.join(process.env.DATA_DIR||__dirname,'generated','import_errors_'+batchId+'.csv');
+          try{fs.writeFileSync(eFile,'\xEF\xBB\xBFriga;cognome;nome;email;motivo\n'+errors.map(function(e){return e.csv;}).join('\n'),'utf8');}catch(ex){}
+        }
+        logAction(req.session.user.id,'import_csv','import',gid,'Import '+ok+' nel gruppo #'+gid+' (batch:'+batchId+')');
+        createNotification('import','Import CSV','Importati <strong>'+ok+'</strong> nel gruppo #'+gid+'. Saltati: '+skip+'.','group',gid);
+        return db.all(`SELECT ag.id,ag.name,g.name AS cat FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id ORDER BY g.name,ag.name`,[],function(e,groups){
+          res.render('import',{groups:groups||[],lastBatch:null,result:{ok,skip,errors:errors.map(function(e){return e.msg;}),batchId,gid,hasErrors:errors.length>0}});
+        });
+      }
+      var r=rows[i];
+      var last=(r.cognome||r.Cognome||'').toString().trim(),first=(r.nome||r.Nome||'').toString().trim();
+      var email=(r.email||r.Email||'').toString().trim().toLowerCase(),role=(r.ruolo||r.Ruolo||'Espositore').toString().trim();
+      if(!last&&!first){errors.push({msg:'Riga '+(i+2)+': nome e cognome mancanti',csv:(i+2)+';;;Nome e cognome mancanti'});skip++;return ins(i+1);}
+      var key=(first+'|'+last).toLowerCase();
+      if(seen[key]){errors.push({msg:'Riga '+(i+2)+': '+last+' '+first+' — duplicato nel file',csv:(i+2)+';'+last+';'+first+';'+email+';Duplicato nel file'});skip++;return ins(i+1);}
+      seen[key]=1;
+      db.get('SELECT id FROM participants WHERE LOWER(first_name)=? AND LOWER(last_name)=? AND assignment_group_id=?',[first.toLowerCase(),last.toLowerCase(),gid],function(e,dup){
+        if(dup){errors.push({msg:'Riga '+(i+2)+': '+last+' '+first+' — già presente',csv:(i+2)+';'+last+';'+first+';'+email+';Già presente nel gruppo'});skip++;return ins(i+1);}
+        db.run('INSERT INTO participants(first_name,last_name,email,role,assignment_group_id,import_batch_id)VALUES(?,?,?,?,?,?)',[first,last,email||null,role,gid,batchId],function(e2){
+          if(e2){errors.push({msg:'Riga '+(i+2)+': errore DB — '+e2.message,csv:(i+2)+';'+last+';'+first+';'+email+';Errore DB: '+e2.message});skip++;}else ok++;
+          ins(i+1);
+        });
+      });
+    }
+    ins(0);
+  });
+
+  // UNDO — cancella tutto l'ultimo batch (inclusi i loro pass)
+  app.post('/import/undo',requireAuth,requireOrganizer,function(req,res){
+    db.get("SELECT value FROM app_settings WHERE key='last_import_batch_id'",[],function(e,row){
+      if(e||!row)return res.json({error:'Nessun import recente da annullare'});
+      var batchId=row.value;
+      db.all('SELECT id FROM participants WHERE import_batch_id=?',[batchId],function(e2,parts){
+        var pids=(parts||[]).map(function(p){return p.id;});
+        function finish(){
+          db.run('DELETE FROM participants WHERE import_batch_id=?',[batchId],function(e3){
+            var deleted=this.changes;
+            db.run("DELETE FROM app_settings WHERE key IN ('last_import_batch_id','last_import_batch_gid','last_import_batch_ok')",function(){
+              logAction(req.session.user.id,'import_undo','import',null,'Undo batch '+batchId+' — eliminati '+deleted+' partecipanti');
+              res.json({ok:true,deleted});
+            });
+          });
+        }
+        if(!pids.length)return finish();
+        var ph=pids.map(function(){return '?';}).join(',');
+        db.run('DELETE FROM passes WHERE participant_id IN ('+ph+')',pids,function(){finish();});
+      });
+    });
+  });
+
+  // ERRORI CSV — scarica file errori dell'ultimo import
+  app.get('/import/errors.csv',requireAuth,requireOrganizer,function(req,res){
+    db.get("SELECT value FROM app_settings WHERE key='last_import_batch_id'",[],function(e,row){
+      if(e||!row)return res.status(404).send('Nessun file errori disponibile');
+      var eFile=path.join(process.env.DATA_DIR||__dirname,'generated','import_errors_'+row.value+'.csv');
+      if(!fs.existsSync(eFile))return res.status(404).send('File errori non trovato (nessun record saltato?)');
+      res.setHeader('Content-Type','text/csv;charset=utf-8');
+      res.setHeader('Content-Disposition','attachment;filename="errori_import.csv"');
+      res.sendFile(eFile);
+    });
+  });
   app.post('/passes/:id/replace',requireAuth,requireNotViewer,function(req,res){
     var oldId=parseInt(req.params.id,10);
     db.get(`SELECT p.*,pt.name AS type_name,pa.first_name,pa.last_name,pa.assignment_group_id FROM passes p JOIN pass_types pt ON pt.id=p.pass_type_id JOIN participants pa ON pa.id=p.participant_id WHERE p.id=? AND p.status!='INVALIDATO'`,[oldId],function(err,old){
