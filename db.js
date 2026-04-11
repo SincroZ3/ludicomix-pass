@@ -230,7 +230,9 @@ db.run(`CREATE INDEX IF NOT EXISTS idx_ann_pinned     ON announcements(is_pinned
 
 db.dbPath = dbPath;
 
-  // ── CRM: Referenti ──────────────────────────────────────────────────────────
+// ── CRM: tabelle aggiuntive (serializzate dopo il blocco principale) ─────────
+db.serialize(function() {
+
   db.run(`CREATE TABLE IF NOT EXISTS contacts (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     assignment_group_id INTEGER NOT NULL,
@@ -243,7 +245,6 @@ db.dbPath = dbPath;
     FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
   )`);
 
-  // ── CRM: Pagamenti ──────────────────────────────────────────────────────────
   db.run(`CREATE TABLE IF NOT EXISTS payments (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     assignment_group_id INTEGER NOT NULL,
@@ -257,7 +258,6 @@ db.dbPath = dbPath;
     FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
   )`);
 
-  // ── CRM: Documenti interni admin ─────────────────────────────────────────────
   db.run(`CREATE TABLE IF NOT EXISTS group_documents (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     assignment_group_id INTEGER NOT NULL,
@@ -271,7 +271,6 @@ db.dbPath = dbPath;
     FOREIGN KEY(uploaded_by) REFERENCES users(id)
   )`);
 
-  // ── Documenti lato portale espositore ───────────────────────────────────────
   db.run(`CREATE TABLE IF NOT EXISTS portal_documents (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     assignment_group_id INTEGER NOT NULL,
@@ -286,7 +285,6 @@ db.dbPath = dbPath;
     FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
   )`);
 
-  // ── Ticket di supporto ───────────────────────────────────────────────────────
   db.run(`CREATE TABLE IF NOT EXISTS support_tickets (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     assignment_group_id INTEGER NOT NULL,
@@ -309,7 +307,6 @@ db.dbPath = dbPath;
     FOREIGN KEY(ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE
   )`);
 
-  // ── Indici CRM ──────────────────────────────────────────────────────────────
   db.run('CREATE INDEX IF NOT EXISTS idx_contacts_group    ON contacts(assignment_group_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_payments_group    ON payments(assignment_group_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_group_docs_group  ON group_documents(assignment_group_id)');
@@ -317,11 +314,11 @@ db.dbPath = dbPath;
   db.run('CREATE INDEX IF NOT EXISTS idx_tickets_group     ON support_tickets(assignment_group_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_ticket_replies    ON ticket_replies(ticket_id)');
 
-  // ── Colonne CRM su assignment_groups (ALTER TABLE idempotenti) ───────────────
+  // ALTER TABLE idempotenti — ignorano "duplicate column" se già presenti
   ['portal_open_from TEXT', 'portal_open_until TEXT', "contract_status TEXT DEFAULT 'bozza'"].forEach(function(col) {
-    db.run('ALTER TABLE assignment_groups ADD COLUMN ' + col, function(err) {
-      // Ignora "duplicate column name" — colonna già presente
-    });
+    db.run('ALTER TABLE assignment_groups ADD COLUMN ' + col, function() {});
   });
+
+}); // fine db.serialize CRM
 
 module.exports = db;
