@@ -230,95 +230,88 @@ db.run(`CREATE INDEX IF NOT EXISTS idx_ann_pinned     ON announcements(is_pinned
 
 db.dbPath = dbPath;
 
-// ── CRM: tabelle aggiuntive (serializzate dopo il blocco principale) ─────────
-db.serialize(function() {
-
-  db.run(`CREATE TABLE IF NOT EXISTS contacts (
-    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+// CRM migrations in sequence
+const crmStatements = [
+  `CREATE TABLE IF NOT EXISTS contacts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     assignment_group_id INTEGER NOT NULL,
-    name                TEXT    NOT NULL,
-    role                TEXT,
-    email               TEXT,
-    phone               TEXT,
-    is_primary          INTEGER DEFAULT 0,
-    created_at          TEXT    DEFAULT (datetime('now')),
+    name TEXT NOT NULL,
+    role TEXT,
+    email TEXT,
+    phone TEXT,
+    is_primary INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS payments (
-    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  )`,
+  `CREATE TABLE IF NOT EXISTS payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     assignment_group_id INTEGER NOT NULL,
-    description         TEXT    NOT NULL,
-    amount              REAL    NOT NULL,
-    status              TEXT    DEFAULT 'da_pagare',
-    due_date            TEXT,
-    paid_at             TEXT,
-    notes               TEXT,
-    created_at          TEXT    DEFAULT (datetime('now')),
+    description TEXT NOT NULL,
+    amount REAL NOT NULL,
+    status TEXT DEFAULT 'da_pagare',
+    due_date TEXT,
+    paid_at TEXT,
+    notes TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS group_documents (
-    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  )`,
+  `CREATE TABLE IF NOT EXISTS group_documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     assignment_group_id INTEGER NOT NULL,
-    filename            TEXT    NOT NULL,
-    original_name       TEXT,
-    doc_type            TEXT    DEFAULT 'altro',
-    uploaded_by         INTEGER,
-    uploaded_at         TEXT    DEFAULT (datetime('now')),
-    notes               TEXT,
+    filename TEXT NOT NULL,
+    original_name TEXT,
+    doc_type TEXT DEFAULT 'altro',
+    uploaded_by INTEGER,
+    uploaded_at TEXT DEFAULT (datetime('now')),
+    notes TEXT,
     FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE,
     FOREIGN KEY(uploaded_by) REFERENCES users(id)
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS portal_documents (
-    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  )`,
+  `CREATE TABLE IF NOT EXISTS portal_documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     assignment_group_id INTEGER NOT NULL,
-    doc_type            TEXT    NOT NULL,
-    filename            TEXT    NOT NULL,
-    original_name       TEXT,
-    status              TEXT    DEFAULT 'ricevuto',
-    uploaded_at         TEXT    DEFAULT (datetime('now')),
-    reviewed_by         INTEGER,
-    reviewed_at         TEXT,
-    review_notes        TEXT,
+    doc_type TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    original_name TEXT,
+    status TEXT DEFAULT 'ricevuto',
+    uploaded_at TEXT DEFAULT (datetime('now')),
+    reviewed_by INTEGER,
+    reviewed_at TEXT,
+    review_notes TEXT,
     FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS support_tickets (
-    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  )`,
+  `CREATE TABLE IF NOT EXISTS support_tickets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     assignment_group_id INTEGER NOT NULL,
-    portal_token        TEXT    NOT NULL,
-    subject             TEXT    NOT NULL,
-    message             TEXT    NOT NULL,
-    status              TEXT    DEFAULT 'aperto',
-    created_at          TEXT    DEFAULT (datetime('now')),
-    closed_at           TEXT,
+    portal_token TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    message TEXT NOT NULL,
+    status TEXT DEFAULT 'aperto',
+    created_at TEXT DEFAULT (datetime('now')),
+    closed_at TEXT,
     FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id)
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS ticket_replies (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    ticket_id   INTEGER NOT NULL,
-    message     TEXT    NOT NULL,
-    is_admin    INTEGER DEFAULT 0,
+  )`,
+  `CREATE TABLE IF NOT EXISTS ticket_replies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id INTEGER NOT NULL,
+    message TEXT NOT NULL,
+    is_admin INTEGER DEFAULT 0,
     author_name TEXT,
-    created_at  TEXT    DEFAULT (datetime('now')),
+    created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY(ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE
-  )`);
+  )`
+];
 
-  db.run('CREATE INDEX IF NOT EXISTS idx_contacts_group    ON contacts(assignment_group_id)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_payments_group    ON payments(assignment_group_id)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_group_docs_group  ON group_documents(assignment_group_id)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_portal_docs_group ON portal_documents(assignment_group_id)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_tickets_group     ON support_tickets(assignment_group_id)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_ticket_replies    ON ticket_replies(ticket_id)');
-
-  // ALTER TABLE idempotenti — ignorano "duplicate column" se già presenti
-  ['portal_open_from TEXT', 'portal_open_until TEXT', "contract_status TEXT DEFAULT 'bozza'"].forEach(function(col) {
-    db.run('ALTER TABLE assignment_groups ADD COLUMN ' + col, function() {});
-  });
-
-}); // fine db.serialize CRM
+crmStatements.forEach(sql => db.run(sql));
+['idx_contacts_group','idx_payments_group','idx_group_docs_group','idx_portal_docs_group','idx_tickets_group','idx_ticket_replies'].forEach(() => {});
+db.run('CREATE INDEX IF NOT EXISTS idx_contacts_group    ON contacts(assignment_group_id)');
+db.run('CREATE INDEX IF NOT EXISTS idx_payments_group    ON payments(assignment_group_id)');
+db.run('CREATE INDEX IF NOT EXISTS idx_group_docs_group  ON group_documents(assignment_group_id)');
+db.run('CREATE INDEX IF NOT EXISTS idx_portal_docs_group ON portal_documents(assignment_group_id)');
+db.run('CREATE INDEX IF NOT EXISTS idx_tickets_group     ON support_tickets(assignment_group_id)');
+db.run('CREATE INDEX IF NOT EXISTS idx_ticket_replies    ON ticket_replies(ticket_id)');
+['portal_open_from TEXT', 'portal_open_until TEXT', "contract_status TEXT DEFAULT 'bozza'"].forEach(function(col) {
+  db.run('ALTER TABLE assignment_groups ADD COLUMN ' + col, function(err) {});
+});
 
 module.exports = db;
