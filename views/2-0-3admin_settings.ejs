@@ -1,0 +1,444 @@
+<%- include('partials/header') %>
+<nav class="breadcrumb-bar">
+  Sei in: <a href="/home">Home</a>
+  <span class="sep">&rsaquo;</span> <strong>&#9881;&#65039; Impostazioni</strong>
+</nav>
+<h1 class="page-title">&#9881;&#65039; Impostazioni</h1>
+
+<div class="pill-tabs" id="settings-tabs" style="margin-bottom:1.25rem;">
+  <button type="button" class="pill-tab active" data-tab="zone">&#128506;&#65039; Zone / Padiglioni</button>
+  <button type="button" class="pill-tab" data-tab="raggruppamenti">&#128193; Raggruppamenti Pass</button>
+  <button type="button" class="pill-tab" data-tab="tipologie">&#127931; Tipologie Pass PDF</button>
+  <button type="button" class="pill-tab" data-tab="notifiche">&#128276; Notifiche &amp; Email</button>
+    <button type="button" class="pill-tab" data-tab="notifiche">&#128276; Notifiche &amp; Email</button>
+    <button type="button" class="pill-tab" data-tab="backup">&#128190; Backup &amp; Restore</button>
+  <button type="button" class="pill-tab" data-tab="utenti">&#128100; Gestione Utenti</button>
+</div>
+
+<!-- ===== TAB 1: ZONE ===== -->
+<div id="panel-zone" class="settings-panel">
+  <div class="card">
+    <div class="card-title">Aggiungi nuova Zona / Padiglione</div>
+    <form method="post" action="/admin/zones"
+          style="display:grid;grid-template-columns:1fr 140px auto;gap:0.75rem 1rem;align-items:end;">
+      <label>Nome zona <span style="color:#c0392b">*</span><br>
+        <input type="text" name="name" placeholder="es. Padiglione A, Zona Esterna&hellip;" required>
+      </label>
+      <label>Ordine visualizz.<br>
+        <input type="number" name="sort_order" value="0">
+      </label>
+      <div><button type="submit" class="primary">+ Aggiungi</button></div>
+    </form>
+  </div>
+
+  <% if (zones.length === 0) { %>
+    <p style="color:var(--text-muted);margin-top:0.75rem;">
+      Nessuna zona configurata. Aggiungine una per abilitare il men&ugrave; a tendina nella creazione dei gruppi.
+    </p>
+  <% } else { %>
+  <div class="table-wrapper" style="margin-top:0.75rem;">
+    <table>
+      <thead>
+        <tr><th>Nome Zona / Padiglione</th><th>Ordine</th><th>Modifica</th><th>Cancella</th></tr>
+      </thead>
+      <tbody>
+        <% zones.forEach(function(z){ %>
+          <tr>
+            <td><strong><%= z.name %></strong></td>
+            <td><%= z.sort_order %></td>
+            <td>
+              <button type="button" class="primary" style="font-size:0.78rem;padding:0.3rem 0.7rem;"
+                onclick="apriModificaZona(<%= z.id %>, '<%- z.name.replace(/'/g, String.fromCharCode(39)) %>', <%= z.sort_order %>)">
+                &#9999;&#65039; Modifica
+              </button>
+            </td>
+            <td>
+              <form method="post" action="/admin/zones/<%= z.id %>/delete"
+                    onsubmit="return confirm('Cancellare la zona «<%= z.name %>»?');">
+                <button type="submit" class="btn-danger">&#10005; Cancella</button>
+              </form>
+            </td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+  <% } %>
+</div>
+
+<!-- ===== TAB 2: RAGGRUPPAMENTI ===== -->
+<div id="panel-raggruppamenti" class="settings-panel" style="display:none">
+  <div class="card">
+    <div class="card-title">Aggiungi nuovo Raggruppamento Pass</div>
+    <form method="post" action="/groups"
+          style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:0.75rem 1rem;align-items:end;">
+      <label>Denominazione <span style="color:#c0392b">*</span><br>
+        <input type="text" name="name" required>
+      </label>
+      <label>Ordine di priorit&agrave;<br>
+        <input type="number" name="priority" value="0">
+      </label>
+      <label>Tipologia Pass PDF<br>
+        <select name="pass_type_id">
+          <option value="">&mdash; Nessuna &mdash;</option>
+          <% types.forEach(function(t){ %>
+            <option value="<%= t.id %>"><%= t.name %></option>
+          <% }); %>
+        </select>
+      </label>
+      <div><button type="submit" class="primary">+ Salva</button></div>
+    </form>
+  </div>
+
+  <% if (groups.length === 0) { %>
+    <p style="color:var(--text-muted);margin-top:0.75rem;">Nessun raggruppamento inserito.</p>
+  <% } else { %>
+  <div class="table-wrapper" style="margin-top:0.75rem;">
+    <table>
+      <thead>
+        <tr><th>Denominazione</th><th>Priorit&agrave;</th><th>Tipologia Pass PDF</th><th>Modifica</th><th>Cancella</th></tr>
+      </thead>
+      <tbody>
+        <% groups.forEach(function(g){ %>
+          <tr>
+            <td><strong><%= g.name %></strong></td>
+            <td><%= g.priority %></td>
+            <td><%= g.pass_type_name || '&mdash;' %></td>
+            <td>
+              <button type="button" class="primary" style="font-size:0.78rem;padding:0.3rem 0.7rem;"
+                onclick="apriModificaGruppo(<%= g.id %>, '<%- g.name.replace(/'/g, String.fromCharCode(39)) %>', <%= g.priority %>, '<%= g.pass_type_id || '' %>')">
+                &#9999;&#65039; Modifica
+              </button>
+            </td>
+            <td>
+              <form method="post" action="/groups/<%= g.id %>/delete"
+                    onsubmit="return confirm('Cancellare il raggruppamento «<%= g.name %>»?');">
+                <button type="submit" class="btn-danger">&#10005; Cancella</button>
+              </form>
+            </td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+  <% } %>
+</div>
+
+<!-- ===== TAB 3: TIPOLOGIE PASS PDF ===== -->
+<div id="panel-tipologie" class="settings-panel" style="display:none">
+  <div class="card">
+    <div class="card-title">Aggiungi nuova Tipologia Pass PDF</div>
+    <form method="post" action="/pass-types" enctype="multipart/form-data" style="display:grid;gap:0.75rem;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem 1rem;">
+        <label>Denominazione <span style="color:#c0392b">*</span><br>
+          <input type="text" name="name" required>
+        </label>
+        <label>Descrizione<br>
+          <input type="text" name="description">
+        </label>
+      </div>
+      <label>Template PDF <span style="color:#c0392b">*</span><br>
+        <input type="file" name="template" accept="application/pdf" required>
+      </label>
+      <fieldset class="coords">
+        <legend>Coordinate testo (px)</legend>
+        <div class="coord-row">
+          <span>Nome:</span>
+          <label style="display:inline-flex;align-items:center;gap:0.3rem;margin:0;">X <input type="number" name="name_x" value="100" style="width:80px;display:inline-block;margin-top:0;"></label>
+          <label style="display:inline-flex;align-items:center;gap:0.3rem;margin:0;">Y <input type="number" name="name_y" value="400" style="width:80px;display:inline-block;margin-top:0;"></label>
+        </div>
+        <div class="coord-row">
+          <span>Ruolo:</span>
+          <label style="display:inline-flex;align-items:center;gap:0.3rem;margin:0;">X <input type="number" name="role_x" value="100" style="width:80px;display:inline-block;margin-top:0;"></label>
+          <label style="display:inline-flex;align-items:center;gap:0.3rem;margin:0;">Y <input type="number" name="role_y" value="370" style="width:80px;display:inline-block;margin-top:0;"></label>
+        </div>
+      </fieldset>
+      <div><button type="submit" class="primary">+ Salva Tipologia</button></div>
+    </form>
+  </div>
+
+  <% if (types.length > 0) { %>
+  <div class="table-wrapper" style="margin-top:0.75rem;">
+    <table>
+      <thead>
+        <tr><th>Denominazione</th><th>Nome File</th><th>Coord. Nome</th><th>Coord. Ruolo</th><th>Cancella</th></tr>
+      </thead>
+      <tbody>
+        <% types.forEach(function(t){ %>
+          <tr>
+            <td><strong><%= t.name %></strong></td>
+            <td style="font-family:monospace;font-size:0.8rem;"><%= t.template_file %></td>
+            <td>X: <%= t.name_x %>, Y: <%= t.name_y %></td>
+            <td>X: <%= t.role_x %>, Y: <%= t.role_y %></td>
+            <td>
+              <form method="post" action="/pass-types/<%= t.id %>/delete"
+                    onsubmit="return confirm('Cancellare la tipologia «<%= t.name %>»?');">
+                <button type="submit" class="btn-danger">&#10005; Cancella</button>
+              </form>
+            </td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+  <% } else { %>
+    <p style="color:var(--text-muted);margin-top:0.75rem;">Nessuna tipologia inserita.</p>
+  <% } %>
+</div>
+
+<!-- MODALE: Modifica Zona -->
+<div class="modal-overlay" id="modal-edit-zone" style="display:none">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <h2>&#9999;&#65039; Modifica Zona / Padiglione</h2>
+      <button type="button" class="modal-close" onclick="document.getElementById('modal-edit-zone').style.display='none'">&#215;</button>
+    </div>
+    <form id="form-edit-zone" method="post" class="modal-body" style="display:grid;gap:0.75rem;">
+      <label>Nome Zona <span style="color:#c0392b">*</span><br>
+        <input type="text" name="name" id="edit-zone-name" required>
+      </label>
+      <label>Ordine visualizzazione<br>
+        <input type="number" name="sort_order" id="edit-zone-order">
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="secondary" onclick="document.getElementById('modal-edit-zone').style.display='none'">Annulla</button>
+        <button type="submit" class="primary">Salva modifiche</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODALE: Modifica Raggruppamento -->
+<div class="modal-overlay" id="modal-edit-group" style="display:none">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <h2>&#9999;&#65039; Modifica Raggruppamento Pass</h2>
+      <button type="button" class="modal-close" onclick="document.getElementById('modal-edit-group').style.display='none'">&#215;</button>
+    </div>
+    <form id="form-edit-group" method="post" class="modal-body" style="display:grid;gap:0.75rem;">
+      <label>Denominazione <span style="color:#c0392b">*</span><br>
+        <input type="text" name="name" id="edit-group-name" required>
+      </label>
+      <label>Ordine di priorit&agrave;<br>
+        <input type="number" name="priority" id="edit-group-priority">
+      </label>
+      <label>Tipologia Pass PDF<br>
+        <select name="pass_type_id" id="edit-group-passtype">
+          <option value="">&mdash; Nessuna &mdash;</option>
+          <% types.forEach(function(t){ %>
+            <option value="<%= t.id %>"><%= t.name %></option>
+          <% }); %>
+        </select>
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="secondary" onclick="document.getElementById('modal-edit-group').style.display='none'">Annulla</button>
+        <button type="submit" class="primary">Salva modifiche</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ====== PANEL BACKUP ====== -->
+
+<div id="panel-notifiche" class="settings-panel" style="display:none;">
+  <div class="card" style="border-top:3px solid #1d6fa4;"><div class="card-title">&#128231; Configurazione Email (SMTP)</div>
+  <form method="post" action="/admin/settings/smtp" id="smtp-form" style="display:grid;gap:.8rem;max-width:520px;margin-top:.75rem;">
+    <div style="display:grid;grid-template-columns:1fr 90px 130px;gap:.6rem;">
+      <label style="font-size:.82rem;font-weight:700;">Host SMTP<br><input type="text" name="smtp_host" value="<%= smtp.smtp_host||'' %>" placeholder="smtp.gmail.com" style="width:100%;margin-top:.3rem;"></label>
+      <label style="font-size:.82rem;font-weight:700;">Porta<br><input type="number" name="smtp_port" value="<%= smtp.smtp_port||'587' %>" style="width:100%;margin-top:.3rem;"></label>
+      <label style="font-size:.82rem;font-weight:700;">Sicurezza<br><select name="smtp_secure" style="width:100%;margin-top:.3rem;"><option value="0" <%= smtp.smtp_secure==='1'?'':' selected' %>>STARTTLS</option><option value="1" <%= smtp.smtp_secure==='1'?' selected':'' %>>SSL/TLS</option></select></label>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
+      <label style="font-size:.82rem;font-weight:700;">Username<br><input type="text" name="smtp_user" value="<%= smtp.smtp_user||'' %>" style="width:100%;margin-top:.3rem;"></label>
+      <label style="font-size:.82rem;font-weight:700;">Password<br><input type="password" name="smtp_pass" value="<%= smtp.smtp_pass||'' %>" style="width:100%;margin-top:.3rem;"></label>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
+      <label style="font-size:.82rem;font-weight:700;">Mittente<br><input type="email" name="smtp_from" value="<%= smtp.smtp_from||'' %>" placeholder="noreply@ludicomix.it" style="width:100%;margin-top:.3rem;"></label>
+      <label style="font-size:.82rem;font-weight:700;">Destinatario<br><input type="email" name="smtp_to" value="<%= smtp.smtp_to||'' %>" placeholder="admin@ludicomix.it" style="width:100%;margin-top:.3rem;"></label>
+    </div>
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;">
+      <button type="submit" class="primary">&#128190; Salva SMTP</button>
+      <button type="button" class="secondary" id="btn-smtp-test" style="font-size:.82rem;">&#128231; Test email</button>
+    </div>
+    <div id="smtp-result" style="display:none;font-size:.82rem;padding:.4rem .7rem;border-radius:6px;"></div>
+  </form></div>
+  <div class="card"><div class="card-title">&#128276; Centro Notifiche</div><p style="font-size:.82rem;margin-bottom:.75rem;">Storico eventi critici.</p><a href="/notifications" class="secondary" style="font-size:.82rem;">Vai alle notifiche &rarr;</a></div>
+</div>
+
+<div id="panel-notifiche" class="settings-panel" style="display:none;">
+  <div class="card" style="border-top:3px solid #1d6fa4;">
+    <div class="card-title">&#128231; Configurazione Email (SMTP)</div>
+    <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:1rem;">Se configurato, Ludicomix inviera una email per eventi critici (limite raggiunto, import, sostituzione pass).</p>
+    <form method="post" action="/admin/settings/smtp" id="smtp-form" style="display:grid;gap:.8rem;max-width:520px;">
+      <div style="display:grid;grid-template-columns:1fr 90px 130px;gap:.6rem;">
+        <label style="font-size:.82rem;font-weight:700;">Host SMTP<br><input type="text" name="smtp_host" value="<%= (smtp&&smtp.smtp_host)||'' %>" placeholder="smtp.gmail.com" style="width:100%;margin-top:.3rem;"></label>
+        <label style="font-size:.82rem;font-weight:700;">Porta<br><input type="number" name="smtp_port" value="<%= (smtp&&smtp.smtp_port)||'587' %>" style="width:100%;margin-top:.3rem;"></label>
+        <label style="font-size:.82rem;font-weight:700;">Sicurezza<br><select name="smtp_secure" style="width:100%;margin-top:.3rem;"><option value="0" <%= (smtp&&smtp.smtp_secure)==='1'?'':'selected' %>>STARTTLS</option><option value="1" <%= (smtp&&smtp.smtp_secure)==='1'?'selected':'' %>>SSL/TLS</option></select></label>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
+        <label style="font-size:.82rem;font-weight:700;">Username<br><input type="text" name="smtp_user" value="<%= (smtp&&smtp.smtp_user)||'' %>" style="width:100%;margin-top:.3rem;"></label>
+        <label style="font-size:.82rem;font-weight:700;">Password<br><input type="password" name="smtp_pass" value="<%= (smtp&&smtp.smtp_pass)||'' %>" style="width:100%;margin-top:.3rem;"></label>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
+        <label style="font-size:.82rem;font-weight:700;">Mittente<br><input type="email" name="smtp_from" value="<%= (smtp&&smtp.smtp_from)||'' %>" placeholder="noreply@ludicomix.it" style="width:100%;margin-top:.3rem;"></label>
+        <label style="font-size:.82rem;font-weight:700;">Destinatario<br><input type="email" name="smtp_to" value="<%= (smtp&&smtp.smtp_to)||'' %>" placeholder="admin@ludicomix.it" style="width:100%;margin-top:.3rem;"></label>
+      </div>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;">
+        <button type="submit" class="primary">&#128190; Salva SMTP</button>
+        <button type="button" class="secondary" id="btn-smtp-test" style="font-size:.82rem;">&#128231; Test email</button>
+      </div>
+      <div id="smtp-result" style="display:none;font-size:.82rem;padding:.4rem .7rem;border-radius:6px;"></div>
+    </form>
+  </div>
+  <div class="card"><div class="card-title">&#128276; Centro Notifiche</div>
+    <p style="font-size:.82rem;margin-bottom:.75rem;">Storico eventi critici.</p>
+    <a href="/notifications" class="secondary" style="font-size:.82rem;">Vai alle notifiche &rarr;</a>
+  </div>
+</div>
+<div id="panel-backup" class="settings-panel" style="display:none;">
+
+  <div class="card" style="border-top:3px solid var(--accent-blue);">
+    <div class="card-title">&#128190; Backup database</div>
+    <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:1rem;">
+      Scarica una copia consistente del database SQLite (tramite <code>VACUUM INTO</code>).
+      Conservala in un posto sicuro.
+    </p>
+    <a href="/admin/backup" class="primary" style="display:inline-flex;align-items:center;gap:.4rem;">
+      &#11015; Scarica backup (ludicomix_backup.sqlite)
+    </a>
+  </div>
+
+  <div class="card" style="border-top:3px solid #c0392b;">
+    <div class="card-title" style="color:#c0392b;">&#9888;&#65039; Ripristina database</div>
+    <div class="alert alert-info" style="margin-bottom:1rem;">
+      <span>&#9432;</span>
+      <strong>Attenzione:</strong> questa operazione sostituir&agrave; <em>completamente</em>
+      il database corrente con il file caricato e il server si riavvier&agrave;
+      automaticamente (2&ndash;3 sec). Usa solo un file <code>.sqlite</code>
+      scaricato da questo pannello.
+    </div>
+    <form method="post" action="/admin/restore" enctype="multipart/form-data"
+      onsubmit="return confirm('ATTENZIONE: il database corrente verra sostituito completamente. Continuare?');" 
+      style="display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap;">
+      <label style="font-size:.82rem;font-weight:700;">File backup (.sqlite)<br>
+        <input type="file" name="backup" accept=".sqlite" required style="margin-top:.3rem;">
+      </label>
+      <button type="submit" class="btn-danger" style="height:38px;">&#128260; Ripristina ora</button>
+    </form>
+  </div>
+
+</div>
+
+<!-- ====== PANEL UTENTI ====== -->
+<div id="panel-utenti" class="settings-panel" style="display:none;">
+
+  <div class="card" style="max-width:480px;">
+    <div class="card-title">Crea nuovo utente</div>
+    <form method="post" action="/admin/users" style="display:grid;gap:.75rem;">
+      <label>Username <span style="color:#c0392b">*</span><br>
+        <input type="text" name="username" required></label>
+      <label>Password <span style="color:#c0392b">*</span><br>
+        <input type="password" name="password" required></label>
+      <label>Ruolo <span style="color:#c0392b">*</span><br>
+        <select name="role" required>
+          <option value="operator">Operatore</option>
+          <option value="viewer">Visualizzatore</option>
+          <option value="admin">Amministratore</option>
+        </select>
+      </label>
+      <div><button type="submit" class="primary">+ Crea Utente</button></div>
+    </form>
+  </div>
+
+  <div class="card" style="max-width:560px;">
+    <div class="card-title">Permessi per ruolo</div>
+    <table style="font-size:.8rem;">
+      <thead><tr><th>Funzione</th><th style="text-align:center;">Admin</th><th style="text-align:center;">Operatore</th><th style="text-align:center;">Viewer</th></tr></thead>
+      <tbody>
+        <tr><td>Visualizzare pass e gruppi</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10003;</td></tr>
+        <tr><td>Modificare stato pass</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10003;</td></tr>
+        <tr><td>Aggiungere / eliminare assegnatari</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10007;</td></tr>
+        <tr><td>Generare pass PDF</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10007;</td></tr>
+        <tr><td>Gestione utenti e log azioni</td><td style="text-align:center;">&#10003;</td><td style="text-align:center;">&#10007;</td><td style="text-align:center;">&#10007;</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Elenco Utenti</div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>ID</th><th>Username</th><th>Ruolo</th><th>Creato il</th><th>Elimina</th></tr></thead>
+        <tbody>
+          <% users.forEach(function(u){ %>
+            <tr>
+              <td><span class="chip">#<%= u.id %></span></td>
+              <td><strong><%= u.username %></strong></td>
+              <td>
+                <% if(u.role==='admin'){ %>
+                  <span class="chip" style="background:#e8edf8;color:#1a2744;">Amministratore</span>
+                <% }else if(u.role==='operator'){ %>
+                  <span class="chip" style="background:#e8f5e9;color:#1b5e20;">Operatore</span>
+                <% }else{ %>
+                  <span class="chip" style="background:#fff8e1;color:#e65100;">Visualizzatore</span>
+                <% } %>
+              </td>
+              <td style="font-size:.78rem;color:var(--text-muted);"><%= u.created_at %></td>
+              <td>
+                <% if(u.id!==currentUser.id){ %>
+                  <form method="post" action="/admin/users/<%= u.id %>/delete"
+                    onsubmit="return confirm('Eliminare l\'utente <%= u.username %>?');">
+                    <button type="submit" class="btn-danger">&#10005; Elimina</button>
+                  </form>
+                <% }else{ %>
+                  <span style="font-size:.78rem;color:var(--text-muted);">Utente corrente</span>
+                <% } %>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  var PANELS = { zone: 'panel-zone', raggruppamenti: 'panel-raggruppamenti', tipologie: 'panel-tipologie', backup:'panel-backup',notifiche:'panel-notifiche', utenti: 'panel-utenti' };
+  var tabs   = document.querySelectorAll('[data-tab]');
+
+  function showTab(key) {
+    tabs.forEach(function(t){ t.classList.toggle('active', t.dataset.tab === key); });
+    Object.keys(PANELS).forEach(function(k){
+      document.getElementById(PANELS[k]).style.display = (k === key) ? '' : 'none';
+    });
+    history.replaceState(null, '', '#' + key);
+  }
+
+  tabs.forEach(function(t){ t.addEventListener('click', function(){ showTab(t.dataset.tab); }); });
+
+  var hash = location.hash.replace('#', '');
+  if (PANELS[hash]) showTab(hash);
+})();
+
+function apriModificaZona(id, name, order) {
+  document.getElementById('edit-zone-name').value  = name;
+  document.getElementById('edit-zone-order').value = order;
+  document.getElementById('form-edit-zone').action = '/admin/zones/' + id + '/edit';
+  document.getElementById('modal-edit-zone').style.display = 'flex';
+}
+
+function apriModificaGruppo(id, name, priority, passTypeId) {
+  document.getElementById('edit-group-name').value     = name;
+  document.getElementById('edit-group-priority').value = priority;
+  var sel = document.getElementById('edit-group-passtype');
+  for (var i = 0; i < sel.options.length; i++) {
+    sel.options[i].selected = (sel.options[i].value === String(passTypeId));
+  }
+  document.getElementById('form-edit-group').action = '/groups/' + id + '/edit';
+  document.getElementById('modal-edit-group').style.display = 'flex';
+}
+</script>
+
+<%- include('partials/footer') %>

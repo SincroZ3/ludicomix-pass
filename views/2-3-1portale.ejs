@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Portale Espositore — <%= group.name %> · Ludicomix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#1e2d4e;--navy-mid:#253660;--navy-light:#2e4070;
+  --yellow:#f5c842;--gold:#c9a227;
+  --violet:#6b3fa0;--violet-light:#8b5cc0;
+  --green:#2d6a4f;--red:#c0392b;--blue:#1d6fa4;--orange:#c9a227;--gray:#9ca3af;
+  --bg:#f4f6fb;--surface:#fff;--border:#e2e8f0;--text:#1a2744;--muted:#64748b;--faint:#94a3b8;
+  --radius:12px;--radius-sm:8px;--radius-xs:6px;
+  --shadow:0 1px 3px rgba(30,45,78,.08),0 4px 16px rgba(30,45,78,.06);
+  --shadow-lg:0 8px 32px rgba(30,45,78,.14);
+}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.55}
+a{color:inherit;text-decoration:none}
+img{display:block;max-width:100%}
+
+/* ── HEADER ── */
+.hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 60%,#2a1a4e 100%);padding:1.5rem 1.5rem 3.5rem;position:relative;overflow:hidden}
+.hdr::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 80% 50%,rgba(107,63,160,.25) 0%,transparent 65%);pointer-events:none}
+.hdr-inner{max-width:860px;margin:0 auto;position:relative}
+.hdr-brand{display:flex;align-items:center;gap:.65rem;margin-bottom:1.4rem}
+.hdr-brand-dot{width:28px;height:28px;border-radius:50%;background:var(--yellow);display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0}
+.hdr-brand-name{font-size:.78rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.55)}
+.hdr-notice{font-size:.68rem;color:rgba(255,255,255,.35);margin-left:auto;white-space:nowrap}
+.hdr-title{font-size:clamp(1.3rem,4vw,1.9rem);font-weight:800;color:#fff;line-height:1.2;margin-bottom:.35rem}
+.hdr-title span{color:var(--yellow)}
+.hdr-meta{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.75rem}
+.hdr-chip{display:inline-flex;align-items:center;gap:.3rem;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.12);border-radius:9999px;padding:.2rem .65rem;font-size:.72rem;color:rgba(255,255,255,.75);font-weight:600}
+
+/* ── CARD PULL-UP ── */
+.pull-up{max-width:860px;margin:-2rem auto 0;padding:0 1rem}
+
+/* ── PROGRESS CARD ── */
+.prog-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:1.2rem 1.4rem;margin-bottom:1.4rem;display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap}
+.prog-num{font-size:2rem;font-weight:800;color:var(--violet);line-height:1}
+.prog-label{font-size:.78rem;color:var(--muted);margin-top:.1rem}
+.prog-bar-wrap{flex:1;min-width:160px}
+.prog-bar-track{height:8px;background:var(--border);border-radius:9999px;overflow:hidden;margin-bottom:.4rem}
+.prog-bar-fill{height:8px;border-radius:9999px;background:linear-gradient(90deg,var(--violet),var(--violet-light));transition:width .6s ease}
+.prog-pct{font-size:.75rem;color:var(--muted)}
+.prog-pct strong{color:var(--green);font-weight:700}
+
+/* ── SECTION TITLES ── */
+.sec-title{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:1.6rem 0 .75rem;display:flex;align-items:center;gap:.4rem}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── PASS CARDS GRID ── */
+.pass-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.85rem;margin-bottom:1.4rem}
+.pass-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.1rem 1.2rem;display:flex;flex-direction:column;gap:.75rem;transition:box-shadow .15s,transform .15s}
+.pass-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px)}
+.pass-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem}
+.pass-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--violet),var(--violet-light));display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:800;color:#fff;flex-shrink:0;letter-spacing:-.5px}
+.pass-name{font-size:.88rem;font-weight:700;line-height:1.25}
+.pass-role{font-size:.71rem;color:var(--muted);margin-top:.1rem}
+.pass-type-badge{display:inline-flex;padding:.18rem .6rem;border-radius:9999px;font-size:.66rem;font-weight:700;background:rgba(29,111,164,.1);color:var(--blue);white-space:nowrap}
+.pass-card-mid{display:flex;align-items:center;justify-content:space-between}
+.status-pill{display:inline-flex;align-items:center;gap:.3rem;padding:.22rem .65rem;border-radius:9999px;font-size:.68rem;font-weight:700;color:#fff}
+.status-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.7)}
+.sGEN{background:var(--violet)}.sSCA{background:var(--blue)}.sSTA{background:var(--gold);color:#28251d}
+.sCON{background:var(--green)}.sRIC{background:var(--red)}.sINV{background:var(--gray)}
+.pass-card-foot{}
+.btn-dl{display:flex;align-items:center;justify-content:center;gap:.45rem;width:100%;padding:.6rem 1rem;background:var(--navy);color:#fff;border-radius:var(--radius-xs);font-size:.78rem;font-weight:700;text-decoration:none;transition:background .15s}
+.btn-dl:hover{background:var(--violet)}
+.btn-dl-icon{font-size:1rem}
+
+/* ── NO PASS CARDS ── */
+.nopass-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.65rem;margin-bottom:1.4rem}
+.nopass-card{background:var(--surface);border:1px solid #fde8d8;border-radius:var(--radius-sm);padding:.8rem 1rem;display:flex;align-items:center;gap:.75rem}
+.nopass-avatar{width:36px;height:36px;border-radius:50%;background:#fef3ec;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0}
+.nopass-name{font-size:.82rem;font-weight:700}
+.nopass-role{font-size:.69rem;color:var(--muted);margin-top:.05rem}
+.nopass-tag{font-size:.65rem;color:#c0392b;font-weight:600;margin-top:.2rem;font-style:italic}
+
+/* ── EMPTY STATE ── */
+.empty-state{text-align:center;padding:2.5rem 1rem;color:var(--muted)}
+.empty-state .big{font-size:2.5rem;margin-bottom:.75rem}
+.empty-state p{font-size:.84rem;max-width:36ch;margin:0 auto}
+
+/* ── FOOTER ── */
+.footer{text-align:center;padding:2.5rem 1rem 3rem;font-size:.69rem;color:var(--faint)}
+.footer strong{color:var(--muted)}
+
+@media(max-width:500px){
+  .hdr{padding:1.2rem 1rem 3rem}
+  .prog-card{gap:.8rem}
+  .prog-num{font-size:1.6rem}
+  .pass-grid,.nopass-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<%
+var wp = parts.filter(function(p){ return p.pass_id; });
+var np = parts.filter(function(p){ return !p.pass_id; });
+var SC = {GENERATO:'sGEN',SCARICATO:'sSCA',STAMPATO:'sSTA',CONSEGNATO:'sCON',RICONSEGNATO:'sRIC',INVALIDATO:'sINV'};
+var SL = {GENERATO:'Generato',SCARICATO:'Scaricato',STAMPATO:'Stampato',CONSEGNATO:'Consegnato',RICONSEGNATO:'Riconsegnato',INVALIDATO:'Invalidato'};
+function initials(p){ return ((p.first_name||'').charAt(0)+(p.last_name||'').charAt(0)).toUpperCase(); }
+var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
+%>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-inner">
+    <div class="hdr-brand">
+      <div class="hdr-brand-dot">&#127915;</div>
+      <span class="hdr-brand-name">Ludicomix &mdash; Portale Espositore</span>
+      <span class="hdr-notice">&#128274; Accesso riservato</span>
+    </div>
+    <h1 class="hdr-title">Ciao, <span><%= group.name %>!</span></h1>
+    <div class="hdr-meta">
+      <% if(group.zone){ %><div class="hdr-chip">&#128205; <%= group.zone %></div><% } %>
+      <% if(group.cat_name){ %><div class="hdr-chip">&#127981; <%= group.cat_name %></div><% } %>
+      <% if(group.stand_code){ %><div class="hdr-chip">&#128204; Stand <%= group.stand_code %></div><% } %>
+      <div class="hdr-chip">&#128101; <%= parts.length %> assegnatari</div>
+    </div>
+  </div>
+</div>
+
+<!-- PULL-UP CONTENT -->
+<div class="pull-up">
+
+  <!-- PROGRESS CARD -->
+  <div class="prog-card">
+    <div>
+      <div class="prog-num"><%= wp.length %><span style="font-size:1rem;color:var(--faint);font-weight:600"> / <%= parts.length %></span></div>
+      <div class="prog-label">pass <%= wp.length===parts.length&&parts.length>0?'tutti pronti':'disponibili'%></div>
+    </div>
+    <div class="prog-bar-wrap">
+      <div class="prog-bar-track"><div class="prog-bar-fill" style="width:<%= pct %>%"></div></div>
+      <div class="prog-pct">
+        <% if(pct===100){ %><strong>&#10003; Tutti i pass sono pronti!</strong>
+        <% }else if(pct===0){ %>Nessun pass ancora generato
+        <% }else{ %><strong><%= pct %>%</strong> completato &mdash; <%= np.length %> in preparazione<% } %>
+      </div>
+    </div>
+  </div>
+
+  <!-- PASS DISPONIBILI -->
+  <% if(wp.length){ %>
+  <div class="sec-title">&#9989; Pass disponibili</div>
+  <div class="pass-grid">
+    <% wp.forEach(function(p){ %>
+    <div class="pass-card">
+      <div class="pass-card-top">
+        <div style="display:flex;gap:.65rem;align-items:center;min-width:0">
+          <div class="pass-avatar"><%= initials(p) %></div>
+          <div style="min-width:0">
+            <div class="pass-name"><%= p.last_name %> <%= p.first_name %></div>
+            <% if(p.role){ %><div class="pass-role"><%= p.role %></div><% } %>
+          </div>
+        </div>
+        <% if(p.type_name){ %><span class="pass-type-badge"><%= p.type_name %></span><% } %>
+      </div>
+      <div class="pass-card-mid">
+        <span class="status-pill <%= SC[p.status]||'sGEN' %>">
+          <span class="status-dot"></span><%= SL[p.status]||p.status %>
+        </span>
+        <span style="font-size:.67rem;color:var(--faint);font-family:monospace"><%= (p.code||'').substring(0,10) %>&hellip;</span>
+      </div>
+      <div class="pass-card-foot">
+        <% if(p.status!=='INVALIDATO'){ %>
+        <a href="/portale/<%= token %>/download/<%= p.pass_id %>" class="btn-dl" target="_blank">
+          <span class="btn-dl-icon">&#11015;&#65039;</span> Scarica PDF
+        </a>
+        <% }else{ %>
+        <div style="text-align:center;font-size:.73rem;color:var(--gray);padding:.4rem;">Pass invalidato</div>
+        <% } %>
+      </div>
+    </div>
+    <% }); %>
+  </div>
+  <% } %>
+
+  <!-- SENZA PASS -->
+  <% if(np.length){ %>
+  <div class="sec-title" style="color:#c0392b;">&#9888;&#65039; In preparazione</div>
+  <div class="nopass-grid">
+    <% np.forEach(function(p){ %>
+    <div class="nopass-card">
+      <div class="nopass-avatar">&#128100;</div>
+      <div>
+        <div class="nopass-name"><%= p.last_name %> <%= p.first_name %></div>
+        <% if(p.role){ %><div class="nopass-role"><%= p.role %></div><% } %>
+        <div class="nopass-tag">Pass non ancora generato</div>
+      </div>
+    </div>
+    <% }); %>
+  </div>
+  <% } %>
+
+  <!-- EMPTY STATE -->
+  <% if(parts.length===0){ %>
+  <div class="empty-state">
+    <div class="big">&#127915;</div>
+    <p>Nessun assegnatario registrato per questo stand.<br>Contatta l&rsquo;organizzazione per assistenza.</p>
+  </div>
+  <% } %>
+
+  <div class="footer">
+    <strong>Ludicomix</strong> &mdash; Portale Espositore<br>
+    Per assistenza contatta l&rsquo;organizzazione &middot; Non condividere questo link
+  </div>
+</div>
+
+</body>
+</html>

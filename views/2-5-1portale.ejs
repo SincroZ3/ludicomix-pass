@@ -163,83 +163,6 @@ a{color:inherit;text-decoration:none}
   .pass-grid,.nopass-grid{grid-template-columns:1fr}
   .prog-num{font-size:1.7rem}
 }
-
-/* ── DOVE SIETE? ──────────────────────────────────────── */
-.dove-card{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--radius);box-shadow:var(--shadow-md);
-  margin-bottom:1.5rem;overflow:hidden;
-}
-.dove-header{
-  display:flex;align-items:flex-start;justify-content:space-between;
-  flex-wrap:wrap;gap:.75rem;padding:1rem 1.2rem .85rem;
-  border-bottom:1px solid var(--border-light);
-}
-.dove-zone-badge{
-  display:inline-block;background:var(--navy);color:var(--yellow);
-  font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.6px;
-  padding:.18rem .65rem;border-radius:9999px;margin-bottom:.3rem;
-}
-.dove-stand-name{font-size:1.1rem;font-weight:800;color:var(--text);line-height:1.2}
-.dove-stand-code{font-size:.75rem;color:var(--muted);margin-top:.2rem}
-.dove-actions{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
-.dove-btn{
-  display:inline-flex;align-items:center;gap:.3rem;
-  padding:.38rem .85rem;border-radius:var(--radius-xs);
-  border:1.5px solid var(--border);background:var(--surface);
-  font-size:.76rem;font-weight:700;cursor:pointer;color:var(--text);
-  transition:background .15s,border-color .15s;font-family:inherit;
-}
-.dove-btn:hover{background:var(--bg);border-color:var(--navy)}
-.dove-btn-share{background:var(--yellow);border-color:var(--gold);color:var(--navy)}
-.dove-btn-share:hover{background:#f0bc20}
-
-.dove-canvas-wrap{
-  position:relative;cursor:zoom-in;
-  background:#e8ecf3;overflow:hidden;max-height:320px;
-}
-.dove-canvas-wrap canvas{display:block;width:100%;height:auto;max-height:320px;object-fit:contain}
-.dove-canvas-overlay{
-  position:absolute;bottom:.6rem;right:.8rem;
-  background:rgba(30,45,78,.7);color:#fff;
-  border-radius:9999px;padding:.22rem .75rem;
-  font-size:.72rem;font-weight:600;pointer-events:none;
-}
-.dove-hint{
-  padding:.65rem 1.2rem;font-size:.72rem;color:var(--muted);
-  background:#fffbeb;border-top:1px solid #fde68a;
-}
-
-/* Modal */
-.dove-modal{
-  display:none;position:fixed;inset:0;z-index:8000;
-  background:rgba(10,20,45,.7);backdrop-filter:blur(3px);
-  align-items:center;justify-content:center;padding:1rem;
-}
-.dove-modal.open{display:flex}
-.dove-modal-box{
-  background:#fff;border-radius:var(--radius);box-shadow:0 24px 64px rgba(10,20,45,.3);
-  width:100%;max-width:1100px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;
-}
-.dove-modal-header{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:.75rem 1.1rem;border-bottom:1px solid var(--border-light);
-  font-size:.88rem;font-weight:700;color:var(--text);flex-shrink:0;
-}
-.dove-modal-close{
-  width:32px;height:32px;border-radius:50%;border:none;
-  background:#f1f5f9;cursor:pointer;font-size:1rem;
-  display:flex;align-items:center;justify-content:center;
-  transition:background .15s;
-}
-.dove-modal-close:hover{background:#e2e8f0}
-.dove-modal-canvas-wrap{overflow:auto;flex:1}
-.dove-modal-canvas-wrap canvas{display:block;width:100%;height:auto}
-
-@keyframes dove-pulse{
-  0%,100%{box-shadow:0 0 0 0 rgba(245,200,66,.5)}
-  50%{box-shadow:0 0 0 10px rgba(245,200,66,0)}
-}
 </style>
 </head>
 <body>
@@ -262,7 +185,31 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
       <span class="brand-sub">Portale Espositore</span>
     </div>
   </div>
-  <div class="topbar-right">&#128274; Accesso riservato &middot; Non condividere questo link</div>
+  <div style="display:flex;align-items:center;gap:.75rem;">
+  <!-- BADGE BACHECA -->
+  <a href="#bacheca" id="bach-btn"
+     style="position:relative;display:flex;align-items:center;gap:.35rem;
+            background:rgba(255,255,255,.12);color:#fff;text-decoration:none;
+            border-radius:9999px;padding:.3rem .75rem;font-size:.75rem;font-weight:700;
+            border:1px solid rgba(255,255,255,.2);transition:background .15s;"
+     title="Comunicazioni dall'organizzazione"
+     onmouseover="this.style.background='rgba(255,255,255,.2)'"
+     onmouseout="this.style.background='rgba(255,255,255,.12)'">
+    📣 Bacheca
+    <% if(unreadCount > 0){ %>
+    <span id="unread-badge"
+          style="background:#c0392b;color:#fff;border-radius:9999px;min-width:18px;height:18px;
+                 font-size:.62rem;font-weight:800;line-height:18px;text-align:center;padding:0 4px;">
+      <%= unreadCount %>
+    </span>
+    <% } else { %>
+    <span id="unread-badge" style="display:none;background:#c0392b;color:#fff;border-radius:9999px;
+           min-width:18px;height:18px;font-size:.62rem;font-weight:800;line-height:18px;
+           text-align:center;padding:0 4px;"></span>
+    <% } %>
+  </a>
+</div>
+<div class="topbar-right">&#128274; Accesso riservato &middot; Non condividere questo link</div>
 </header>
 
 <!-- ═══ HEADER STAND (solo titolo) ═══ -->
@@ -274,141 +221,6 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
 
 <!-- ═══ CONTENUTO ═══ -->
 <div class="wrap">
-
-<% if(typeof announcements !== 'undefined' && announcements && announcements.length > 0){ %>
-<%
-  var annUnread = announcements.filter(function(a){ return !a.is_read; });
-  var annRead   = announcements.filter(function(a){ return  a.is_read; });
-%>
-
-<!-- ═══ BACHECA COMUNICAZIONI (in cima, sempre visibile) ═══ -->
-<div id="bacheca" style="margin-bottom:1.4rem;">
-
-  <!-- header bacheca -->
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;
-              background:var(--navy);border-radius:var(--radius) var(--radius) 0 0;
-              padding:.7rem 1.1rem;">
-    <div style="display:flex;align-items:center;gap:.6rem;">
-      <span style="font-size:1.1rem;">📣</span>
-      <span style="font-size:.78rem;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.5px;">
-        Comunicazioni dell&rsquo;organizzazione
-      </span>
-      <% if(unreadCount > 0){ %>
-      <span id="unread-badge"
-            style="background:#c0392b;color:#fff;border-radius:9999px;min-width:20px;height:20px;
-                   font-size:.65rem;font-weight:800;line-height:20px;text-align:center;padding:0 5px;
-                   animation:pulse-badge 1.8s ease-in-out infinite;">
-        <%= unreadCount %>
-      </span>
-      <% } else { %>
-      <span id="unread-badge" style="display:none;background:#c0392b;color:#fff;border-radius:9999px;
-             min-width:20px;height:20px;font-size:.65rem;font-weight:800;line-height:20px;
-             text-align:center;padding:0 5px;"></span>
-      <% } %>
-    </div>
-    <!-- toggle collapse se tutti letti -->
-    <button onclick="toggleBacheca()" id="bach-toggle"
-      style="background:rgba(255,255,255,.15);border:none;border-radius:6px;
-             color:#fff;font-size:.72rem;font-weight:700;padding:.3rem .65rem;
-             cursor:pointer;transition:background .15s;"
-      onmouseover="this.style.background='rgba(255,255,255,.25)'"
-      onmouseout="this.style.background='rgba(255,255,255,.15)'">
-      <span id="bach-toggle-label">▲ Nascondi</span>
-    </button>
-  </div>
-
-  <!-- messaggi -->
-  <div id="bach-body"
-       style="background:var(--surface);border:1px solid var(--border-light);
-              border-top:none;border-radius:0 0 var(--radius) var(--radius);
-              overflow:hidden;transition:max-height .35s ease,opacity .25s ease;
-              max-height:2000px;opacity:1;">
-
-    <!-- NON LETTI — sempre espansi e in risalto -->
-    <% if(annUnread.length > 0){ %>
-    <div style="background:linear-gradient(135deg,#1e2d4e 0%,#2a3a60 100%);
-                padding:.5rem 1.1rem .35rem;">
-      <span style="font-size:.63rem;font-weight:800;color:var(--yellow);text-transform:uppercase;letter-spacing:.5px;">
-        🔔 <%= annUnread.length %> non lett<%= annUnread.length===1?'o':'i' %>
-      </span>
-    </div>
-    <% annUnread.forEach(function(a, i){ %>
-    <%
-      var uc={info:'#1d6fa4',warning:'#c9a227',urgent:'#c0392b'};
-      var ub={info:'rgba(29,111,164,.07)',warning:'rgba(201,162,39,.09)',urgent:'rgba(192,57,43,.07)'};
-      var ul={info:'3px solid #1d6fa4',warning:'3px solid #c9a227',urgent:'3px solid #c0392b'};
-    %>
-    <div style="display:flex;gap:.8rem;align-items:flex-start;
-                padding:.85rem 1.1rem;
-                border-left:<%= ul[a.type]||ul.info %>;
-                background:<%= ub[a.type]||ub.info %>;
-                <%= i < annUnread.length-1 ? 'border-bottom:1px solid var(--border-light);' : '' %>">
-      <span style="font-size:1.5rem;flex-shrink:0;line-height:1;padding-top:.05rem;"><%= a.emoji||'📣' %></span>
-      <div style="flex:1;min-width:0;">
-        <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-bottom:.25rem;">
-          <% if(a.is_pinned){ %>
-            <span style="font-size:.62rem;background:var(--navy);color:var(--yellow);
-                         padding:.1rem .45rem;border-radius:9999px;font-weight:800;">📌 IN EVIDENZA</span>
-          <% } %>
-          <span style="font-size:.63rem;font-weight:800;padding:.1rem .45rem;border-radius:9999px;
-                       background:<%= ub[a.type]||ub.info %>;color:<%= uc[a.type]||uc.info %>;
-                       border:1px solid <%= uc[a.type]||uc.info %>;">
-            <%= {info:'ℹ️ INFO',warning:'⚠️ AVVISO',urgent:'🚨 URGENTE'}[a.type]||'INFO' %>
-          </span>
-          <strong style="font-size:.88rem;color:var(--text);"><%= a.title %></strong>
-        </div>
-        <p style="font-size:.82rem;color:var(--text);margin:0 0 .3rem;white-space:pre-wrap;line-height:1.55;"><%= a.message %></p>
-        <span style="font-size:.67rem;color:var(--faint);">🕐 <%= (a.created_at||'').substring(0,16).replace('T',' ') %></span>
-      </div>
-    </div>
-    <% }); %>
-    <% } %>
-
-    <!-- LETTI — collassabili se ci sono anche non letti -->
-    <% if(annRead.length > 0){ %>
-    <div id="read-section">
-      <% if(annUnread.length > 0){ %>
-      <div style="padding:.4rem 1.1rem;background:var(--border-light);display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:.63rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;">
-          <%= annRead.length %> già lette
-        </span>
-        <button onclick="toggleRead()" id="read-toggle"
-          style="background:none;border:none;font-size:.7rem;color:var(--blue);font-weight:700;cursor:pointer;padding:0;">
-          Mostra ▾
-        </button>
-      </div>
-      <div id="read-list" style="display:none;">
-      <% } %>
-        <% annRead.forEach(function(a, i){ %>
-        <%
-          var rc={info:'#6b7280',warning:'#6b7280',urgent:'#6b7280'};
-        %>
-        <div style="display:flex;gap:.8rem;align-items:flex-start;padding:.7rem 1.1rem;opacity:.65;
-                    <%= i < annRead.length-1 ? 'border-bottom:1px solid var(--border-light);' : '' %>">
-          <span style="font-size:1.3rem;flex-shrink:0;line-height:1;filter:grayscale(1);"><%= a.emoji||'📣' %></span>
-          <div style="flex:1;min-width:0;">
-            <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-bottom:.2rem;">
-              <% if(a.is_pinned){ %>
-                <span style="font-size:.62rem;background:#e5e7eb;color:#6b7280;
-                             padding:.1rem .45rem;border-radius:9999px;font-weight:800;">📌</span>
-              <% } %>
-              <strong style="font-size:.84rem;color:var(--muted);"><%= a.title %></strong>
-            </div>
-            <p style="font-size:.79rem;color:var(--muted);margin:0 0 .2rem;white-space:pre-wrap;line-height:1.5;"><%= a.message %></p>
-            <span style="font-size:.65rem;color:var(--faint);">🕐 <%= (a.created_at||'').substring(0,16).replace('T',' ') %></span>
-          </div>
-        </div>
-        <% }); %>
-      <% if(annUnread.length > 0){ %>
-      </div>
-      <% } %>
-    </div>
-    <% } %>
-
-  </div><!-- /bach-body -->
-</div><!-- /bacheca -->
-<% } %>
-
 
   <!-- INFO CARDS (stile KPI dashboard) -->
   <div class="info-strip">
@@ -556,181 +368,59 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
   <% } %>
 
 
-
-  <!-- ════════════════════════════════════════════════════════
-       SEZIONE "DOVE SIETE?"
-       Visibile solo se lo stand ha coordinate mappa configurate
-  ═══════════════════════════════════════════════════════════ -->
-  <% if(group.map_x != null && group.map_y != null){ %>
-  <div class="sec-title" id="dove-section-title">📍 Dove siete?</div>
-
-  <div class="dove-card" id="dove-card">
-    <div class="dove-header">
-      <div class="dove-header-info">
-        <div class="dove-zone-badge"><%= group.zone || 'Padiglione' %></div>
-        <div class="dove-stand-name"><%= group.stand_name || group.name %></div>
-        <% if(group.stand_code){ %><div class="dove-stand-code">Stand <%= group.stand_code %></div><% } %>
-      </div>
-      <div class="dove-actions">
-        <button class="dove-btn" onclick="openMapModal()" title="Ingrandisci mappa">⛶ Ingrandisci</button>
-        <button class="dove-btn dove-btn-share" onclick="downloadMapImage()" title="Scarica come immagine da condividere">⬇ Condividi immagine</button>
-      </div>
+  <!-- ═══ BACHECA COMUNICAZIONI ═══ -->
+  <% if(typeof announcements !== 'undefined' && announcements && announcements.length > 0){ %>
+  <div id="bacheca" style="margin-top:2rem;">
+    <div class="sec-title" style="color:var(--navy);">
+      📣 Comunicazioni dell&rsquo;organizzazione
+      <% if(unreadCount > 0){ %>
+        <span style="background:#c0392b;color:#fff;border-radius:9999px;padding:.1rem .5rem;
+                     font-size:.65rem;font-weight:800;margin-left:.35rem;"><%= unreadCount %> nuov<%= unreadCount===1?'a':'e' %></span>
+      <% } %>
     </div>
 
-    <div class="dove-canvas-wrap" onclick="openMapModal()">
-      <canvas id="dove-canvas" width="800" height="480"></canvas>
-      <div class="dove-canvas-overlay">
-        <span>🔍 Clicca per ingrandire</span>
-      </div>
-    </div>
+    <div id="ann-cards" style="display:flex;flex-direction:column;gap:.65rem;margin-bottom:1.5rem;">
+      <% announcements.forEach(function(a){ %>
+      <%
+        var aTypeColor = {info:'#1d6fa4', warning:'#c9a227', urgent:'#c0392b'};
+        var aTypeBg    = {info:'rgba(29,111,164,.08)', warning:'rgba(201,162,39,.1)', urgent:'rgba(192,57,43,.08)'};
+        var aTypeBorder= {info:'rgba(29,111,164,.25)', warning:'rgba(201,162,39,.35)', urgent:'rgba(192,57,43,.25)'};
+        var ac  = aTypeColor[a.type]  || aTypeColor.info;
+        var ab  = aTypeBg[a.type]     || aTypeBg.info;
+        var abo = aTypeBorder[a.type] || aTypeBorder.info;
+      %>
+      <div class="ann-card<%= (!a.is_read) ? ' ann-unread' : '' %><%= a.is_pinned ? ' ann-pinned-portal' : '' %>"
+           style="background:var(--surface);border:1px solid <%= abo %>;border-radius:var(--radius);
+                  padding:1rem 1.2rem;box-shadow:var(--shadow);display:flex;gap:.85rem;align-items:flex-start;
+                  transition:opacity .3s;">
 
-    <div class="dove-hint">
-      💡 Salva l'immagine e condividila sui tuoi canali social per guidare i visitatori al tuo stand!
-    </div>
-  </div>
+        <!-- emoji -->
+        <div style="font-size:1.7rem;flex-shrink:0;line-height:1;padding-top:.1rem;">
+          <%= a.emoji || '📣' %>
+        </div>
 
-  <!-- Modal fullscreen mappa -->
-  <div id="dove-modal" class="dove-modal" onclick="closeMapModal()">
-    <div class="dove-modal-box" onclick="event.stopPropagation()">
-      <div class="dove-modal-header">
-        <span>📍 <strong><%= group.stand_name || group.name %></strong> — <%= group.zone %></span>
-        <div style="display:flex;gap:.5rem;align-items:center">
-          <button class="dove-btn dove-btn-share" onclick="downloadMapImage(true)" style="font-size:.78rem">⬇ Scarica immagine</button>
-          <button class="dove-modal-close" onclick="closeMapModal()">✕</button>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;margin-bottom:.3rem;">
+            <% if(a.is_pinned){ %>
+              <span style="font-size:.63rem;background:var(--navy);color:var(--yellow);padding:.12rem .45rem;
+                           border-radius:9999px;font-weight:800;">📌 IN EVIDENZA</span>
+            <% } %>
+            <% if(!a.is_read){ %>
+              <span style="font-size:.63rem;background:#c0392b;color:#fff;padding:.12rem .45rem;
+                           border-radius:9999px;font-weight:800;">NUOVO</span>
+            <% } %>
+            <strong style="font-size:.9rem;color:var(--text);"><%= a.title %></strong>
+          </div>
+          <p style="font-size:.83rem;color:var(--muted);margin:0 0 .4rem;white-space:pre-wrap;line-height:1.5;"><%= a.message %></p>
+          <span style="font-size:.68rem;color:var(--faint);">
+            🕐 <%= (a.created_at||'').substring(0,16).replace('T',' ') %>
+          </span>
         </div>
       </div>
-      <div class="dove-modal-canvas-wrap">
-        <canvas id="dove-canvas-large" width="1200" height="720"></canvas>
-      </div>
+      <% }); %>
     </div>
   </div>
   <% } %>
-
-
-  <!-- ═══════════════════════════════════════════════════════════
-       SEZIONE DOCUMENTI — Upload modulistica dall'espositore
-  ═══════════════════════════════════════════════════════════ -->
-  <div class="sec-title" id="documenti-section-title">📎 Documenti & Modulistica</div>
-  <div style="background:#fff;border-radius:14px;box-shadow:var(--shadow-md);padding:1.25rem 1.4rem;margin-bottom:1.4rem;">
-    <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem;">Carica qui i documenti richiesti dall'organizzazione (moduli firmati, dichiarazioni, ecc.).</p>
-
-    <!-- Documenti già caricati -->
-    <% if(typeof portalDocs !== 'undefined' && portalDocs.length){ %>
-    <div style="display:grid;gap:.5rem;margin-bottom:1rem;">
-      <% portalDocs.forEach(function(d){ %>
-        <% var docStatus = {ricevuto:{bg:'#eff6ff',color:'#1d6fa4',label:'Ricevuto'},in_revisione:{bg:'#fefce8',color:'#b45309',label:'In revisione'},approvato:{bg:'#f0fdf4',color:'#2d6a4f',label:'Approvato ✓'},rifiutato:{bg:'#fef2f2',color:'#c0392b',label:'Rifiutato ✗'}}[d.status] || {bg:'#f8fafc',color:'#64748b',label:d.status}; %>
-        <div style="display:flex;align-items:center;gap:.75rem;padding:.55rem .85rem;background:#f8fafc;border-radius:10px;border:1px solid #e8ecf3;">
-          <span style="font-size:1.3rem;">📄</span>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:.83rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><%= d.original_name||d.filename %></div>
-            <div style="font-size:.71rem;color:var(--muted);">
-              <span><%= d.doc_type %></span>
-              &middot; <span><%= new Date(d.uploaded_at).toLocaleDateString('it-IT') %></span>
-              <% if(d.review_notes){ %> &middot; <em><%= d.review_notes %></em><% } %>
-            </div>
-          </div>
-          <span style="font-size:.7rem;font-weight:800;padding:.2rem .6rem;border-radius:9999px;background:<%= docStatus.bg %>;color:<%= docStatus.color %>;white-space:nowrap;"><%= docStatus.label %></span>
-        </div>
-      <% }); %>
-    </div>
-    <% } else { %>
-    <p style="font-size:.8rem;color:var(--faint);margin-bottom:1rem;">Nessun documento caricato.</p>
-    <% } %>
-
-    <!-- Form upload -->
-    <form id="portal-doc-form" enctype="multipart/form-data" onsubmit="uploadPortalDoc(event)">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-bottom:.7rem;">
-        <div style="grid-column:1/-1;">
-          <label style="font-size:.78rem;font-weight:700;color:var(--muted);display:block;margin-bottom:.3rem;">FILE DA CARICARE *</label>
-          <input type="file" name="docfile" required style="width:100%;font-size:.82rem;">
-        </div>
-        <div>
-          <label style="font-size:.78rem;font-weight:700;color:var(--muted);display:block;margin-bottom:.3rem;">TIPO DOCUMENTO</label>
-          <select name="doc_type" style="width:100%;padding:.4rem .6rem;border-radius:6px;border:1.5px solid #d1d9e6;font-size:.82rem;">
-            <option value="modulo_iscrizione">Modulo iscrizione</option>
-            <option value="modulo_firmato">Modulo firmato</option>
-            <option value="dichiarazione">Dichiarazione</option>
-            <option value="altro">Altro</option>
-          </select>
-        </div>
-        <div>
-          <label style="font-size:.78rem;font-weight:700;color:var(--muted);display:block;margin-bottom:.3rem;">NOTE (opzionale)</label>
-          <input type="text" name="notes" placeholder="Riferimento, data firma…" style="width:100%;padding:.4rem .6rem;border-radius:6px;border:1.5px solid #d1d9e6;font-size:.82rem;">
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:.75rem;">
-        <button type="submit" id="portal-doc-btn" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:.5rem 1.2rem;font-size:.84rem;font-weight:700;cursor:pointer;">⬆ Carica documento</button>
-        <span id="portal-doc-msg" style="font-size:.78rem;"></span>
-      </div>
-    </form>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════════════════
-       SEZIONE TICKET — Supporto / Richieste all'organizzazione
-  ═══════════════════════════════════════════════════════════ -->
-  <div class="sec-title" id="ticket-section-title">💬 Contatta l'Organizzazione</div>
-  <div style="background:#fff;border-radius:14px;box-shadow:var(--shadow-md);padding:1.25rem 1.4rem;margin-bottom:1.4rem;">
-
-    <!-- Ticket esistenti -->
-    <% if(typeof tickets !== 'undefined' && tickets.length){ %>
-    <div style="display:grid;gap:.75rem;margin-bottom:1.25rem;" id="tickets-list">
-      <% tickets.forEach(function(t){ %>
-        <div id="ticket-<%= t.id %>" style="border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;">
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:.65rem 1rem;background:#f8fafc;gap:.5rem;flex-wrap:wrap;">
-            <div>
-              <span style="font-size:.83rem;font-weight:700;color:#1e2d4e;">💬 <%= t.subject %></span>
-              <span style="font-size:.7rem;color:var(--muted);margin-left:.6rem;"><%= new Date(t.created_at).toLocaleDateString('it-IT') %></span>
-            </div>
-            <% var tStatus = t.status==='aperto' ? {bg:'#f0fdf4',color:'#2d6a4f',label:'Aperto'} : {bg:'#f1f5f9',color:'#64748b',label:'Chiuso'}; %>
-            <span style="font-size:.7rem;font-weight:700;padding:.15rem .55rem;border-radius:9999px;background:<%= tStatus.bg %>;color:<%= tStatus.color %>;"><%= tStatus.label %></span>
-          </div>
-          <div style="padding:.7rem 1rem;font-size:.82rem;color:#374151;background:#fff;border-top:1px solid #f0f2f5;">
-            <div style="margin-bottom:.6rem;"><%= t.message %></div>
-            <% if(t.replies && t.replies.length){ %>
-            <div style="border-top:1px solid #e8ecf3;padding-top:.6rem;display:grid;gap:.5rem;">
-              <% t.replies.forEach(function(r){ %>
-              <div style="padding:.45rem .75rem;border-radius:7px;background:<%= r.is_admin ? '#eff6ff' : '#f8fafc' %>;border-left:3px solid <%= r.is_admin ? '#1d6fa4' : '#d1d9e6' %>;">
-                <div style="font-size:.72rem;font-weight:700;color:<%= r.is_admin?'#1d6fa4':'#64748b' %>;margin-bottom:.2rem;"><%= r.is_admin ? '🏢 Organizzazione' : '👤 Voi' %> · <%= new Date(r.created_at).toLocaleDateString('it-IT') %></div>
-                <div style="font-size:.81rem;color:#374151;"><%= r.message %></div>
-              </div>
-              <% }); %>
-            </div>
-            <% } %>
-            <% if(t.status === 'aperto'){ %>
-            <div style="margin-top:.75rem;display:flex;gap:.5rem;">
-              <input type="text" id="reply-<%= t.id %>" placeholder="Rispondi…" style="flex:1;padding:.38rem .65rem;border-radius:6px;border:1.5px solid #d1d9e6;font-size:.81rem;">
-              <button type="button" onclick="sendReply(<%= t.id %>)" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:.38rem .85rem;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap;">Invia</button>
-            </div>
-            <% } %>
-          </div>
-        </div>
-      <% }); %>
-    </div>
-    <% } else { %>
-    <p style="font-size:.8rem;color:var(--faint);margin-bottom:1rem;">Nessuna comunicazione inviata.</p>
-    <% } %>
-
-    <!-- Nuovo ticket -->
-    <% if(!tickets || tickets.filter(function(t){ return t.status==='aperto'; }).length < 3){ %>
-    <details id="new-ticket-details">
-      <summary style="cursor:pointer;font-size:.84rem;font-weight:700;color:var(--accent);padding:.3rem 0;list-style:none;">+ Nuova richiesta / segnalazione</summary>
-      <form id="ticket-form" onsubmit="submitTicket(event)" style="margin-top:.75rem;display:grid;gap:.65rem;">
-        <div>
-          <label style="font-size:.78rem;font-weight:700;color:var(--muted);display:block;margin-bottom:.3rem;">OGGETTO *</label>
-          <input type="text" name="subject" required placeholder="es. Richiesta tavolo extra, problema con pass…" style="width:100%;padding:.42rem .65rem;border-radius:7px;border:1.5px solid #d1d9e6;font-size:.83rem;">
-        </div>
-        <div>
-          <label style="font-size:.78rem;font-weight:700;color:var(--muted);display:block;margin-bottom:.3rem;">MESSAGGIO *</label>
-          <textarea name="message" required rows="3" placeholder="Descrivi la tua richiesta…" style="width:100%;padding:.42rem .65rem;border-radius:7px;border:1.5px solid #d1d9e6;font-size:.83rem;resize:vertical;font-family:inherit;"></textarea>
-        </div>
-        <div style="display:flex;align-items:center;gap:.75rem;">
-          <button type="submit" id="ticket-btn" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:.5rem 1.2rem;font-size:.84rem;font-weight:700;cursor:pointer;">📨 Invia richiesta</button>
-          <span id="ticket-msg" style="font-size:.78rem;"></span>
-        </div>
-      </form>
-    </details>
-    <% } %>
-  </div>
 
   <div class="footer">
     <strong>Ludicomix</strong> &mdash; Portale Espositore &middot; Per assistenza contatta l&rsquo;organizzazione
@@ -738,401 +428,64 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
 </div>
 
 <script>
+// ── Bacheca: segna come letti quando si vede la sezione ──
 (function(){
-  var token = '<%= token %>';
   var marked = false;
+  var token = '<%= token %>';
+  var section = document.getElementById('bacheca');
+  if (!section) return;
 
-  // Segna come letti al caricamento se la bacheca è visibile
   function markRead() {
     if (marked) return;
     marked = true;
-    fetch('/portale/'+token+'/bacheca/read', { method:'POST' })
+    fetch('/portale/'+token+'/bacheca/read', { method: 'POST' })
       .then(function(){
+        // rimuovi badge "NUOVO" dalle card
+        document.querySelectorAll('.ann-card.ann-unread').forEach(function(c){ c.classList.remove('ann-unread'); });
+        // aggiorna badge topbar
         var b = document.getElementById('unread-badge');
-        if (b) { b.style.display='none'; b.textContent=''; }
-      }).catch(function(){});
+        if (b) { b.style.display = 'none'; b.textContent = ''; }
+      });
   }
 
-  // Auto-mark letti dopo 2s dalla visualizzazione della pagina (bacheca è in cima)
-  var unread = <%= typeof unreadCount !== 'undefined' ? unreadCount : 0 %>;
-  if (unread > 0) { setTimeout(markRead, 2000); }
+  // IntersectionObserver — scatta quando la sezione entra in viewport
+  if ('IntersectionObserver' in window) {
+    var obs = new IntersectionObserver(function(entries){
+      if (entries[0].isIntersecting) { markRead(); obs.disconnect(); }
+    }, { threshold: 0.1 });
+    obs.observe(section);
+  }
 
-  // Toggle collassa/espandi intera bacheca
-  window.toggleBacheca = function() {
-    var body  = document.getElementById('bach-body');
-    var label = document.getElementById('bach-toggle-label');
-    if (!body) return;
-    if (body.style.maxHeight === '0px') {
-      body.style.maxHeight = '2000px'; body.style.opacity = '1';
-      label.textContent = '▲ Nascondi';
-    } else {
-      body.style.maxHeight = '0px'; body.style.opacity = '0';
-      label.textContent = '▼ Mostra';
-    }
-  };
+  // Click sul badge bacheca → scroll + mark read
+  var btn = document.getElementById('bach-btn');
+  if (btn) {
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      section.scrollIntoView({ behavior: 'smooth' });
+      setTimeout(markRead, 600);
+    });
+  }
 
-  // Toggle messaggi letti (se sezione collassata)
-  window.toggleRead = function() {
-    var list = document.getElementById('read-list');
-    var btn  = document.getElementById('read-toggle');
-    if (!list) return;
-    if (list.style.display === 'none' || !list.style.display) {
-      list.style.display = 'block'; btn.textContent = 'Nascondi ▴';
-    } else {
-      list.style.display = 'none'; btn.textContent = 'Mostra ▾';
-    }
-  };
-
-  // Polling ogni 60s — aggiorna badge se arrivano nuovi messaggi
+  // Polling ogni 60s per nuovi messaggi (mostra badge se ne arrivano di nuovi)
   setInterval(function(){
     fetch('/api/portale/'+token+'/unread')
       .then(function(r){ return r.json(); })
       .then(function(d){
         var b = document.getElementById('unread-badge');
         if (!b) return;
-        if (d.unread > 0) {
+        if (d.unread > 0 && !marked) {
           b.textContent = d.unread;
           b.style.display = 'inline-block';
-          marked = false; // reset so next interaction marks them
         }
       }).catch(function(){});
   }, 60000);
 })();
-
-  // ── DOVE SIETE? ───────────────────────────────────────────────────────────
-  (function(){
-    var MY_ID   = <%= group.id %>;
-    var MY_NAME = '<%= (group.stand_name || group.name || '').replace(/'/g, "\\'") %>';
-    var MY_CODE = '<%= (group.stand_code || '').replace(/'/g, "\\'") %>';
-    var MY_ZONE = '<%= (group.zone || '').replace(/'/g, "\\'") %>';
-    var BG_IMG  = '<% if(zoneInfo && zoneInfo.background_image){ %>/zone-bg/<%= zoneInfo.background_image %><% } %>';
-    var ALL_STANDS = <%- JSON.stringify(zoneStands || []) %>;
-
-    // ── COORDINATE REFERENCE ─────────────────────────────────────────────────
-    // map_x/map_y sono % del div admin (width=REF_W, height=REF_H).
-    // Usiamo queste stesse dimensioni come spazio coordinate interno del canvas:
-    // il canvas avrà canvas.width=REF_W, canvas.height=REF_H e verrà scalato
-    // al 100% del container via CSS → coordinate identiche alla mappa admin.
-    var REF_W = <%= (typeof mapRefW !== 'undefined' && mapRefW) ? mapRefW : 1200 %>;
-    var REF_H = <%= (typeof mapRefH !== 'undefined' && mapRefH) ? mapRefH : 520 %>;
-
-    // Assicura che lo stand corrente sia in ALL_STANDS
-    if (!ALL_STANDS.find(function(s){ return s.id === MY_ID; })) {
-      ALL_STANDS.push({
-        id: MY_ID,
-        map_x: <%= group.map_x || 50 %>,
-        map_y: <%= group.map_y || 50 %>,
-        map_w: <%= group.map_w || 8 %>,
-        map_h: <%= group.map_h || 5 %>
-      });
-    }
-
-    // ── RENDERING ────────────────────────────────────────────────────────────
-    function drawMap(canvas, highlightPulse) {
-      if (!canvas) return;
-
-      // Il canvas usa le stesse coordinate del div admin
-      canvas.width  = REF_W;
-      canvas.height = REF_H;
-      canvas.style.width  = '100%';
-      canvas.style.height = 'auto';
-
-      var ctx = canvas.getContext('2d');
-      var W = REF_W, H = REF_H;
-      ctx.clearRect(0, 0, W, H);
-
-      function renderStands() {
-        ALL_STANDS.forEach(function(s) {
-          var sw = (s.map_w || 8) / 100 * W;
-          var sh = (s.map_h || 5) / 100 * H;
-          // map_x/map_y = CENTRO stand (transform:translate(-50%,-50%) nel admin)
-          var sx = s.map_x / 100 * W - sw / 2;
-          var sy = s.map_y / 100 * H - sh / 2;
-          var isMe = s.id === MY_ID;
-
-          if (isMe) {
-            ctx.shadowColor = 'rgba(245,200,66,.85)';
-            ctx.shadowBlur  = highlightPulse ? 24 : 16;
-            ctx.fillStyle   = 'rgba(245,200,66,.92)';
-            ctx.strokeStyle = '#c9a227';
-            ctx.lineWidth   = 3;
-          } else {
-            ctx.shadowBlur  = 0;
-            ctx.fillStyle   = 'rgba(100,116,139,.20)';
-            ctx.strokeStyle = 'rgba(100,116,139,.50)';
-            ctx.lineWidth   = 1;
-          }
-
-          // Forma (polygon o rect)
-          var shape = null;
-          if (s.map_shape) { try { shape = JSON.parse(s.map_shape); } catch(e){} }
-          if (shape && Array.isArray(shape) && shape.length > 2) {
-            ctx.beginPath();
-            ctx.moveTo(sx + shape[0][0]/100*sw, sy + shape[0][1]/100*sh);
-            for (var i=1; i<shape.length; i++)
-              ctx.lineTo(sx + shape[i][0]/100*sw, sy + shape[i][1]/100*sh);
-            ctx.closePath();
-            ctx.fill(); ctx.stroke();
-          } else {
-            ctx.beginPath();
-            ctx.roundRect ? ctx.roundRect(sx,sy,sw,sh,3) : ctx.rect(sx,sy,sw,sh);
-            ctx.fill(); ctx.stroke();
-          }
-          ctx.shadowBlur = 0;
-
-          // Etichetta solo per lo stand corrente
-          if (isMe) {
-            var label    = MY_CODE ? ('Stand ' + MY_CODE) : MY_NAME;
-            var fontSize = Math.max(11, Math.min(18, sw * 0.16));
-            ctx.font          = 'bold ' + fontSize + 'px Inter,sans-serif';
-            ctx.textAlign     = 'center';
-            ctx.textBaseline  = 'bottom';
-
-            var tw = ctx.measureText(label).width + 14;
-            var th = fontSize + 10;
-            var lx = sx + sw/2 - tw/2;
-            var ly = sy - th - 5;
-            if (ly < 2) ly = sy + sh + 5;
-
-            ctx.fillStyle = 'rgba(30,45,78,.88)';
-            ctx.beginPath();
-            ctx.roundRect ? ctx.roundRect(lx,ly,tw,th,4) : ctx.rect(lx,ly,tw,th);
-            ctx.fill();
-
-            ctx.fillStyle = '#f5c842';
-            ctx.fillText(label, sx + sw/2, ly + th - 4);
-
-            // Stella al centro
-            ctx.fillStyle    = '#c9a227';
-            ctx.beginPath();
-            ctx.arc(sx+sw/2, sy+sh/2, Math.min(sw,sh)*0.13, 0, Math.PI*2);
-            ctx.fill();
-            ctx.fillStyle    = '#fff';
-            ctx.font         = 'bold ' + Math.max(9, Math.min(sw,sh)*0.18) + 'px sans-serif';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('★', sx+sw/2, sy+sh/2);
-          }
-        });
-
-        // Watermark
-        ctx.save();
-        ctx.font      = 'bold 11px Inter,sans-serif';
-        ctx.fillStyle = 'rgba(30,45,78,.30)';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText('Ludicomix — ' + MY_ZONE, W-8, H-6);
-        ctx.restore();
-      }
-
-      if (BG_IMG) {
-        var img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = function() {
-          // Replica esatta CSS admin: background-size:contain; background-position:center top
-          var scale = Math.min(W / img.naturalWidth, H / img.naturalHeight);
-          var dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
-          var dx = (W - dw) / 2; // center horizontale
-          var dy = 0;            // top
-          ctx.fillStyle = '#e8ecf3';
-          ctx.fillRect(0, 0, W, H);
-          ctx.drawImage(img, dx, dy, dw, dh);
-          renderStands();
-        };
-        img.onerror = function() { BG_IMG = ''; ctx.fillStyle='#e8ecf3'; ctx.fillRect(0,0,W,H); renderStands(); };
-        img.src = BG_IMG;
-      } else {
-        ctx.fillStyle = '#e8ecf3';
-        ctx.fillRect(0, 0, W, H);
-        // Grid leggera
-        ctx.strokeStyle = 'rgba(148,163,184,.2)';
-        ctx.lineWidth = 1;
-        for (var gx=0; gx<=W; gx+=W/24){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
-        for (var gy=0; gy<=H; gy+=H/12){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
-        renderStands();
-      }
-    }
-
-    // Prima render
-    var smallCanvas = document.getElementById('dove-canvas');
-    if (smallCanvas) {
-      drawMap(smallCanvas, false);
-      var pulse = false;
-      setInterval(function(){
-        pulse = !pulse;
-        drawMap(smallCanvas, pulse);
-      }, 2000);
-    }
-
-    // Modal
-    window.openMapModal = function() {
-      var modal = document.getElementById('dove-modal');
-      if (!modal) return;
-      modal.classList.add('open');
-      drawMap(document.getElementById('dove-canvas-large'), true);
-    };
-    window.closeMapModal = function() {
-      var modal = document.getElementById('dove-modal');
-      if (modal) modal.classList.remove('open');
-    };
-
-    // Download immagine
-    window.downloadMapImage = function() {
-      var exp = document.createElement('canvas');
-      exp.width  = REF_W * 2;   // doppia risoluzione per qualità social
-      exp.height = REF_H * 2;
-      var ctx2 = exp.getContext('2d');
-      var EW = exp.width, EH = exp.height;
-
-      function exportDraw(bgImg) {
-        ctx2.fillStyle = '#e8ecf3';
-        ctx2.fillRect(0, 0, EW, EH);
-
-        if (bgImg) {
-          var scale = Math.min(EW / bgImg.naturalWidth, EH / bgImg.naturalHeight);
-          var dw = bgImg.naturalWidth * scale, dh = bgImg.naturalHeight * scale;
-          ctx2.drawImage(bgImg, (EW-dw)/2, 0, dw, dh);
-        }
-
-        // Stand
-        ALL_STANDS.forEach(function(s) {
-          var sw = (s.map_w||8)/100*EW, sh = (s.map_h||5)/100*EH;
-          var sx = s.map_x/100*EW - sw/2, sy = s.map_y/100*EH - sh/2;
-          var isMe = s.id === MY_ID;
-          var shape = null;
-          if (s.map_shape){try{shape=JSON.parse(s.map_shape);}catch(e){}}
-          ctx2.shadowBlur = 0;
-          if (isMe){ ctx2.shadowColor='rgba(245,200,66,.85)';ctx2.shadowBlur=32;ctx2.fillStyle='rgba(245,200,66,.92)';ctx2.strokeStyle='#c9a227';ctx2.lineWidth=5; }
-          else      { ctx2.fillStyle='rgba(100,116,139,.20)';ctx2.strokeStyle='rgba(100,116,139,.50)';ctx2.lineWidth=1.5; }
-          if (shape&&shape.length>2){
-            ctx2.beginPath();ctx2.moveTo(sx+shape[0][0]/100*sw,sy+shape[0][1]/100*sh);
-            for(var i=1;i<shape.length;i++)ctx2.lineTo(sx+shape[i][0]/100*sw,sy+shape[i][1]/100*sh);
-            ctx2.closePath();
-          } else { ctx2.beginPath();ctx2.rect(sx,sy,sw,sh); }
-          ctx2.fill(); ctx2.stroke();
-          ctx2.shadowBlur = 0;
-          if (isMe) {
-            var label=MY_CODE?('Stand '+MY_CODE):MY_NAME;
-            ctx2.font='bold 22px Inter,sans-serif';ctx2.textAlign='center';ctx2.textBaseline='bottom';
-            var tw=ctx2.measureText(label).width+18,th=32;
-            var lx=sx+sw/2-tw/2,ly=sy-th-7;if(ly<2)ly=sy+sh+7;
-            ctx2.fillStyle='rgba(30,45,78,.88)';ctx2.fillRect(lx,ly,tw,th);
-            ctx2.fillStyle='#f5c842';ctx2.fillText(label,sx+sw/2,ly+th-5);
-          }
-        });
-
-        // Header banner
-        ctx2.fillStyle='rgba(30,45,78,.90)';
-        ctx2.fillRect(0, 0, EW, 56);
-        ctx2.font='bold 22px Inter,sans-serif';
-        ctx2.fillStyle='#f5c842';
-        ctx2.textAlign='left';ctx2.textBaseline='middle';
-        ctx2.fillText('📍 '+(MY_CODE?'Stand '+MY_CODE+' — ':'')+MY_NAME+'   ·   '+MY_ZONE, 18, 28);
-        ctx2.fillStyle='rgba(255,255,255,.45)';
-        ctx2.font='14px Inter,sans-serif';
-        ctx2.textAlign='right';
-        ctx2.fillText('ludicomix.it', EW-16, 28);
-
-        exp.toBlob(function(blob){
-          var a=document.createElement('a');
-          a.href=URL.createObjectURL(blob);
-          a.download='dove-sono-'+(MY_CODE||MY_NAME).toLowerCase().replace(/\s+/g,'-')+'.png';
-          a.click();
-        },'image/png');
-      }
-
-      if (BG_IMG) {
-        var imgE=new Image(); imgE.crossOrigin='anonymous';
-        imgE.onload=function(){exportDraw(imgE);};
-        imgE.onerror=function(){exportDraw(null);};
-        imgE.src=BG_IMG;
-      } else { exportDraw(null); }
-    };
-
-    document.addEventListener('keydown', function(e){
-      if(e.key==='Escape') window.closeMapModal();
-    });
-  })();
-
 </script>
 <style>
-@keyframes pulse-badge {
-  0%,100% { transform:scale(1); }
-  50%      { transform:scale(1.2); }
-}
+.ann-unread { border-left: 3px solid #c0392b !important; }
+.ann-pinned-portal { order: -1; }
+#ann-cards { display: flex; flex-direction: column; }
 </style>
 
-
-<script>
-/* ═══════ Documenti portale ═══════ */
-function uploadPortalDoc(e) {
-  e.preventDefault();
-  var btn = document.getElementById('portal-doc-btn');
-  var msg = document.getElementById('portal-doc-msg');
-  btn.disabled = true; btn.textContent = '⏳…';
-  var fd = new FormData(document.getElementById('portal-doc-form'));
-  fetch('/portale/<%= token %>/documents', { method: 'POST', body: fd })
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      btn.disabled = false; btn.textContent = '⬆ Carica documento';
-      if (d.ok) {
-        msg.style.color = '#2d6a4f'; msg.textContent = '✓ Documento caricato!';
-        setTimeout(function() { location.reload(); }, 1000);
-      } else {
-        msg.style.color = '#c0392b'; msg.textContent = d.error || 'Errore durante il caricamento';
-      }
-    })
-    .catch(function() {
-      btn.disabled = false; btn.textContent = '⬆ Carica documento';
-      msg.style.color = '#c0392b'; msg.textContent = 'Errore di rete';
-    });
-}
-
-/* ═══════ Ticket supporto ═══════ */
-function submitTicket(e) {
-  e.preventDefault();
-  var btn = document.getElementById('ticket-btn');
-  var msg = document.getElementById('ticket-msg');
-  btn.disabled = true; btn.textContent = '⏳…';
-  var data = new URLSearchParams(new FormData(document.getElementById('ticket-form'))).toString();
-  fetch('/portale/<%= token %>/tickets', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: data
-  })
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      btn.disabled = false; btn.textContent = '📨 Invia richiesta';
-      if (d.ok) {
-        msg.style.color = '#2d6a4f'; msg.textContent = '✓ Richiesta inviata!';
-        setTimeout(function() { location.reload(); }, 1000);
-      } else {
-        msg.style.color = '#c0392b'; msg.textContent = d.error || 'Errore';
-      }
-    })
-    .catch(function() {
-      btn.disabled = false; btn.textContent = '📨 Invia richiesta';
-      msg.style.color = '#c0392b'; msg.textContent = 'Errore di rete';
-    });
-}
-
-function sendReply(tid) {
-  var input = document.getElementById('reply-' + tid);
-  var message = input ? input.value.trim() : '';
-  if (!message) return;
-  input.disabled = true;
-  fetch('/portale/<%= token %>/tickets/' + tid + '/reply', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: 'message=' + encodeURIComponent(message)
-  })
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      input.disabled = false;
-      if (d.ok) { location.reload(); }
-      else { alert(d.error || 'Errore'); }
-    })
-    .catch(function() { input.disabled = false; alert('Errore di rete'); });
-}
-</script>
 </body>
 </html>

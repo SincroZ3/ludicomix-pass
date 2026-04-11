@@ -1,0 +1,197 @@
+<%-include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <strong>🔍 Ricerca Unificata</strong></nav>
+<h1 class="page-title">🔍 Ricerca Unificata</h1>
+
+<style>
+.search-hero{background:var(--bg-white);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);padding:1.25rem 1.5rem;margin-bottom:1.25rem;border-top:3px solid var(--brand-yellow)}
+.search-input-wrap{display:flex;gap:.65rem;align-items:center}
+.search-input-wrap input[type=text]{flex:1;font-size:1.1rem;padding:.55rem .85rem;border-radius:var(--radius-md);border:2px solid var(--border);outline:none;transition:border-color .15s}
+.search-input-wrap input[type=text]:focus{border-color:var(--accent-blue)}
+.search-hint{font-size:.78rem;color:var(--text-muted);margin-top:.55rem}
+.qr-paste-area{display:flex;align-items:center;gap:.5rem;margin-top:.5rem}
+.qr-paste-area input[type=text]{font-family:monospace;font-size:.82rem;padding:.3rem .6rem;border-radius:var(--radius-sm);border:1px solid var(--border);width:280px}
+.qr-paste-area label{font-size:.8rem;color:var(--text-muted);font-weight:700}
+
+.search-tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:1.1rem}
+.stab{padding:.45rem 1.1rem;font-size:.82rem;font-weight:700;border:none;background:none;cursor:pointer;color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s;border-radius:var(--radius-sm) var(--radius-sm) 0 0}
+.stab:hover{background:var(--bg-section);color:var(--text-primary)}
+.stab.active{color:var(--brand-dark);border-bottom-color:var(--brand-dark);background:var(--bg-section)}
+.stab-badge{background:var(--brand-dark);color:#fff;border-radius:9999px;padding:.05rem .42rem;font-size:.65rem;margin-left:.3rem;font-weight:800}
+.stab.active .stab-badge{background:var(--accent-blue)}
+
+.search-section{display:none}.search-section.visible{display:block}
+.section-heading{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:.55rem;display:flex;align-items:center;gap:.4rem}
+
+.chip-status{display:inline-block;padding:.13rem .52rem;border-radius:9999px;font-size:.68rem;font-weight:700;white-space:nowrap}
+.cs-gen{background:#e0e7ff;color:#3730a3}
+.cs-cons{background:#d1fae5;color:#065f46}
+.cs-inv{background:#fee2e2;color:#991b1b}
+.cs-other{background:#fef9c3;color:#713f12}
+</style>
+
+<div class="search-hero">
+  <form method="get" action="/search" id="sf">
+    <div class="search-input-wrap">
+      <input type="text" name="q" id="sq" value="<%= q %>" placeholder="Nome, stand, codice QR, gruppo, tipologia pass…" autofocus>
+      <input type="hidden" name="tab" id="tab-input" value="<%= tab %>">
+      <button type="submit" class="primary">🔍 Cerca</button>
+    </div>
+    <div class="search-hint">
+      Cerca in <strong>partecipanti</strong>, <strong>pass</strong> e <strong>gruppi</strong> contemporaneamente.
+      Oppure incolla un codice QR grezzo:
+      <span style="margin-left:.35rem"></span>
+      <input type="text" id="qr-raw" placeholder="Incolla codice QR…" style="font-family:monospace;font-size:.82rem;padding:.25rem .55rem;border-radius:4px;border:1px solid var(--border);width:240px;vertical-align:middle" title="Incolla il codice QR per trovare il pass direttamente">
+      <button type="button" onclick="searchQR()" class="primary" style="padding:.28rem .7rem;font-size:.8rem;margin-left:.3rem">Cerca QR</button>
+    </div>
+  </form>
+</div>
+
+<% var total = passes.length + participants.length + groups.length; %>
+
+<% if (q && total === 0) { %>
+  <div class="alert alert-warning"><span>⚠️</span> Nessun risultato per "<strong><%= q %></strong>".</div>
+<% } %>
+
+<% if (q && total > 0) { %>
+
+<div class="search-tabs">
+  <button class="stab <%=tab==='all'?'active':''%>" onclick="switchTab('all')">
+    Tutti <span class="stab-badge"><%= total %></span>
+  </button>
+  <% if(passes.length>0){ %>
+  <button class="stab <%=tab==='passes'?'active':''%>" onclick="switchTab('passes')">
+    🎫 Pass <span class="stab-badge"><%= passes.length %></span>
+  </button>
+  <% } %>
+  <% if(participants.length>0){ %>
+  <button class="stab <%=tab==='participants'?'active':''%>" onclick="switchTab('participants')">
+    👤 Partecipanti <span class="stab-badge"><%= participants.length %></span>
+  </button>
+  <% } %>
+  <% if(groups.length>0){ %>
+  <button class="stab <%=tab==='groups'?'active':''%>" onclick="switchTab('groups')">
+    🏪 Gruppi / Stand <span class="stab-badge"><%= groups.length %></span>
+  </button>
+  <% } %>
+</div>
+
+<!-- ── PASS ── -->
+<% if(passes.length>0){ %>
+<div class="search-section <%=(tab==='all'||tab==='passes')?'visible':''%>" id="sec-passes">
+  <div class="section-heading">🎫 Pass trovati &mdash; <span><%= passes.length %></span></div>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>Assegnatario</th><th>Tipologia</th><th>Gruppo / Stand</th>
+          <th>Codice QR</th><th>Stato</th><th>Data</th><th>PDF</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% passes.forEach(function(r){ %>
+          <%
+            var sc='cs-other';
+            if(r.status==='GENERATO')   sc='cs-gen';
+            if(r.status==='CONSEGNATO'||r.status==='RICONSEGNATO') sc='cs-cons';
+            if(r.status==='INVALIDATO') sc='cs-inv';
+          %>
+          <tr>
+            <td><a href="/passes" class="link-action">#<%= r.id %></a></td>
+            <td><strong><a href="/search?q=<%= encodeURIComponent(r.participant_name) %>&tab=participants" style="color:inherit"><%= r.participant_name %></a></strong></td>
+            <td><%= r.pass_type_name %></td>
+            <td><%= r.stand_name||r.group_name||'&mdash;' %></td>
+            <td style="font-family:monospace;font-size:.76rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<%= r.code||'' %>"><%= r.code||'' %></td>
+            <td><span class="chip-status <%= sc %>"><%= r.status||'&mdash;' %></span></td>
+            <td style="font-size:.76rem;color:var(--text-muted);white-space:nowrap;"><%= (r.created_at||'').slice(0,10) %></td>
+            <td>
+              <% if(r.pdf_file){ %><a href="/passes/<%= r.id %>/download" target="_blank" class="link-action">⬇ PDF</a>
+              <% }else{ %><span style="color:var(--text-muted);font-size:.78rem;">n/d</span><% } %>
+            </td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
+<!-- ── PARTECIPANTI ── -->
+<% if(participants.length>0){ %>
+<div class="search-section <%=(tab==='all'||tab==='participants')?'visible':''%>" id="sec-participants" style="<%=tab==='all'&&passes.length>0?'margin-top:1.4rem':'%>">
+  <div class="section-heading">👤 Partecipanti trovati &mdash; <span><%= participants.length %></span></div>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Nome</th><th>Ruolo</th><th>Email</th><th>Stand / Gruppo</th><th>Pass</th><th>Dettaglio</th></tr>
+      </thead>
+      <tbody>
+        <% participants.forEach(function(p){ %>
+          <tr>
+            <td style="font-size:.78rem;color:var(--text-muted)">#<%= p.id %></td>
+            <td><strong><%= p.first_name %> <%= p.last_name %></strong></td>
+            <td><%= p.role||'&mdash;' %></td>
+            <td style="font-size:.8rem;"><%= p.email||'&mdash;' %></td>
+            <td><%= p.stand_name||p.group_name||'&mdash;' %></td>
+            <td><span class="chip"><%= p.pass_count||0 %></span></td>
+            <td>
+              <% if(p.group_name){ %>
+                <a href="/search?q=<%= encodeURIComponent(p.stand_name||p.group_name) %>&tab=passes" class="link-action">🎫 Pass</a>
+              <% } %>
+            </td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
+<!-- ── GRUPPI ── -->
+<% if(groups.length>0){ %>
+<div class="search-section <%=(tab==='all'||tab==='groups')?'visible':''%>" id="sec-groups" style="<%=tab==='all'&&(passes.length>0||participants.length>0)?'margin-top:1.4rem':'%>">
+  <div class="section-heading">🏪 Gruppi / Stand trovati &mdash; <span><%= groups.length %></span></div>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr><th>Stand</th><th>Gruppo</th><th>Zona</th><th>Categoria</th><th>Partecipanti</th><th>Pass</th><th>Apri</th></tr>
+      </thead>
+      <tbody>
+        <% groups.forEach(function(g){ %>
+          <tr>
+            <td><strong><%= g.stand_name||'&mdash;' %></strong></td>
+            <td><%= g.name %></td>
+            <td><%= g.zone||'&mdash;' %></td>
+            <td><%= g.category_name||'&mdash;' %></td>
+            <td><span class="chip"><%= g.participant_count||0 %></span></td>
+            <td>
+              <span class="chip"><%= g.consegnati||0 %>/<%= g.pass_count||0 %></span>
+            </td>
+            <td><a href="/assignment-groups/<%= g.id %>" class="link-action">📋 Apri</a></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
+<% } %>
+
+<script>
+function switchTab(t){
+  document.querySelectorAll('.stab').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.search-section').forEach(function(s){s.classList.remove('visible');});
+  document.querySelectorAll('.stab').forEach(function(b){if(b.getAttribute('onclick')==="switchTab('"+t+"')")b.classList.add('active');});
+  var show = (t==='all') ? document.querySelectorAll('.search-section') : [document.getElementById('sec-'+t)];
+  show.forEach(function(s){if(s)s.classList.add('visible');});
+  document.getElementById('tab-input').value=t;
+}
+function searchQR(){
+  var code=document.getElementById('qr-raw').value.trim();
+  if(!code)return;
+  document.getElementById('sq').value=code;
+  document.getElementById('sf').submit();
+}
+document.getElementById('qr-raw').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();searchQR();}});
+</script>
+<%-include('partials/footer') %>

@@ -1,31 +1,19 @@
 <%-include('partials/header') %>
 <nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <a href="/participants">Assegnatari Pass</a> <span class="sep">›</span> <%= groupInfo.category_name %> <span class="sep">›</span> <strong><%= groupInfo.name %></strong></nav>
 <h1 class="page-title"><%= groupInfo.name %></h1>
+<div style="margin-bottom:1rem;">
+  <a href="/assignment-groups/<%= groupInfo.id %>/batch-pdf" target="_blank"
+     style="display:inline-flex;align-items:center;gap:.4rem;padding:.42rem 1rem;
+            background:var(--brand-dark,#1e2d4e);color:#fff;border-radius:8px;
+            font-size:.8rem;font-weight:700;text-decoration:none;">
+    &#128438;&nbsp;Stampa batch PDF
+  </a>
+</div>
 
 <% const isViewer = currentUser && currentUser.role === 'viewer';
    const VIEWER_STATUSES = ['SCARICATO','STAMPATO','CONSEGNATO','RICONSEGNATO'];
 %>
 
-<!-- ══════════════ TAB NAV CRM ══════════════ -->
-<style>
-.crm-tab-nav{display:flex;flex-wrap:wrap;gap:.35rem;margin:.6rem 0 1.1rem;border-bottom:2px solid #d1d9e6;padding-bottom:.5rem;}
-.crm-tab{padding:.38rem .9rem;border-radius:6px 6px 0 0;border:1px solid transparent;background:none;font-size:.82rem;font-weight:600;cursor:pointer;color:#64748b;transition:all .15s;position:relative;bottom:-2px;}
-.crm-tab:hover{color:#1d6fa4;border-color:#d1d9e6 #d1d9e6 #fff;}
-.crm-tab.active{background:#fff;border-color:#d1d9e6 #d1d9e6 #fff;color:#1e2d4e;}
-.crm-badge{display:inline-block;background:#e0e7ff;color:#3730a3;border-radius:9999px;font-size:.7rem;font-weight:700;padding:.05rem .4rem;margin-left:.25rem;}
-.crm-badge-danger{background:#fee2e2;color:#b91c1c;}
-.crm-panel{display:none;}.crm-panel.active{display:block;}
-</style>
-<div class="crm-tab-nav" id="crm-tab-nav">
-  <button type="button" class="crm-tab active" data-tab="pass" onclick="crmTab('pass',this)">📋 Pass & Nominativi</button>
-  <button type="button" class="crm-tab" data-tab="portale" onclick="crmTab('portale',this)">🌐 Portale</button>
-<% if(!isViewer){ %>
-  <button type="button" class="crm-tab" data-tab="referenti" onclick="crmTab('referenti',this)">👤 Referenti<% if(typeof contacts!=='undefined'&&contacts.length){ %> <span class="crm-badge"><%= contacts.length %></span><% } %></button>
-  <button type="button" class="crm-tab" data-tab="pagamenti" onclick="crmTab('pagamenti',this)">💳 Pagamenti<% if(typeof payments!=='undefined'&&payments.length){ %><% var _scad=payments.filter(function(p){return p.status==='scaduto';}).length; %><% if(_scad){ %> <span class="crm-badge crm-badge-danger"><%= _scad %> ⚠</span><% }else{ %> <span class="crm-badge"><%= payments.length %></span><% } %><% } %></button>
-  <button type="button" class="crm-tab" data-tab="documenti" onclick="crmTab('documenti',this)">📁 Documenti<% if(typeof groupDocs!=='undefined'&&groupDocs.length){ %> <span class="crm-badge"><%= groupDocs.length %></span><% } %></button>
-<% } %>
-</div>
-<div id="tab-pass" class="crm-panel active">
 <% if(typeof req !== 'undefined' && false){ %><% } %>
 <% if(locals.replaceOk){ %>
   <div class="alert" style="background:#f0fdf4;border:1.5px solid #2d6a4f;border-radius:8px;padding:.7rem 1rem;margin-bottom:1rem;">
@@ -187,212 +175,46 @@
 <!-- TABELLA ASSEGNATARI -->
 <h2>Elenco assegnatari <span class="chip"><%= participants.length %></span></h2>
 
-<% if(!isViewer){ %>
-<button onclick="document.getElementById('imp-modal').style.display='flex'"
-  style="margin-bottom:.75rem;font-size:.82rem;background:var(--accent-blue,#1d6fa4);color:#fff;border:none;padding:.42rem 1rem;border-radius:6px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;">
-  &#128229; Import CSV / Excel
-</button>
-
-<!-- ══ MODAL IMPORT ══ -->
-<div id="imp-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.52);align-items:center;justify-content:center;padding:1rem;">
-  <div style="background:#fff;border-radius:12px;width:100%;max-width:720px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;">
-    <!-- header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:.9rem 1.2rem;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
-      <strong style="font-size:.95rem;">&#128229; Import massivo assegnatari</strong>
-      <button onclick="impClose()" style="font-size:1.2rem;background:none;border:none;cursor:pointer;color:#6b7280;line-height:1;">&times;</button>
-    </div>
-    <!-- body -->
-    <div style="padding:1.1rem 1.2rem;flex:1;">
-
-      <!-- STEP 1: selezione file -->
-      <div id="imp-s1">
-        <p style="font-size:.82rem;color:#6b7280;margin-bottom:.9rem;">
-          Formato: <code>.csv</code> / <code>.xlsx</code> &mdash; Colonne: <code>cognome</code> <code>nome</code> <code>email</code> <code>ruolo</code>
-          &nbsp;<a href="/import/template.csv" target="_blank" style="font-size:.77rem;">&#11015; Template</a>
-        </p>
-        <label style="display:block;font-weight:700;font-size:.85rem;margin-bottom:.55rem;">File CSV o Excel <span style="color:#c0392b">*</span></label>
-        <input type="file" id="imp-file" accept=".csv,.xlsx,.xls"
-               style="display:block;width:100%;margin-bottom:1rem;font-size:.83rem;">
-        <div style="display:flex;gap:.6rem;">
-          <button id="imp-btn-preview" class="primary" onclick="impPreview()" disabled
-            style="font-size:.82rem;">&#128269; Analizza file</button>
-          <button onclick="impClose()" class="secondary" style="font-size:.82rem;">Annulla</button>
-        </div>
-        <div id="imp-err" style="display:none;margin-top:.75rem;padding:.55rem .8rem;border-radius:7px;background:#fef2f2;border:1px solid #fca5a5;font-size:.8rem;color:#991b1b;"></div>
-      </div>
-
-      <!-- STEP 2: preview -->
-      <div id="imp-s2" style="display:none;">
-        <div id="imp-stats" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.85rem;"></div>
-        <div style="overflow-x:auto;">
-          <table id="imp-tbl" style="width:100%;border-collapse:collapse;font-size:.77rem;">
-            <thead><tr style="background:#f3f4f6;">
-              <th style="padding:.38rem .6rem;text-align:left;border-bottom:2px solid #d1d5db;font-size:.7rem;text-transform:uppercase;letter-spacing:.4px;">Riga</th>
-              <th style="padding:.38rem .6rem;text-align:left;border-bottom:2px solid #d1d5db;">Cognome</th>
-              <th style="padding:.38rem .6rem;text-align:left;border-bottom:2px solid #d1d5db;">Nome</th>
-              <th style="padding:.38rem .6rem;text-align:left;border-bottom:2px solid #d1d5db;">Email</th>
-              <th style="padding:.38rem .6rem;text-align:left;border-bottom:2px solid #d1d5db;">Stato</th>
-            </tr></thead>
-            <tbody id="imp-tbody"></tbody>
-          </table>
-        </div>
-        <p id="imp-more" style="font-size:.74rem;color:#6b7280;text-align:center;margin:.5rem 0 0;display:none;"></p>
-        <div style="display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap;">
-          <button id="imp-btn-confirm" onclick="impConfirm()"
-            style="font-size:.82rem;background:#166534;color:#fff;border:none;padding:.42rem 1rem;border-radius:6px;font-weight:700;cursor:pointer;">
-            &#128228; Conferma importazione
-          </button>
-          <button onclick="impReset()" class="secondary" style="font-size:.82rem;">&#9664; Torna</button>
-        </div>
-      </div>
-
-      <!-- STEP 3: risultato -->
-      <div id="imp-s3" style="display:none;">
-        <div id="imp-result-box" style="border-radius:8px;padding:.9rem 1rem;margin-bottom:.85rem;border:1.5px solid;font-size:.85rem;"></div>
-        <ul id="imp-err-list" style="display:none;list-style:none;padding:0;max-height:200px;overflow-y:auto;margin-bottom:.85rem;"></ul>
-        <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
-          <button id="imp-btn-undo" onclick="impUndo(this)"
-            style="display:none;font-size:.82rem;background:#d97706;color:#fff;border:none;padding:.42rem 1rem;border-radius:6px;font-weight:700;cursor:pointer;">
-            &#128465; Annulla importazione
-          </button>
-          <a id="imp-err-dl" href="/import/errors.csv" target="_blank"
-             style="display:none;font-size:.82rem;padding:.42rem 1rem;border-radius:6px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;text-decoration:none;font-weight:700;">
-            &#11015; Scarica errori CSV
-          </a>
-          <button onclick="location.reload()" class="primary" style="font-size:.82rem;">&#10003; Fatto — ricarica pagina</button>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</div>
-
-<script>
-(function(){
-  var GID = <%= groupInfo.id %>;
-  var tempId = null;
-
-  document.getElementById('imp-file').addEventListener('change', function(){
-    document.getElementById('imp-btn-preview').disabled = !this.files.length;
-    document.getElementById('imp-err').style.display = 'none';
-  });
-
-  function show(step){ ['imp-s1','imp-s2','imp-s3'].forEach(function(id){
-    document.getElementById(id).style.display = (id===step)?'':'none';
-  }); }
-  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-  window.impClose = function(){ document.getElementById('imp-modal').style.display='none'; impReset(); };
-  window.impReset = function(){
-    show('imp-s1');
-    document.getElementById('imp-file').value='';
-    document.getElementById('imp-btn-preview').disabled=true;
-    document.getElementById('imp-err').style.display='none';
-    tempId=null;
-  };
-
-  window.impPreview = function(){
-    var f = document.getElementById('imp-file').files[0];
-    if(!f) return;
-    var btn = document.getElementById('imp-btn-preview');
-    btn.textContent='⏳ Analisi...'; btn.disabled=true;
-    document.getElementById('imp-err').style.display='none';
-    var fd = new FormData();
-    fd.append('group_id', GID);
-    fd.append('file', f);
-    fetch('/import/preview',{method:'POST',body:fd})
-      .then(function(r){return r.json();})
-      .then(function(d){
-        btn.textContent='🔍 Analizza file'; btn.disabled=false;
-        if(d.error){ document.getElementById('imp-err').textContent=d.error; document.getElementById('imp-err').style.display=''; return; }
-        tempId = d.tempId;
-        // stats
-        var sc = document.getElementById('imp-stats');
-        sc.innerHTML =
-          '<span style="padding:.28rem .75rem;border-radius:9999px;font-size:.76rem;font-weight:700;background:#dbeafe;color:#1e40af">📋 '+d.total+' righe</span>' +
-          '<span style="padding:.28rem .75rem;border-radius:9999px;font-size:.76rem;font-weight:700;background:#dcfce7;color:#166534">✅ '+d.willImport+' da importare</span>' +
-          (d.willSkip>0?'<span style="padding:.28rem .75rem;border-radius:9999px;font-size:.76rem;font-weight:700;background:#fef9c3;color:#854d0e">⚠️ '+d.willSkip+' da saltare</span>':'');
-        // table
-        var tb = document.getElementById('imp-tbody');
-        tb.innerHTML = d.preview.map(function(r){
-          var dup = r.issues && r.issues.some(function(i){return i.includes('Già presente');});
-          var warn = r.issues && r.issues.length && !dup;
-          var bg = r.ok?'':'background:'+(dup?'#fef2f2':'#fffbea');
-          var stato = r.ok
-            ? '<span style="color:#166534;font-weight:700">✓ OK</span>'
-            : (r.issues||[]).map(function(i){
-                return '<span style="display:inline-block;padding:.08rem .38rem;border-radius:9999px;font-size:.66rem;font-weight:700;background:'+(i.includes('Già')?'#fee2e2':'#fef3c7')+';color:'+(i.includes('Già')?'#991b1b':'#92400e')+'">'+esc(i)+'</span>';
-              }).join(' ');
-          return '<tr style="'+bg+'"><td style="padding:.32rem .6rem;border-bottom:1px solid #f0f0f0;">'+r.row+'</td><td style="padding:.32rem .6rem;border-bottom:1px solid #f0f0f0;">'+esc(r.last)+'</td><td style="padding:.32rem .6rem;border-bottom:1px solid #f0f0f0;">'+esc(r.first)+'</td><td style="padding:.32rem .6rem;border-bottom:1px solid #f0f0f0;color:#6b7280;">'+esc(r.email||'—')+'</td><td style="padding:.32rem .6rem;border-bottom:1px solid #f0f0f0;">'+stato+'</td></tr>';
-        }).join('');
-        var more = document.getElementById('imp-more');
-        if(d.hasMore){ more.textContent='... e altre '+(d.total-10)+' righe (mostrate le prime 10)'; more.style.display=''; }
-        else { more.style.display='none'; }
-        document.getElementById('imp-btn-confirm').disabled = d.willImport===0;
-        show('imp-s2');
-      })
-      .catch(function(e){
-        btn.textContent='🔍 Analizza file'; btn.disabled=false;
-        document.getElementById('imp-err').textContent='Errore di rete: '+e.message;
-        document.getElementById('imp-err').style.display='';
-      });
-  };
-
-  window.impConfirm = function(){
-    if(!tempId) return;
-    var btn = document.getElementById('imp-btn-confirm');
-    btn.textContent='⏳ Import in corso...'; btn.disabled=true;
-    fetch('/import/confirm-ajax',{
-      method:'POST',
-      headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body:'temp_id='+encodeURIComponent(tempId)+'&group_id='+GID
-    })
-    .then(function(r){return r.json();})
-    .then(function(d){
-      var box = document.getElementById('imp-result-box');
-      if(d.error){ box.style.cssText='border-radius:8px;padding:.9rem 1rem;border:1.5px solid #c0392b;background:#fef2f2;font-size:.85rem;'; box.innerHTML='<strong>❌ Errore:</strong> '+esc(d.error); show('imp-s3'); return; }
-      var isWarn = d.skipped>0;
-      box.style.cssText='border-radius:8px;padding:.9rem 1rem;border:1.5px solid '+(isWarn?'#d97706':'#166534')+';background:'+(isWarn?'#fffbea':'#f0fdf4')+';font-size:.85rem;';
-      box.innerHTML='<strong>'+(isWarn?'⚠️':'✅')+' Import completato</strong><br><span style="color:#166534;font-weight:700">'+d.imported+' importati</span>'+(d.skipped>0?' &middot; <span style="color:#d97706;font-weight:700">'+d.skipped+' saltati</span>':'');
-      // errori list
-      var el = document.getElementById('imp-err-list');
-      if(d.errors&&d.errors.length){
-        el.innerHTML=d.errors.map(function(e){return '<li style="padding:.28rem .5rem;border-radius:5px;font-size:.76rem;background:#fef2f2;color:#991b1b;margin-bottom:.22rem;border-left:3px solid #fca5a5;">'+esc(e)+'</li>';}).join('');
-        el.style.display='';
-      } else { el.style.display='none'; }
-      // pulsanti
-      if(d.imported>0){ document.getElementById('imp-btn-undo').style.display=''; }
-      if(d.hasErrors){ document.getElementById('imp-err-dl').style.display=''; }
-      show('imp-s3');
-    })
-    .catch(function(e){
-      document.getElementById('imp-result-box').style.cssText='border:1.5px solid #c0392b;background:#fef2f2;padding:.9rem;border-radius:8px;';
-      document.getElementById('imp-result-box').innerHTML='Errore di rete: '+esc(e.message);
-      show('imp-s3');
-    });
-  };
-
-  window.impUndo = function(btn){
-    if(!confirm('Sei sicuro? Elimina tutti i partecipanti appena importati e i loro pass. Irreversibile.')) return;
-    btn.textContent='⏳...'; btn.disabled=true;
-    fetch('/import/undo',{method:'POST',headers:{'Content-Type':'application/json'}})
-      .then(function(r){return r.json();})
-      .then(function(d){
-        if(d.ok){ alert('✅ Annullati '+d.deleted+' partecipanti.'); location.reload(); }
-        else{ alert('❌ '+(d.error||'Errore sconosciuto')); btn.disabled=false; btn.textContent='🗑 Annulla importazione'; }
-      }).catch(function(e){ alert('Errore di rete: '+e.message); btn.disabled=false; });
-  };
-
-  // chiudi con ESC
-  document.addEventListener('keydown',function(e){ if(e.key==='Escape') impClose(); });
-  // chiudi click fuori
-  document.getElementById('imp-modal').addEventListener('click',function(e){ if(e.target===this) impClose(); });
-})();
-</script>
-<% } %>
 <% if (participants.length === 0) { %>
   <div class="alert alert-info"><span>&#8505;&#65039;</span> Nessun nominativo inserito per questo gruppo.</div>
 <% } else { %>
+  <% if(!isViewer){ %>
+  <details style="margin-bottom:.75rem;" id="import-details"
+  <% if(typeof importOk!=='undefined'&&importOk!==null){ %>open<% } %>>
+    <summary style="cursor:pointer;font-weight:700;font-size:.85rem;color:var(--accent-blue);padding:.4rem 0;list-style:none;">
+      <span style="user-select:none;">&#128229; Import massivo assegnatari (CSV / Excel)</span>
+    </summary>
+    <div class="card" style="margin-top:.5rem;padding:1rem;">
+    <% if(typeof importOk!=='undefined'&&importOk!==null){ %>
+      <div style="background:<%= importErrs&&importErrs.length?'#fdf0f0':'#f0fdf4' %>;
+             border:1.5px solid <%= importErrs&&importErrs.length?'#c0392b':'#2d6a4f' %>;
+             border-radius:8px;padding:.6rem .9rem;font-size:.83rem;margin-bottom:.75rem;">
+        <strong><%= importOk %> importati</strong> &middot;
+        <span style="color:#c9a227"><%= importSkip %> saltati</span>
+      <% if(importErrs&&importErrs.length){ %>
+        <ul style="margin:.3rem 0 0 1rem;font-size:.76rem;color:#c0392b;">
+        <% importErrs.forEach(function(e){ if(e){ %><li><%=e%></li><% } }); %>
+        </ul><% } %>
+      </div>
+    <% } %>
+      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:.7rem;">
+          Formato: <code>.csv</code> o <code>.xlsx</code> &mdash;
+          Colonne: <code>cognome; nome; email; ruolo</code>
+          &nbsp;<a href="/import/template.csv" style="font-size:.78rem;">&#11015; Template</a>
+      </p>
+      <form method="post"
+              action="/assignment-groups/<%= groupInfo.id %>/import"
+              enctype="multipart/form-data"
+              style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap;">
+        <label style="font-size:.82rem;font-weight:700;">File<br>
+          <input type="file" name="file" accept=".csv,.xlsx,.xls" required
+                   style="margin-top:.3rem;font-size:.82rem;">
+        </label>
+        <button type="submit" class="primary" style="font-size:.82rem;">&#128228; Importa</button>
+      </form>
+    </div>
+  </details>
+  <% } %>
   <form method="post" action="/passes/bulk">
     <input type="hidden" name="assignment_group_id" value="<%= groupInfo.id %>">
     <% if (!isViewer) { %>
@@ -495,117 +317,6 @@
     </div>
   </form>
 <% } %>
-
-<div style="margin-top:1rem;margin-bottom:1.5rem;">
-  <a href="/assignment-groups/<%= groupInfo.id %>/batch-pdf" target="_blank"
-     style="display:inline-flex;align-items:center;gap:.4rem;padding:.45rem 1.1rem;
-            background:var(--brand-dark,#1e2d4e);color:#fff;border-radius:8px;
-            font-size:.8rem;font-weight:700;text-decoration:none;box-shadow:0 1px 4px rgba(0,0,0,.12);">
-    &#128438;&nbsp;Stampa batch PDF
-  </a>
-  <span style="font-size:.72rem;color:var(--text-muted,#64748b);margin-left:.6rem;">
-    Scarica tutti i pass del gruppo in un unico PDF &mdash; i pass in stato <strong>Generato</strong> verranno aggiornati a <strong>Scaricato</strong>
-  </span>
-</div>
-
-<!-- ════ SEZIONE PASS AUTO/PARCHEGGIO ════ -->
-<div class="card" style="margin-bottom:1.5rem;">
-  <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.9rem;flex-wrap:wrap;">
-    <h3 style="margin:0;font-size:.95rem;">&#128664; Pass Parcheggio</h3>
-    <% const autoPasses = locals.autoPasses || []; %>
-    <% const apActive = autoPasses && autoPasses.filter(p=>p.status!='INVALIDATO').length; %>
-    <% if(apActive){ %>
-      <span class="chip" style="background:#e0f2fe;color:#0369a1;"><%=apActive%> attivi</span>
-    <% } %>
-    <% if(groupInfo.max_auto_passes){ %>
-      <span class="chip" style="background:#f0fdf4;color:#166534;">Limite: <%=groupInfo.max_auto_passes%></span>
-    <% } %>
-  </div>
-
-  <% if(!isViewer){ %>
-  <!-- Config limite + genera -->
-  <form method="POST" action="/assignment-groups/<%=groupInfo.id%>/max-auto-passes"
-        style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.85rem;">
-    <label style="font-size:.82rem;font-weight:600;">Max pass parcheggio:
-      <input type="number" name="max_auto_passes" value="<%=groupInfo.max_auto_passes||0%>" min="0" max="99"
-             style="width:70px;padding:.28rem .45rem;border:1px solid var(--border);border-radius:6px;font-size:.84rem;margin-left:.35rem;">
-    </label>
-    <button type="submit" class="btn" style="font-size:.78rem;padding:.3rem .75rem;">&#128190; Salva</button>
-  </form>
-  <% if(groupInfo.max_auto_passes > 0){ %>
-  <form method="POST" action="/assignment-groups/<%=groupInfo.id%>/auto-passes/generate"
-        onsubmit="return !autoPasses.length||confirm('Attenzione: i pass parcheggio esistenti verranno invalidati e rigenerati. Procedere?')"
-        style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem;">
-    <button type="submit" class="btn btn-primary" style="font-size:.82rem;padding:.38rem .9rem;">
-      &#9889; <%= (autoPasses&&autoPasses.length)?'Rigenera':'Genera' %> <%=groupInfo.max_auto_passes%> pass parcheggio
-    </button>
-    <% if(autoPasses&&autoPasses.length){ %>
-      <a href="/assignment-groups/<%=groupInfo.id%>/auto-passes/batch-pdf"
-         style="display:inline-flex;align-items:center;gap:.35rem;padding:.38rem .9rem;background:#1e2d4e;color:#fff;border-radius:7px;font-size:.8rem;font-weight:700;text-decoration:none;">
-        &#128438; Stampa tutti
-      </a>
-    <% } %>
-  </form>
-  <% } %>
-  <% } %>
-
-  <!-- Tabella pass parcheggio -->
-  <% if(autoPasses && autoPasses.length){ %>
-  <table style="width:100%;border-collapse:collapse;font-size:.8rem;">
-    <thead>
-      <tr style="background:var(--bg-offset,#f3f0ec);">
-        <th style="padding:.4rem .6rem;text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);">N.</th>
-        <th style="padding:.4rem .6rem;text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);">Codice</th>
-        <th style="padding:.4rem .6rem;text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);">Stato</th>
-        <th style="padding:.4rem .6rem;text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);">Azioni</th>
-      </tr>
-    </thead>
-    <tbody>
-    <% autoPasses.forEach(function(ap){ %>
-    <tr style="border-bottom:1px solid var(--border-light,#e8ecf3);<% if(ap.status==='INVALIDATO'){%>opacity:.45<% } %>">
-      <td style="padding:.4rem .6rem;font-weight:700;"><%=ap.pass_number%>&nbsp;<span style="color:var(--text-muted);font-weight:400;">di <%=ap.total_passes%></span></td>
-      <td style="padding:.4rem .6rem;"><code style="font-size:.72rem;"><%=ap.code||'—'%></code></td>
-      <td style="padding:.4rem .6rem;">
-        <%
-          const AP_COLORS={GENERATO:'#e0e7ff|#3730a3',SCARICATO:'#dbeafe|#1d4ed8',STAMPATO:'#fef9c3|#854d0e',
-                           CONSEGNATO:'#dcfce7|#166534',RICONSEGNATO:'#f0fdf4|#15803d',INVALIDATO:'#fee2e2|#991b1b'};
-          const [apBg,apFg]=(AP_COLORS[ap.status]||'#f3f4f6|#374151').split('|');
-        %>
-        <span style="display:inline-block;padding:.15rem .5rem;border-radius:9999px;font-size:.68rem;font-weight:700;background:<%=apBg%>;color:<%=apFg%>;"><%=ap.status%></span>
-      </td>
-      <td style="padding:.4rem .6rem;">
-        <div style="display:flex;gap:.35rem;flex-wrap:wrap;">
-          <% if(ap.status!=='INVALIDATO'){ %>
-          <a href="/auto-passes/<%=ap.id%>/pdf" style="font-size:.72rem;padding:.2rem .5rem;background:#1e2d4e;color:#fff;border-radius:5px;text-decoration:none;">&#128438; PDF</a>
-          <% if(!isViewer){ %>
-          <% const AP_NEXT={GENERATO:'SCARICATO',SCARICATO:'STAMPATO',STAMPATO:'CONSEGNATO',CONSEGNATO:'RICONSEGNATO'}; %>
-          <% if(AP_NEXT[ap.status]){ %>
-          <form method="POST" action="/auto-passes/<%=ap.id%>/status" style="display:inline">
-            <input type="hidden" name="status" value="<%=AP_NEXT[ap.status]%>">
-            <button type="submit" style="font-size:.72rem;padding:.2rem .5rem;background:#2d6a4f;color:#fff;border:none;border-radius:5px;cursor:pointer;">&#8594; <%=AP_NEXT[ap.status]%></button>
-          </form>
-          <% } %>
-          <% if(currentUser && currentUser.role==='admin'){ %>
-          <form method="POST" action="/auto-passes/<%=ap.id%>/invalidate" style="display:inline" onsubmit="return confirm('Invalidare questo pass?')">
-            <button type="submit" style="font-size:.72rem;padding:.2rem .5rem;background:#dc2626;color:#fff;border:none;border-radius:5px;cursor:pointer;">&#128683;</button>
-          </form>
-          <% } %>
-          <% } %>
-          <% } %>
-        </div>
-      </td>
-    </tr>
-    <% }); %>
-    </tbody>
-  </table>
-  <% }else{ %>
-    <p style="font-size:.8rem;color:var(--text-muted);margin:0;">
-      <% if(groupInfo.max_auto_passes>0){ %>&#9888;&#65039; Nessun pass parcheggio generato ancora.
-      <% }else{ %>Imposta il numero massimo di pass parcheggio per abilitare la generazione.
-      <% } %>
-    </p>
-  <% } %>
-</div>
 
 <!-- MODALE STALLO ALLA MESSICANA -->
 <div class="modal-overlay" id="modal-stallo" style="display:none">
@@ -843,340 +554,43 @@ function maronnoForza() {
     }).catch(function(){ errEl.textContent = 'Errore di rete'; errEl.style.display=''; });
 }
 </script>
-</div><!-- /tab-pass -->
 
-<div id="tab-portale" class="crm-panel">
 <% if(!isViewer){ %>
-
-<div class="card" style="margin-bottom:1rem;">
-  <div class="card-title">📄 Stato Contrattuale</div>
-  <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;">
-    <% var _cColors={bozza:'#9ca3af',inviato:'#1d6fa4',firmato:'#2d6a4f',annullato:'#c0392b'};
-       var _cLabels={bozza:'Bozza',inviato:'Inviato',firmato:'Firmato ✓',annullato:'Annullato'};
-       var _cs=groupInfo.contract_status||'bozza'; %>
-    <span style="font-weight:700;color:<%= _cColors[_cs]||'#888' %>;font-size:.95rem;"><%= _cLabels[_cs]||_cs %></span>
-    &nbsp;
-    <% ['bozza','inviato','firmato','annullato'].forEach(function(s){ %>
-      <button type="button" onclick="setContractStatus(<%= groupInfo.id %>,'<%= s %>')"
-        style="font-size:.78rem;padding:.3rem .75rem;border-radius:5px;border:1.5px solid <%= _cColors[s] %>;background:<%= _cs===s?_cColors[s]:'#fff' %>;color:<%= _cs===s?'#fff':_cColors[s] %>;font-weight:700;cursor:pointer;">
-        <%= _cLabels[s] %>
-      </button>
-    <% }); %>
-  </div>
-</div>
-
-<div class="card" style="margin-bottom:1rem;">
-  <div class="card-title">🌐 Portale Espositore</div>
+<div class="card" style="border-top:3px solid #1d6fa4;margin-top:1rem;">
+  <div class="card-title">&#127970; Portale Espositore</div>
   <% if(groupInfo.portal_token&&groupInfo.portal_enabled){ %>
     <div style="display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-bottom:.75rem;">
-      <input type="text" readonly id="plink" value="/portale/<%= groupInfo.portal_token %>" style="flex:1;min-width:180px;font-size:.78rem;background:#f7f6f2;border:1px solid #d1d9e6;padding:.32rem .6rem;border-radius:4px;">
-      <button type="button" class="secondary" style="font-size:.78rem;" onclick="navigator.clipboard.writeText(location.origin+document.getElementById('plink').value).then(function(){alert('Link copiato!');})">📋 Copia</button>
-      <a href="/portale/<%= groupInfo.portal_token %>" target="_blank" class="secondary" style="font-size:.78rem;">🔗 Apri</a>
+      <input type="text" readonly id="plink" value="/portale/<%= groupInfo.portal_token %>" style="flex:1;min-width:180px;font-size:.78rem;background:#f7f6f2;border:1px solid var(--border);padding:.32rem .6rem;border-radius:4px;">
+      <button type="button" class="secondary" style="font-size:.78rem;" onclick="navigator.clipboard.writeText(location.origin+document.getElementById('plink').value).then(function(){alert('Copiato!');})">&#128203; Copia</button>
+      <a href="/portale/<%= groupInfo.portal_token %>" target="_blank" class="secondary" style="font-size:.78rem;">&#128279; Apri</a>
     </div>
   <% }else if(groupInfo.portal_token&&!groupInfo.portal_enabled){ %>
-    <p style="font-size:.8rem;color:#c0392b;margin-bottom:.6rem;">🔒 Portale disabilitato.</p>
+    <p style="font-size:.8rem;color:#c0392b;margin-bottom:.6rem;">&#128274; Portale disabilitato.</p>
   <% } %>
-  <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem;">
-    <button type="button" class="secondary" style="font-size:.82rem;" onclick="genTok(<%= groupInfo.id %>)"><%= groupInfo.portal_token?'🔑 Rigenera token':'🔑 Genera token' %></button>
-    <% if(groupInfo.portal_token){ %>
-    <button type="button" class="secondary" style="font-size:.82rem;background:<%= groupInfo.portal_enabled?'#c0392b':'#2d6a4f' %>;color:#fff;" onclick="togP(<%= groupInfo.id %>)"><%= groupInfo.portal_enabled?'🔒 Disabilita':'🔓 Abilita' %></button>
-    <% } %>
-  </div>
-  <div style="border-top:1px solid #d1d9e6;padding-top:.85rem;">
-    <div style="font-weight:700;font-size:.82rem;margin-bottom:.6rem;">⏱ Finestra inserimento nominativi</div>
-    <% var _pof=groupInfo.portal_open_from; var _pou=groupInfo.portal_open_until; %>
-    <% if(_pof||_pou){ %>
-      <div style="font-size:.8rem;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:.5rem .75rem;margin-bottom:.6rem;display:flex;gap:1.5rem;flex-wrap:wrap;">
-        <span>📅 Apertura: <strong><%= _pof?new Date(_pof).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'}):'—' %></strong></span>
-        <span>🔒 Chiusura: <strong><%= _pou?new Date(_pou).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'}):'—' %></strong></span>
-      </div>
-    <% } else { %>
-      <p style="font-size:.8rem;color:#9ca3af;margin-bottom:.6rem;">Nessuna finestra impostata — portale sempre accessibile quando abilitato.</p>
-    <% } %>
-    <form id="window-form" style="display:grid;grid-template-columns:1fr 1fr auto;gap:.6rem;align-items:end;">
-      <label style="font-size:.8rem;font-weight:600;">Apertura<br><input type="datetime-local" name="portal_open_from" value="<%= _pof?_pof.substring(0,16):'' %>" style="margin-top:.25rem;width:100%;"></label>
-      <label style="font-size:.8rem;font-weight:600;">Chiusura<br><input type="datetime-local" name="portal_open_until" value="<%= _pou?_pou.substring(0,16):'' %>" style="margin-top:.25rem;width:100%;"></label>
-      <div style="display:flex;gap:.4rem;flex-wrap:wrap;">
-        <button type="submit" class="primary" style="font-size:.8rem;">💾 Salva</button>
-        <button type="button" class="secondary" style="font-size:.8rem;" onclick="clearWindow()">✕ Azzera</button>
-      </div>
-    </form>
-    <div id="window-msg" style="display:none;font-size:.78rem;margin-top:.4rem;"></div>
+  <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
+    <button type="button" class="secondary" style="font-size:.82rem;" onclick="genTok(<%= groupInfo.id %>)">&#128273; <%= groupInfo.portal_token?'Rigenera':'Genera' %> token</button>
+    <% if(groupInfo.portal_token){ %><button type="button" class="secondary" style="font-size:.82rem;background:<%= groupInfo.portal_enabled?'#c0392b':'#2d6a4f' %>;color:#fff;" onclick="togP(<%= groupInfo.id %>)"><%= groupInfo.portal_enabled?'&#128274; Disabilita':'&#128275; Abilita' %></button><% } %>
   </div>
 </div>
-
-<div class="card">
-  <div class="card-title">🗺 Posizione Mappa Stand</div>
+<div class="card" style="border-top:3px solid #6b3fa0;margin-top:1rem;">
+  <div class="card-title">&#128506; Posizione Mappa Stand</div>
   <form id="mpf" style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end;">
     <label style="font-size:.82rem;font-weight:700;">Riga<br><input type="number" id="mr" min="1" max="20" value="<%= groupInfo.map_row||'' %>" style="width:65px;margin-top:.3rem;"></label>
     <label style="font-size:.82rem;font-weight:700;">Colonna<br><input type="number" id="mc" min="1" max="20" value="<%= groupInfo.map_col||'' %>" style="width:65px;margin-top:.3rem;"></label>
     <label style="font-size:.82rem;font-weight:700;">Larghezza<br><input type="number" id="ms" min="1" max="8" value="<%= groupInfo.map_span||1 %>" style="width:58px;margin-top:.3rem;"></label>
-    <button type="submit" class="secondary" style="font-size:.82rem;">💾 Salva</button>
-    <% if(groupInfo.map_row){ %><button type="button" class="btn-danger" style="font-size:.78rem;" onclick="rmM(<%= groupInfo.id %>)">✕ Rimuovi</button><% } %>
+    <button type="submit" class="secondary" style="font-size:.82rem;">&#128190; Salva</button>
+    <% if(groupInfo.map_row){ %><button type="button" class="btn-danger" style="font-size:.78rem;" onclick="rmM(<%= groupInfo.id %>)">&#10005; Rimuovi</button><% } %>
   </form>
   <div id="mpmsg" style="display:none;font-size:.78rem;margin-top:.4rem;"></div>
 </div>
-<% } %>
-</div><!-- /tab-portale -->
-<!-- ══════ TAB REFERENTI ══════ -->
-<div id="tab-referenti" class="crm-panel">
-<% if(!isViewer){ %>
-<div class="card">
-  <div class="card-title">👤 Referenti Stand</div>
-  <% if(typeof contacts!=='undefined'&&contacts.length){ %>
-  <table style="width:100%;font-size:.82rem;border-collapse:collapse;margin-bottom:1rem;">
-    <thead><tr style="border-bottom:2px solid #d1d9e6;">
-      <th style="text-align:left;padding:.4rem .5rem;font-size:.75rem;color:#64748b;">NOME</th>
-      <th style="text-align:left;padding:.4rem .5rem;font-size:.75rem;color:#64748b;">RUOLO</th>
-      <th style="text-align:left;padding:.4rem .5rem;font-size:.75rem;color:#64748b;">EMAIL</th>
-      <th style="text-align:left;padding:.4rem .5rem;font-size:.75rem;color:#64748b;">TEL</th>
-      <th style="padding:.4rem .5rem;"></th>
-    </tr></thead>
-    <tbody>
-    <% contacts.forEach(function(c){ %>
-      <tr style="border-bottom:1px solid #e8ecf3;<%= c.is_primary?'background:#f0fdf4;':'' %>">
-        <td style="padding:.45rem .5rem;font-weight:<%= c.is_primary?'700':'400' %>;"><%= c.is_primary?'⭐ ':'' %><%= c.name %></td>
-        <td style="padding:.45rem .5rem;color:#64748b;"><%= c.role||'—' %></td>
-        <td style="padding:.45rem .5rem;"><% if(c.email){ %><a href="mailto:<%= c.email %>" style="color:#1d6fa4;"><%= c.email %></a><% }else{ %>—<% } %></td>
-        <td style="padding:.45rem .5rem;color:#64748b;"><%= c.phone||'—' %></td>
-        <td style="padding:.45rem .5rem;white-space:nowrap;">
-          <% if(!c.is_primary){ %><button type="button" onclick="setPrimaryContact(<%= groupInfo.id %>,<%= c.id %>)" style="font-size:.72rem;padding:.2rem .5rem;border-radius:4px;border:1px solid #2d6a4f;background:#fff;color:#2d6a4f;cursor:pointer;margin-right:.25rem;">⭐</button><% } %>
-          <button type="button" onclick="deleteContact(<%= groupInfo.id %>,<%= c.id %>,this)" style="font-size:.72rem;padding:.2rem .5rem;border-radius:4px;border:1px solid #c0392b;background:#fff;color:#c0392b;cursor:pointer;">✕</button>
-        </td>
-      </tr>
-    <% }); %>
-    </tbody>
-  </table>
-  <% }else{ %><p style="color:#64748b;font-size:.83rem;margin-bottom:1rem;">Nessun referente registrato.</p><% } %>
-  <details><summary style="cursor:pointer;font-size:.82rem;font-weight:700;color:#1d6fa4;padding:.3rem 0;">+ Aggiungi referente</summary>
-    <form id="contact-form" style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.6rem;" onsubmit="addContact(event,<%= groupInfo.id %>)">
-      <label style="font-size:.8rem;">Nome *<br><input type="text" name="name" required placeholder="Mario Rossi" style="margin-top:.25rem;width:100%;"></label>
-      <label style="font-size:.8rem;">Ruolo<br><input type="text" name="role" placeholder="Titolare…" style="margin-top:.25rem;width:100%;"></label>
-      <label style="font-size:.8rem;">Email<br><input type="email" name="email" style="margin-top:.25rem;width:100%;"></label>
-      <label style="font-size:.8rem;">Telefono<br><input type="tel" name="phone" style="margin-top:.25rem;width:100%;"></label>
-      <label style="font-size:.8rem;grid-column:1/-1;"><input type="checkbox" name="is_primary" value="1"> Referente principale</label>
-      <div style="grid-column:1/-1;display:flex;gap:.5rem;align-items:center;">
-        <button type="submit" class="primary" style="font-size:.82rem;">+ Aggiungi</button>
-        <span id="contact-msg" style="font-size:.78rem;"></span>
-      </div>
-    </form>
-  </details>
-</div>
-<% } %>
-</div><!-- /tab-referenti -->
-
-<!-- ══════ TAB PAGAMENTI ══════ -->
-<div id="tab-pagamenti" class="crm-panel">
-<% if(!isViewer){ %>
-<div class="card">
-  <div class="card-title">💳 Pagamenti Stand</div>
-  <% if(typeof payments!=='undefined'&&payments.length){ %>
-  <% var _tot=payments.reduce(function(s,p){return s+(p.amount||0);},0);
-     var _sal=payments.filter(function(p){return p.status==='saldato';}).reduce(function(s,p){return s+p.amount;},0);
-     var _acc=payments.filter(function(p){return p.status==='acconto';}).reduce(function(s,p){return s+p.amount;},0);
-     var _nsc=payments.filter(function(p){return p.status==='scaduto';}).length; %>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.6rem;margin-bottom:1rem;">
-    <div style="background:#f8fafc;border-radius:8px;padding:.65rem .85rem;text-align:center;"><div style="font-size:1.2rem;font-weight:800;color:#1e2d4e;">€<%= _tot.toFixed(2) %></div><div style="font-size:.72rem;color:#64748b;">Totale</div></div>
-    <div style="background:#f0fdf4;border-radius:8px;padding:.65rem .85rem;text-align:center;"><div style="font-size:1.2rem;font-weight:800;color:#2d6a4f;">€<%= _sal.toFixed(2) %></div><div style="font-size:.72rem;color:#64748b;">Saldato</div></div>
-    <div style="background:#eff6ff;border-radius:8px;padding:.65rem .85rem;text-align:center;"><div style="font-size:1.2rem;font-weight:800;color:#1d6fa4;">€<%= _acc.toFixed(2) %></div><div style="font-size:.72rem;color:#64748b;">Acconto</div></div>
-    <div style="background:<%= _nsc>0?'#fef2f2':'#f8fafc' %>;border-radius:8px;padding:.65rem .85rem;text-align:center;"><div style="font-size:1.2rem;font-weight:800;color:<%= _nsc>0?'#c0392b':'#9ca3af' %>;">€<%= Math.max(0,_tot-_sal-_acc).toFixed(2) %></div><div style="font-size:.72rem;color:#64748b;"><%= _nsc>0?'⚠ Da saldare':'Da saldare' %></div></div>
-  </div>
-  <% var _pC={da_pagare:'#6b3fa0',acconto:'#1d6fa4',saldato:'#2d6a4f',scaduto:'#c0392b'}; %>
-  <table style="width:100%;font-size:.82rem;border-collapse:collapse;margin-bottom:1rem;">
-    <thead><tr style="border-bottom:2px solid #d1d9e6;">
-      <th style="text-align:left;padding:.4rem .5rem;font-size:.75rem;color:#64748b;">DESCRIZIONE</th>
-      <th style="text-align:right;padding:.4rem .5rem;font-size:.75rem;color:#64748b;">IMPORTO</th>
-      <th style="text-align:left;padding:.4rem .5rem;font-size:.75rem;color:#64748b;">SCADENZA</th>
-      <th style="text-align:left;padding:.4rem .5rem;font-size:.75rem;color:#64748b;">STATO</th>
-      <th style="padding:.4rem .5rem;"></th>
-    </tr></thead>
-    <tbody>
-    <% payments.forEach(function(p){ %>
-      <tr id="pay-row-<%= p.id %>" style="border-bottom:1px solid #e8ecf3;">
-        <td style="padding:.45rem .5rem;font-weight:500;"><%= p.description %><% if(p.notes){ %><br><span style="font-size:.75rem;color:#9ca3af;"><%= p.notes %></span><% } %></td>
-        <td style="padding:.45rem .5rem;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;">€<%= parseFloat(p.amount).toFixed(2) %></td>
-        <td style="padding:.45rem .5rem;color:#64748b;font-size:.78rem;"><%= p.due_date?new Date(p.due_date).toLocaleDateString('it-IT'):'—' %></td>
-        <td style="padding:.45rem .5rem;">
-          <select onchange="updatePayStatus(<%= groupInfo.id %>,<%= p.id %>,this.value)" style="font-size:.75rem;padding:.2rem .4rem;border-radius:4px;border:1.5px solid <%= _pC[p.status]||'#888' %>;color:<%= _pC[p.status]||'#888' %>;font-weight:700;background:#fff;cursor:pointer;">
-            <option value="da_pagare" <%= p.status==='da_pagare'?'selected':'' %>>Da pagare</option>
-            <option value="acconto"   <%= p.status==='acconto'?'selected':'' %>>Acconto</option>
-            <option value="saldato"   <%= p.status==='saldato'?'selected':'' %>>Saldato ✓</option>
-            <option value="scaduto"   <%= p.status==='scaduto'?'selected':'' %>>Scaduto ⚠</option>
-          </select>
-        </td>
-        <td style="padding:.45rem .5rem;"><button type="button" onclick="deletePayment(<%= groupInfo.id %>,<%= p.id %>)" style="font-size:.72rem;padding:.2rem .5rem;border-radius:4px;border:1px solid #c0392b;background:#fff;color:#c0392b;cursor:pointer;">✕</button></td>
-      </tr>
-    <% }); %>
-    </tbody>
-  </table>
-  <% }else{ %><p style="color:#64748b;font-size:.83rem;margin-bottom:1rem;">Nessuna voce di pagamento.</p><% } %>
-  <details><summary style="cursor:pointer;font-size:.82rem;font-weight:700;color:#1d6fa4;padding:.3rem 0;">+ Aggiungi voce di pagamento</summary>
-    <form id="payment-form" style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.6rem;" onsubmit="addPayment(event,<%= groupInfo.id %>)">
-      <label style="font-size:.8rem;grid-column:1/-1;">Descrizione *<br><input type="text" name="description" required placeholder="Quota stand 3x3…" style="margin-top:.25rem;width:100%;"></label>
-      <label style="font-size:.8rem;">Importo (€) *<br><input type="number" name="amount" min="0" step="0.01" required style="margin-top:.25rem;width:100%;"></label>
-      <label style="font-size:.8rem;">Scadenza<br><input type="date" name="due_date" style="margin-top:.25rem;width:100%;"></label>
-      <label style="font-size:.8rem;">Stato<br><select name="status" style="margin-top:.25rem;width:100%;"><option value="da_pagare">Da pagare</option><option value="acconto">Acconto</option><option value="saldato">Saldato</option><option value="scaduto">Scaduto</option></select></label>
-      <label style="font-size:.8rem;grid-column:1/-1;">Note<br><input type="text" name="notes" placeholder="Bonifico entro marzo…" style="margin-top:.25rem;width:100%;"></label>
-      <div style="grid-column:1/-1;display:flex;gap:.5rem;align-items:center;"><button type="submit" class="primary" style="font-size:.82rem;">+ Aggiungi</button><span id="payment-msg" style="font-size:.78rem;"></span></div>
-    </form>
-  </details>
-</div>
-<% } %>
-</div><!-- /tab-pagamenti -->
-
-<!-- ══════ TAB DOCUMENTI ══════ -->
-<div id="tab-documenti" class="crm-panel">
-<% if(!isViewer){ %>
-<div class="card">
-  <div class="card-title">📁 Documenti Interni</div>
-  <p style="font-size:.8rem;color:#64748b;margin-bottom:.85rem;">Documenti ad uso interno. Non visibili all'espositore.</p>
-  <% if(typeof groupDocs!=='undefined'&&groupDocs.length){ %>
-  <div style="display:grid;gap:.5rem;margin-bottom:1rem;">
-    <% groupDocs.forEach(function(d){ %>
-    <div id="doc-row-<%= d.id %>" style="display:flex;align-items:center;gap:.75rem;padding:.55rem .75rem;background:#f8fafc;border-radius:8px;border:1px solid #e8ecf3;">
-      <span style="font-size:1.2rem;">📄</span>
-      <div style="flex:1;min-width:0;"><div style="font-size:.83rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><%= d.original_name||d.filename %></div><div style="font-size:.72rem;color:#9ca3af;"><%= d.doc_type %> · <%= new Date(d.uploaded_at).toLocaleDateString('it-IT') %></div></div>
-      <a href="/assignment-groups/<%= groupInfo.id %>/documents/<%= d.id %>/download" class="secondary" style="font-size:.75rem;padding:.25rem .65rem;">⬇ Scarica</a>
-      <button type="button" onclick="deleteDoc(<%= groupInfo.id %>,<%= d.id %>)" style="font-size:.75rem;padding:.25rem .6rem;border-radius:4px;border:1px solid #c0392b;background:#fff;color:#c0392b;cursor:pointer;">✕</button>
-    </div>
-    <% }); %>
-  </div>
-  <% }else{ %><p style="color:#64748b;font-size:.83rem;margin-bottom:1rem;">Nessun documento caricato.</p><% } %>
-  <details><summary style="cursor:pointer;font-size:.82rem;font-weight:700;color:#1d6fa4;padding:.3rem 0;">+ Carica documento</summary>
-    <form id="doc-form" enctype="multipart/form-data" style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.6rem;" onsubmit="uploadDoc(event,<%= groupInfo.id %>)">
-      <label style="font-size:.8rem;grid-column:1/-1;">File *<br><input type="file" id="docfile" name="docfile" required style="margin-top:.25rem;"></label>
-      <label style="font-size:.8rem;">Tipo<br><select name="doc_type" style="margin-top:.25rem;width:100%;"><option value="contratto">Contratto</option><option value="modulo_firmato">Modulo firmato</option><option value="ricevuta">Ricevuta</option><option value="nota_interna">Nota interna</option><option value="altro">Altro</option></select></label>
-      <label style="font-size:.8rem;">Note<br><input type="text" name="notes" style="margin-top:.25rem;width:100%;"></label>
-      <div style="grid-column:1/-1;display:flex;gap:.5rem;align-items:center;"><button type="submit" class="primary" style="font-size:.82rem;">⬆ Carica</button><span id="doc-msg" style="font-size:.78rem;"></span></div>
-    </form>
-  </details>
-</div>
-<% } %>
-</div><!-- /tab-documenti -->
 <script>
-/* ── Tab switching ── */
-function crmTab(tabId, btn) {
-  document.querySelectorAll('.crm-panel').forEach(function(p){ p.classList.remove('active'); });
-  document.querySelectorAll('.crm-tab').forEach(function(b){ b.classList.remove('active'); });
-  var panel = document.getElementById('tab-' + tabId);
-  if (panel) panel.classList.add('active');
-  if (btn)   btn.classList.add('active');
-  history.replaceState(null, '', '#tab-' + tabId);
-}
-(function(){
-  var hash = location.hash.replace('#tab-','');
-  if (hash && document.getElementById('tab-' + hash)) {
-    crmTab(hash, document.querySelector('[data-tab="'+hash+'"]'));
-  }
-})();
-
-function _post(url, data) {
-  return fetch(url, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: new URLSearchParams(data).toString() }).then(function(r){ return r.json(); });
-}
-function _msg(id, txt, ok) {
-  var el = document.getElementById(id);
-  if (!el) return;
-  el.textContent = txt; el.style.color = ok ? '#2d6a4f' : '#c0392b';
-  setTimeout(function(){ el.textContent=''; }, 3000);
-}
-
-/* Referenti */
-function addContact(e, gid) {
-  e.preventDefault();
-  var data = {}; new FormData(document.getElementById('contact-form')).forEach(function(v,k){ data[k]=v; });
-  _post('/assignment-groups/'+gid+'/contacts', data).then(function(d){
-    if (d.ok) { _msg('contact-msg','✓ Aggiunto!',true); setTimeout(function(){ location.reload(); }, 800); }
-    else _msg('contact-msg', d.error||'Errore', false);
-  });
-}
-function setPrimaryContact(gid, cid) {
-  _post('/assignment-groups/'+gid+'/contacts/'+cid+'/primary',{}).then(function(d){ if(d.ok) location.reload(); });
-}
-function deleteContact(gid, cid, btn) {
-  if (!confirm('Eliminare questo referente?')) return;
-  btn.disabled = true;
-  _post('/assignment-groups/'+gid+'/contacts/'+cid+'/delete',{}).then(function(d){
-    if (d.ok) btn.closest('tr').remove(); else { alert(d.error||'Errore'); btn.disabled=false; }
-  });
-}
-
-/* Pagamenti */
-function addPayment(e, gid) {
-  e.preventDefault();
-  var data = {}; new FormData(document.getElementById('payment-form')).forEach(function(v,k){ data[k]=v; });
-  _post('/assignment-groups/'+gid+'/payments', data).then(function(d){
-    if (d.ok) { _msg('payment-msg','✓ Aggiunto!',true); setTimeout(function(){ location.reload(); }, 800); }
-    else _msg('payment-msg', d.error||'Errore', false);
-  });
-}
-function updatePayStatus(gid, pid, status) {
-  _post('/assignment-groups/'+gid+'/payments/'+pid+'/status',{status:status}).then(function(d){ if(!d.ok) alert(d.error||'Errore'); });
-}
-function deletePayment(gid, pid) {
-  if (!confirm('Eliminare questa voce?')) return;
-  _post('/assignment-groups/'+gid+'/payments/'+pid+'/delete',{}).then(function(d){
-    if (d.ok) { var r=document.getElementById('pay-row-'+pid); if(r) r.remove(); } else alert(d.error||'Errore');
-  });
-}
-
-/* Documenti */
-function uploadDoc(e, gid) {
-  e.preventDefault();
-  var btn = e.target.querySelector('button[type=submit]'); btn.disabled=true; btn.textContent='⏳…';
-  fetch('/assignment-groups/'+gid+'/documents',{method:'POST',body:new FormData(document.getElementById('doc-form'))})
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      btn.disabled=false; btn.textContent='⬆ Carica';
-      if (d.ok) { _msg('doc-msg','✓ Caricato!',true); setTimeout(function(){ location.reload(); }, 800); }
-      else _msg('doc-msg', d.error||'Errore', false);
-    });
-}
-function deleteDoc(gid, did) {
-  if (!confirm('Eliminare documento?')) return;
-  _post('/assignment-groups/'+gid+'/documents/'+did+'/delete',{}).then(function(d){
-    if (d.ok) { var r=document.getElementById('doc-row-'+did); if(r) r.remove(); } else alert(d.error||'Errore');
-  });
-}
-
-/* Stato contratto */
-function setContractStatus(gid, status) {
-  _post('/assignment-groups/'+gid+'/contract-status',{contract_status:status}).then(function(d){ if(d.ok) location.reload(); else alert(d.error||'Errore'); });
-}
-
-/* Finestra portale */
-(function(){
-  var wf = document.getElementById('window-form');
-  if (!wf) return;
-  wf.addEventListener('submit', function(e){
-    e.preventDefault();
-    var data = {}; new FormData(wf).forEach(function(v,k){ data[k]=v; });
-    var msg = document.getElementById('window-msg'); msg.style.display='block';
-    _post('/admin/groups/<%= groupInfo.id %>/portal/window', data).then(function(d){
-      msg.style.color = d.ok ? '#2d6a4f' : '#c0392b';
-      msg.textContent = d.ok ? '✓ Finestra salvata' : (d.error||'Errore');
-      if (d.ok) setTimeout(function(){ location.reload(); }, 900);
-    });
-  });
-})();
-function clearWindow() {
-  _post('/admin/groups/<%= groupInfo.id %>/portal/window',{portal_open_from:'',portal_open_until:''}).then(function(d){ if(d.ok) location.reload(); });
-}
-
-/* genTok / togP / map */
-function genTok(id){if(!confirm('Generare nuovo token portale?'))return;fetch('/admin/groups/'+id+'/portal/token',{method:'POST'}).then(function(r){return r.json();}).then(function(d){if(d.token)location.reload();else alert('Errore:'+(d.error||'?'));});}
+function genTok(id){if(!confirm('Generare nuovo token?'))return;fetch('/admin/groups/'+id+'/portal/token',{method:'POST'}).then(function(r){return r.json();}).then(function(d){if(d.token)location.reload();else alert('Errore:'+(d.error||'?'));});}
 function togP(id){fetch('/admin/groups/'+id+'/portal/toggle',{method:'POST'}).then(function(){location.reload();});}
-(function(){
-  var mpf=document.getElementById('mpf');
-  if(!mpf) return;
-  mpf.addEventListener('submit',function(e){
-    e.preventDefault(); var msg=document.getElementById('mpmsg');
-    fetch('/admin/groups/<%= groupInfo.id %>/map-position',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'map_row='+document.getElementById('mr').value+'&map_col='+document.getElementById('mc').value+'&map_span='+document.getElementById('ms').value})
-      .then(function(r){return r.json();})
-      .then(function(d){msg.style.display='block';msg.style.color=d.ok?'#2d6a4f':'#c0392b';msg.textContent=d.ok?'✓ Salvato!':'Errore';setTimeout(function(){msg.style.display='none';},3000);});
-  });
-})();
+document.getElementById('mpf')&&document.getElementById('mpf').addEventListener('submit',function(e){e.preventDefault();var msg=document.getElementById('mpmsg');fetch('/admin/groups/<%= groupInfo.id %>/map-position',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'map_row='+document.getElementById('mr').value+'&map_col='+document.getElementById('mc').value+'&map_span='+document.getElementById('ms').value}).then(function(r){return r.json();}).then(function(d){msg.style.display='block';msg.style.color=d.ok?'#2d6a4f':'#c0392b';msg.textContent=d.ok?'Salvato!':'Errore:'+(d.error||'?');setTimeout(function(){msg.style.display='none';},3000);});});
 function rmM(id){fetch('/admin/groups/'+id+'/map-position',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'map_row=&map_col=&map_span=1'}).then(function(){location.reload();});}
+
 </script>
+<% } %>
 
 <script>
 // ── Bulk status (visibile a tutti, incluso il visualizzatore) ──

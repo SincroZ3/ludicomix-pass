@@ -1,0 +1,24 @@
+<%-include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <strong>Log Azioni</strong></nav>
+<h1 class="page-title">Log Azioni</h1>
+<p style="font-size:0.83rem;color:var(--text-muted);margin-bottom:1rem;">Ultime 500 azioni registrate (login, creazioni, cancellazioni, modifiche stato).</p>
+<div class="table-wrapper">
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Data/Ora</th><th>Utente</th><th>Azione</th><th>Entità</th><th>Dettagli</th></tr>
+    </thead>
+    <tbody>
+      <% logs.forEach(l => { %>
+        <tr>
+          <td><span class="chip">#<%= l.id %></span></td>
+          <td style="white-space:nowrap;font-size:0.78rem;color:var(--text-muted);"><%= l.created_at %></td>
+          <td><strong><%= l.username || 'N/D' %></strong></td>
+          <td style="font-family:monospace;font-size:0.78rem;"><%= l.action %></td>
+          <td style="font-size:0.78rem;"><%= (l.entity_type || '') + (l.entity_id ? ' #' + l.entity_id : '') %></td>
+          <td style="font-size:0.8rem;color:var(--text-secondary);"><%= l.details || '' %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<%-include('partials/footer') %>

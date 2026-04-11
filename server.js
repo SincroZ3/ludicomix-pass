@@ -38,11 +38,14 @@ function checkGroupLimit(gid){
     if(pct>=100)createNotification('limit_reached','Limite gruppo raggiunto','Gruppo <strong>'+row.name+'</strong> al 100% ('+row.cnt+'/'+row.max_passes+').','group',gid);
     else if(pct>=90)createNotification('limit_warning','Gruppo vicino al limite','Gruppo <strong>'+row.name+'</strong> al '+pct+'% ('+row.cnt+'/'+row.max_passes+').','group',gid);});}
 
-  const app = express();
+  const crmRoutes = require('./routes/crm');
+const app = express();
   const PORT = process.env.PORT || 8080;
 
   // ✅ FIX: Railway usa reverse proxy - necessario per express-rate-limit e sessioni sicure
   app.set('trust proxy', 1);
+crmRoutes(app, db, { requireAuth, requireNotViewer, requireOrganizer, logAction, uploadMemory });
+
 
   const DATA_DIR = process.env.DATA_DIR || __dirname;
   ['templates', 'generated'].forEach((dir) => {
@@ -419,7 +422,29 @@ app.get('/home', requireAuth, (req, res) => {
           const importErrs = req.query.import_errs ? decodeURIComponent(req.query.import_errs).split('|') : [];
           const replaceOk  = req.query.replace_ok === '1';
           db.all('SELECT * FROM auto_passes WHERE assignment_group_id=? ORDER BY pass_number',[id],(e_ap,autoPasses)=>{
-              res.render('assignment_group_detail', { groupInfo, types, participants, PASS_STATUSES, dupSkipped, dupTotal, zones: zones || [], importOk, importSkip, importErrs, replaceOk, autoPasses: autoPasses||[] });
+              // ── CRM data ────────────────────────────────────────────────────
+              const _crmQ = (sql, p) => new Promise((ok, ko) => db.all(sql, p, (e, r) => e ? ko(e) : ok(r)));
+              Promise.all([
+                _crmQ('SELECT * FROM contacts        WHERE assignment_group_id=? ORDER BY is_primary DESC, name', [id]),
+                _crmQ('SELECT * FROM payments        WHERE assignment_group_id=? ORDER BY created_at DESC', [id]),
+                _crmQ('SELECT * FROM group_documents WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [id]),
+              ]).then(function([contacts, payments, groupDocs]) {
+                res.render('assignment_group_detail', {
+                  groupInfo, types, participants, PASS_STATUSES,
+                  dupSkipped, dupTotal, zones: zones || [],
+                  importOk, importSkip, importErrs, replaceOk,
+                  autoPasses: autoPasses || [],
+                  contacts, payments, groupDocs
+                });
+              }).catch(function() {
+                res.render('assignment_group_detail', {
+                  groupInfo, types, participants, PASS_STATUSES,
+                  dupSkipped, dupTotal, zones: zones || [],
+                  importOk, importSkip, importErrs, replaceOk,
+                  autoPasses: autoPasses || [],
+                  contacts: [], payments: [], groupDocs: []
+                });
+              });
             });
         });
         });
@@ -1540,6 +1565,35 @@ app.get('/home', requireAuth, (req, res) => {
         'SELECT id FROM assignment_groups WHERE portal_token=? AND portal_enabled=1', [token]
       );
       if (!group) return res.status(404).json({ error: 'not found' });
+
+  // ── Controllo finestra temporale portale ────────────────────────────────
+  if (group) {
+    const _now = new Date().toISOString().slice(0, 16);
+    if (group.portal_open_from && _now < group.portal_open_from) {
+      const dtA = new Date(group.portal_open_from).toLocaleString('it-IT', { dateStyle: 'long', timeStyle: 'short' });
+      return res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+        body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f2f5;margin:0}
+        .b{background:#fff;border-radius:12px;padding:2.5rem 3rem;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.1);max-width:460px}
+        h2{color:#1e2d4e}p{color:#64748b}</style></head>
+        <body><div class="b"><div style="font-size:3rem">&#x23F3;</div>
+        <h2>Portale non ancora aperto</h2>
+        <p>La finestra di accesso apre il <strong>${dtA}</strong></p>
+        </div></body></html>`);
+    }
+    if (group.portal_open_until && _now > group.portal_open_until) {
+      const dtC = new Date(group.portal_open_until).toLocaleString('it-IT', { dateStyle: 'long', timeStyle: 'short' });
+      return res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+        body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f2f5;margin:0}
+        .b{background:#fff;border-radius:12px;padding:2.5rem 3rem;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.1);max-width:460px}
+        h2{color:#c0392b}p{color:#64748b}</style></head>
+        <body><div class="b"><div style="font-size:3rem">&#x1F512;</div>
+        <h2>Finestra inserimento chiusa</h2>
+        <p>Il termine per i nominativi era il <strong>${dtC}</strong>.<br>Contatta l'organizzazione per un'estensione.</p>
+        </div></body></html>`);
+    }
+  }
+  // ── Fine controllo finestra ──────────────────────────────────────────────
+
       const anns = await dbAll(`SELECT id FROM announcements WHERE expires_at IS NULL OR expires_at > datetime('now')`);
       for (const a of anns) {
         await dbRun(
@@ -1632,6 +1686,17 @@ app.get('/home', requireAuth, (req, res) => {
         dbGet(`SELECT value FROM app_settings WHERE key='map_ref_h'`, [])
       ]);
 
+      // ── CRM: carica docs portale e ticket ───────────────────
+      const _qpAll = (sql, p) => new Promise((ok, ko) => db.all(sql, p, (e, r) => e ? ko(e) : ok(r)));
+      const [portalDocs, ticketsRaw] = await Promise.all([
+        _qpAll('SELECT * FROM portal_documents WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [group.id]),
+        _qpAll('SELECT * FROM support_tickets  WHERE assignment_group_id=? ORDER BY created_at DESC',  [group.id]),
+      ]);
+      for (const t of ticketsRaw) {
+        t.replies = await _qpAll('SELECT * FROM ticket_replies WHERE ticket_id=? ORDER BY created_at ASC', [t.id]);
+      }
+      // ── Fine CRM ─────────────────────────────────────────────
+
       res.render('portale', {
         group,
         parts:        parts       || [],
@@ -1642,7 +1707,9 @@ app.get('/home', requireAuth, (req, res) => {
         zoneInfo:     zoneInfo    || null,
         zoneStands:   zoneStands  || [],
         mapRefW:      (refWRow && refWRow.value) ? parseInt(refWRow.value,10) : null,
-        mapRefH:      (refHRow && refHRow.value) ? parseInt(refHRow.value,10) : null
+        mapRefH:      (refHRow && refHRow.value) ? parseInt(refHRow.value,10) : null,
+        portalDocs:   portalDocs  || [],
+        tickets:      ticketsRaw  || [],
       });
     } catch(err) {
       console.error('Errore GET /portale/:token:', err);
