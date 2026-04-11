@@ -1087,6 +1087,7 @@ function maronnoForza() {
               <a href="/admin/portal-docs/<%= pd.id %>/download" target="_blank"
                  style="background:#1d6fa4;color:#fff;border-radius:6px;font-size:.72rem;font-weight:700;padding:.28rem .65rem;text-decoration:none;white-space:nowrap;">⬇ Scarica</a>
               <form method="POST" action="/admin/portal-docs/<%= pd.id %>/review" style="display:inline;margin:0;">
+                <input type="hidden" name="redirect_to" value="/assignment-groups/<%= groupInfo.id %>#tab-documenti">
                 <select name="status" onchange="this.form.submit()"
                   style="font-size:.72rem;border:1px solid #d1d9e6;border-radius:6px;padding:.25rem .4rem;background:#fff;cursor:pointer;color:#1a2744;">
                   <option value="ricevuto"     <%=pd.status==='ricevuto'?'selected':''%>>Ricevuto</option>

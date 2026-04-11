@@ -212,9 +212,9 @@ module.exports = function(app, db, deps) {
         [status, req.session.user.id, review_notes || null, did]
       );
       logAction(req.session.user.id, 'review_portal_doc', 'portal_document', did, `Stato → ${status}`);
-      // Redirect back alla pagina del gruppo (la form usa submit sincrono)
-      const ref = req.get('Referer') || '/';
-      res.redirect(ref);
+      // Redirect back alla scheda documenti del gruppo
+      const redirectTo = req.body.redirect_to || req.get('Referer') || '/';
+      res.redirect(redirectTo);
     } catch(e) { res.status(500).json({ error: e.message }); }
   });
 
