@@ -20,6 +20,7 @@
   --shadow:0 1px 3px rgba(30,45,78,.10),0 4px 16px rgba(30,45,78,.07);
   --shadow-md:0 3px 10px rgba(30,45,78,.13);
   --shadow-lg:0 8px 32px rgba(30,45,78,.16);
+  --accent:var(--navy);
 }
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.55}
 a{color:inherit;text-decoration:none}
@@ -659,7 +660,7 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:.75rem;">
-        <button type="submit" id="portal-doc-btn" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:.5rem 1.2rem;font-size:.84rem;font-weight:700;cursor:pointer;">⬆ Carica documento</button>
+        <button type="submit" id="portal-doc-btn" style="background:var(--navy);color:#fff;border:none;border-radius:8px;padding:.5rem 1.2rem;font-size:.84rem;font-weight:700;cursor:pointer;transition:background .18s;">⬆ Carica documento</button>
         <span id="portal-doc-msg" style="font-size:.78rem;"></span>
       </div>
     </form>
@@ -724,7 +725,7 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
           <textarea name="message" required rows="3" placeholder="Descrivi la tua richiesta…" style="width:100%;padding:.42rem .65rem;border-radius:7px;border:1.5px solid #d1d9e6;font-size:.83rem;resize:vertical;font-family:inherit;"></textarea>
         </div>
         <div style="display:flex;align-items:center;gap:.75rem;">
-          <button type="submit" id="ticket-btn" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:.5rem 1.2rem;font-size:.84rem;font-weight:700;cursor:pointer;">📨 Invia richiesta</button>
+          <button type="submit" id="ticket-btn" style="background:var(--navy);color:#fff;border:none;border-radius:8px;padding:.5rem 1.2rem;font-size:.84rem;font-weight:700;cursor:pointer;transition:background .18s;">📨 Invia richiesta</button>
           <span id="ticket-msg" style="font-size:.78rem;"></span>
         </div>
       </form>
