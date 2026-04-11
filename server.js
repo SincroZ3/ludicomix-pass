@@ -430,25 +430,21 @@ app.get('/home', requireAuth, (req, res) => {
                 _crmQ('SELECT * FROM contacts        WHERE assignment_group_id=? ORDER BY is_primary DESC, name', [id]),
                 _crmQ('SELECT * FROM payments        WHERE assignment_group_id=? ORDER BY created_at DESC', [id]),
                 _crmQ('SELECT * FROM group_documents WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [id]),
-                _crmQ('SELECT * FROM portal_documents WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [id]),
-              ]).then(function([contacts, payments, groupDocs, portalDocs]) {
+              ]).then(function([contacts, payments, groupDocs]) {
                 res.render('assignment_group_detail', {
                   groupInfo, types, participants, PASS_STATUSES,
                   dupSkipped, dupTotal, zones: zones || [],
                   importOk, importSkip, importErrs, replaceOk,
                   autoPasses: autoPasses || [],
-                  contacts, payments, groupDocs, portalDocs,
-                  isViewer: req.session.user && req.session.user.role === 'viewer'
+                  contacts, payments, groupDocs
                 });
-              }).catch(function(crmErr) {
-                console.error('CRM Promise.all error:', crmErr);
+              }).catch(function() {
                 res.render('assignment_group_detail', {
                   groupInfo, types, participants, PASS_STATUSES,
                   dupSkipped, dupTotal, zones: zones || [],
                   importOk, importSkip, importErrs, replaceOk,
                   autoPasses: autoPasses || [],
-                  contacts: [], payments: [], groupDocs: [], portalDocs: [],
-                  isViewer: req.session.user && req.session.user.role === 'viewer'
+                  contacts: [], payments: [], groupDocs: []
                 });
               });
             });
@@ -1642,6 +1638,53 @@ app.get('/home', requireAuth, (req, res) => {
         [token]
       );
       if (!group) return res.status(404).send('<h2 style="font-family:sans-serif;padding:2rem">Portale non disponibile.</h2>');
+
+      // ── Controllo finestra temporale portale ──────────────────────────────
+      if (group.portal_open_from || group.portal_open_until) {
+        const now = new Date().toISOString().slice(0, 16);
+        if (group.portal_open_from && now < group.portal_open_from) {
+          const dt = new Date(group.portal_open_from).toLocaleString('it-IT',
+            {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+          return res.status(403).send(`<!DOCTYPE html><html><head><meta charset="utf-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1">
+            <style>*{box-sizing:border-box;margin:0;padding:0}
+            body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;
+              min-height:100vh;background:#f8fafc}
+            .box{background:#fff;border-radius:16px;padding:2.5rem 2rem;max-width:420px;width:90%;
+              text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.1)}
+            h2{color:#1a2744;font-size:1.3rem;margin:.8rem 0 .6rem}
+            p{color:#64748b;line-height:1.7;font-size:.92rem}
+            .hl{font-weight:700;color:#1d6fa4}</style>
+            </head><body><div class="box">
+              <div style="font-size:2.8rem;margin-bottom:.2rem">🔒</div>
+              <h2>Portale non ancora aperto</h2>
+              <p>Questo portale sarà disponibile a partire dal<br>
+              <span class="hl">\${dt}</span></p>
+            </div></body></html>`);
+        }
+        if (group.portal_open_until && now > group.portal_open_until) {
+          const dt = new Date(group.portal_open_until).toLocaleString('it-IT',
+            {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+          return res.status(403).send(`<!DOCTYPE html><html><head><meta charset="utf-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1">
+            <style>*{box-sizing:border-box;margin:0;padding:0}
+            body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;
+              min-height:100vh;background:#f8fafc}
+            .box{background:#fff;border-radius:16px;padding:2.5rem 2rem;max-width:420px;width:90%;
+              text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.1)}
+            h2{color:#1a2744;font-size:1.3rem;margin:.8rem 0 .6rem}
+            p{color:#64748b;line-height:1.7;font-size:.92rem}
+            .hl{font-weight:700;color:#c0392b}</style>
+            </head><body><div class="box">
+              <div style="font-size:2.8rem;margin-bottom:.2rem">⏱</div>
+              <h2>Finestra di inserimento chiusa</h2>
+              <p>Il periodo di inserimento si è concluso il<br>
+              <span class="hl">\${dt}</span><br><br>
+              Per assistenza contatta l'organizzazione.</p>
+            </div></body></html>`);
+        }
+      }
+      // ── Fine controllo finestra ──────────────────────────────────────────────
 
       const [parts, autoPasses, announcements, unreadRow, zoneInfo, zoneStands, refWRow, refHRow] = await Promise.all([
         dbAll(

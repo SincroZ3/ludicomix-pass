@@ -23,6 +23,7 @@
   <button type="button" class="crm-tab" data-tab="referenti" onclick="crmTab('referenti',this)">👤 Referenti<% if(typeof contacts!=='undefined'&&contacts.length){ %> <span class="crm-badge"><%= contacts.length %></span><% } %></button>
   <button type="button" class="crm-tab" data-tab="pagamenti" onclick="crmTab('pagamenti',this)">💳 Pagamenti<% if(typeof payments!=='undefined'&&payments.length){ %><% var _scad=payments.filter(function(p){return p.status==='scaduto';}).length; %><% if(_scad){ %> <span class="crm-badge crm-badge-danger"><%= _scad %> ⚠</span><% }else{ %> <span class="crm-badge"><%= payments.length %></span><% } %><% } %></button>
   <button type="button" class="crm-tab" data-tab="documenti" onclick="crmTab('documenti',this)">📁 Documenti<% if(typeof groupDocs!=='undefined'&&groupDocs.length){ %> <span class="crm-badge"><%= groupDocs.length %></span><% } %></button>
+  <button type="button" class="crm-tab" data-tab="ticket" onclick="crmTab('ticket',this)">🎫 Ticket<% if(typeof tickets!=='undefined'&&tickets){var _to=tickets.filter(function(t){return t.status==='aperto'});if(_to.length){%> <span class="badge-count" style="background:#e74c3c"><%= _to.length %></span><%}}%></button>
 <% } %>
 </div>
 <div id="tab-pass" class="crm-panel active">
@@ -884,14 +885,35 @@ function maronnoForza() {
   </div>
   <div style="border-top:1px solid #d1d9e6;padding-top:.85rem;">
     <div style="font-weight:700;font-size:.82rem;margin-bottom:.6rem;">⏱ Finestra inserimento nominativi</div>
-    <% var _pof=groupInfo.portal_open_from; var _pou=groupInfo.portal_open_until; %>
+    <% var _pof=groupInfo.portal_open_from; var _pou=groupInfo.portal_open_until;
+       var _now=new Date().toISOString().slice(0,16);
+       var _wStatus= (!_pof&&!_pou)?'sempre':
+                     (_pof&&_now<_pof)?'pre':
+                     (_pou&&_now>_pou)?'chiuso':'aperto'; %>
+
+    <%# Badge status finestra %>
+    <div style="margin-bottom:.7rem;">
+      <% if(_wStatus==='sempre'){ %>
+        <span style="background:#dcfce7;color:#166534;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px;">🟢 Sempre aperto</span>
+        <span style="font-size:.78rem;color:#94a3b8;margin-left:.5rem;">Nessuna finestra impostata</span>
+      <% }else if(_wStatus==='pre'){ %>
+        <span style="background:#fef9c3;color:#854d0e;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px;">🟡 Non ancora aperto</span>
+        <span style="font-size:.78rem;color:#64748b;margin-left:.5rem;">Apertura: <strong><%= new Date(_pof).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'}) %></strong></span>
+      <% }else if(_wStatus==='chiuso'){ %>
+        <span style="background:#fee2e2;color:#991b1b;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px;">🔴 Finestra chiusa</span>
+        <span style="font-size:.78rem;color:#64748b;margin-left:.5rem;">Chiusa il: <strong><%= new Date(_pou).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'}) %></strong></span>
+      <% }else{ %>
+        <span style="background:#dcfce7;color:#166534;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px;">🟢 Aperto</span>
+        <% if(_pof){ %><span style="font-size:.78rem;color:#64748b;margin-left:.5rem;">Dal <strong><%= new Date(_pof).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'}) %></strong></span><% } %>
+        <% if(_pou){ %><span style="font-size:.78rem;color:#64748b;margin-left:.3rem;">fino al <strong><%= new Date(_pou).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'}) %></strong></span><% } %>
+      <% } %>
+    </div>
+
     <% if(_pof||_pou){ %>
-      <div style="font-size:.8rem;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:.5rem .75rem;margin-bottom:.6rem;display:flex;gap:1.5rem;flex-wrap:wrap;">
-        <span>📅 Apertura: <strong><%= _pof?new Date(_pof).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'}):'—' %></strong></span>
-        <span>🔒 Chiusura: <strong><%= _pou?new Date(_pou).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'}):'—' %></strong></span>
+      <div style="font-size:.79rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:.5rem .8rem;margin-bottom:.7rem;display:flex;gap:1.2rem;flex-wrap:wrap;">
+        <% if(_pof){ %><span>📅 Apertura: <strong><%= new Date(_pof).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'}) %></strong></span><% } %>
+        <% if(_pou){ %><span>🔒 Chiusura: <strong><%= new Date(_pou).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'}) %></strong></span><% } %>
       </div>
-    <% } else { %>
-      <p style="font-size:.8rem;color:#9ca3af;margin-bottom:.6rem;">Nessuna finestra impostata — portale sempre accessibile quando abilitato.</p>
     <% } %>
     <form id="window-form" style="display:grid;grid-template-columns:1fr 1fr auto;gap:.6rem;align-items:end;">
       <label style="font-size:.8rem;font-weight:600;">Apertura<br><input type="datetime-local" name="portal_open_from" value="<%= _pof?_pof.substring(0,16):'' %>" style="margin-top:.25rem;width:100%;"></label>
@@ -1109,6 +1131,68 @@ function maronnoForza() {
 </div>
 <% } %>
 </div><!-- /tab-documenti -->
+
+
+<!-- ══════ TAB TICKET ══════ -->
+<div id="tab-ticket" class="crm-panel">
+  <% if(typeof tickets!=='undefined'&&tickets&&tickets.length){ %>
+    <% tickets.forEach(function(tk){ %>
+    <%
+      var _tkOpen = tk.status==='aperto';
+      var _tkBorder = _tkOpen ? '#1d6fa4' : '#9ca3af';
+      var _tkBadgeBg = _tkOpen ? '#dbeafe' : '#f1f5f9';
+      var _tkBadgeFg = _tkOpen ? '#1d4ed8' : '#64748b';
+    %>
+    <div class="card" style="margin-bottom:.85rem;border-left:3px solid <%=_tkBorder%>;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem;gap:.5rem;flex-wrap:wrap;">
+        <div>
+          <span style="font-weight:700;color:#1a2744;font-size:.88rem;">#<%= tk.id %> — <%= tk.subject %></span>
+          <span style="font-size:.73rem;color:#94a3b8;margin-left:.5rem;"><%= new Date(tk.created_at).toLocaleString('it-IT') %></span>
+        </div>
+        <span style="font-size:.73rem;font-weight:700;padding:.2rem .65rem;border-radius:20px;white-space:nowrap;background:<%=_tkBadgeBg%>;color:<%=_tkBadgeFg%>;">
+          <%=_tkOpen?'🟢 Aperto':'⚫ Chiuso'%>
+        </span>
+      </div>
+      <p style="font-size:.82rem;color:#475569;margin-bottom:.6rem;background:#f8fafc;border-radius:6px;padding:.5rem .75rem;border-left:2px solid #e2e8f0;"><%= tk.message %></p>
+
+      <% if(tk.replies&&tk.replies.length){ %>
+        <div style="display:grid;gap:.35rem;margin-bottom:.7rem;">
+          <% tk.replies.forEach(function(r){ %>
+          <%
+            var _rBg = r.is_admin ? '#eff6ff' : '#f8fafc';
+            var _rBorder = r.is_admin ? '#1d6fa4' : '#d1d9e6';
+            var _rColor  = r.is_admin ? '#1d6fa4' : '#475569';
+            var _rAuthor = r.is_admin ? ('👤 ' + (r.author_name||'Staff')) : (r.author_name||'Espositore');
+          %>
+          <div style="font-size:.78rem;padding:.4rem .75rem;border-radius:6px;background:<%=_rBg%>;border-left:2px solid <%=_rBorder%>;">
+            <span style="font-weight:700;color:<%=_rColor%>;"><%= _rAuthor %></span>
+            <span style="color:#94a3b8;margin-left:.4rem;font-size:.7rem;"><%= new Date(r.created_at).toLocaleString('it-IT') %></span><br>
+            <span style="color:#334155;"><%= r.message %></span>
+          </div>
+          <% }); %>
+        </div>
+      <% } %>
+
+      <% if(_tkOpen&&(!isViewer)){ %>
+      <div style="display:flex;gap:.5rem;align-items:flex-end;">
+        <textarea id="reply-<%= tk.id %>" rows="2" placeholder="Scrivi risposta…"
+          style="flex:1;font-size:.8rem;border:1px solid #d1d9e6;border-radius:6px;padding:.4rem .65rem;resize:vertical;min-height:56px;font-family:inherit;"></textarea>
+        <div style="display:flex;flex-direction:column;gap:.3rem;">
+          <button type="button" onclick="adminTicketReply(<%= tk.id %>)"
+            style="background:#1d6fa4;color:#fff;border:none;border-radius:6px;padding:.4rem .85rem;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap;">↩ Rispondi</button>
+          <button type="button" onclick="adminTicketClose(<%= tk.id %>)"
+            style="background:#f1f5f9;color:#475569;border:none;border-radius:6px;padding:.4rem .85rem;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Chiudi</button>
+        </div>
+      </div>
+      <div id="ticket-msg-<%= tk.id %>" style="display:none;font-size:.76rem;margin-top:.35rem;"></div>
+      <% } %>
+    </div>
+    <% }); %>
+  <% }else{ %>
+    <p style="color:#94a3b8;font-size:.83rem;font-style:italic;padding:.5rem 0;">Nessun ticket ricevuto dagli espositori.</p>
+  <% } %>
+</div><!-- /tab-ticket -->
+
 <script>
 /* ── Tab switching ── */
 function crmTab(tabId, btn) {
@@ -1342,6 +1426,36 @@ function mostraStorico(passId) {
     });
   // Chiudi cliccando fuori dal modal
   modal.onclick = function(e){ if(e.target===modal) modal.style.display='none'; };
+}
+
+
+// ── Ticket admin ──────────────────────────────────────────────────────────
+function adminTicketReply(tid) {
+  const ta  = document.getElementById('reply-' + tid);
+  const msg = ta ? ta.value.trim() : '';
+  const out = document.getElementById('ticket-msg-' + tid);
+  if (!msg) { if(out){out.style.display='block';out.style.color='#c0392b';out.textContent='Scrivi un messaggio prima di inviare.';}return; }
+  fetch('/admin/tickets/' + tid + '/reply', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: msg })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.ok) { location.reload(); }
+    else { if(out){out.style.display='block';out.style.color='#c0392b';out.textContent=d.error||'Errore invio.';} }
+  })
+  .catch(function(){ if(out){out.style.display='block';out.style.color='#c0392b';out.textContent='Errore di rete.';} });
+}
+
+function adminTicketClose(tid) {
+  if (!confirm('Chiudere questo ticket? L\'azione è irreversibile.')) return;
+  fetch('/admin/tickets/' + tid + '/close', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){ if (d.ok) location.reload(); });
 }
 
 </script>
