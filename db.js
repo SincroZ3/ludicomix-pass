@@ -236,14 +236,8 @@ db.dbPath = dbPath;
 // ═══════════════════════════════════════════════════════
 db.serialize(function() {
 
-  db.run('DROP TABLE IF EXISTS ticket_replies');
-  db.run('DROP TABLE IF EXISTS support_tickets');
-  db.run('DROP TABLE IF EXISTS portal_documents');
-  db.run('DROP TABLE IF EXISTS group_documents');
-  db.run('DROP TABLE IF EXISTS payments');
-  db.run('DROP TABLE IF EXISTS contacts');
 
-  db.run(`CREATE TABLE contacts (
+  db.run(`CREATE TABLE IF NOT EXISTS contacts (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     assignment_group_id INTEGER NOT NULL,
     name                TEXT    NOT NULL,
@@ -255,7 +249,7 @@ db.serialize(function() {
     FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
   )`);
 
-  db.run(`CREATE TABLE payments (
+  db.run(`CREATE TABLE IF NOT EXISTS payments (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     assignment_group_id INTEGER NOT NULL,
     description         TEXT    NOT NULL,
@@ -268,7 +262,7 @@ db.serialize(function() {
     FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
   )`);
 
-  db.run(`CREATE TABLE group_documents (
+  db.run(`CREATE TABLE IF NOT EXISTS group_documents (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     assignment_group_id INTEGER NOT NULL,
     filename            TEXT    NOT NULL,
@@ -281,7 +275,7 @@ db.serialize(function() {
     FOREIGN KEY(uploaded_by) REFERENCES users(id)
   )`);
 
-  db.run(`CREATE TABLE portal_documents (
+  db.run(`CREATE TABLE IF NOT EXISTS portal_documents (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     assignment_group_id INTEGER NOT NULL,
     doc_type            TEXT    NOT NULL,
@@ -295,7 +289,7 @@ db.serialize(function() {
     FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
   )`);
 
-  db.run(`CREATE TABLE support_tickets (
+  db.run(`CREATE TABLE IF NOT EXISTS support_tickets (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     assignment_group_id INTEGER NOT NULL,
     portal_token        TEXT    NOT NULL,
@@ -307,7 +301,7 @@ db.serialize(function() {
     FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id)
   )`);
 
-  db.run(`CREATE TABLE ticket_replies (
+  db.run(`CREATE TABLE IF NOT EXISTS ticket_replies (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     ticket_id   INTEGER NOT NULL,
     message     TEXT    NOT NULL,
