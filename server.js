@@ -430,21 +430,25 @@ app.get('/home', requireAuth, (req, res) => {
                 _crmQ('SELECT * FROM contacts        WHERE assignment_group_id=? ORDER BY is_primary DESC, name', [id]),
                 _crmQ('SELECT * FROM payments        WHERE assignment_group_id=? ORDER BY created_at DESC', [id]),
                 _crmQ('SELECT * FROM group_documents WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [id]),
-              ]).then(function([contacts, payments, groupDocs]) {
+                _crmQ('SELECT * FROM portal_documents WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [id]),
+              ]).then(function([contacts, payments, groupDocs, portalDocs]) {
                 res.render('assignment_group_detail', {
                   groupInfo, types, participants, PASS_STATUSES,
                   dupSkipped, dupTotal, zones: zones || [],
                   importOk, importSkip, importErrs, replaceOk,
                   autoPasses: autoPasses || [],
-                  contacts, payments, groupDocs
+                  contacts, payments, groupDocs, portalDocs,
+                  isViewer: req.session.user && req.session.user.role === 'viewer'
                 });
-              }).catch(function() {
+              }).catch(function(crmErr) {
+                console.error('CRM Promise.all error:', crmErr);
                 res.render('assignment_group_detail', {
                   groupInfo, types, participants, PASS_STATUSES,
                   dupSkipped, dupTotal, zones: zones || [],
                   importOk, importSkip, importErrs, replaceOk,
                   autoPasses: autoPasses || [],
-                  contacts: [], payments: [], groupDocs: []
+                  contacts: [], payments: [], groupDocs: [], portalDocs: [],
+                  isViewer: req.session.user && req.session.user.role === 'viewer'
                 });
               });
             });
