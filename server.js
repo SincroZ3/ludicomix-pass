@@ -44,7 +44,6 @@ const app = express();
 
   // ✅ FIX: Railway usa reverse proxy - necessario per express-rate-limit e sessioni sicure
   app.set('trust proxy', 1);
-crmRoutes(app, db, { requireAuth, requireNotViewer, requireOrganizer, logAction, uploadMemory });
 
 
   const DATA_DIR = process.env.DATA_DIR || __dirname;
@@ -90,6 +89,9 @@ crmRoutes(app, db, { requireAuth, requireNotViewer, requireOrganizer, logAction,
 
   const upload = multer({ dest: path.join(process.env.DATA_DIR || __dirname, 'templates') });
   const uploadMemory = multer({ storage: multer.memoryStorage(), limits:{ fileSize:2*1024*1024 } });
+
+crmRoutes(app, db, { requireAuth, requireNotViewer, requireOrganizer, logAction, uploadMemory });
+
 
   // ══════════════════════════════════════════════════════
   // GERARCHIA RUOLI
