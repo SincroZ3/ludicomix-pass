@@ -19,7 +19,7 @@
 
 <!-- ===== TAB 1: ZONE ===== -->
 <div id="panel-zone" class="settings-panel">
-  <div class="card">
+  <div class="card" style="border-top:3px solid var(--accent-blue,#1d6fa4);">
     <div class="card-title">Aggiungi nuova Zona / Padiglione</div>
     <form method="post" action="/admin/zones"
           style="display:grid;grid-template-columns:1fr 140px auto;gap:0.75rem 1rem;align-items:end;">
@@ -70,7 +70,7 @@
 
 <!-- ===== TAB 2: RAGGRUPPAMENTI ===== -->
 <div id="panel-raggruppamenti" class="settings-panel" style="display:none">
-  <div class="card">
+  <div class="card" style="border-top:3px solid var(--accent-blue,#1d6fa4);">
     <div class="card-title">Aggiungi nuovo Raggruppamento Pass</div>
     <form method="post" action="/groups"
           style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:0.75rem 1rem;align-items:end;">
@@ -128,7 +128,7 @@
 
 <!-- ===== TAB 3: TIPOLOGIE PASS PDF ===== -->
 <div id="panel-tipologie" class="settings-panel" style="display:none">
-  <div class="card">
+  <div class="card" style="border-top:3px solid var(--accent-blue,#1d6fa4);">
     <div class="card-title">Aggiungi nuova Tipologia Pass PDF</div>
     <form method="post" action="/pass-types" enctype="multipart/form-data" style="display:grid;gap:0.75rem;">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem 1rem;">
@@ -277,33 +277,6 @@
       </div>
     </form>
   </div>
-</div>
-
-<!-- ====== PANEL BACKUP ====== -->
-
-<div id="panel-notifiche" class="settings-panel" style="display:none;">
-  <div class="card" style="border-top:3px solid #1d6fa4;"><div class="card-title">&#128231; Configurazione Email (SMTP)</div>
-  <form method="post" action="/admin/settings/smtp" id="smtp-form" style="display:grid;gap:.8rem;max-width:520px;margin-top:.75rem;">
-    <div style="display:grid;grid-template-columns:1fr 90px 130px;gap:.6rem;">
-      <label style="font-size:.82rem;font-weight:700;">Host SMTP<br><input type="text" name="smtp_host" value="<%= smtp.smtp_host||'' %>" placeholder="smtp.gmail.com" style="width:100%;margin-top:.3rem;"></label>
-      <label style="font-size:.82rem;font-weight:700;">Porta<br><input type="number" name="smtp_port" value="<%= smtp.smtp_port||'587' %>" style="width:100%;margin-top:.3rem;"></label>
-      <label style="font-size:.82rem;font-weight:700;">Sicurezza<br><select name="smtp_secure" style="width:100%;margin-top:.3rem;"><option value="0" <%= smtp.smtp_secure==='1'?'':' selected' %>>STARTTLS</option><option value="1" <%= smtp.smtp_secure==='1'?' selected':'' %>>SSL/TLS</option></select></label>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
-      <label style="font-size:.82rem;font-weight:700;">Username<br><input type="text" name="smtp_user" value="<%= smtp.smtp_user||'' %>" style="width:100%;margin-top:.3rem;"></label>
-      <label style="font-size:.82rem;font-weight:700;">Password<br><input type="password" name="smtp_pass" value="<%= smtp.smtp_pass||'' %>" style="width:100%;margin-top:.3rem;"></label>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
-      <label style="font-size:.82rem;font-weight:700;">Mittente<br><input type="email" name="smtp_from" value="<%= smtp.smtp_from||'' %>" placeholder="noreply@ludicomix.it" style="width:100%;margin-top:.3rem;"></label>
-      <label style="font-size:.82rem;font-weight:700;">Destinatario<br><input type="email" name="smtp_to" value="<%= smtp.smtp_to||'' %>" placeholder="admin@ludicomix.it" style="width:100%;margin-top:.3rem;"></label>
-    </div>
-    <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;">
-      <button type="submit" class="primary">&#128190; Salva SMTP</button>
-      <button type="button" class="secondary" id="btn-smtp-test" style="font-size:.82rem;">&#128231; Test email</button>
-    </div>
-    <div id="smtp-result" style="display:none;font-size:.82rem;padding:.4rem .7rem;border-radius:6px;"></div>
-  </form></div>
-  <div class="card"><div class="card-title">&#128276; Centro Notifiche</div><p style="font-size:.82rem;margin-bottom:.75rem;">Storico eventi critici.</p><a href="/notifications" class="secondary" style="font-size:.82rem;">Vai alle notifiche &rarr;</a></div>
 </div>
 
 <div id="panel-notifiche" class="settings-panel" style="display:none;">
@@ -530,7 +503,7 @@
 
 
 <div id="panel-scan" class="settings-panel" style="display:none;">
-  <div class="card" style="overflow-x:auto">
+  <div class="card" style="border-top:3px solid var(--accent-blue,#1d6fa4);overflow-x:auto">
     <%
     var SA_LABELS={SUCCESS:'Consegnato',NOT_FOUND:'Non trovato',INVALIDATO:'Invalidato',GIA_CONSEGNATO:'Gia consegnato',GIA_RICONSEGNATO:'Gia riconsegnato'};
     var SA_CLS={SUCCESS:'sa-ok',NOT_FOUND:'sa-err',INVALIDATO:'sa-err',GIA_CONSEGNATO:'sa-warn',GIA_RICONSEGNATO:'sa-warn'};
@@ -583,7 +556,7 @@
   <% const apTmpl = (apSettings && apSettings.ap_template) ? apSettings.ap_template : null; %>
 
   <!-- Upload template -->
-  <div class="card" style="margin-bottom:1rem;">
+  <div class="card" style="border-top:3px solid var(--accent-blue,#1d6fa4);margin-bottom:1rem;">
     <div class="card-title">&#128196; Template PDF base</div>
     <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:.75rem;">
       Carica il PDF base del pass parcheggio. I campi <strong>Espositore</strong>, <strong>n.</strong> e <strong>di</strong> verranno compilati automaticamente al momento della generazione.
@@ -600,7 +573,7 @@
     <% } %>
     <form method="POST" action="/admin/settings/auto-pass-template" enctype="multipart/form-data" style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">
       <input type="file" name="auto_pass_template" accept=".pdf" required style="font-size:.82rem;">
-      <button type="submit" class="btn btn-primary" style="font-size:.8rem;padding:.38rem .9rem;">&#128640; Carica template</button>
+      <button type="submit" class="primary" style="font-size:.8rem;padding:.38rem .9rem;">&#128640; Carica template</button>
     </form>
   </div>
 
@@ -624,13 +597,12 @@
         <label style="font-size:.8rem;display:grid;gap:.2rem;">QR tracking Y<input type="number" name="ap_qr_y" value="<%=apS.ap_qr_y||45%>" class="form-control" style="font-size:.82rem;padding:.3rem .5rem;"></label>
         <label style="font-size:.8rem;display:grid;gap:.2rem;">QR tracking dimensione<input type="number" name="ap_qr_size" value="<%=apS.ap_qr_size||80%>" class="form-control" style="font-size:.82rem;padding:.3rem .5rem;"></label>
       </div>
-      <button type="submit" class="btn btn-primary" style="font-size:.8rem;padding:.38rem .9rem;">&#10003; Salva coordinate</button>
+      <button type="submit" class="primary" style="font-size:.8rem;padding:.38rem .9rem;">&#10003; Salva coordinate</button>
     </form>
   </div>
 </div>
 
 
-<
 
 <script>
 (function () {
@@ -687,5 +659,25 @@ function apriModificaGruppo(id, name, priority, passTypeId) {
   if(rows.length)update();
 })();
 </script>
+
+
+<!-- ===== FLOATING BUTTON: Finestra Portali ===== -->
+<style>
+  #btn-finestra-portali {
+    position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 1200;
+    background: #7c3aed; color: #fff;
+    border: none; border-radius: 10px;
+    padding: .65rem 1.1rem;
+    font-size: .85rem; font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(124,58,237,.35);
+    display: inline-flex; align-items: center; gap: .45rem;
+    transition: background .15s, transform .15s;
+  }
+  #btn-finestra-portali:hover { background: #6d28d9; transform: translateY(-2px); }
+</style>
+<button id="btn-finestra-portali" onclick="window.open('/portale','finestra-portali','width=1200,height=800,resizable=yes,scrollbars=yes')">
+  &#128266; Finestra Portali
+</button>
 
 <%- include('partials/footer') %>
