@@ -430,37 +430,21 @@ app.get('/home', requireAuth, (req, res) => {
                 _crmQ('SELECT * FROM contacts        WHERE assignment_group_id=? ORDER BY is_primary DESC, name', [id]),
                 _crmQ('SELECT * FROM payments        WHERE assignment_group_id=? ORDER BY created_at DESC', [id]),
                 _crmQ('SELECT * FROM group_documents WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [id]),
-                _crmQ('SELECT * FROM portal_documents WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [id]),
-                _crmQ('SELECT * FROM support_tickets  WHERE assignment_group_id=? ORDER BY created_at DESC', [id]),
-              ]).then(async function([contacts, payments, groupDocs, portalDocsRaw, ticketsRaw]) {
-                // Carica le risposte di ogni ticket (fault-tolerant)
-                let portalDocs = portalDocsRaw || [];
-                const safeTix = ticketsRaw || [];
-                for (const t of safeTix) {
-                  t.replies = await new Promise((ok) =>
-                    db.all('SELECT * FROM ticket_replies WHERE ticket_id=? ORDER BY created_at ASC',
-                      [t.id], (e, r) => ok(r || []))
-                  );
-                }
+              ]).then(function([contacts, payments, groupDocs]) {
                 res.render('assignment_group_detail', {
                   groupInfo, types, participants, PASS_STATUSES,
                   dupSkipped, dupTotal, zones: zones || [],
                   importOk, importSkip, importErrs, replaceOk,
                   autoPasses: autoPasses || [],
-                  contacts, payments, groupDocs,
-                  portalDocs, tickets: safeTix,
-                  isViewer: req.session.user && req.session.user.role === 'viewer'
+                  contacts, payments, groupDocs
                 });
-              }).catch(function(crmErr) {
-                console.error('[CRM] Errore caricamento dati scheda stand:', crmErr);
+              }).catch(function() {
                 res.render('assignment_group_detail', {
                   groupInfo, types, participants, PASS_STATUSES,
                   dupSkipped, dupTotal, zones: zones || [],
                   importOk, importSkip, importErrs, replaceOk,
                   autoPasses: autoPasses || [],
-                  contacts: [], payments: [], groupDocs: [],
-                  portalDocs: [], tickets: [],
-                  isViewer: req.session.user && req.session.user.role === 'viewer'
+                  contacts: [], payments: [], groupDocs: []
                 });
               });
             });
@@ -1215,7 +1199,7 @@ app.get('/home', requireAuth, (req, res) => {
   // ✅ FIX: refactored con async/await + Promise.all (parallelizza 7 query)
   app.get('/admin/settings', requireAuth, requireAdmin, async (req, res) => {
     try {
-      const [groups, types, zones, users, smtpRows, scanAttempts, apRows] = await Promise.all([
+      const [groups, types, zones, users, smtpRows, scanAttempts, apRows, portalGroups] = await Promise.all([
         dbAll(`SELECT g.id, g.name, g.priority, g.pass_type_id, pt.name AS pass_type_name
                FROM groups g LEFT JOIN pass_types pt ON pt.id = g.pass_type_id
                ORDER BY g.priority ASC, g.name ASC`),
@@ -1224,19 +1208,43 @@ app.get('/home', requireAuth, (req, res) => {
         dbAll('SELECT id, username, role, created_at FROM users ORDER BY username ASC'),
         dbAll("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'"),
         dbAll('SELECT sa.*, u.username FROM scan_attempts sa LEFT JOIN users u ON u.id=sa.user_id ORDER BY sa.id DESC LIMIT 500'),
-        dbAll('SELECT * FROM app_settings')
+        dbAll('SELECT * FROM app_settings'),
+        dbAll(`SELECT ag.id, ag.name, ag.portal_open_from, ag.portal_open_until,
+          (SELECT COUNT(*) FROM participants WHERE assignment_group_id=ag.id) AS n_participants
+          FROM assignment_groups ag WHERE ag.portal_enabled=1 ORDER BY ag.name`)
       ]);
       const smtp = Object.fromEntries((smtpRows||[]).map(r => [r.key, r.value]));
       const apSettings = Object.fromEntries((apRows||[]).map(r => [r.key, r.value]));
-      res.render('admin_settings', { groups, types, zones, users, smtp, scanAttempts: scanAttempts||[], apSettings }, function(err, html) {
-      if (err) { console.error(err); return res.status(500).send('Errore rendering'); }
-      const _pwInject = `<a href="/admin/portal-window" title="Gestisci la finestra di inserimento per tutti i portali espositori" style="position:fixed;bottom:24px;right:24px;z-index:9999;background:#6b3fa0;color:#fff;border-radius:50px;padding:.65rem 1.25rem;font-size:.82rem;font-weight:700;text-decoration:none;box-shadow:0 4px 16px rgba(107,63,160,.4);display:flex;align-items:center;gap:.45rem;white-space:nowrap;">🗓 Finestra Portali</a>`;
-      // replace case-insensitive per compatibilità con varie versioni di admin_settings.ejs
-      res.send(html.replace(/<\/body>/i, _pwInject + '\n</body>'));
-    });
+      res.render('admin_settings', { groups, types, zones, users, smtp, scanAttempts: scanAttempts||[], apSettings, portalGroups: portalGroups||[] });
     } catch (err) {
       console.error('Errore /admin/settings:', err);
       res.status(500).send('Errore interno del server');
+    }
+  });
+
+
+  // -------- Finestra Portali (date globali apertura/chiusura) --------
+  app.post('/admin/settings/portal-window', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { portal_window_from, portal_window_until, apply_to_all, group_ids } = req.body;
+      await dbRun('INSERT OR REPLACE INTO app_settings(key,value) VALUES(?,?)', 'portal_window_from', portal_window_from||'');
+      await dbRun('INSERT OR REPLACE INTO app_settings(key,value) VALUES(?,?)', 'portal_window_until', portal_window_until||'');
+      if (apply_to_all === '1') {
+        await dbRun('UPDATE assignment_groups SET portal_open_from=NULL, portal_open_until=NULL WHERE portal_enabled=1');
+      } else if (group_ids) {
+        const ids = Array.isArray(group_ids) ? group_ids : [group_ids];
+        for (const id of ids) {
+          await dbRun(
+            'UPDATE assignment_groups SET portal_open_from=?, portal_open_until=? WHERE id=?',
+            portal_window_from||null, portal_window_until||null, parseInt(id,10)
+          );
+        }
+      }
+      logAction(req.session.user.id, 'update_portal_window', 'settings', null, 'Finestra portali aggiornata');
+      res.redirect('/admin/settings#portali');
+    } catch(err) {
+      console.error('Errore portal-window:', err);
+      res.status(500).send('Errore salvataggio finestra portali');
     }
   });
 
@@ -1529,11 +1537,7 @@ app.get('/home', requireAuth, (req, res) => {
       `);
       const readMap = Object.fromEntries(readCounts.map(r => [r.announcement_id, r.cnt]));
       const totalStands = (await dbGet(`SELECT COUNT(*) AS n FROM assignment_groups WHERE portal_enabled=1`)).n || 0;
-      res.render('admin_bacheca', { announcements, readMap, totalStands, saved: req.query.saved }, function(err, html) {
-      if (err) { console.error(err); return res.status(500).send('Errore rendering'); }
-      const _pwBtn = `<a href="/admin/portal-window" title="Gestisci la finestra di inserimento portali" style="position:fixed;bottom:24px;right:24px;z-index:9999;background:#6b3fa0;color:#fff;border-radius:50px;padding:.65rem 1.25rem;font-size:.82rem;font-weight:700;text-decoration:none;box-shadow:0 4px 16px rgba(107,63,160,.4);display:flex;align-items:center;gap:.45rem;white-space:nowrap;">🗓 Finestra Portali</a>`;
-      res.send(html.replace(/<\/body>/i, _pwBtn + '\n</body>'));
-    });
+      res.render('admin_bacheca', { announcements, readMap, totalStands, saved: req.query.saved });
     } catch(err) {
       console.error('Errore /admin/bacheca:', err);
       res.status(500).send('Errore interno');
@@ -1593,7 +1597,33 @@ app.get('/home', requireAuth, (req, res) => {
       );
       if (!group) return res.status(404).json({ error: 'not found' });
 
-
+  // ── Controllo finestra temporale portale ────────────────────────────────
+  if (group) {
+    const _now = new Date().toISOString().slice(0, 16);
+    if (group.portal_open_from && _now < group.portal_open_from) {
+      const dtA = new Date(group.portal_open_from).toLocaleString('it-IT', { dateStyle: 'long', timeStyle: 'short' });
+      return res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+        body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f2f5;margin:0}
+        .b{background:#fff;border-radius:12px;padding:2.5rem 3rem;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.1);max-width:460px}
+        h2{color:#1e2d4e}p{color:#64748b}</style></head>
+        <body><div class="b"><div style="font-size:3rem">&#x23F3;</div>
+        <h2>Portale non ancora aperto</h2>
+        <p>La finestra di accesso apre il <strong>${dtA}</strong></p>
+        </div></body></html>`);
+    }
+    if (group.portal_open_until && _now > group.portal_open_until) {
+      const dtC = new Date(group.portal_open_until).toLocaleString('it-IT', { dateStyle: 'long', timeStyle: 'short' });
+      return res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+        body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f2f5;margin:0}
+        .b{background:#fff;border-radius:12px;padding:2.5rem 3rem;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.1);max-width:460px}
+        h2{color:#c0392b}p{color:#64748b}</style></head>
+        <body><div class="b"><div style="font-size:3rem">&#x1F512;</div>
+        <h2>Finestra inserimento chiusa</h2>
+        <p>Il termine per i nominativi era il <strong>${dtC}</strong>.<br>Contatta l'organizzazione per un'estensione.</p>
+        </div></body></html>`);
+    }
+  }
+  // ── Fine controllo finestra ──────────────────────────────────────────────
 
       const anns = await dbAll(`SELECT id FROM announcements WHERE expires_at IS NULL OR expires_at > datetime('now')`);
       for (const a of anns) {
@@ -1627,144 +1657,6 @@ app.get('/home', requireAuth, (req, res) => {
     }
   });
 
-
-
-  // ── Admin: Impostazioni finestra portale globale ──────────────────────────
-  app.get('/admin/portal-window', requireAuth, requireOrganizer, async (req, res) => {
-    try {
-      const [apRows, groups] = await Promise.all([
-        dbAll("SELECT key,value FROM app_settings WHERE key IN ('portal_window_from','portal_window_until')"),
-        dbAll(`SELECT ag.id, ag.name, ag.portal_open_from, ag.portal_open_until, ag.portal_enabled,
-                      COUNT(pa.id) AS n_participants
-               FROM assignment_groups ag
-               LEFT JOIN participants pa ON pa.assignment_group_id=ag.id
-               WHERE ag.portal_enabled=1
-               GROUP BY ag.id ORDER BY ag.name`)
-      ]);
-      const pw = Object.fromEntries((apRows||[]).map(r=>[r.key,r.value]));
-      res.render('portal_window', { pw, groups, user: req.session.user });
-    } catch(e) {
-      console.error('portal-window GET:', e);
-      res.status(500).send('Errore interno');
-    }
-  });
-
-  // Salva date globali + applica ai portali selezionati
-  app.post('/admin/settings/portal-window', requireAuth, requireOrganizer, async (req, res) => {
-    const { portal_window_from, portal_window_until, apply_to_all, group_ids } = req.body;
-    const from  = portal_window_from  ? portal_window_from.trim()  : '';
-    const until = portal_window_until ? portal_window_until.trim() : '';
-    try {
-      // Salva impostazioni globali
-      await dbRun("INSERT OR REPLACE INTO app_settings(key,value) VALUES('portal_window_from',?)",  [from]);
-      await dbRun("INSERT OR REPLACE INTO app_settings(key,value) VALUES('portal_window_until',?)", [until]);
-      logAction(req.session.user.id, 'update_portal_window', 'settings', 0,
-        `Finestra portale globale: ${from||'aperta'} → ${until||'aperta'}`);
-
-      // Applica a tutti o ai selezionati
-      if (apply_to_all === '1') {
-        await dbRun(
-          "UPDATE assignment_groups SET portal_open_from=?, portal_open_until=? WHERE portal_enabled=1",
-          [from||null, until||null]
-        );
-      } else if (group_ids) {
-        const ids = (Array.isArray(group_ids) ? group_ids : [group_ids]).map(Number).filter(Boolean);
-        for (const id of ids) {
-          await dbRun(
-            "UPDATE assignment_groups SET portal_open_from=?, portal_open_until=? WHERE id=?",
-            [from||null, until||null, id]
-          );
-        }
-      }
-      res.redirect('/admin/portal-window?saved=1');
-    } catch(e) {
-      console.error('portal-window POST:', e);
-      res.status(500).send('Errore salvataggio');
-    }
-  });
-
-  // ── Portale: aggiungi nominativo ─────────────────────────────────────────
-  app.post('/portale/:token/participants', express.json(), express.urlencoded({ extended: true }), async (req, res) => {
-    const token = req.params.token;
-    try {
-      const group = await dbGet(
-        'SELECT * FROM assignment_groups WHERE portal_token=? AND portal_enabled=1', [token]
-      );
-      if (!group) return res.status(403).json({ error: 'Accesso negato' });
-
-      // Controllo finestra temporale
-      // Date finestra: usa quelle del gruppo se impostate, altrimenti le globali
-      const [_pwFrom, _pwUntil] = await Promise.all([
-        dbGet("SELECT value FROM app_settings WHERE key='portal_window_from'"),
-        dbGet("SELECT value FROM app_settings WHERE key='portal_window_until'")
-      ]);
-      const _effFrom  = group.portal_open_from  || (_pwFrom  && _pwFrom.value)  || null;
-      const _effUntil = group.portal_open_until || (_pwUntil && _pwUntil.value) || null;
-      const now = new Date().toISOString().slice(0, 16);
-      if (_effFrom && now < _effFrom)
-        return res.status(403).json({ error: 'Portale non ancora aperto' });
-      if (_effUntil && now > _effUntil)
-        return res.status(403).json({ error: 'Finestra di inserimento chiusa' });
-
-      const { first_name, last_name, role } = req.body;
-      if (!first_name || !last_name)
-        return res.status(400).json({ error: 'Nome e cognome obbligatori' });
-
-      // Controllo limite slot
-      if (group.max_passes) {
-        const countRow = await dbGet(
-          'SELECT COUNT(*) AS cnt FROM participants WHERE assignment_group_id=?', [group.id]
-        );
-        if (countRow && countRow.cnt >= group.max_passes)
-          return res.status(400).json({ error: 'Limite massimo nominativi raggiunto (' + group.max_passes + ')' });
-      }
-
-      await dbRun(
-        `INSERT INTO participants (first_name, last_name, role, assignment_group_id, stand_name, zone)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [first_name.trim(), last_name.trim(), role ? role.trim() : null,
-         group.id, group.name, group.zone || null]
-      );
-      res.json({ ok: true });
-    } catch(err) {
-      console.error('[Portale] addParticipant:', err);
-      res.status(500).json({ error: 'Errore interno' });
-    }
-  });
-
-  // ── Portale: rimuovi nominativo (solo senza pass) ─────────────────────────
-  app.delete('/portale/:token/participants/:pid', async (req, res) => {
-    const token = req.params.token;
-    const pid   = parseInt(req.params.pid, 10);
-    try {
-      const group = await dbGet(
-        'SELECT * FROM assignment_groups WHERE portal_token=? AND portal_enabled=1', [token]
-      );
-      if (!group) return res.status(403).json({ error: 'Accesso negato' });
-
-      // Controllo finestra
-      const now = new Date().toISOString().slice(0, 16);
-      if (_effUntil && now > _effUntil)
-        return res.status(403).json({ error: 'Finestra di inserimento chiusa' });
-
-      // Verifica che il partecipante appartenga a questo stand e non abbia pass attivi
-      const participant = await dbGet(
-        `SELECT pa.id FROM participants pa
-         LEFT JOIN passes p ON p.participant_id=pa.id AND p.status!='INVALIDATO'
-         WHERE pa.id=? AND pa.assignment_group_id=? AND p.id IS NULL`,
-        [pid, group.id]
-      );
-      if (!participant)
-        return res.status(400).json({ error: 'Non è possibile rimuovere questo nominativo (ha un pass assegnato)' });
-
-      await dbRun('DELETE FROM participants WHERE id=?', [pid]);
-      res.json({ ok: true });
-    } catch(err) {
-      console.error('[Portale] removeParticipant:', err);
-      res.status(500).json({ error: 'Errore interno' });
-    }
-  });
-
   app.get('/portale/:token', async function(req, res) {
     const token = req.params.token;
     try {
@@ -1776,43 +1668,9 @@ app.get('/home', requireAuth, (req, res) => {
       );
       if (!group) return res.status(404).send('<h2 style="font-family:sans-serif;padding:2rem">Portale non disponibile.</h2>');
 
-      // ── Controllo finestra temporale portale ──────────────────────────────
-      const _winNow = new Date().toISOString().slice(0, 16);
-      // Usa date del gruppo se impostate, altrimenti le globali
-      const [_gFrom, _gUntil] = await Promise.all([
-        dbGet("SELECT value FROM app_settings WHERE key='portal_window_from'"),
-        dbGet("SELECT value FROM app_settings WHERE key='portal_window_until'")
-      ]);
-      const _wEffFrom  = group.portal_open_from  || (_gFrom  && _gFrom.value)  || null;
-      const _wEffUntil = group.portal_open_until || (_gUntil && _gUntil.value) || null;
-      // Prima dell'apertura → blocco completo (il portale non è ancora disponibile)
-      if (_wEffFrom && _winNow < _wEffFrom) {
-        const dt = new Date(_wEffFrom).toLocaleString('it-IT',
-          {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-        return res.status(403).send(`<!DOCTYPE html><html><head><meta charset="utf-8">
-          <meta name="viewport" content="width=device-width,initial-scale=1">
-          <style>*{box-sizing:border-box;margin:0;padding:0}
-          body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;
-            min-height:100vh;background:#f8fafc}
-          .box{background:#fff;border-radius:16px;padding:2.5rem 2rem;max-width:420px;width:92%;
-            text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.1)}
-          h2{color:#1a2744;font-size:1.25rem;margin:.8rem 0 .6rem}
-          p{color:#64748b;line-height:1.8;font-size:.92rem}</style>
-          </head><body><div class="box">
-            <div style="font-size:2.8rem;margin-bottom:.3rem">🔒</div>
-            <h2>Portale non ancora aperto</h2>
-            <p>Questo portale sarà disponibile a partire dal<br>
-            <strong style="color:#1d6fa4">${dt}</strong></p>
-          </div></body></html>`);
-      }
-      // Dopo la chiusura → portale accessibile in sola lettura (scarica pass, ticket, bacheca)
-      // windowClosed viene passato alla view che nasconde i form di inserimento
-      const windowClosed = !!(_wEffUntil && _winNow > _wEffUntil);
-      // ── Fine controllo finestra ────────────────────────────────────────────
-
       const [parts, autoPasses, announcements, unreadRow, zoneInfo, zoneStands, refWRow, refHRow] = await Promise.all([
         dbAll(
-          `SELECT pa.id AS participant_id, pa.first_name, pa.last_name, pa.email, pa.role,
+          `SELECT pa.first_name, pa.last_name, pa.email, pa.role,
                   p.id AS pass_id, p.code, p.status, pt.name AS type_name
            FROM participants pa
            LEFT JOIN passes p ON p.participant_id=pa.id AND p.status!='INVALIDATO'
@@ -1859,19 +1717,14 @@ app.get('/home', requireAuth, (req, res) => {
         dbGet(`SELECT value FROM app_settings WHERE key='map_ref_h'`, [])
       ]);
 
-      // ── CRM: carica docs portale e ticket (tabelle opzionali) ─────────────
-      const _qpAll = (sql, p) => new Promise((ok, ko) => db.all(sql, p, (e, r) => e ? ok([]) : ok(r || [])));
-      let portalDocs = [], ticketsRaw = [];
-      try {
-        [portalDocs, ticketsRaw] = await Promise.all([
-          _qpAll('SELECT * FROM portal_documents WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [group.id]),
-          _qpAll('SELECT * FROM support_tickets  WHERE assignment_group_id=? ORDER BY created_at DESC',  [group.id]),
-        ]);
-        for (const t of ticketsRaw) {
-          t.replies = await _qpAll('SELECT * FROM ticket_replies WHERE ticket_id=? ORDER BY created_at ASC', [t.id]);
-        }
-      } catch(crmErr) {
-        console.warn('[Portale] Tabelle CRM non disponibili, procedura senza dati CRM:', crmErr.message);
+      // ── CRM: carica docs portale e ticket ───────────────────
+      const _qpAll = (sql, p) => new Promise((ok, ko) => db.all(sql, p, (e, r) => e ? ko(e) : ok(r)));
+      const [portalDocs, ticketsRaw] = await Promise.all([
+        _qpAll('SELECT * FROM portal_documents WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [group.id]),
+        _qpAll('SELECT * FROM support_tickets  WHERE assignment_group_id=? ORDER BY created_at DESC',  [group.id]),
+      ]);
+      for (const t of ticketsRaw) {
+        t.replies = await _qpAll('SELECT * FROM ticket_replies WHERE ticket_id=? ORDER BY created_at ASC', [t.id]);
       }
       // ── Fine CRM ─────────────────────────────────────────────
 
@@ -1888,8 +1741,6 @@ app.get('/home', requireAuth, (req, res) => {
         mapRefH:      (refHRow && refHRow.value) ? parseInt(refHRow.value,10) : null,
         portalDocs:   portalDocs  || [],
         tickets:      ticketsRaw  || [],
-        windowClosed,
-        windowUntil:  _wEffUntil || null,
       });
     } catch(err) {
       console.error('Errore GET /portale/:token:', err);
