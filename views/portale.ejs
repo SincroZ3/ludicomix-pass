@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
+/* ── RESET & TOKENS ── */
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
   --navy:#1e2d4e;--navy-mid:#253660;--accent:#6b3fa0;
@@ -17,14 +18,16 @@
   --bg:#f0f2f5;--surface:#fff;--border:#d1d9e6;--border-light:#e8ecf3;
   --text:#1a2744;--muted:#64748b;--faint:#94a3b8;
   --radius:12px;--radius-sm:8px;--radius-xs:6px;
-  --shadow:0 1px 3px rgba(30,45,78,.10),0 4px 16px rgba(30,45,78,.07);
-  --shadow-md:0 3px 10px rgba(30,45,78,.13);
+  --shadow:0 1px 3px rgba(30,45,78,.08),0 2px 8px rgba(30,45,78,.05);
+  --shadow-md:0 3px 12px rgba(30,45,78,.11);
   --shadow-lg:0 8px 32px rgba(30,45,78,.16);
 }
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.55}
 a{color:inherit;text-decoration:none}
 
-/* ── TOPBAR ── */
+/* ══════════════════════════════════════════
+   TOPBAR / HEADER STAND (invariati)
+══════════════════════════════════════════ */
 .topbar{display:flex;justify-content:space-between;align-items:center;padding:0 1.5rem;background:var(--navy);min-height:70px;border-bottom:3px solid var(--yellow)}
 .brand{display:flex;align-items:center;gap:.75rem}
 .brand-ciuco{height:62px;width:auto;display:block;margin-right:.25rem;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))}
@@ -32,56 +35,185 @@ a{color:inherit;text-decoration:none}
 .brand-text-block{display:flex;flex-direction:column;gap:.05rem}
 .brand-sub{font-size:.75rem;color:#aec6e8;font-style:italic;letter-spacing:.2px}
 .topbar-right{font-size:.72rem;color:rgba(255,255,255,.4);display:flex;align-items:center;gap:.3rem;white-space:nowrap}
-
-/* ── HDR STAND (solo titolo, niente chip qui) ── */
-.hdr-stand{
-  background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 60%,#2a1a4e 100%);
-  padding:1.6rem 0 1.6rem;
-  position:relative;overflow:hidden;
-}
+.hdr-stand{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 60%,#2a1a4e 100%);padding:1.6rem 0;position:relative;overflow:hidden}
 .hdr-stand::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 80% 50%,rgba(107,63,160,.22) 0%,transparent 65%);pointer-events:none}
 .hdr-inner{max-width:900px;margin:0 auto;padding:0 1.5rem;position:relative}
 .hdr-title{font-size:clamp(1.5rem,4vw,2.1rem);font-weight:800;color:#fff;line-height:1.2}
 .hdr-title span{color:var(--yellow)}
-
-/* ── CONTENT WRAPPER ── */
 .wrap{max-width:900px;margin:0 auto;padding:1.4rem 1.5rem 3rem}
 
-/* ── INFO CARDS (stile KPI dashboard) ── */
-.info-strip{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
-  gap:.65rem;
-  margin-bottom:1.4rem;
+/* ══════════════════════════════════════════
+   SEZIONE UNIFICATA — pattern uguale ovunque
+══════════════════════════════════════════ */
+.sec-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);box-shadow:var(--shadow-md);
+  margin-bottom:1.4rem;overflow:hidden;
 }
-.info-card{
+.sec-card-hd{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:.75rem;padding:.85rem 1.2rem;
+  border-bottom:1px solid var(--border-light);
   background:var(--surface);
-  border:1px solid var(--border-light);
-  border-radius:var(--radius-sm);
-  padding:.7rem 1rem;
+}
+.sec-card-hd-left{display:flex;align-items:center;gap:.55rem}
+.sec-card-icon{font-size:1rem;line-height:1;flex-shrink:0}
+.sec-card-title{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.55px;color:var(--text)}
+.sec-card-badge{
+  background:var(--red);color:#fff;border-radius:9999px;
+  min-width:20px;height:20px;font-size:.65rem;font-weight:800;
+  line-height:20px;text-align:center;padding:0 5px;
+}
+.sec-card-badge-violet{background:var(--violet)}
+.sec-card-badge-blue{background:var(--blue)}
+.sec-card-actions{display:flex;gap:.45rem;align-items:center;flex-shrink:0}
+.sec-card-body{padding:1.15rem 1.2rem}
+
+/* ══════════════════════════════════════════
+   BOTTONI UNIFICATI
+══════════════════════════════════════════ */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:.4rem;
+  padding:.5rem 1.1rem;border:none;border-radius:var(--radius-xs);
+  font-size:.82rem;font-weight:700;cursor:pointer;text-decoration:none;
+  transition:background .15s,box-shadow .15s,transform .1s;font-family:inherit;
+  white-space:nowrap;line-height:1;
+}
+.btn:active{transform:scale(.98)}
+.btn-primary{background:var(--navy);color:#fff}
+.btn-primary:hover{background:var(--violet)}
+.btn-accent{background:var(--accent);color:#fff}
+.btn-accent:hover{background:var(--violet-light)}
+.btn-outline{background:transparent;color:var(--text);border:1.5px solid var(--border)}
+.btn-outline:hover{background:var(--bg);border-color:var(--navy)}
+.btn-ghost-navy{background:rgba(255,255,255,.15);border:none;color:#fff}
+.btn-ghost-navy:hover{background:rgba(255,255,255,.28)}
+.btn-danger{background:var(--red);color:#fff}
+.btn-danger:hover{background:#a93224}
+.btn-success{background:var(--green);color:#fff}
+.btn-success:hover{background:#1f5038}
+.btn-full{width:100%}
+.btn-sm{padding:.34rem .75rem;font-size:.76rem}
+.btn-xs{padding:.25rem .6rem;font-size:.7rem}
+
+/* ══════════════════════════════════════════
+   FORM ELEMENTS UNIFICATI
+══════════════════════════════════════════ */
+.fld{display:flex;flex-direction:column;gap:.3rem}
+.fld-label{font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.fld-input,.fld-select,.fld-textarea{
+  width:100%;padding:.44rem .7rem;
+  border:1.5px solid var(--border);border-radius:var(--radius-xs);
+  font-size:.83rem;font-family:inherit;color:var(--text);background:var(--surface);
+  transition:border-color .15s,box-shadow .15s;
+}
+.fld-input:focus,.fld-select:focus,.fld-textarea:focus{
+  outline:none;border-color:var(--violet);
+  box-shadow:0 0 0 3px rgba(107,63,160,.12);
+}
+.fld-textarea{resize:vertical}
+.fld-file{width:100%;font-size:.82rem;padding:.35rem 0}
+.form-grid{display:grid;gap:.65rem;margin-bottom:.85rem}
+.form-grid-2{grid-template-columns:1fr 1fr}
+.form-span-2{grid-column:1/-1}
+.form-footer{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.form-msg{font-size:.76rem;color:var(--muted)}
+.form-msg.ok{color:var(--green)}
+.form-msg.err{color:var(--red)}
+
+/* ══════════════════════════════════════════
+   ITEM CARDS (bach / ticket / doc)
+══════════════════════════════════════════ */
+.item-list{display:grid;gap:.55rem;margin-bottom:1rem}
+.item-card{
+  background:var(--bg);border:1px solid var(--border-light);
+  border-radius:var(--radius-sm);padding:.85rem 1rem;
+  transition:box-shadow .15s;
+}
+.item-card:hover{box-shadow:var(--shadow)}
+.item-card-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:.6rem;margin-bottom:.3rem;flex-wrap:wrap}
+.item-card-title{font-size:.88rem;font-weight:700;color:var(--text)}
+.item-card-meta{font-size:.7rem;color:var(--faint);margin-top:.1rem}
+.item-card-body{font-size:.82rem;color:var(--text);line-height:1.55;white-space:pre-wrap}
+.item-card-footer{display:flex;align-items:center;gap:.5rem;margin-top:.65rem;flex-wrap:wrap}
+
+/* Item card con evidenziazione unread */
+.item-card.unread{
+  background:#fff;border-left:3px solid var(--violet);
   box-shadow:var(--shadow);
-  display:flex;flex-direction:column;gap:.2rem;
 }
-.info-card-label{
-  font-size:.6rem;text-transform:uppercase;letter-spacing:.7px;
-  font-weight:800;color:var(--faint);display:flex;align-items:center;gap:.3rem;
+.item-card.unread-urgent{background:#fff9f9;border-left:3px solid var(--red)}
+.item-card.unread-warning{background:#fffef4;border-left:3px solid var(--gold)}
+.item-card.unread-info{background:#f5f9ff;border-left:3px solid var(--blue)}
+.item-card.read{opacity:.7}
+
+/* Reply thread (ticket) */
+.reply-thread{border-top:1px solid var(--border-light);padding-top:.6rem;display:grid;gap:.4rem;margin-top:.5rem}
+.reply-bubble{
+  padding:.45rem .8rem;border-radius:var(--radius-xs);
+  font-size:.81rem;color:var(--text);
 }
-.info-card-value{
-  font-size:.95rem;font-weight:700;color:var(--text);margin-top:.1rem;
-  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+.reply-admin{background:#eff6ff;border-left:3px solid var(--blue)}
+.reply-user{background:var(--bg);border-left:3px solid var(--border)}
+.reply-author{font-size:.7rem;font-weight:700;margin-bottom:.2rem}
+.reply-author.admin{color:var(--blue)}
+.reply-author.user{color:var(--muted)}
+.reply-form{display:flex;gap:.5rem;margin-top:.75rem}
+.reply-form .fld-input{flex:1}
+
+/* ══════════════════════════════════════════
+   PILLS / BADGE STATUS
+══════════════════════════════════════════ */
+.pill{display:inline-flex;align-items:center;padding:.2rem .6rem;border-radius:9999px;font-size:.68rem;font-weight:800;white-space:nowrap}
+.pill-blue{background:#eff6ff;color:#1d6fa4}
+.pill-yellow{background:#fefce8;color:#b45309}
+.pill-green{background:#f0fdf4;color:#2d6a4f}
+.pill-red{background:#fef2f2;color:#c0392b}
+.pill-gray{background:#f1f5f9;color:#64748b}
+.pill-navy{background:var(--navy);color:var(--yellow)}
+.pill-violet{background:rgba(107,63,160,.12);color:var(--violet)}
+.pill-orange{background:#fff7ed;color:#c2410c}
+
+/* ══════════════════════════════════════════
+   STATO VUOTO UNIFICATO
+══════════════════════════════════════════ */
+.empty-state{text-align:center;padding:1.8rem 1rem}
+.empty-icon{font-size:2rem;margin-bottom:.4rem}
+.empty-msg{font-size:.83rem;color:var(--muted)}
+
+/* ══════════════════════════════════════════
+   DETAILS/SUMMARY UNIFICATI
+══════════════════════════════════════════ */
+details.sec-details{
+  border:1px solid var(--border-light);border-radius:var(--radius-sm);
+  background:var(--surface);overflow:hidden;
 }
+details.sec-details summary{
+  cursor:pointer;padding:.65rem .9rem;
+  font-size:.84rem;font-weight:700;color:var(--accent);
+  list-style:none;user-select:none;
+  border-bottom:1px solid transparent;transition:border-color .15s;
+}
+details.sec-details[open] summary{border-bottom-color:var(--border-light)}
+details.sec-details summary:hover{background:rgba(107,63,160,.04)}
+.details-body{padding:.85rem .9rem}
+
+/* ══════════════════════════════════════════
+   INFO CARDS KPI (invariate)
+══════════════════════════════════════════ */
+.info-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.65rem;margin-bottom:1.4rem}
+.info-card{background:var(--surface);border:1px solid var(--border-light);border-radius:var(--radius-sm);padding:.7rem 1rem;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:.2rem}
+.info-card-label{font-size:.6rem;text-transform:uppercase;letter-spacing:.7px;font-weight:800;color:var(--faint);display:flex;align-items:center;gap:.3rem}
+.info-card-value{font-size:.95rem;font-weight:700;color:var(--text);margin-top:.1rem;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .info-card-value.accent-violet{color:var(--violet)}
 .info-card-value.accent-blue{color:var(--blue)}
 .info-card-value.accent-green{color:var(--green)}
 .info-card-value.accent-gold{color:var(--gold)}
 
-/* ── PROGRESS CARD ── */
-.prog-card{
-  background:var(--surface);border:1px solid var(--border-light);
-  border-radius:var(--radius);box-shadow:var(--shadow-md);
-  padding:1.2rem 1.4rem;margin-bottom:1.5rem;
-  display:flex;align-items:center;gap:1.4rem;flex-wrap:wrap;
-}
+/* ══════════════════════════════════════════
+   PROGRESS CARD (invariata)
+══════════════════════════════════════════ */
+.prog-card{background:var(--surface);border:1px solid var(--border-light);border-radius:var(--radius);box-shadow:var(--shadow-md);padding:1.2rem 1.4rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:1.4rem;flex-wrap:wrap}
 .prog-num{font-size:2rem;font-weight:800;color:var(--violet);line-height:1;white-space:nowrap}
 .prog-num span{font-size:1rem;color:var(--faint);font-weight:600}
 .prog-sub{font-size:.74rem;color:var(--muted);margin-top:.15rem}
@@ -91,154 +223,111 @@ a{color:inherit;text-decoration:none}
 .prog-pct{font-size:.75rem;color:var(--muted)}
 .prog-pct strong{color:var(--green);font-weight:700}
 
-/* ── SECTION TITLES ── */
-.sec-title{
-  font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.9px;
-  color:var(--muted);margin:1.6rem 0 .85rem;
-  display:flex;align-items:center;gap:.45rem;
-}
+/* sec-title (mantenuto per compatibilità, ora usato solo come fallback) */
+.sec-title{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);margin:1.6rem 0 .85rem;display:flex;align-items:center;gap:.45rem}
 .sec-title::after{content:'';flex:1;height:1px;background:var(--border-light)}
 
-/* ── PASS GRID ── */
+/* ══════════════════════════════════════════
+   PASS GRID (invariata)
+══════════════════════════════════════════ */
 .pass-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(265px,1fr));gap:.9rem;margin-bottom:1.5rem}
-.pass-card{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--radius);box-shadow:var(--shadow);
-  padding:1.15rem 1.25rem;display:flex;flex-direction:column;gap:.8rem;
-  transition:box-shadow .15s,transform .15s;
-}
+.pass-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.15rem 1.25rem;display:flex;flex-direction:column;gap:.8rem;transition:box-shadow .15s,transform .15s}
 .pass-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px)}
 .pass-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem}
-.pass-avatar{
-  width:42px;height:42px;border-radius:50%;
-  background:linear-gradient(135deg,var(--violet),var(--violet-light));
-  display:flex;align-items:center;justify-content:center;
-  font-size:.9rem;font-weight:800;color:#fff;flex-shrink:0;
-}
+.pass-avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--violet),var(--violet-light));display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:800;color:#fff;flex-shrink:0}
 .pass-name{font-size:.9rem;font-weight:700;line-height:1.25}
 .pass-role{font-size:.72rem;color:var(--muted);margin-top:.1rem}
-.pass-type-badge{
-  display:inline-flex;padding:.2rem .65rem;border-radius:9999px;
-  font-size:.67rem;font-weight:700;background:rgba(29,111,164,.1);
-  color:var(--blue);white-space:nowrap;flex-shrink:0;
-}
+.pass-type-badge{display:inline-flex;padding:.2rem .65rem;border-radius:9999px;font-size:.67rem;font-weight:700;background:rgba(29,111,164,.1);color:var(--blue);white-space:nowrap;flex-shrink:0}
 .pass-card-mid{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
-.status-pill{
-  display:inline-flex;align-items:center;gap:.3rem;
-  padding:.24rem .7rem;border-radius:9999px;font-size:.69rem;font-weight:700;color:#fff;
-}
+.status-pill{display:inline-flex;align-items:center;gap:.3rem;padding:.24rem .7rem;border-radius:9999px;font-size:.69rem;font-weight:700;color:#fff}
 .status-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.7)}
-.sGEN{background:var(--violet)}.sSCA{background:var(--blue)}
-.sSTA{background:#c9a227;color:#28251d}.sCON{background:var(--green)}
-.sRIC{background:var(--red)}.sINV{background:var(--gray)}
+.sGEN{background:var(--violet)}.sSCA{background:var(--blue)}.sSTA{background:#c9a227;color:#28251d}
+.sCON{background:var(--green)}.sRIC{background:var(--red)}.sINV{background:var(--gray)}
 .pass-code{font-size:.66rem;color:var(--faint);font-family:monospace}
-.btn-dl{
-  display:flex;align-items:center;justify-content:center;gap:.45rem;
-  width:100%;padding:.65rem 1rem;background:var(--navy);color:#fff;
-  border-radius:var(--radius-xs);font-size:.8rem;font-weight:700;
-  text-decoration:none;transition:background .15s;
-}
+.btn-dl{display:flex;align-items:center;justify-content:center;gap:.45rem;width:100%;padding:.65rem 1rem;background:var(--navy);color:#fff;border-radius:var(--radius-xs);font-size:.8rem;font-weight:700;text-decoration:none;transition:background .15s}
 .btn-dl:hover{background:var(--violet)}
-
-/* ── NO-PASS GRID ── */
 .nopass-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:.65rem;margin-bottom:1.5rem}
-.nopass-card{
-  background:var(--surface);border:1px solid #fde8d8;
-  border-radius:var(--radius-sm);padding:.85rem 1.05rem;
-  display:flex;align-items:center;gap:.8rem;
-}
+.nopass-card{background:var(--surface);border:1px solid #fde8d8;border-radius:var(--radius-sm);padding:.85rem 1.05rem;display:flex;align-items:center;gap:.8rem}
 .nopass-avatar{width:38px;height:38px;border-radius:50%;background:#fef3ec;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0}
 .nopass-name{font-size:.84rem;font-weight:700}
 .nopass-role{font-size:.7rem;color:var(--muted);margin-top:.05rem}
 .nopass-tag{font-size:.67rem;color:var(--red);font-weight:600;margin-top:.2rem;font-style:italic}
 
-/* ── FOOTER ── */
+/* ══════════════════════════════════════════
+   MAPPA DOVE SIETE (invariata)
+══════════════════════════════════════════ */
+.dove-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-md);margin-bottom:1.5rem;overflow:hidden}
+.dove-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:.75rem;padding:1rem 1.2rem .85rem;border-bottom:1px solid var(--border-light)}
+.dove-zone-badge{display:inline-block;background:var(--navy);color:var(--yellow);font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.6px;padding:.18rem .65rem;border-radius:9999px;margin-bottom:.3rem}
+.dove-stand-name{font-size:1.1rem;font-weight:800;color:var(--text);line-height:1.2}
+.dove-stand-code{font-size:.75rem;color:var(--muted);margin-top:.2rem}
+.dove-actions{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.dove-btn{display:inline-flex;align-items:center;gap:.3rem;padding:.38rem .85rem;border-radius:var(--radius-xs);border:1.5px solid var(--border);background:var(--surface);font-size:.76rem;font-weight:700;cursor:pointer;color:var(--text);transition:background .15s,border-color .15s;font-family:inherit}
+.dove-btn:hover{background:var(--bg);border-color:var(--navy)}
+.dove-btn-share{background:var(--yellow);border-color:var(--gold);color:var(--navy)}
+.dove-btn-share:hover{background:#f0bc20}
+.dove-canvas-wrap{position:relative;cursor:zoom-in;background:#e8ecf3;overflow:hidden;max-height:320px}
+.dove-canvas-wrap canvas{display:block;width:100%;height:auto;max-height:320px;object-fit:contain}
+.dove-canvas-overlay{position:absolute;bottom:.6rem;right:.8rem;background:rgba(30,45,78,.7);color:#fff;border-radius:9999px;padding:.22rem .75rem;font-size:.72rem;font-weight:600;pointer-events:none}
+.dove-hint{padding:.65rem 1.2rem;font-size:.72rem;color:var(--muted);background:#fffbeb;border-top:1px solid #fde68a}
+.dove-modal{display:none;position:fixed;inset:0;z-index:8000;background:rgba(10,20,45,.7);backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:1rem}
+.dove-modal.open{display:flex}
+.dove-modal-box{background:#fff;border-radius:var(--radius);box-shadow:0 24px 64px rgba(10,20,45,.3);width:100%;max-width:1100px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.dove-modal-header{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.1rem;border-bottom:1px solid var(--border-light);font-size:.88rem;font-weight:700;color:var(--text);flex-shrink:0}
+.dove-modal-close{width:32px;height:32px;border-radius:50%;border:none;background:#f1f5f9;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.dove-modal-close:hover{background:#e2e8f0}
+.dove-modal-canvas-wrap{overflow:auto;flex:1}
+.dove-modal-canvas-wrap canvas{display:block;width:100%;height:auto}
+@keyframes dove-pulse{0%,100%{box-shadow:0 0 0 0 rgba(245,200,66,.5)}50%{box-shadow:0 0 0 10px rgba(245,200,66,0)}}
+
+/* ══════════════════════════════════════════
+   BANNER FINESTRA CHIUSA
+══════════════════════════════════════════ */
+.wc-banner{
+  display:none;
+  background:linear-gradient(135deg,#fff7ed,#fef3c7);
+  border:1px solid #fde68a;border-radius:var(--radius);
+  padding:.85rem 1.2rem;margin-bottom:1.4rem;
+  display:none;align-items:center;gap:.75rem;
+}
+.wc-banner-icon{font-size:1.4rem;flex-shrink:0}
+.wc-banner-text{font-size:.8rem;color:#78350f;line-height:1.5;flex:1}
+.wc-banner-text strong{color:#92400e}
+
+/* ══════════════════════════════════════════
+   MODALE FINESTRA CHIUSA
+══════════════════════════════════════════ */
+.wc-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;padding:1rem}
+.wc-modal-box{background:#fff;border-radius:16px;max-width:440px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden}
+.wc-modal-hd{background:linear-gradient(135deg,#fef3c7,#fff7ed);padding:1.4rem 1.5rem 1rem;border-bottom:1px solid #fde68a;display:flex;align-items:flex-start;gap:1rem}
+.wc-modal-icon{font-size:2.4rem;line-height:1;flex-shrink:0}
+.wc-modal-title{font-weight:900;color:#92400e;font-size:1rem;margin-bottom:.3rem}
+.wc-modal-subtitle{font-size:.83rem;color:#78350f;line-height:1.55}
+.wc-modal-body{padding:1rem 1.5rem}
+.wc-modal-list{font-size:.82rem;color:#374151;line-height:1.7;padding-left:1.1rem;margin-bottom:1rem}
+
+/* ══════════════════════════════════════════
+   FOOTER
+══════════════════════════════════════════ */
 .footer{text-align:center;padding:2rem 1rem;font-size:.69rem;color:var(--faint)}
 .footer strong{color:var(--muted)}
 
+/* ══════════════════════════════════════════
+   ANIMAZIONI
+══════════════════════════════════════════ */
+@keyframes pulse-badge{0%,100%{opacity:1}50%{opacity:.55}}
+
+/* ══════════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════════ */
 @media(max-width:520px){
   .topbar{padding:0 .9rem}.brand-ciuco{height:48px}.brand-logo-img{height:40px}
   .hdr-stand{padding:1.2rem 0}
   .info-strip{grid-template-columns:repeat(2,1fr)}
   .pass-grid,.nopass-grid{grid-template-columns:1fr}
   .prog-num{font-size:1.7rem}
-}
-
-/* ── DOVE SIETE? ──────────────────────────────────────── */
-.dove-card{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--radius);box-shadow:var(--shadow-md);
-  margin-bottom:1.5rem;overflow:hidden;
-}
-.dove-header{
-  display:flex;align-items:flex-start;justify-content:space-between;
-  flex-wrap:wrap;gap:.75rem;padding:1rem 1.2rem .85rem;
-  border-bottom:1px solid var(--border-light);
-}
-.dove-zone-badge{
-  display:inline-block;background:var(--navy);color:var(--yellow);
-  font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.6px;
-  padding:.18rem .65rem;border-radius:9999px;margin-bottom:.3rem;
-}
-.dove-stand-name{font-size:1.1rem;font-weight:800;color:var(--text);line-height:1.2}
-.dove-stand-code{font-size:.75rem;color:var(--muted);margin-top:.2rem}
-.dove-actions{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
-.dove-btn{
-  display:inline-flex;align-items:center;gap:.3rem;
-  padding:.38rem .85rem;border-radius:var(--radius-xs);
-  border:1.5px solid var(--border);background:var(--surface);
-  font-size:.76rem;font-weight:700;cursor:pointer;color:var(--text);
-  transition:background .15s,border-color .15s;font-family:inherit;
-}
-.dove-btn:hover{background:var(--bg);border-color:var(--navy)}
-.dove-btn-share{background:var(--yellow);border-color:var(--gold);color:var(--navy)}
-.dove-btn-share:hover{background:#f0bc20}
-
-.dove-canvas-wrap{
-  position:relative;cursor:zoom-in;
-  background:#e8ecf3;overflow:hidden;max-height:320px;
-}
-.dove-canvas-wrap canvas{display:block;width:100%;height:auto;max-height:320px;object-fit:contain}
-.dove-canvas-overlay{
-  position:absolute;bottom:.6rem;right:.8rem;
-  background:rgba(30,45,78,.7);color:#fff;
-  border-radius:9999px;padding:.22rem .75rem;
-  font-size:.72rem;font-weight:600;pointer-events:none;
-}
-.dove-hint{
-  padding:.65rem 1.2rem;font-size:.72rem;color:var(--muted);
-  background:#fffbeb;border-top:1px solid #fde68a;
-}
-
-/* Modal */
-.dove-modal{
-  display:none;position:fixed;inset:0;z-index:8000;
-  background:rgba(10,20,45,.7);backdrop-filter:blur(3px);
-  align-items:center;justify-content:center;padding:1rem;
-}
-.dove-modal.open{display:flex}
-.dove-modal-box{
-  background:#fff;border-radius:var(--radius);box-shadow:0 24px 64px rgba(10,20,45,.3);
-  width:100%;max-width:1100px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;
-}
-.dove-modal-header{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:.75rem 1.1rem;border-bottom:1px solid var(--border-light);
-  font-size:.88rem;font-weight:700;color:var(--text);flex-shrink:0;
-}
-.dove-modal-close{
-  width:32px;height:32px;border-radius:50%;border:none;
-  background:#f1f5f9;cursor:pointer;font-size:1rem;
-  display:flex;align-items:center;justify-content:center;
-  transition:background .15s;
-}
-.dove-modal-close:hover{background:#e2e8f0}
-.dove-modal-canvas-wrap{overflow:auto;flex:1}
-.dove-modal-canvas-wrap canvas{display:block;width:100%;height:auto}
-
-@keyframes dove-pulse{
-  0%,100%{box-shadow:0 0 0 0 rgba(245,200,66,.5)}
-  50%{box-shadow:0 0 0 10px rgba(245,200,66,0)}
+  .form-grid-2{grid-template-columns:1fr}
+  .sec-card-hd{flex-wrap:wrap;gap:.5rem}
 }
 </style>
 </head>
@@ -311,123 +400,82 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
 %>
 
 <!-- ═══ BACHECA COMUNICAZIONI (in cima, sempre visibile) ═══ -->
-<div id="bacheca" style="margin-bottom:1.4rem;">
+<div id="bacheca" class="sec-card" style="margin-bottom:1.4rem;">
 
-  <!-- header bacheca -->
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;
-              background:var(--navy);border-radius:var(--radius) var(--radius) 0 0;
-              padding:.7rem 1.1rem;">
-    <div style="display:flex;align-items:center;gap:.6rem;">
-      <span style="font-size:1.1rem;">📣</span>
-      <span style="font-size:.78rem;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.5px;">
-        Comunicazioni dell&rsquo;organizzazione
-      </span>
+  <!-- header -->
+  <div class="sec-card-hd">
+    <div class="sec-card-hd-left">
+      <span class="sec-card-icon">📣</span>
+      <span class="sec-card-title">Comunicazioni dell&rsquo;organizzazione</span>
       <% if(unreadCount > 0){ %>
-      <span id="unread-badge"
-            style="background:#c0392b;color:#fff;border-radius:9999px;min-width:20px;height:20px;
-                   font-size:.65rem;font-weight:800;line-height:20px;text-align:center;padding:0 5px;
-                   animation:pulse-badge 1.8s ease-in-out infinite;">
-        <%= unreadCount %>
-      </span>
+      <span id="unread-badge" class="sec-card-badge" style="animation:pulse-badge 1.8s ease-in-out infinite;"><%= unreadCount %></span>
       <% } else { %>
-      <span id="unread-badge" style="display:none;background:#c0392b;color:#fff;border-radius:9999px;
-             min-width:20px;height:20px;font-size:.65rem;font-weight:800;line-height:20px;
-             text-align:center;padding:0 5px;"></span>
+      <span id="unread-badge" class="sec-card-badge" style="display:none;"></span>
       <% } %>
     </div>
-    <!-- toggle collapse se tutti letti -->
-    <button onclick="toggleBacheca()" id="bach-toggle"
-      style="background:rgba(255,255,255,.15);border:none;border-radius:6px;
-             color:#fff;font-size:.72rem;font-weight:700;padding:.3rem .65rem;
-             cursor:pointer;transition:background .15s;"
-      onmouseover="this.style.background='rgba(255,255,255,.25)'"
-      onmouseout="this.style.background='rgba(255,255,255,.15)'">
-      <span id="bach-toggle-label">▲ Nascondi</span>
-    </button>
+    <div class="sec-card-actions">
+      <button onclick="toggleBacheca()" id="bach-toggle" class="btn btn-outline btn-sm">
+        <span id="bach-toggle-label">▲ Nascondi</span>
+      </button>
+    </div>
   </div>
 
-  <!-- messaggi -->
-  <div id="bach-body"
-       style="background:var(--surface);border:1px solid var(--border-light);
-              border-top:none;border-radius:0 0 var(--radius) var(--radius);
-              overflow:hidden;transition:max-height .35s ease,opacity .25s ease;
-              max-height:2000px;opacity:1;">
+  <!-- corpo messaggi -->
+  <div id="bach-body" class="sec-card-body" style="transition:max-height .35s ease,opacity .25s ease;max-height:2000px;opacity:1;padding:0;">
 
-    <!-- NON LETTI — sempre espansi e in risalto -->
+    <!-- NON LETTI -->
     <% if(annUnread.length > 0){ %>
-    <div style="background:linear-gradient(135deg,#1e2d4e 0%,#2a3a60 100%);
-                padding:.5rem 1.1rem .35rem;">
-      <span style="font-size:.63rem;font-weight:800;color:var(--yellow);text-transform:uppercase;letter-spacing:.5px;">
+    <div style="padding:.45rem 1.2rem .3rem;background:#f5f9ff;border-bottom:1px solid var(--border-light);">
+      <span style="font-size:.65rem;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:.5px;">
         🔔 <%= annUnread.length %> non lett<%= annUnread.length===1?'o':'i' %>
       </span>
     </div>
+    <div class="item-list" style="padding:.85rem 1.2rem .5rem;">
     <% annUnread.forEach(function(a, i){ %>
     <%
-      var uc={info:'#1d6fa4',warning:'#c9a227',urgent:'#c0392b'};
-      var ub={info:'rgba(29,111,164,.07)',warning:'rgba(201,162,39,.09)',urgent:'rgba(192,57,43,.07)'};
-      var ul={info:'3px solid #1d6fa4',warning:'3px solid #c9a227',urgent:'3px solid #c0392b'};
+      var uc={info:'unread-info',warning:'unread-warning',urgent:'unread-urgent'};
+      var pc={info:'pill-blue',warning:'pill-yellow',urgent:'pill-red'};
+      var pl={info:'ℹ️ INFO',warning:'⚠️ AVVISO',urgent:'🚨 URGENTE'};
     %>
-    <div style="display:flex;gap:.8rem;align-items:flex-start;
-                padding:.85rem 1.1rem;
-                border-left:<%= ul[a.type]||ul.info %>;
-                background:<%= ub[a.type]||ub.info %>;
-                <%= i < annUnread.length-1 ? 'border-bottom:1px solid var(--border-light);' : '' %>">
-      <span style="font-size:1.5rem;flex-shrink:0;line-height:1;padding-top:.05rem;"><%= a.emoji||'📣' %></span>
-      <div style="flex:1;min-width:0;">
-        <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-bottom:.25rem;">
-          <% if(a.is_pinned){ %>
-            <span style="font-size:.62rem;background:var(--navy);color:var(--yellow);
-                         padding:.1rem .45rem;border-radius:9999px;font-weight:800;">📌 IN EVIDENZA</span>
-          <% } %>
-          <span style="font-size:.63rem;font-weight:800;padding:.1rem .45rem;border-radius:9999px;
-                       background:<%= ub[a.type]||ub.info %>;color:<%= uc[a.type]||uc.info %>;
-                       border:1px solid <%= uc[a.type]||uc.info %>;">
-            <%= {info:'ℹ️ INFO',warning:'⚠️ AVVISO',urgent:'🚨 URGENTE'}[a.type]||'INFO' %>
-          </span>
-          <strong style="font-size:.88rem;color:var(--text);"><%= a.title %></strong>
+    <div class="item-card <%= uc[a.type]||'unread-info' %>">
+      <div class="item-card-hd">
+        <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;">
+          <% if(a.is_pinned){ %><span class="pill pill-orange">📌 IN EVIDENZA</span><% } %>
+          <span class="pill <%= pc[a.type]||'pill-blue' %>"><%= pl[a.type]||'ℹ️ INFO' %></span>
+          <strong class="item-card-title"><%= a.emoji||'📣' %> <%= a.title %></strong>
         </div>
-        <p style="font-size:.82rem;color:var(--text);margin:0 0 .3rem;white-space:pre-wrap;line-height:1.55;"><%= a.message %></p>
-        <span style="font-size:.67rem;color:var(--faint);">🕐 <%= (a.created_at||'').substring(0,16).replace('T',' ') %></span>
+        <span class="item-card-meta">🕐 <%= (a.created_at||'').substring(0,16).replace('T',' ') %></span>
       </div>
+      <p class="item-card-body"><%= a.message %></p>
     </div>
     <% }); %>
+    </div>
     <% } %>
 
-    <!-- LETTI — collassabili se ci sono anche non letti -->
+    <!-- LETTI -->
     <% if(annRead.length > 0){ %>
     <div id="read-section">
       <% if(annUnread.length > 0){ %>
-      <div style="padding:.4rem 1.1rem;background:var(--border-light);display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:.63rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;">
-          <%= annRead.length %> già lette
-        </span>
-        <button onclick="toggleRead()" id="read-toggle"
-          style="background:none;border:none;font-size:.7rem;color:var(--blue);font-weight:700;cursor:pointer;padding:0;">
-          Mostra ▾
-        </button>
+      <div style="padding:.4rem 1.2rem;background:var(--border-light);display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:.65rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;"><%= annRead.length %> già lette</span>
+        <button onclick="toggleRead()" id="read-toggle" class="btn btn-xs" style="background:none;color:var(--blue);padding:.2rem .4rem;">Mostra ▾</button>
       </div>
       <div id="read-list" style="display:none;">
       <% } %>
-        <% annRead.forEach(function(a, i){ %>
-        <%
-          var rc={info:'#6b7280',warning:'#6b7280',urgent:'#6b7280'};
-        %>
-        <div style="display:flex;gap:.8rem;align-items:flex-start;padding:.7rem 1.1rem;opacity:.65;
-                    <%= i < annRead.length-1 ? 'border-bottom:1px solid var(--border-light);' : '' %>">
-          <span style="font-size:1.3rem;flex-shrink:0;line-height:1;filter:grayscale(1);"><%= a.emoji||'📣' %></span>
-          <div style="flex:1;min-width:0;">
-            <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-bottom:.2rem;">
-              <% if(a.is_pinned){ %>
-                <span style="font-size:.62rem;background:#e5e7eb;color:#6b7280;
-                             padding:.1rem .45rem;border-radius:9999px;font-weight:800;">📌</span>
-              <% } %>
-              <strong style="font-size:.84rem;color:var(--muted);"><%= a.title %></strong>
-            </div>
-            <p style="font-size:.79rem;color:var(--muted);margin:0 0 .2rem;white-space:pre-wrap;line-height:1.5;"><%= a.message %></p>
-            <span style="font-size:.65rem;color:var(--faint);">🕐 <%= (a.created_at||'').substring(0,16).replace('T',' ') %></span>
+      <div class="item-list" style="padding:.85rem 1.2rem .5rem;">
+      <% annRead.forEach(function(a){ %>
+      <div class="item-card read">
+        <div class="item-card-hd">
+          <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;">
+            <% if(a.is_pinned){ %><span class="pill pill-gray">📌</span><% } %>
+            <strong class="item-card-title" style="font-size:.84rem;color:var(--muted);"><%= a.emoji||'📣' %> <%= a.title %></strong>
           </div>
+          <span class="item-card-meta">🕐 <%= (a.created_at||'').substring(0,16).replace('T',' ') %></span>
         </div>
-        <% }); %>
+        <p class="item-card-body" style="font-size:.79rem;color:var(--muted);"><%= a.message %></p>
+      </div>
+      <% }); %>
+      </div>
       <% if(annUnread.length > 0){ %>
       </div>
       <% } %>
@@ -538,77 +586,77 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
 
 
   <!-- ═══ GESTIONE NOMINATIVI SELF-SERVICE ═══ -->
-  <div id="nom-section" style="margin-top:1.4rem;">
-    <div class="sec-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;">
-      <span>&#128221; Gestione Nominativi</span>
-      <% var _maxP = group.max_passes || 0; var _usedP = parts.length; %>
-      <% if(_maxP > 0){ %>
-        <span id="slot-counter" style="font-size:.73rem;font-weight:700;padding:.2rem .7rem;border-radius:20px;background:<%= _usedP >= _maxP ? '#fee2e2' : '#dcfce7' %>;color:<%= _usedP >= _maxP ? '#991b1b' : '#166534' %>;">
-          <%= _usedP %> / <%= _maxP %> slot
-        </span>
-      <% } else { %>
-        <span id="slot-counter" style="font-size:.73rem;font-weight:700;padding:.2rem .7rem;border-radius:20px;background:#f1f5f9;color:#475569;">
-          <span id="slot-used"><%= _usedP %></span> inseriti
-        </span>
-      <% } %>
-    </div>
-
-    <!-- Lista nominativi con pulsante rimozione -->
-    <div id="nom-list" style="display:grid;gap:.5rem;margin-bottom:1rem;">
-      <% parts.forEach(function(p){ %>
-      <div id="nom-row-<%= p.pass_id ? 'p'+p.pass_id : 'pa'+parts.indexOf(p) %>" data-pid="<%= p.id || '' %>"
-        style="display:flex;align-items:center;gap:.65rem;background:var(--surface);border:1px solid var(--border-light);border-radius:var(--radius-sm);padding:.55rem .85rem;">
-        <div style="width:32px;height:32px;border-radius:50%;background:<%= p.pass_id ? '#dcfce7' : '#fef3c7' %>;display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:800;color:<%= p.pass_id ? '#166534' : '#854d0e' %>;flex-shrink:0;">
-          <%= ((p.first_name||'').charAt(0)+(p.last_name||'').charAt(0)).toUpperCase() %>
-        </div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:.85rem;font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><%= p.last_name %> <%= p.first_name %></div>
-          <% if(p.role){ %><div style="font-size:.7rem;color:var(--muted);"><%= p.role %></div><% } %>
-        </div>
-        <% if(p.pass_id){ %>
-          <span style="font-size:.67rem;font-weight:700;background:#dcfce7;color:#166534;padding:.15rem .55rem;border-radius:20px;white-space:nowrap;">✓ Pass ok</span>
+  <div class="sec-card" id="nom-section" style="margin-top:1.4rem;">
+    <div class="sec-card-hd">
+      <div class="sec-card-hd-left">
+        <span class="sec-card-icon">&#128221;</span>
+        <span class="sec-card-title">Gestione Nominativi</span>
+      </div>
+      <div class="sec-card-actions">
+        <% var _maxP = group.max_passes || 0; var _usedP = parts.length; %>
+        <% if(_maxP > 0){ %>
+          <span id="slot-counter" class="pill <%= _usedP >= _maxP ? 'pill-red' : 'pill-green' %>">
+            <%= _usedP %> / <%= _maxP %> slot
+          </span>
         <% } else { %>
-          <button type="button" onclick="removeNominativo(<%= p.participant_id %>, this)"
-            style="background:none;border:1px solid #fca5a5;color:#ef4444;border-radius:6px;padding:.25rem .55rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;"
-            title="Rimuovi nominativo">✕ Rimuovi</button>
+          <span id="slot-counter" class="pill pill-gray">
+            <span id="slot-used"><%= _usedP %></span> inseriti
+          </span>
         <% } %>
       </div>
-      <% }); %>
     </div>
-    <div id="nom-remove-msg" style="display:none;font-size:.78rem;margin-bottom:.6rem;"></div>
+    <div class="sec-card-body">
 
-    <!-- Form aggiunta nominativo -->
-    <details id="add-nom-details" style="background:var(--surface);border:1px solid var(--border-light);border-radius:var(--radius-sm);">
-      <summary style="cursor:pointer;padding:.65rem .9rem;font-size:.84rem;font-weight:700;color:var(--accent);list-style:none;">
-        &#43; Aggiungi nominativo
-      </summary>
-      <div style="padding:.75rem .9rem;border-top:1px solid var(--border-light);">
-        <form id="add-nom-form" onsubmit="addNominativo(event)" style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
-          <div>
-            <label style="font-size:.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:.25rem;">COGNOME *</label>
-            <input type="text" name="last_name" required placeholder="Rossi"
-              style="width:100%;padding:.4rem .65rem;border-radius:7px;border:1.5px solid #d1d9e6;font-size:.84rem;font-family:inherit;">
+      <!-- Lista nominativi con pulsante rimozione -->
+      <div id="nom-list" class="item-list" style="margin-bottom:1rem;">
+        <% parts.forEach(function(p){ %>
+        <div id="nom-row-<%= p.pass_id ? 'p'+p.pass_id : 'pa'+parts.indexOf(p) %>" data-pid="<%= p.id || '' %>"
+          class="item-card" style="display:flex;align-items:center;gap:.65rem;padding:.55rem .85rem;">
+          <div style="width:32px;height:32px;border-radius:50%;background:<%= p.pass_id ? '#dcfce7' : '#fef3c7' %>;display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:800;color:<%= p.pass_id ? '#166534' : '#854d0e' %>;flex-shrink:0;">
+            <%= ((p.first_name||'').charAt(0)+(p.last_name||'').charAt(0)).toUpperCase() %>
           </div>
-          <div>
-            <label style="font-size:.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:.25rem;">NOME *</label>
-            <input type="text" name="first_name" required placeholder="Mario"
-              style="width:100%;padding:.4rem .65rem;border-radius:7px;border:1.5px solid #d1d9e6;font-size:.84rem;font-family:inherit;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:.85rem;font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><%= p.last_name %> <%= p.first_name %></div>
+            <% if(p.role){ %><div class="item-card-meta"><%= p.role %></div><% } %>
           </div>
-          <div style="grid-column:1/-1;">
-            <label style="font-size:.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:.25rem;">RUOLO / QUALIFICA</label>
-            <input type="text" name="role" placeholder="es. Responsabile stand, Assistente…"
-              style="width:100%;padding:.4rem .65rem;border-radius:7px;border:1.5px solid #d1d9e6;font-size:.84rem;font-family:inherit;">
-          </div>
-          <div style="grid-column:1/-1;display:flex;align-items:center;gap:.75rem;">
-            <button type="submit" id="add-nom-btn"
-              style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:.5rem 1.2rem;font-size:.84rem;font-weight:700;cursor:pointer;">
-              &#10003; Aggiungi
-            </button>
-            <span id="add-nom-msg" style="font-size:.78rem;"></span>
-          </div>
-        </form>
+          <% if(p.pass_id){ %>
+            <span class="pill pill-green">✓ Pass ok</span>
+          <% } else { %>
+            <button type="button" onclick="removeNominativo(<%= p.participant_id %>, this)"
+              class="btn btn-danger btn-xs" title="Rimuovi nominativo">✕ Rimuovi</button>
+          <% } %>
+        </div>
+        <% }); %>
       </div>
-    </details>
+      <div id="nom-remove-msg" class="form-msg" style="display:none;margin-bottom:.6rem;"></div>
+
+      <!-- Form aggiunta nominativo -->
+      <details class="sec-details" id="add-nom-details">
+        <summary>&#43; Aggiungi nominativo</summary>
+        <div class="details-body">
+          <form id="add-nom-form" onsubmit="addNominativo(event)">
+            <div class="form-grid form-grid-2">
+              <div class="fld">
+                <label class="fld-label">Cognome *</label>
+                <input type="text" name="last_name" required placeholder="Rossi" class="fld-input">
+              </div>
+              <div class="fld">
+                <label class="fld-label">Nome *</label>
+                <input type="text" name="first_name" required placeholder="Mario" class="fld-input">
+              </div>
+              <div class="fld form-span-2">
+                <label class="fld-label">Ruolo / Qualifica</label>
+                <input type="text" name="role" placeholder="es. Responsabile stand, Assistente…" class="fld-input">
+              </div>
+              <div class="form-footer form-span-2">
+                <button type="submit" id="add-nom-btn" class="btn btn-accent">&#10003; Aggiungi</button>
+                <span id="add-nom-msg" class="form-msg"></span>
+              </div>
+            </div>
+          </form>
+        </div>
+      </details>
+    </div>
   </div>
   <!-- ═══ FINE GESTIONE NOMINATIVI ═══ -->
 
@@ -711,131 +759,160 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
   </div>
   <% } %>
 
+  <!-- DOCUMENTI -->
+  <div class="sec-card" id="documenti-section">
+    <div class="sec-card-hd">
+      <div class="sec-card-hd-left">
+        <span class="sec-card-icon">📎</span>
+        <span class="sec-card-title">Documenti &amp; Modulistica</span>
+      </div>
+    </div>
+    <div class="sec-card-body">
+      <p style="font-size:.81rem;color:var(--muted);margin-bottom:1rem;">Carica qui i documenti richiesti dall&rsquo;organizzazione (moduli firmati, dichiarazioni, ecc.).</p>
 
-  <!-- ═══════════════════════════════════════════════════════════
-       SEZIONE DOCUMENTI — Upload modulistica dall'espositore
-  ═══════════════════════════════════════════════════════════ -->
-  <div class="sec-title" id="documenti-section-title">📎 Documenti & Modulistica</div>
-  <div style="background:#fff;border-radius:14px;box-shadow:var(--shadow-md);padding:1.25rem 1.4rem;margin-bottom:1.4rem;">
-    <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem;">Carica qui i documenti richiesti dall'organizzazione (moduli firmati, dichiarazioni, ecc.).</p>
-
-    <!-- Documenti già caricati -->
-    <% if(typeof portalDocs !== 'undefined' && portalDocs.length){ %>
-    <div style="display:grid;gap:.5rem;margin-bottom:1rem;">
-      <% portalDocs.forEach(function(d){ %>
-        <% var docStatus = {ricevuto:{bg:'#eff6ff',color:'#1d6fa4',label:'Ricevuto'},in_revisione:{bg:'#fefce8',color:'#b45309',label:'In revisione'},approvato:{bg:'#f0fdf4',color:'#2d6a4f',label:'Approvato ✓'},rifiutato:{bg:'#fef2f2',color:'#c0392b',label:'Rifiutato ✗'}}[d.status] || {bg:'#f8fafc',color:'#64748b',label:d.status}; %>
-        <div style="display:flex;align-items:center;gap:.75rem;padding:.55rem .85rem;background:#f8fafc;border-radius:10px;border:1px solid #e8ecf3;">
-          <span style="font-size:1.3rem;">📄</span>
+      <!-- Documenti già caricati -->
+      <% if(typeof portalDocs !== 'undefined' && portalDocs.length){ %>
+      <div class="item-list">
+        <% portalDocs.forEach(function(d){ %>
+        <% var dPill = {ricevuto:'pill-blue',in_revisione:'pill-yellow',approvato:'pill-green',rifiutato:'pill-red'}[d.status]||'pill-gray'; %>
+        <% var dLbl  = {ricevuto:'Ricevuto',in_revisione:'In revisione',approvato:'Approvato ✓',rifiutato:'Rifiutato ✗'}[d.status]||d.status; %>
+        <div class="item-card" style="display:flex;align-items:center;gap:.75rem;padding:.65rem .95rem;">
+          <span style="font-size:1.25rem;flex-shrink:0;">📄</span>
           <div style="flex:1;min-width:0;">
             <div style="font-size:.83rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><%= d.original_name||d.filename %></div>
-            <div style="font-size:.71rem;color:var(--muted);">
-              <span><%= d.doc_type %></span>
-              &middot; <span><%= new Date(d.uploaded_at).toLocaleDateString('it-IT') %></span>
-              <% if(d.review_notes){ %> &middot; <em><%= d.review_notes %></em><% } %>
-            </div>
+            <div class="item-card-meta"><%= d.doc_type %> &middot; <%= new Date(d.uploaded_at).toLocaleDateString('it-IT') %><% if(d.review_notes){ %> &middot; <em><%= d.review_notes %></em><% } %></div>
           </div>
-          <span style="font-size:.7rem;font-weight:800;padding:.2rem .6rem;border-radius:9999px;background:<%= docStatus.bg %>;color:<%= docStatus.color %>;white-space:nowrap;"><%= docStatus.label %></span>
+          <span class="pill <%= dPill %>"><%= dLbl %></span>
         </div>
-      <% }); %>
+        <% }); %>
+      </div>
+      <% } else { %>
+      <div class="empty-state" style="padding:1.2rem 0 .5rem;">
+        <div class="empty-icon">📂</div>
+        <p class="empty-msg">Nessun documento caricato.</p>
+      </div>
+      <% } %>
+
+      <!-- Form upload -->
+      <details class="sec-details" style="margin-top:.75rem;">
+        <summary>⬆ Carica nuovo documento</summary>
+        <div class="details-body">
+          <form id="portal-doc-form" enctype="multipart/form-data" onsubmit="uploadPortalDoc(event)">
+            <div class="form-grid form-grid-2">
+              <div class="fld form-span-2">
+                <label class="fld-label">File da caricare *</label>
+                <input type="file" name="docfile" required class="fld-file">
+              </div>
+              <div class="fld">
+                <label class="fld-label">Tipo documento</label>
+                <select name="doc_type" class="fld-select">
+                  <option value="modulo_iscrizione">Modulo iscrizione</option>
+                  <option value="modulo_firmato">Modulo firmato</option>
+                  <option value="dichiarazione">Dichiarazione</option>
+                  <option value="altro">Altro</option>
+                </select>
+              </div>
+              <div class="fld">
+                <label class="fld-label">Note (opzionale)</label>
+                <input type="text" name="notes" placeholder="Riferimento, data firma…" class="fld-input">
+              </div>
+            </div>
+            <div class="form-footer">
+              <button type="submit" id="portal-doc-btn" class="btn btn-accent">⬆ Carica documento</button>
+              <span id="portal-doc-msg" class="form-msg"></span>
+            </div>
+          </form>
+        </div>
+      </details>
     </div>
-    <% } else { %>
-    <p style="font-size:.8rem;color:var(--faint);margin-bottom:1rem;">Nessun documento caricato.</p>
-    <% } %>
+  </div><!-- /documenti -->
 
-    <!-- Form upload -->
-    <form id="portal-doc-form" enctype="multipart/form-data" onsubmit="uploadPortalDoc(event)">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-bottom:.7rem;">
-        <div style="grid-column:1/-1;">
-          <label style="font-size:.78rem;font-weight:700;color:var(--muted);display:block;margin-bottom:.3rem;">FILE DA CARICARE *</label>
-          <input type="file" name="docfile" required style="width:100%;font-size:.82rem;">
-        </div>
-        <div>
-          <label style="font-size:.78rem;font-weight:700;color:var(--muted);display:block;margin-bottom:.3rem;">TIPO DOCUMENTO</label>
-          <select name="doc_type" style="width:100%;padding:.4rem .6rem;border-radius:6px;border:1.5px solid #d1d9e6;font-size:.82rem;">
-            <option value="modulo_iscrizione">Modulo iscrizione</option>
-            <option value="modulo_firmato">Modulo firmato</option>
-            <option value="dichiarazione">Dichiarazione</option>
-            <option value="altro">Altro</option>
-          </select>
-        </div>
-        <div>
-          <label style="font-size:.78rem;font-weight:700;color:var(--muted);display:block;margin-bottom:.3rem;">NOTE (opzionale)</label>
-          <input type="text" name="notes" placeholder="Riferimento, data firma…" style="width:100%;padding:.4rem .6rem;border-radius:6px;border:1.5px solid #d1d9e6;font-size:.82rem;">
-        </div>
+
+  <!-- TICKET SUPPORTO -->
+  <div class="sec-card" id="ticket-section">
+    <div class="sec-card-hd">
+      <div class="sec-card-hd-left">
+        <span class="sec-card-icon">💬</span>
+        <span class="sec-card-title">Contatta l&rsquo;Organizzazione</span>
+        <% if(typeof tickets !== 'undefined'){ %>
+        <% var openCount = tickets.filter(function(t){return t.status==='aperto';}).length; %>
+        <% if(openCount > 0){ %><span class="sec-card-badge sec-card-badge-blue"><%= openCount %></span><% } %>
+        <% } %>
       </div>
-      <div style="display:flex;align-items:center;gap:.75rem;">
-        <button type="submit" id="portal-doc-btn" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:.5rem 1.2rem;font-size:.84rem;font-weight:700;cursor:pointer;">⬆ Carica documento</button>
-        <span id="portal-doc-msg" style="font-size:.78rem;"></span>
-      </div>
-    </form>
-  </div>
+    </div>
+    <div class="sec-card-body">
 
-  <!-- ═══════════════════════════════════════════════════════════
-       SEZIONE TICKET — Supporto / Richieste all'organizzazione
-  ═══════════════════════════════════════════════════════════ -->
-  <div class="sec-title" id="ticket-section-title">💬 Contatta l'Organizzazione</div>
-  <div style="background:#fff;border-radius:14px;box-shadow:var(--shadow-md);padding:1.25rem 1.4rem;margin-bottom:1.4rem;">
-
-    <!-- Ticket esistenti -->
-    <% if(typeof tickets !== 'undefined' && tickets.length){ %>
-    <div style="display:grid;gap:.75rem;margin-bottom:1.25rem;" id="tickets-list">
-      <% tickets.forEach(function(t){ %>
-        <div id="ticket-<%= t.id %>" style="border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;">
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:.65rem 1rem;background:#f8fafc;gap:.5rem;flex-wrap:wrap;">
-            <div>
-              <span style="font-size:.83rem;font-weight:700;color:#1e2d4e;">💬 <%= t.subject %></span>
-              <span style="font-size:.7rem;color:var(--muted);margin-left:.6rem;"><%= new Date(t.created_at).toLocaleDateString('it-IT') %></span>
+      <!-- Ticket esistenti -->
+      <% if(typeof tickets !== 'undefined' && tickets.length){ %>
+      <div class="item-list" id="tickets-list">
+        <% tickets.forEach(function(t){ %>
+        <div id="ticket-<%= t.id %>" class="item-card" style="padding:0;overflow:hidden;">
+          <div class="item-card-hd" style="padding:.65rem 1rem;background:var(--bg);">
+            <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+              <span class="item-card-title">💬 <%= t.subject %></span>
+              <span class="item-card-meta"><%= new Date(t.created_at).toLocaleDateString('it-IT') %></span>
             </div>
-            <% var tStatus = t.status==='aperto' ? {bg:'#f0fdf4',color:'#2d6a4f',label:'Aperto'} : {bg:'#f1f5f9',color:'#64748b',label:'Chiuso'}; %>
-            <span style="font-size:.7rem;font-weight:700;padding:.15rem .55rem;border-radius:9999px;background:<%= tStatus.bg %>;color:<%= tStatus.color %>;"><%= tStatus.label %></span>
+            <span class="pill <%= t.status==='aperto'?'pill-green':'pill-gray' %>">
+              <%= t.status==='aperto'?'Aperto':'Chiuso' %>
+            </span>
           </div>
-          <div style="padding:.7rem 1rem;font-size:.82rem;color:#374151;background:#fff;border-top:1px solid #f0f2f5;">
-            <div style="margin-bottom:.6rem;"><%= t.message %></div>
+          <div style="padding:.75rem 1rem;border-top:1px solid var(--border-light);">
+            <p class="item-card-body"><%= t.message %></p>
             <% if(t.replies && t.replies.length){ %>
-            <div style="border-top:1px solid #e8ecf3;padding-top:.6rem;display:grid;gap:.5rem;">
+            <div class="reply-thread">
               <% t.replies.forEach(function(r){ %>
-              <div style="padding:.45rem .75rem;border-radius:7px;background:<%= r.is_admin ? '#eff6ff' : '#f8fafc' %>;border-left:3px solid <%= r.is_admin ? '#1d6fa4' : '#d1d9e6' %>;">
-                <div style="font-size:.72rem;font-weight:700;color:<%= r.is_admin?'#1d6fa4':'#64748b' %>;margin-bottom:.2rem;"><%= r.is_admin ? '🏢 Organizzazione' : '👤 Voi' %> · <%= new Date(r.created_at).toLocaleDateString('it-IT') %></div>
-                <div style="font-size:.81rem;color:#374151;"><%= r.message %></div>
+              <div class="reply-bubble <%= r.is_admin?'reply-admin':'reply-user' %>">
+                <div class="reply-author <%= r.is_admin?'admin':'user' %>">
+                  <%= r.is_admin ? '🏢 Organizzazione' : '👤 Voi' %> &middot; <%= new Date(r.created_at).toLocaleDateString('it-IT') %>
+                </div>
+                <div style="font-size:.81rem;"><%= r.message %></div>
               </div>
               <% }); %>
             </div>
             <% } %>
             <% if(t.status === 'aperto'){ %>
-            <div style="margin-top:.75rem;display:flex;gap:.5rem;">
-              <input type="text" id="reply-<%= t.id %>" placeholder="Rispondi…" style="flex:1;padding:.38rem .65rem;border-radius:6px;border:1.5px solid #d1d9e6;font-size:.81rem;">
-              <button type="button" onclick="sendReply(<%= t.id %>)" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:.38rem .85rem;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap;">Invia</button>
+            <div class="reply-form">
+              <input type="text" id="reply-<%= t.id %>" placeholder="Rispondi…" class="fld-input">
+              <button type="button" onclick="sendReply(<%= t.id %>)" class="btn btn-accent btn-sm">Invia</button>
             </div>
             <% } %>
           </div>
         </div>
-      <% }); %>
-    </div>
-    <% } else { %>
-    <p style="font-size:.8rem;color:var(--faint);margin-bottom:1rem;">Nessuna comunicazione inviata.</p>
-    <% } %>
+        <% }); %>
+      </div>
+      <% } else { %>
+      <div class="empty-state" style="padding:1.2rem 0 .5rem;">
+        <div class="empty-icon">💬</div>
+        <p class="empty-msg">Nessuna comunicazione inviata.</p>
+      </div>
+      <% } %>
 
-    <!-- Nuovo ticket -->
-    <% if(!tickets || tickets.filter(function(t){ return t.status==='aperto'; }).length < 3){ %>
-    <details id="new-ticket-details">
-      <summary style="cursor:pointer;font-size:.84rem;font-weight:700;color:var(--accent);padding:.3rem 0;list-style:none;">+ Nuova richiesta / segnalazione</summary>
-      <form id="ticket-form" onsubmit="submitTicket(event)" style="margin-top:.75rem;display:grid;gap:.65rem;">
-        <div>
-          <label style="font-size:.78rem;font-weight:700;color:var(--muted);display:block;margin-bottom:.3rem;">OGGETTO *</label>
-          <input type="text" name="subject" required placeholder="es. Richiesta tavolo extra, problema con pass…" style="width:100%;padding:.42rem .65rem;border-radius:7px;border:1.5px solid #d1d9e6;font-size:.83rem;">
+      <!-- Nuovo ticket — sempre visibile -->
+      <% if(!tickets || tickets.filter(function(t){ return t.status==='aperto'; }).length < 3){ %>
+      <details class="sec-details" id="new-ticket-details" style="margin-top:.75rem;">
+        <summary>+ Nuova richiesta / segnalazione</summary>
+        <div class="details-body">
+          <form id="ticket-form" onsubmit="submitTicket(event)">
+            <div class="form-grid">
+              <div class="fld">
+                <label class="fld-label">Oggetto *</label>
+                <input type="text" name="subject" required placeholder="es. Richiesta tavolo extra, problema con pass…" class="fld-input">
+              </div>
+              <div class="fld">
+                <label class="fld-label">Messaggio *</label>
+                <textarea name="message" required rows="3" placeholder="Descrivi la tua richiesta…" class="fld-textarea"></textarea>
+              </div>
+            </div>
+            <div class="form-footer">
+              <button type="submit" id="ticket-btn" class="btn btn-accent">📨 Invia richiesta</button>
+              <span id="ticket-msg" class="form-msg"></span>
+            </div>
+          </form>
         </div>
-        <div>
-          <label style="font-size:.78rem;font-weight:700;color:var(--muted);display:block;margin-bottom:.3rem;">MESSAGGIO *</label>
-          <textarea name="message" required rows="3" placeholder="Descrivi la tua richiesta…" style="width:100%;padding:.42rem .65rem;border-radius:7px;border:1.5px solid #d1d9e6;font-size:.83rem;resize:vertical;font-family:inherit;"></textarea>
-        </div>
-        <div style="display:flex;align-items:center;gap:.75rem;">
-          <button type="submit" id="ticket-btn" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:.5rem 1.2rem;font-size:.84rem;font-weight:700;cursor:pointer;">📨 Invia richiesta</button>
-          <span id="ticket-msg" style="font-size:.78rem;"></span>
-        </div>
-      </form>
-    </details>
-    <% } %>
-  </div>
+      </details>
+      <% } %>
+    </div>
+  </div><!-- /ticket -->
 
   <div class="footer">
     <strong>Ludicomix</strong> &mdash; Portale Espositore &middot; Per assistenza contatta l&rsquo;organizzazione
