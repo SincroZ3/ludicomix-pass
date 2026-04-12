@@ -1231,7 +1231,8 @@ app.get('/home', requireAuth, (req, res) => {
       res.render('admin_settings', { groups, types, zones, users, smtp, scanAttempts: scanAttempts||[], apSettings }, function(err, html) {
       if (err) { console.error(err); return res.status(500).send('Errore rendering'); }
       const _pwInject = `<a href="/admin/portal-window" title="Gestisci la finestra di inserimento per tutti i portali espositori" style="position:fixed;bottom:24px;right:24px;z-index:9999;background:#6b3fa0;color:#fff;border-radius:50px;padding:.65rem 1.25rem;font-size:.82rem;font-weight:700;text-decoration:none;box-shadow:0 4px 16px rgba(107,63,160,.4);display:flex;align-items:center;gap:.45rem;white-space:nowrap;">🗓 Finestra Portali</a>`;
-      res.send(html.replace('</body>', _pwInject + '\n</body>'));
+      // replace case-insensitive per compatibilità con varie versioni di admin_settings.ejs
+      res.send(html.replace(/<\/body>/i, _pwInject + '\n</body>'));
     });
     } catch (err) {
       console.error('Errore /admin/settings:', err);
@@ -1531,7 +1532,7 @@ app.get('/home', requireAuth, (req, res) => {
       res.render('admin_bacheca', { announcements, readMap, totalStands, saved: req.query.saved }, function(err, html) {
       if (err) { console.error(err); return res.status(500).send('Errore rendering'); }
       const _pwBtn = `<a href="/admin/portal-window" title="Gestisci la finestra di inserimento portali" style="position:fixed;bottom:24px;right:24px;z-index:9999;background:#6b3fa0;color:#fff;border-radius:50px;padding:.65rem 1.25rem;font-size:.82rem;font-weight:700;text-decoration:none;box-shadow:0 4px 16px rgba(107,63,160,.4);display:flex;align-items:center;gap:.45rem;white-space:nowrap;">🗓 Finestra Portali</a>`;
-      res.send(html.replace('</body>', _pwBtn + '\n</body>'));
+      res.send(html.replace(/<\/body>/i, _pwBtn + '\n</body>'));
     });
     } catch(err) {
       console.error('Errore /admin/bacheca:', err);
