@@ -1654,9 +1654,12 @@ app.get('/home', requireAuth, (req, res) => {
       if (!group) return res.status(404).send('<h2 style="font-family:sans-serif;padding:2rem">Portale non disponibile.</h2>');
 
       // ── Controllo finestra temporale portale ──────────────────────────────
-      if (group.portal_open_from || group.portal_open_until) {
-        const now = new Date().toISOString().slice(0, 16);
-        const _page = (icon, title, body, hl) => `<!DOCTYPE html><html><head><meta charset="utf-8">
+      const _winNow = new Date().toISOString().slice(0, 16);
+      // Prima dell'apertura → blocco completo (il portale non è ancora disponibile)
+      if (group.portal_open_from && _winNow < group.portal_open_from) {
+        const dt = new Date(group.portal_open_from).toLocaleString('it-IT',
+          {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+        return res.status(403).send(`<!DOCTYPE html><html><head><meta charset="utf-8">
           <meta name="viewport" content="width=device-width,initial-scale=1">
           <style>*{box-sizing:border-box;margin:0;padding:0}
           body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;
@@ -1664,26 +1667,17 @@ app.get('/home', requireAuth, (req, res) => {
           .box{background:#fff;border-radius:16px;padding:2.5rem 2rem;max-width:420px;width:92%;
             text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.1)}
           h2{color:#1a2744;font-size:1.25rem;margin:.8rem 0 .6rem}
-          p{color:#64748b;line-height:1.8;font-size:.92rem}
-          strong{color:${hl}}</style>
+          p{color:#64748b;line-height:1.8;font-size:.92rem}</style>
           </head><body><div class="box">
-            <div style="font-size:2.8rem;margin-bottom:.3rem">${icon}</div>
-            <h2>${title}</h2><p>${body}</p>
-          </div></body></html>`;
-        if (group.portal_open_from && now < group.portal_open_from) {
-          const dt = new Date(group.portal_open_from).toLocaleString('it-IT',
-            {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-          return res.status(403).send(_page('🔒','Portale non ancora aperto',
-            `Questo portale sarà disponibile a partire dal<br><strong>${dt}</strong>`,'#1d6fa4'));
-        }
-        if (group.portal_open_until && now > group.portal_open_until) {
-          const dt = new Date(group.portal_open_until).toLocaleString('it-IT',
-            {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-          return res.status(403).send(_page('⏱','Finestra di inserimento chiusa',
-            `Il periodo di inserimento si è concluso il<br><strong>${dt}</strong><br><br>
-            Per assistenza contatta l'organizzazione.`,'#c0392b'));
-        }
+            <div style="font-size:2.8rem;margin-bottom:.3rem">🔒</div>
+            <h2>Portale non ancora aperto</h2>
+            <p>Questo portale sarà disponibile a partire dal<br>
+            <strong style="color:#1d6fa4">${dt}</strong></p>
+          </div></body></html>`);
       }
+      // Dopo la chiusura → portale accessibile in sola lettura (scarica pass, ticket, bacheca)
+      // windowClosed viene passato alla view che nasconde i form di inserimento
+      const windowClosed = !!(group.portal_open_until && _winNow > group.portal_open_until);
       // ── Fine controllo finestra ────────────────────────────────────────────
 
       const [parts, autoPasses, announcements, unreadRow, zoneInfo, zoneStands, refWRow, refHRow] = await Promise.all([
@@ -1759,6 +1753,8 @@ app.get('/home', requireAuth, (req, res) => {
         mapRefH:      (refHRow && refHRow.value) ? parseInt(refHRow.value,10) : null,
         portalDocs:   portalDocs  || [],
         tickets:      ticketsRaw  || [],
+        windowClosed,
+        windowUntil:  group.portal_open_until || null,
       });
     } catch(err) {
       console.error('Errore GET /portale/:token:', err);
