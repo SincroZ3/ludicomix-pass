@@ -509,6 +509,82 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
   </div>
   <% } %>
 
+
+  <!-- ═══ GESTIONE NOMINATIVI SELF-SERVICE ═══ -->
+  <div id="nom-section" style="margin-top:1.4rem;">
+    <div class="sec-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;">
+      <span>&#128221; Gestione Nominativi</span>
+      <% var _maxP = group.max_passes || 0; var _usedP = parts.length; %>
+      <% if(_maxP > 0){ %>
+        <span id="slot-counter" style="font-size:.73rem;font-weight:700;padding:.2rem .7rem;border-radius:20px;background:<%= _usedP >= _maxP ? '#fee2e2' : '#dcfce7' %>;color:<%= _usedP >= _maxP ? '#991b1b' : '#166534' %>;">
+          <%= _usedP %> / <%= _maxP %> slot
+        </span>
+      <% } else { %>
+        <span id="slot-counter" style="font-size:.73rem;font-weight:700;padding:.2rem .7rem;border-radius:20px;background:#f1f5f9;color:#475569;">
+          <span id="slot-used"><%= _usedP %></span> inseriti
+        </span>
+      <% } %>
+    </div>
+
+    <!-- Lista nominativi con pulsante rimozione -->
+    <div id="nom-list" style="display:grid;gap:.5rem;margin-bottom:1rem;">
+      <% parts.forEach(function(p){ %>
+      <div id="nom-row-<%= p.pass_id ? 'p'+p.pass_id : 'pa'+parts.indexOf(p) %>" data-pid="<%= p.id || '' %>"
+        style="display:flex;align-items:center;gap:.65rem;background:var(--surface);border:1px solid var(--border-light);border-radius:var(--radius-sm);padding:.55rem .85rem;">
+        <div style="width:32px;height:32px;border-radius:50%;background:<%= p.pass_id ? '#dcfce7' : '#fef3c7' %>;display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:800;color:<%= p.pass_id ? '#166534' : '#854d0e' %>;flex-shrink:0;">
+          <%= ((p.first_name||'').charAt(0)+(p.last_name||'').charAt(0)).toUpperCase() %>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:.85rem;font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><%= p.last_name %> <%= p.first_name %></div>
+          <% if(p.role){ %><div style="font-size:.7rem;color:var(--muted);"><%= p.role %></div><% } %>
+        </div>
+        <% if(p.pass_id){ %>
+          <span style="font-size:.67rem;font-weight:700;background:#dcfce7;color:#166534;padding:.15rem .55rem;border-radius:20px;white-space:nowrap;">✓ Pass ok</span>
+        <% } else { %>
+          <button type="button" onclick="removeNominativo(<%= p.id %>, this)"
+            style="background:none;border:1px solid #fca5a5;color:#ef4444;border-radius:6px;padding:.25rem .55rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;"
+            title="Rimuovi nominativo">✕ Rimuovi</button>
+        <% } %>
+      </div>
+      <% }); %>
+    </div>
+    <div id="nom-remove-msg" style="display:none;font-size:.78rem;margin-bottom:.6rem;"></div>
+
+    <!-- Form aggiunta nominativo -->
+    <details id="add-nom-details" style="background:var(--surface);border:1px solid var(--border-light);border-radius:var(--radius-sm);">
+      <summary style="cursor:pointer;padding:.65rem .9rem;font-size:.84rem;font-weight:700;color:var(--accent);list-style:none;">
+        &#43; Aggiungi nominativo
+      </summary>
+      <div style="padding:.75rem .9rem;border-top:1px solid var(--border-light);">
+        <form id="add-nom-form" onsubmit="addNominativo(event)" style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
+          <div>
+            <label style="font-size:.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:.25rem;">COGNOME *</label>
+            <input type="text" name="last_name" required placeholder="Rossi"
+              style="width:100%;padding:.4rem .65rem;border-radius:7px;border:1.5px solid #d1d9e6;font-size:.84rem;font-family:inherit;">
+          </div>
+          <div>
+            <label style="font-size:.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:.25rem;">NOME *</label>
+            <input type="text" name="first_name" required placeholder="Mario"
+              style="width:100%;padding:.4rem .65rem;border-radius:7px;border:1.5px solid #d1d9e6;font-size:.84rem;font-family:inherit;">
+          </div>
+          <div style="grid-column:1/-1;">
+            <label style="font-size:.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:.25rem;">RUOLO / QUALIFICA</label>
+            <input type="text" name="role" placeholder="es. Responsabile stand, Assistente…"
+              style="width:100%;padding:.4rem .65rem;border-radius:7px;border:1.5px solid #d1d9e6;font-size:.84rem;font-family:inherit;">
+          </div>
+          <div style="grid-column:1/-1;display:flex;align-items:center;gap:.75rem;">
+            <button type="submit" id="add-nom-btn"
+              style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:.5rem 1.2rem;font-size:.84rem;font-weight:700;cursor:pointer;">
+              &#10003; Aggiungi
+            </button>
+            <span id="add-nom-msg" style="font-size:.78rem;"></span>
+          </div>
+        </form>
+      </div>
+    </details>
+  </div>
+  <!-- ═══ FINE GESTIONE NOMINATIVI ═══ -->
+
   <% if(parts.length===0){ %>
   <div style="text-align:center;padding:3rem 1rem;color:var(--muted)">
     <div style="font-size:2.5rem;margin-bottom:.75rem">&#127915;</div>
@@ -1168,6 +1244,64 @@ function sendReply(tid) {
   }
 })();
 
+
+// ── Gestione nominativi self-service ─────────────────────────────────────
+var __TOKEN = '<%= token %>';
+
+function addNominativo(e) {
+  e.preventDefault();
+  var btn = document.getElementById('add-nom-btn');
+  var msg = document.getElementById('add-nom-msg');
+  var form = document.getElementById('add-nom-form');
+  btn.disabled = true; btn.textContent = '⏳…';
+  msg.textContent = ''; msg.style.color = '';
+  var data = new URLSearchParams(new FormData(form)).toString();
+  fetch('/portale/' + __TOKEN + '/participants', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: data
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    btn.disabled = false; btn.textContent = '✓ Aggiungi';
+    if (d.ok) {
+      msg.style.color = '#166534'; msg.textContent = '✓ Nominativo aggiunto!';
+      form.reset();
+      setTimeout(function(){ location.reload(); }, 800);
+    } else {
+      msg.style.color = '#c0392b'; msg.textContent = d.error || 'Errore durante il salvataggio.';
+    }
+  })
+  .catch(function(){
+    btn.disabled = false; btn.textContent = '✓ Aggiungi';
+    msg.style.color = '#c0392b'; msg.textContent = 'Errore di rete.';
+  });
+}
+
+function removeNominativo(pid, btnEl) {
+  if (!confirm('Rimuovere questo nominativo?')) return;
+  var msg = document.getElementById('nom-remove-msg');
+  btnEl.disabled = true; btnEl.textContent = '⏳';
+  fetch('/portale/' + __TOKEN + '/participants/' + pid, { method: 'DELETE' })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.ok) {
+      var row = btnEl.closest('[data-pid]');
+      if (row) row.remove();
+      // Aggiorna contatore
+      var sc = document.getElementById('slot-used');
+      if (sc) sc.textContent = parseInt(sc.textContent || '0') - 1;
+      if (msg) { msg.style.display='block'; msg.style.color='#166534'; msg.textContent='✓ Nominativo rimosso.'; }
+    } else {
+      btnEl.disabled = false; btnEl.textContent = '✕ Rimuovi';
+      if (msg) { msg.style.display='block'; msg.style.color='#c0392b'; msg.textContent=d.error||'Errore rimozione.'; }
+    }
+  })
+  .catch(function(){
+    btnEl.disabled = false; btnEl.textContent = '✕ Rimuovi';
+    if (msg) { msg.style.display='block'; msg.style.color='#c0392b'; msg.textContent='Errore di rete.'; }
+  });
+}
 </script>
 </body>
 </html>

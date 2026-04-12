@@ -1644,6 +1644,82 @@ app.get('/home', requireAuth, (req, res) => {
     }
   });
 
+
+  // ── Portale: aggiungi nominativo ─────────────────────────────────────────
+  app.post('/portale/:token/participants', express.json(), express.urlencoded({ extended: true }), async (req, res) => {
+    const token = req.params.token;
+    try {
+      const group = await dbGet(
+        'SELECT * FROM assignment_groups WHERE portal_token=? AND portal_enabled=1', [token]
+      );
+      if (!group) return res.status(403).json({ error: 'Accesso negato' });
+
+      // Controllo finestra temporale
+      const now = new Date().toISOString().slice(0, 16);
+      if (group.portal_open_from && now < group.portal_open_from)
+        return res.status(403).json({ error: 'Portale non ancora aperto' });
+      if (group.portal_open_until && now > group.portal_open_until)
+        return res.status(403).json({ error: 'Finestra di inserimento chiusa' });
+
+      const { first_name, last_name, role } = req.body;
+      if (!first_name || !last_name)
+        return res.status(400).json({ error: 'Nome e cognome obbligatori' });
+
+      // Controllo limite slot
+      if (group.max_passes) {
+        const countRow = await dbGet(
+          'SELECT COUNT(*) AS cnt FROM participants WHERE assignment_group_id=?', [group.id]
+        );
+        if (countRow && countRow.cnt >= group.max_passes)
+          return res.status(400).json({ error: 'Limite massimo nominativi raggiunto (' + group.max_passes + ')' });
+      }
+
+      await dbRun(
+        `INSERT INTO participants (first_name, last_name, role, assignment_group_id, stand_name, zone)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [first_name.trim(), last_name.trim(), role ? role.trim() : null,
+         group.id, group.name, group.zone || null]
+      );
+      res.json({ ok: true });
+    } catch(err) {
+      console.error('[Portale] addParticipant:', err);
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  // ── Portale: rimuovi nominativo (solo senza pass) ─────────────────────────
+  app.delete('/portale/:token/participants/:pid', async (req, res) => {
+    const token = req.params.token;
+    const pid   = parseInt(req.params.pid, 10);
+    try {
+      const group = await dbGet(
+        'SELECT * FROM assignment_groups WHERE portal_token=? AND portal_enabled=1', [token]
+      );
+      if (!group) return res.status(403).json({ error: 'Accesso negato' });
+
+      // Controllo finestra
+      const now = new Date().toISOString().slice(0, 16);
+      if (group.portal_open_until && now > group.portal_open_until)
+        return res.status(403).json({ error: 'Finestra di inserimento chiusa' });
+
+      // Verifica che il partecipante appartenga a questo stand e non abbia pass attivi
+      const participant = await dbGet(
+        `SELECT pa.id FROM participants pa
+         LEFT JOIN passes p ON p.participant_id=pa.id AND p.status!='INVALIDATO'
+         WHERE pa.id=? AND pa.assignment_group_id=? AND p.id IS NULL`,
+        [pid, group.id]
+      );
+      if (!participant)
+        return res.status(400).json({ error: 'Non è possibile rimuovere questo nominativo (ha un pass assegnato)' });
+
+      await dbRun('DELETE FROM participants WHERE id=?', [pid]);
+      res.json({ ok: true });
+    } catch(err) {
+      console.error('[Portale] removeParticipant:', err);
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
   app.get('/portale/:token', async function(req, res) {
     const token = req.params.token;
     try {
