@@ -432,12 +432,14 @@ app.get('/home', requireAuth, (req, res) => {
                 _crmQ('SELECT * FROM group_documents WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [id]),
                 _crmQ('SELECT * FROM portal_documents WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [id]),
                 _crmQ('SELECT * FROM support_tickets  WHERE assignment_group_id=? ORDER BY created_at DESC', [id]),
-              ]).then(async function([contacts, payments, groupDocs, portalDocs, ticketsRaw]) {
-                // Carica le risposte di ogni ticket
-                for (const t of ticketsRaw) {
-                  t.replies = await new Promise((ok, ko) =>
+              ]).then(async function([contacts, payments, groupDocs, portalDocsRaw, ticketsRaw]) {
+                // Carica le risposte di ogni ticket (fault-tolerant)
+                let portalDocs = portalDocsRaw || [];
+                const safeTix = ticketsRaw || [];
+                for (const t of safeTix) {
+                  t.replies = await new Promise((ok) =>
                     db.all('SELECT * FROM ticket_replies WHERE ticket_id=? ORDER BY created_at ASC',
-                      [t.id], (e, r) => e ? ko(e) : ok(r))
+                      [t.id], (e, r) => ok(r || []))
                   );
                 }
                 res.render('assignment_group_detail', {
@@ -446,7 +448,7 @@ app.get('/home', requireAuth, (req, res) => {
                   importOk, importSkip, importErrs, replaceOk,
                   autoPasses: autoPasses || [],
                   contacts, payments, groupDocs,
-                  portalDocs, tickets: ticketsRaw,
+                  portalDocs, tickets: safeTix,
                   isViewer: req.session.user && req.session.user.role === 'viewer'
                 });
               }).catch(function(crmErr) {
@@ -1729,14 +1731,19 @@ app.get('/home', requireAuth, (req, res) => {
         dbGet(`SELECT value FROM app_settings WHERE key='map_ref_h'`, [])
       ]);
 
-      // ── CRM: carica docs portale e ticket ───────────────────
-      const _qpAll = (sql, p) => new Promise((ok, ko) => db.all(sql, p, (e, r) => e ? ko(e) : ok(r)));
-      const [portalDocs, ticketsRaw] = await Promise.all([
-        _qpAll('SELECT * FROM portal_documents WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [group.id]),
-        _qpAll('SELECT * FROM support_tickets  WHERE assignment_group_id=? ORDER BY created_at DESC',  [group.id]),
-      ]);
-      for (const t of ticketsRaw) {
-        t.replies = await _qpAll('SELECT * FROM ticket_replies WHERE ticket_id=? ORDER BY created_at ASC', [t.id]);
+      // ── CRM: carica docs portale e ticket (tabelle opzionali) ─────────────
+      const _qpAll = (sql, p) => new Promise((ok, ko) => db.all(sql, p, (e, r) => e ? ok([]) : ok(r || [])));
+      let portalDocs = [], ticketsRaw = [];
+      try {
+        [portalDocs, ticketsRaw] = await Promise.all([
+          _qpAll('SELECT * FROM portal_documents WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [group.id]),
+          _qpAll('SELECT * FROM support_tickets  WHERE assignment_group_id=? ORDER BY created_at DESC',  [group.id]),
+        ]);
+        for (const t of ticketsRaw) {
+          t.replies = await _qpAll('SELECT * FROM ticket_replies WHERE ticket_id=? ORDER BY created_at ASC', [t.id]);
+        }
+      } catch(crmErr) {
+        console.warn('[Portale] Tabelle CRM non disponibili, procedura senza dati CRM:', crmErr.message);
       }
       // ── Fine CRM ─────────────────────────────────────────────
 
