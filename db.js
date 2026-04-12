@@ -175,7 +175,9 @@ db.run(`CREATE TABLE IF NOT EXISTS auto_passes (
   ['ap_qr_x','660'], ['ap_qr_y','45'], ['ap_qr_size','80']
 ].forEach(function(p) { db.run('INSERT OR IGNORE INTO app_settings(key,value)VALUES(?,?)', p); });
 
-db.run("INSERT OR IGNORE INTO app_settings(key,value) VALUES('qr_logo_b64','')");
+db.run("INSERT OR IGNORE INTO app_settings(key,value) VALUES('qr_logo_b64','')")
+  db.run("INSERT OR IGNORE INTO app_settings(key,value) VALUES('portal_window_from','')");
+  db.run("INSERT OR IGNORE INTO app_settings(key,value) VALUES('portal_window_until','')");;
 
 db.run(`CREATE TABLE IF NOT EXISTS scan_attempts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

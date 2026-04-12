@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Finestra Portali — Ludicomix</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#f3f4f8;color:#1e2d4e;min-height:100vh}
+.topbar{background:#1e2d4e;color:#fff;padding:.75rem 1.5rem;display:flex;align-items:center;gap:1rem}
+.topbar a{color:#93c5fd;text-decoration:none;font-size:.85rem}
+.topbar a:hover{text-decoration:underline}
+.topbar .title{font-weight:800;font-size:1rem;flex:1}
+.page{max-width:960px;margin:2rem auto;padding:0 1rem}
+.card{background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.07);overflow:hidden;margin-bottom:1.5rem}
+.card-header{padding:1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:.75rem}
+.card-header h2{font-size:.97rem;font-weight:800;color:#1e2d4e}
+.card-header .badge{font-size:.7rem;font-weight:700;padding:.2rem .65rem;border-radius:20px}
+.badge-open{background:#dcfce7;color:#166534}
+.badge-closed{background:#fee2e2;color:#991b1b}
+.badge-pending{background:#fef9c3;color:#854d0e}
+.badge-none{background:#f1f5f9;color:#475569}
+.card-body{padding:1.4rem}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+@media(max-width:600px){.form-row{grid-template-columns:1fr}}
+label{display:block;font-size:.75rem;font-weight:700;color:#64748b;margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.5px}
+input[type=datetime-local]{width:100%;padding:.5rem .8rem;border:1.5px solid #d1d9e6;border-radius:8px;font-size:.9rem;font-family:inherit;color:#1e2d4e}
+input[type=datetime-local]:focus{outline:none;border-color:#6b3fa0;box-shadow:0 0 0 3px rgba(107,63,160,.12)}
+.hint{font-size:.75rem;color:#94a3b8;margin-top:.25rem}
+.divider{height:1px;background:#e5e7eb;margin:1.2rem 0}
+.checkbox-label{display:flex;align-items:center;gap:.5rem;font-size:.88rem;font-weight:600;color:#374151;cursor:pointer}
+input[type=checkbox]{width:16px;height:16px;accent-color:#6b3fa0;cursor:pointer}
+.group-grid{display:grid;gap:.5rem;margin-top:1rem;max-height:320px;overflow-y:auto;padding-right:.25rem}
+.group-row{display:flex;align-items:center;gap:.65rem;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:.55rem .85rem}
+.group-row input[type=checkbox]{flex-shrink:0}
+.group-row .gname{flex:1;font-size:.84rem;font-weight:600;color:#1e2d4e}
+.group-row .gdates{font-size:.72rem;color:#64748b}
+.group-row .gbadge{font-size:.65rem;font-weight:700;padding:.15rem .5rem;border-radius:20px;white-space:nowrap;flex-shrink:0}
+.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.55rem 1.3rem;border:none;border-radius:8px;font-size:.88rem;font-weight:700;cursor:pointer;transition:opacity .15s}
+.btn-primary{background:#6b3fa0;color:#fff}
+.btn-primary:hover{opacity:.88}
+.btn-danger{background:#ef4444;color:#fff}
+.btn-sm{padding:.35rem .85rem;font-size:.8rem}
+.btn-ghost{background:#f1f5f9;color:#374151;border:1px solid #d1d9e6}
+.btn-ghost:hover{background:#e2e8f0}
+.alert{border-radius:8px;padding:.7rem 1rem;font-size:.85rem;margin-bottom:1.2rem;display:flex;align-items:center;gap:.6rem}
+.alert-success{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+.alert-info{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe}
+.current-dates{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:1rem;margin-bottom:1.2rem}
+.current-dates .row{display:flex;gap:1rem;flex-wrap:wrap}
+.current-dates .item{flex:1;min-width:180px}
+.current-dates .item .lbl{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:.25rem}
+.current-dates .item .val{font-size:.9rem;font-weight:700;color:#1e2d4e}
+.status-bar{display:flex;align-items:center;gap:.5rem;margin-bottom:.6rem}
+a.back{display:inline-flex;align-items:center;gap:.35rem;font-size:.83rem;color:#6b3fa0;text-decoration:none;margin-bottom:1.2rem;font-weight:600}
+a.back:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="title">🗓 Finestra Inserimento Portali</div>
+  <a href="/admin/settings">← Impostazioni</a>
+  <a href="/admin/dashboard">Dashboard</a>
+</div>
+
+<div class="page">
+  <a class="back" href="/admin/settings">← Torna alle Impostazioni</a>
+
+  <% if(locals.saved){ %>
+  <div class="alert alert-success">✓ Impostazioni salvate con successo.</div>
+  <% } %>
+
+  <!-- Stato attuale -->
+  <%
+    var _from  = pw.portal_window_from  || '';
+    var _until = pw.portal_window_until || '';
+    var _now   = new Date().toISOString().slice(0,16);
+    var _status = 'none';
+    if (_from || _until) {
+      if (_from && _now < _from) _status = 'pending';
+      else if (_until && _now > _until) _status = 'closed';
+      else _status = 'open';
+    }
+    var _statusLabel = {none:'Nessuna finestra impostata',open:'Finestra APERTA',closed:'Finestra CHIUSA',pending:'Non ancora aperta'};
+    var _statusClass = {none:'badge-none',open:'badge-open',closed:'badge-closed',pending:'badge-pending'};
+  %>
+
+  <div class="card">
+    <div class="card-header">
+      <div style="font-size:1.3rem;">🌐</div>
+      <h2>Impostazione Globale</h2>
+      <span class="badge <%= _statusClass[_status] %>"><%= _statusLabel[_status] %></span>
+    </div>
+    <div class="card-body">
+      <div class="alert alert-info" style="margin-bottom:1rem;">
+        ℹ️ La finestra globale si applica automaticamente a tutti i portali che <strong>non hanno una data personalizzata</strong>.
+        Puoi sovrascrivere singoli espositori dalla scheda stand.
+      </div>
+
+      <% if(_from || _until){ %>
+      <div class="current-dates">
+        <div class="row">
+          <div class="item">
+            <div class="lbl">Apertura globale</div>
+            <div class="val"><%= _from ? new Date(_from).toLocaleString('it-IT',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—' %></div>
+          </div>
+          <div class="item">
+            <div class="lbl">Chiusura globale</div>
+            <div class="val"><%= _until ? new Date(_until).toLocaleString('it-IT',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—' %></div>
+          </div>
+        </div>
+      </div>
+      <% } %>
+
+      <form method="POST" action="/admin/settings/portal-window">
+        <div class="form-row">
+          <div>
+            <label>Apertura portali 🔓</label>
+            <input type="datetime-local" name="portal_window_from" value="<%= _from %>">
+            <div class="hint">Lascia vuoto = portali sempre aperti da subito</div>
+          </div>
+          <div>
+            <label>Chiusura inserimenti 🔒</label>
+            <input type="datetime-local" name="portal_window_until" value="<%= _until %>">
+            <div class="hint">Lascia vuoto = nessuna scadenza automatica</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div style="margin-bottom:.9rem;">
+          <label class="checkbox-label" style="margin-bottom:.75rem;">
+            <input type="checkbox" name="apply_to_all" value="1" id="chk-all" onchange="toggleGroups(this)">
+            Applica a TUTTI i portali attivi (sovrascrive eventuali date personalizzate)
+          </label>
+          <label class="checkbox-label" id="lbl-select" style="display:none;">
+            <input type="checkbox" id="chk-select" onchange="toggleSelectGroups(this)">
+            Applica solo ai portali selezionati qui sotto
+          </label>
+        </div>
+
+        <div id="group-selector" style="display:none;">
+          <div style="font-size:.8rem;font-weight:700;color:#64748b;margin-bottom:.5rem;">
+            Seleziona stand/portali da aggiornare:
+          </div>
+          <div class="group-grid">
+            <% groups.forEach(function(g){ %>
+            <%
+              var gFrom  = g.portal_open_from  || '';
+              var gUntil = g.portal_open_until || '';
+              var gStatus = 'none';
+              if(gFrom||gUntil){
+                if(gFrom && _now < gFrom) gStatus='pending';
+                else if(gUntil && _now > gUntil) gStatus='closed';
+                else gStatus='open';
+              }
+              var gBadgeC = {none:'badge-none',open:'badge-open',closed:'badge-closed',pending:'badge-pending'}[gStatus];
+              var gBadgeL = {none:'globale',open:'aperto',closed:'chiuso',pending:'in attesa'}[gStatus];
+            %>
+            <div class="group-row">
+              <input type="checkbox" name="group_ids" value="<%= g.id %>">
+              <div>
+                <div class="gname"><%= g.name %></div>
+                <div class="gdates">
+                  <% if(gFrom||gUntil){ %>
+                    <%= gFrom ? 'Dal '+new Date(gFrom).toLocaleDateString('it-IT') : 'Aperto' %>
+                    <%= gUntil ? ' al '+new Date(gUntil).toLocaleDateString('it-IT') : '' %>
+                    <span style="color:#6b3fa0;font-weight:700;">(personalizzato)</span>
+                  <% } else { %>
+                    Usa date globali &bull; <%= g.n_participants %> nominativi
+                  <% } %>
+                </div>
+              </div>
+              <span class="gbadge <%= gBadgeC %>"><%= gBadgeL %></span>
+            </div>
+            <% }); %>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:.75rem;margin-top:1.2rem;flex-wrap:wrap;">
+          <button type="submit" class="btn btn-primary">💾 Salva impostazioni</button>
+          <% if(_from || _until){ %>
+          <button type="submit" name="portal_window_from" value="" class="btn btn-ghost"
+            onclick="document.querySelector('[name=portal_window_from]').value='';document.querySelector('[name=portal_window_until]').value=''">
+            🗑 Rimuovi finestra globale
+          </button>
+          <% } %>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Riepilogo portali -->
+  <div class="card">
+    <div class="card-header">
+      <div style="font-size:1.3rem;">📋</div>
+      <h2>Stato portali attivi (<%= groups.length %>)</h2>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:.84rem;">
+          <thead>
+            <tr style="background:#f8fafc;border-bottom:2px solid #e5e7eb;">
+              <th style="padding:.65rem 1rem;text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700;">Stand / Espositore</th>
+              <th style="padding:.65rem 1rem;text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700;">Apertura</th>
+              <th style="padding:.65rem 1rem;text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700;">Chiusura</th>
+              <th style="padding:.65rem 1rem;text-align:center;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700;">Stato</th>
+              <th style="padding:.65rem 1rem;text-align:right;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700;"></th>
+            </tr>
+          </thead>
+          <tbody>
+          <% groups.forEach(function(g, idx){ %>
+          <%
+            var rFrom  = g.portal_open_from  || _from  || '';
+            var rUntil = g.portal_open_until || _until || '';
+            var rCustom = !!(g.portal_open_from || g.portal_open_until);
+            var rStatus = 'none';
+            if(rFrom||rUntil){
+              if(rFrom && _now < rFrom) rStatus='pending';
+              else if(rUntil && _now > rUntil) rStatus='closed';
+              else rStatus='open';
+            }
+            var rBadgeC = {none:'badge-none',open:'badge-open',closed:'badge-closed',pending:'badge-pending'}[rStatus];
+            var rBadgeL = {none:'Aperto',open:'✓ Aperto',closed:'✗ Chiuso',pending:'⏳ In attesa'}[rStatus];
+          %>
+          <tr style="border-bottom:1px solid #f1f5f9;<%= idx%2===0?'background:#fff':'background:#fafbfc' %>">
+            <td style="padding:.65rem 1rem;font-weight:700;">
+              <%= g.name %>
+              <% if(rCustom){ %><span style="font-size:.65rem;background:#ede9fe;color:#6b3fa0;padding:.1rem .4rem;border-radius:9999px;margin-left:.35rem;font-weight:700;">personalizzato</span><% } %>
+            </td>
+            <td style="padding:.65rem 1rem;color:#374151;">
+              <%= rFrom ? new Date(rFrom).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—' %>
+            </td>
+            <td style="padding:.65rem 1rem;color:#374151;">
+              <%= rUntil ? new Date(rUntil).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—' %>
+            </td>
+            <td style="padding:.65rem 1rem;text-align:center;">
+              <span class="badge <%= rBadgeC %>"><%= rBadgeL %></span>
+            </td>
+            <td style="padding:.65rem 1rem;text-align:right;">
+              <a href="/assignment-groups/<%= g.id %>" style="font-size:.78rem;color:#6b3fa0;font-weight:600;text-decoration:none;">Dettaglio →</a>
+            </td>
+          </tr>
+          <% }); %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleGroups(chk){
+  var sel = document.getElementById('group-selector');
+  var lbl = document.getElementById('lbl-select');
+  if(chk.checked){ sel.style.display='none'; lbl.style.display='none'; }
+  else { lbl.style.display='flex'; }
+}
+function toggleSelectGroups(chk){
+  var sel = document.getElementById('group-selector');
+  sel.style.display = chk.checked ? 'block' : 'none';
+}
+</script>
+</body>
+</html>

@@ -1584,33 +1584,7 @@ app.get('/home', requireAuth, (req, res) => {
       );
       if (!group) return res.status(404).json({ error: 'not found' });
 
-  // ── Controllo finestra temporale portale ────────────────────────────────
-  if (group) {
-    const _now = new Date().toISOString().slice(0, 16);
-    if (group.portal_open_from && _now < group.portal_open_from) {
-      const dtA = new Date(group.portal_open_from).toLocaleString('it-IT', { dateStyle: 'long', timeStyle: 'short' });
-      return res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-        body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f2f5;margin:0}
-        .b{background:#fff;border-radius:12px;padding:2.5rem 3rem;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.1);max-width:460px}
-        h2{color:#1e2d4e}p{color:#64748b}</style></head>
-        <body><div class="b"><div style="font-size:3rem">&#x23F3;</div>
-        <h2>Portale non ancora aperto</h2>
-        <p>La finestra di accesso apre il <strong>${dtA}</strong></p>
-        </div></body></html>`);
-    }
-    if (group.portal_open_until && _now > group.portal_open_until) {
-      const dtC = new Date(group.portal_open_until).toLocaleString('it-IT', { dateStyle: 'long', timeStyle: 'short' });
-      return res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-        body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f2f5;margin:0}
-        .b{background:#fff;border-radius:12px;padding:2.5rem 3rem;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.1);max-width:460px}
-        h2{color:#c0392b}p{color:#64748b}</style></head>
-        <body><div class="b"><div style="font-size:3rem">&#x1F512;</div>
-        <h2>Finestra inserimento chiusa</h2>
-        <p>Il termine per i nominativi era il <strong>${dtC}</strong>.<br>Contatta l'organizzazione per un'estensione.</p>
-        </div></body></html>`);
-    }
-  }
-  // ── Fine controllo finestra ──────────────────────────────────────────────
+
 
       const anns = await dbAll(`SELECT id FROM announcements WHERE expires_at IS NULL OR expires_at > datetime('now')`);
       for (const a of anns) {
@@ -1645,6 +1619,61 @@ app.get('/home', requireAuth, (req, res) => {
   });
 
 
+
+  // ── Admin: Impostazioni finestra portale globale ──────────────────────────
+  app.get('/admin/portal-window', requireAuth, requireOrganizer, async (req, res) => {
+    try {
+      const [apRows, groups] = await Promise.all([
+        dbAll("SELECT key,value FROM app_settings WHERE key IN ('portal_window_from','portal_window_until')"),
+        dbAll(`SELECT ag.id, ag.name, ag.portal_open_from, ag.portal_open_until, ag.portal_enabled,
+                      COUNT(pa.id) AS n_participants
+               FROM assignment_groups ag
+               LEFT JOIN participants pa ON pa.assignment_group_id=ag.id
+               WHERE ag.portal_enabled=1
+               GROUP BY ag.id ORDER BY ag.name`)
+      ]);
+      const pw = Object.fromEntries((apRows||[]).map(r=>[r.key,r.value]));
+      res.render('portal_window', { pw, groups, user: req.session.user });
+    } catch(e) {
+      console.error('portal-window GET:', e);
+      res.status(500).send('Errore interno');
+    }
+  });
+
+  // Salva date globali + applica ai portali selezionati
+  app.post('/admin/settings/portal-window', requireAuth, requireOrganizer, async (req, res) => {
+    const { portal_window_from, portal_window_until, apply_to_all, group_ids } = req.body;
+    const from  = portal_window_from  ? portal_window_from.trim()  : '';
+    const until = portal_window_until ? portal_window_until.trim() : '';
+    try {
+      // Salva impostazioni globali
+      await dbRun("INSERT OR REPLACE INTO app_settings(key,value) VALUES('portal_window_from',?)",  [from]);
+      await dbRun("INSERT OR REPLACE INTO app_settings(key,value) VALUES('portal_window_until',?)", [until]);
+      logAction(req.session.user.id, 'update_portal_window', 'settings', 0,
+        `Finestra portale globale: ${from||'aperta'} → ${until||'aperta'}`);
+
+      // Applica a tutti o ai selezionati
+      if (apply_to_all === '1') {
+        await dbRun(
+          "UPDATE assignment_groups SET portal_open_from=?, portal_open_until=? WHERE portal_enabled=1",
+          [from||null, until||null]
+        );
+      } else if (group_ids) {
+        const ids = (Array.isArray(group_ids) ? group_ids : [group_ids]).map(Number).filter(Boolean);
+        for (const id of ids) {
+          await dbRun(
+            "UPDATE assignment_groups SET portal_open_from=?, portal_open_until=? WHERE id=?",
+            [from||null, until||null, id]
+          );
+        }
+      }
+      res.redirect('/admin/portal-window?saved=1');
+    } catch(e) {
+      console.error('portal-window POST:', e);
+      res.status(500).send('Errore salvataggio');
+    }
+  });
+
   // ── Portale: aggiungi nominativo ─────────────────────────────────────────
   app.post('/portale/:token/participants', express.json(), express.urlencoded({ extended: true }), async (req, res) => {
     const token = req.params.token;
@@ -1655,10 +1684,17 @@ app.get('/home', requireAuth, (req, res) => {
       if (!group) return res.status(403).json({ error: 'Accesso negato' });
 
       // Controllo finestra temporale
+      // Date finestra: usa quelle del gruppo se impostate, altrimenti le globali
+      const [_pwFrom, _pwUntil] = await Promise.all([
+        dbGet("SELECT value FROM app_settings WHERE key='portal_window_from'"),
+        dbGet("SELECT value FROM app_settings WHERE key='portal_window_until'")
+      ]);
+      const _effFrom  = group.portal_open_from  || (_pwFrom  && _pwFrom.value)  || null;
+      const _effUntil = group.portal_open_until || (_pwUntil && _pwUntil.value) || null;
       const now = new Date().toISOString().slice(0, 16);
-      if (group.portal_open_from && now < group.portal_open_from)
+      if (_effFrom && now < _effFrom)
         return res.status(403).json({ error: 'Portale non ancora aperto' });
-      if (group.portal_open_until && now > group.portal_open_until)
+      if (_effUntil && now > _effUntil)
         return res.status(403).json({ error: 'Finestra di inserimento chiusa' });
 
       const { first_name, last_name, role } = req.body;
@@ -1699,7 +1735,7 @@ app.get('/home', requireAuth, (req, res) => {
 
       // Controllo finestra
       const now = new Date().toISOString().slice(0, 16);
-      if (group.portal_open_until && now > group.portal_open_until)
+      if (_effUntil && now > _effUntil)
         return res.status(403).json({ error: 'Finestra di inserimento chiusa' });
 
       // Verifica che il partecipante appartenga a questo stand e non abbia pass attivi
@@ -1733,9 +1769,16 @@ app.get('/home', requireAuth, (req, res) => {
 
       // ── Controllo finestra temporale portale ──────────────────────────────
       const _winNow = new Date().toISOString().slice(0, 16);
+      // Usa date del gruppo se impostate, altrimenti le globali
+      const [_gFrom, _gUntil] = await Promise.all([
+        dbGet("SELECT value FROM app_settings WHERE key='portal_window_from'"),
+        dbGet("SELECT value FROM app_settings WHERE key='portal_window_until'")
+      ]);
+      const _wEffFrom  = group.portal_open_from  || (_gFrom  && _gFrom.value)  || null;
+      const _wEffUntil = group.portal_open_until || (_gUntil && _gUntil.value) || null;
       // Prima dell'apertura → blocco completo (il portale non è ancora disponibile)
-      if (group.portal_open_from && _winNow < group.portal_open_from) {
-        const dt = new Date(group.portal_open_from).toLocaleString('it-IT',
+      if (_wEffFrom && _winNow < _wEffFrom) {
+        const dt = new Date(_wEffFrom).toLocaleString('it-IT',
           {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
         return res.status(403).send(`<!DOCTYPE html><html><head><meta charset="utf-8">
           <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1755,7 +1798,7 @@ app.get('/home', requireAuth, (req, res) => {
       }
       // Dopo la chiusura → portale accessibile in sola lettura (scarica pass, ticket, bacheca)
       // windowClosed viene passato alla view che nasconde i form di inserimento
-      const windowClosed = !!(group.portal_open_until && _winNow > group.portal_open_until);
+      const windowClosed = !!(_wEffUntil && _winNow > _wEffUntil);
       // ── Fine controllo finestra ────────────────────────────────────────────
 
       const [parts, autoPasses, announcements, unreadRow, zoneInfo, zoneStands, refWRow, refHRow] = await Promise.all([
@@ -1837,7 +1880,7 @@ app.get('/home', requireAuth, (req, res) => {
         portalDocs:   portalDocs  || [],
         tickets:      ticketsRaw  || [],
         windowClosed,
-        windowUntil:  group.portal_open_until || null,
+        windowUntil:  _wEffUntil || null,
       });
     } catch(err) {
       console.error('Errore GET /portale/:token:', err);
