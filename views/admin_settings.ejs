@@ -15,6 +15,7 @@
   <button type="button" class="pill-tab" data-tab="auto_pass">&#128664; Pass Auto</button>
   <button type="button" class="pill-tab" data-tab="scan">&#128269; Tentativi Scan</button>
   <a href="/admin/logs" class="pill-tab" style="text-decoration:none;display:inline-flex;align-items:center">&#128220; Log Azioni ↗</a>
+  <button type="button" class="pill-tab" onclick="window.open('/portale','finestra-portali','width=1280,height=860,resizable=yes,scrollbars=yes')">&#128266; Finestra Portali ↗</button>
 </div>
 
 <!-- ===== TAB 1: ZONE ===== -->
@@ -661,23 +662,5 @@ function apriModificaGruppo(id, name, priority, passTypeId) {
 </script>
 
 
-<!-- ===== FLOATING BUTTON: Finestra Portali ===== -->
-<style>
-  #btn-finestra-portali {
-    position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 1200;
-    background: #7c3aed; color: #fff;
-    border: none; border-radius: 10px;
-    padding: .65rem 1.1rem;
-    font-size: .85rem; font-weight: 700;
-    cursor: pointer;
-    box-shadow: 0 4px 16px rgba(124,58,237,.35);
-    display: inline-flex; align-items: center; gap: .45rem;
-    transition: background .15s, transform .15s;
-  }
-  #btn-finestra-portali:hover { background: #6d28d9; transform: translateY(-2px); }
-</style>
-<button id="btn-finestra-portali" onclick="window.open('/portale','finestra-portali','width=1200,height=800,resizable=yes,scrollbars=yes')">
-  &#128266; Finestra Portali
-</button>
 
 <%- include('partials/footer') %>
