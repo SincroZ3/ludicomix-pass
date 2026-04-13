@@ -229,13 +229,16 @@ db.run(`CREATE INDEX IF NOT EXISTS idx_ann_reads_token ON announcement_reads(por
 db.run(`CREATE INDEX IF NOT EXISTS idx_ann_pinned     ON announcements(is_pinned, created_at)`);
 
 
-// -------- Mod.1: contract_status su assignment_groups --------
-db.run(`ALTER TABLE assignmentgroups ADD COLUMN contractstatus TEXT DEFAULT 'bozza'`, () => {});
-db.run(`ALTER TABLE assignmentgroups ADD COLUMN portalenabled  INTEGER DEFAULT 0`,   () => {});
-db.run(`ALTER TABLE assignmentgroups ADD COLUMN portaltoken    TEXT`,                 () => {});
-db.run(`ALTER TABLE assignmentgroups ADD COLUMN portal_open_from  TEXT`,              () => {});
-db.run(`ALTER TABLE assignmentgroups ADD COLUMN portal_open_until TEXT`,              () => {});
-db.run(`ALTER TABLE assignmentgroups ADD COLUMN portal_status  TEXT DEFAULT 'chiuso'`,() => {});
+// -------- Mod.1/2: colonne aggiuntive assignment_groups --------
+[
+  'ALTER TABLE assignment_groups ADD COLUMN email TEXT',
+  'ALTER TABLE assignment_groups ADD COLUMN portal_token TEXT',
+  'ALTER TABLE assignment_groups ADD COLUMN portal_enabled INTEGER DEFAULT 0',
+  'ALTER TABLE assignment_groups ADD COLUMN portal_open_from TEXT',
+  'ALTER TABLE assignment_groups ADD COLUMN portal_open_until TEXT',
+  'ALTER TABLE assignment_groups ADD COLUMN portal_status TEXT DEFAULT \'chiuso\'',
+  "ALTER TABLE assignment_groups ADD COLUMN contract_status TEXT DEFAULT 'bozza'",
+].forEach(function(sql) { db.run(sql, function() {}); });
 
 // -------- Mod.5: Accreditamento --------
 db.run(`CREATE TABLE IF NOT EXISTS accreditation_requests (

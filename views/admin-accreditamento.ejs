@@ -3,252 +3,140 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Richieste Accreditamento — Ludicomix Admin</title>
-  <!-- riusa lo stesso CSS del layout admin esistente -->
+  <title>Richieste Accreditamento — Admin</title>
   <link rel="stylesheet" href="/style.css">
   <style>
-    .acc-tabs { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
-    .acc-tab {
-      padding: .45rem 1rem;
-      border-radius: 20px;
-      font-size: .82rem;
-      font-weight: 600;
-      cursor: pointer;
-      border: 1.5px solid transparent;
-      background: #f1f5f9;
-      color: #475569;
-      transition: all .15s;
-    }
-    .acc-tab.active, .acc-tab:hover { background: #1e2d4e; color: #fff; }
-
-    .request-section { display: none; }
-    .request-section.visible { display: block; }
-
-    .req-card {
-      background: #fff;
-      border-radius: 10px;
-      border: 1px solid #e2e8f0;
-      padding: 1.25rem 1.5rem;
-      margin-bottom: 1rem;
-      box-shadow: 0 1px 4px rgba(0,0,0,.05);
-    }
-    .req-header { display: flex; flex-wrap: wrap; gap: .5rem .75rem; align-items: baseline; margin-bottom: .6rem; }
-    .req-header strong { font-size: 1.05rem; color: #1e2d4e; }
-    .req-header .muted { font-size: .82rem; color: #94a3b8; }
-    .req-header .badge-status {
-      font-size: .75rem;
-      font-weight: 700;
-      padding: .2rem .55rem;
-      border-radius: 12px;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-    }
-    .badge-in_attesa         { background: #fef3c7; color: #92400e; }
-    .badge-approvato         { background: #d1fae5; color: #065f46; }
-    .badge-portale_attivato  { background: #dbeafe; color: #1e40af; }
-    .badge-rifiutato         { background: #fee2e2; color: #991b1b; }
-
-    .req-notes { font-size: .88rem; color: #475569; margin-bottom: .85rem; border-left: 3px solid #e2e8f0; padding-left: .75rem; }
-
-    .approve-form, .reject-form {
-      display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .75rem;
-    }
-    .approve-form select, .approve-form input,
-    .reject-form input {
-      border: 1.5px solid #d1d5db;
-      border-radius: 7px;
-      padding: .4rem .65rem;
-      font-size: .88rem;
-      min-width: 140px;
-    }
-    .approve-form select:focus, .approve-form input:focus,
-    .reject-form input:focus { outline: none; border-color: #1e2d4e; }
-    .btn-approve {
-      background: #1e2d4e; color: #f5c842;
-      border: none; border-radius: 7px;
-      padding: .45rem 1rem; font-size: .88rem; font-weight: 700; cursor: pointer;
-      transition: background .15s;
-    }
-    .btn-approve:hover { background: #162340; }
-    .btn-reject {
-      background: #fee2e2; color: #991b1b;
-      border: none; border-radius: 7px;
-      padding: .45rem 1rem; font-size: .88rem; font-weight: 600; cursor: pointer;
-      transition: background .15s;
-    }
-    .btn-reject:hover { background: #fecaca; }
-    .btn-link {
-      display: inline-block;
-      margin-top: .75rem;
-      font-size: .85rem;
-      color: #1e2d4e;
-      text-decoration: underline;
-    }
-    .form-sep { width: 100%; height: .5rem; }
-
-    .empty-state { text-align: center; color: #94a3b8; padding: 2.5rem 1rem; font-size: .95rem; }
-
-    .toast {
-      position: fixed; bottom: 1.5rem; right: 1.5rem;
-      background: #1e2d4e; color: #f5c842;
-      border-radius: 10px; padding: .75rem 1.25rem;
-      font-size: .9rem; font-weight: 600;
-      box-shadow: 0 4px 16px rgba(0,0,0,.18);
-      z-index: 9999;
-      animation: slideIn .3s ease;
-    }
-    @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .acc-tabs { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1.5rem; }
+    .acc-tab { padding:.45rem 1rem; border-radius:20px; font-size:.82rem; font-weight:600; cursor:pointer; border:1.5px solid transparent; background:#f1f5f9; color:#475569; transition:all .15s; }
+    .acc-tab.active, .acc-tab:hover { background:#1e2d4e; color:#fff; }
+    .request-section { display:none; }
+    .request-section.visible { display:block; }
+    .req-card { background:#fff; border-radius:10px; border:1px solid #e2e8f0; padding:1.25rem 1.5rem; margin-bottom:1rem; box-shadow:0 1px 4px rgba(0,0,0,.05); }
+    .req-header { display:flex; flex-wrap:wrap; gap:.5rem .75rem; align-items:baseline; margin-bottom:.6rem; }
+    .req-header strong { font-size:1.05rem; color:#1e2d4e; }
+    .req-header .muted { font-size:.82rem; color:#94a3b8; }
+    .badge { font-size:.75rem; font-weight:700; padding:.2rem .55rem; border-radius:12px; text-transform:uppercase; letter-spacing:.04em; }
+    .badge-in_attesa        { background:#fef3c7; color:#92400e; }
+    .badge-portale_attivato { background:#dbeafe; color:#1e40af; }
+    .badge-rifiutato        { background:#fee2e2; color:#991b1b; }
+    .req-notes { font-size:.88rem; color:#475569; margin-bottom:.85rem; border-left:3px solid #e2e8f0; padding-left:.75rem; }
+    .approve-form, .reject-form { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; margin-top:.75rem; }
+    .approve-form select, .approve-form input, .reject-form input { border:1.5px solid #d1d5db; border-radius:7px; padding:.4rem .65rem; font-size:.88rem; min-width:140px; }
+    .approve-form select:focus, .approve-form input:focus, .reject-form input:focus { outline:none; border-color:#1e2d4e; }
+    .btn-approve { background:#1e2d4e; color:#f5c842; border:none; border-radius:7px; padding:.45rem 1rem; font-size:.88rem; font-weight:700; cursor:pointer; }
+    .btn-approve:hover { background:#162340; }
+    .btn-reject { background:#fee2e2; color:#991b1b; border:none; border-radius:7px; padding:.45rem 1rem; font-size:.88rem; font-weight:600; cursor:pointer; }
+    .btn-reject:hover { background:#fecaca; }
+    .btn-link { display:inline-block; margin-top:.75rem; font-size:.85rem; color:#1e2d4e; text-decoration:underline; }
+    .empty-state { text-align:center; color:#94a3b8; padding:2.5rem 1rem; font-size:.95rem; }
+    .toast { position:fixed; bottom:1.5rem; right:1.5rem; background:#1e2d4e; color:#f5c842; border-radius:10px; padding:.75rem 1.25rem; font-size:.9rem; font-weight:600; box-shadow:0 4px 16px rgba(0,0,0,.18); z-index:9999; animation:slideIn .3s ease; }
+    @keyframes slideIn { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
   </style>
 </head>
 <body>
   <%- include('partials/navbar', { currentUser: currentUser }) %>
-
   <div class="container" style="max-width:960px;margin:2rem auto;padding:0 1.25rem">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:.5rem">
       <h1 style="font-size:1.4rem;color:#1e2d4e">Richieste di Accreditamento</h1>
-      <a href="/richiesta-accreditamento" target="_blank"
-         style="font-size:.82rem;color:#1e2d4e;border:1.5px solid #1e2d4e;border-radius:20px;padding:.3rem .85rem;text-decoration:none">
-        🔗 Form pubblica
-      </a>
+      <a href="/richiesta-accreditamento" target="_blank" style="font-size:.82rem;color:#1e2d4e;border:1.5px solid #1e2d4e;border-radius:20px;padding:.3rem .85rem;text-decoration:none">🔗 Form pubblica</a>
     </div>
-
-    <!-- Tab selector -->
     <div class="acc-tabs">
-      <button class="acc-tab active" onclick="showTab('in_attesa', this)">
-        ⏳ In attesa
-        <span id="cnt-in_attesa">(<%= requests.filter(r => r.status === 'in_attesa').length %>)</span>
-      </button>
-      <button class="acc-tab" onclick="showTab('portale_attivato', this)">
-        🚀 Portale attivato
-        <span id="cnt-portale_attivato">(<%= requests.filter(r => r.status === 'portale_attivato').length %>)</span>
-      </button>
-      <button class="acc-tab" onclick="showTab('rifiutato', this)">
-        ❌ Rifiutate
-        <span id="cnt-rifiutato">(<%= requests.filter(r => r.status === 'rifiutato').length %>)</span>
-      </button>
+      <button class="acc-tab active" onclick="showTab('in_attesa',this)">⏳ In attesa (<%= requests.filter(r=>r.status==='in_attesa').length %>)</button>
+      <button class="acc-tab" onclick="showTab('portale_attivato',this)">🚀 Portale attivato (<%= requests.filter(r=>r.status==='portale_attivato').length %>)</button>
+      <button class="acc-tab" onclick="showTab('rifiutato',this)">❌ Rifiutate (<%= requests.filter(r=>r.status==='rifiutato').length %>)</button>
     </div>
 
-    <!-- Sezione: in_attesa -->
+    <!-- IN ATTESA -->
     <div id="tab-in_attesa" class="request-section visible">
-      <% const pending = requests.filter(r => r.status === 'in_attesa'); %>
-      <% if (!pending.length) { %>
-        <div class="empty-state">Nessuna richiesta in attesa 🎉</div>
-      <% } else { %>
-        <% pending.forEach(r => { %>
-        <div class="req-card">
-          <div class="req-header">
-            <strong><%= r.company_name %></strong>
-            <span class="badge-status badge-in_attesa">In attesa</span>
-            <span class="muted"><%= r.contact_name %></span>
-            <span class="muted">✉️ <%= r.email %></span>
-            <% if (r.phone) { %><span class="muted">📞 <%= r.phone %></span><% } %>
-            <% if (r.stand_type) { %><span class="muted">🏷️ <%= r.stand_type %></span><% } %>
-            <% if (r.stand_size) { %><span class="muted">📐 <%= r.stand_size %></span><% } %>
-            <span class="muted" style="margin-left:auto">📅 <%= new Date(r.created_at).toLocaleDateString('it-IT') %></span>
-          </div>
-          <% if (r.notes) { %>
-            <p class="req-notes"><%= r.notes %></p>
-          <% } %>
-
-          <!-- Form Approva -->
-          <form method="POST" action="/admin/accreditamento/<%= r.id %>/approva" class="approve-form">
-            <select name="group_id" required title="Raggruppamento">
-              <option value="">— Raggruppamento —</option>
-              <% groups.forEach(g => { %>
-                <option value="<%= g.id %>"><%= g.name %></option>
-              <% }) %>
-            </select>
-            <input type="text"   name="zone"       placeholder="Zona (es. A, B, Ext)">
-            <input type="text"   name="stand_name" placeholder="Nome stand (opz.)" value="<%= r.company_name %>">
-            <input type="number" name="max_passes" placeholder="Max pass" min="1" style="max-width:110px">
-            <button type="submit" class="btn-approve">✅ Approva e attiva portale</button>
-          </form>
-
-          <!-- Form Rifiuta -->
-          <div class="form-sep"></div>
-          <form method="POST" action="/admin/accreditamento/<%= r.id %>/rifiuta" class="reject-form"
-                onsubmit="return confirm('Confermi il rifiuto per <%= r.company_name %>?')">
-            <input type="text" name="rejection_reason" placeholder="Motivazione rifiuto (opzionale)" style="flex:1;min-width:200px">
-            <button type="submit" class="btn-reject">❌ Rifiuta</button>
-          </form>
+      <% const pending = requests.filter(r=>r.status==='in_attesa'); %>
+      <% if (!pending.length) { %><div class="empty-state">Nessuna richiesta in attesa 🎉</div><% } %>
+      <% pending.forEach(r => { %>
+      <div class="req-card">
+        <div class="req-header">
+          <strong><%= r.company_name %></strong>
+          <span class="badge badge-in_attesa">In attesa</span>
+          <span class="muted"><%= r.contact_name %></span>
+          <span class="muted">✉️ <%= r.email %></span>
+          <% if (r.phone) { %><span class="muted">📞 <%= r.phone %></span><% } %>
+          <% if (r.stand_type) { %><span class="muted">🏷️ <%= r.stand_type %></span><% } %>
+          <% if (r.stand_size) { %><span class="muted">📐 <%= r.stand_size %></span><% } %>
+          <span class="muted" style="margin-left:auto">📅 <%= new Date(r.created_at).toLocaleDateString('it-IT') %></span>
         </div>
-        <% }) %>
-      <% } %>
+        <% if (r.notes) { %><p class="req-notes"><%= r.notes %></p><% } %>
+        <form method="POST" action="/admin/accreditamento/<%= r.id %>/approva" class="approve-form">
+          <select name="group_id" required title="Raggruppamento">
+            <option value="">— Raggruppamento —</option>
+            <% groups.forEach(g => { %><option value="<%= g.id %>"><%= g.name %></option><% }) %>
+          </select>
+          <input type="text"   name="zone"       placeholder="Zona (es. A, B, Ext)">
+          <input type="text"   name="stand_name" placeholder="Nome stand" value="<%= r.company_name %>">
+          <input type="number" name="max_passes" placeholder="Max pass" min="1" style="max-width:110px">
+          <button type="submit" class="btn-approve">✅ Approva e attiva portale</button>
+        </form>
+        <form method="POST" action="/admin/accreditamento/<%= r.id %>/rifiuta" class="reject-form"
+              onsubmit="return confirm('Confermi il rifiuto per <%= r.company_name %>?')">
+          <input type="text" name="rejection_reason" placeholder="Motivazione rifiuto (opzionale)" style="flex:1;min-width:200px">
+          <button type="submit" class="btn-reject">❌ Rifiuta</button>
+        </form>
+      </div>
+      <% }) %>
     </div>
 
-    <!-- Sezione: portale_attivato -->
+    <!-- PORTALE ATTIVATO -->
     <div id="tab-portale_attivato" class="request-section">
-      <% const activated = requests.filter(r => r.status === 'portale_attivato'); %>
-      <% if (!activated.length) { %>
-        <div class="empty-state">Nessuna richiesta con portale attivato.</div>
-      <% } else { %>
-        <% activated.forEach(r => { %>
-        <div class="req-card">
-          <div class="req-header">
-            <strong><%= r.company_name %></strong>
-            <span class="badge-status badge-portale_attivato">Portale attivato</span>
-            <span class="muted"><%= r.contact_name %></span>
-            <span class="muted">✉️ <%= r.email %></span>
-            <% if (r.stand_type) { %><span class="muted">🏷️ <%= r.stand_type %></span><% } %>
-            <span class="muted" style="margin-left:auto">
-              Approvato da <strong><%= r.reviewer_name || 'sistema' %></strong>
-              il <%= new Date(r.reviewed_at).toLocaleDateString('it-IT') %>
-            </span>
-          </div>
-          <% if (r.notes) { %>
-            <p class="req-notes"><%= r.notes %></p>
-          <% } %>
-          <% if (r.assignment_group_id) { %>
-            <a href="/assignment-groups/<%= r.assignment_group_id %>" class="btn-link">
-              → Vai alla scheda CRM dello stand
-            </a>
-          <% } %>
+      <% const activated = requests.filter(r=>r.status==='portale_attivato'); %>
+      <% if (!activated.length) { %><div class="empty-state">Nessuna richiesta con portale attivato.</div><% } %>
+      <% activated.forEach(r => { %>
+      <div class="req-card">
+        <div class="req-header">
+          <strong><%= r.company_name %></strong>
+          <span class="badge badge-portale_attivato">Portale attivato</span>
+          <span class="muted"><%= r.contact_name %></span>
+          <span class="muted">✉️ <%= r.email %></span>
+          <% if (r.stand_type) { %><span class="muted">🏷️ <%= r.stand_type %></span><% } %>
+          <span class="muted" style="margin-left:auto">Approvato da <strong><%= r.reviewer_name||'sistema' %></strong> il <%= r.reviewed_at ? new Date(r.reviewed_at).toLocaleDateString('it-IT') : '—' %></span>
         </div>
-        <% }) %>
-      <% } %>
+        <% if (r.notes) { %><p class="req-notes"><%= r.notes %></p><% } %>
+        <% if (r.assignment_group_id) { %>
+          <a href="/assignment-groups/<%= r.assignment_group_id %>" class="btn-link">→ Vai alla scheda CRM dello stand</a>
+        <% } %>
+      </div>
+      <% }) %>
     </div>
 
-    <!-- Sezione: rifiutato -->
+    <!-- RIFIUTATE -->
     <div id="tab-rifiutato" class="request-section">
-      <% const rejected = requests.filter(r => r.status === 'rifiutato'); %>
-      <% if (!rejected.length) { %>
-        <div class="empty-state">Nessuna richiesta rifiutata.</div>
-      <% } else { %>
-        <% rejected.forEach(r => { %>
-        <div class="req-card">
-          <div class="req-header">
-            <strong><%= r.company_name %></strong>
-            <span class="badge-status badge-rifiutato">Rifiutata</span>
-            <span class="muted"><%= r.contact_name %></span>
-            <span class="muted">✉️ <%= r.email %></span>
-            <span class="muted" style="margin-left:auto">
-              da <strong><%= r.reviewer_name || 'sistema' %></strong>
-              il <%= new Date(r.reviewed_at).toLocaleDateString('it-IT') %>
-            </span>
-          </div>
-          <% if (r.rejection_reason) { %>
-            <p class="req-notes">Motivazione: <%= r.rejection_reason %></p>
-          <% } %>
+      <% const rejected = requests.filter(r=>r.status==='rifiutato'); %>
+      <% if (!rejected.length) { %><div class="empty-state">Nessuna richiesta rifiutata.</div><% } %>
+      <% rejected.forEach(r => { %>
+      <div class="req-card">
+        <div class="req-header">
+          <strong><%= r.company_name %></strong>
+          <span class="badge badge-rifiutato">Rifiutata</span>
+          <span class="muted"><%= r.contact_name %></span>
+          <span class="muted">✉️ <%= r.email %></span>
+          <span class="muted" style="margin-left:auto">da <strong><%= r.reviewer_name||'sistema' %></strong> il <%= r.reviewed_at ? new Date(r.reviewed_at).toLocaleDateString('it-IT') : '—' %></span>
         </div>
-        <% }) %>
-      <% } %>
+        <% if (r.rejection_reason) { %><p class="req-notes">Motivazione: <%= r.rejection_reason %></p><% } %>
+      </div>
+      <% }) %>
     </div>
   </div>
 
   <% if (saved) { %>
   <div class="toast" id="toast">
-    <% if (saved === 'approvato') { %>✅ Richiesta approvata, portale attivato e email inviata!
-    <% } else if (saved === 'rifiutato') { %>❌ Richiesta rifiutata.
+    <% if (saved==='approvato') { %>✅ Richiesta approvata, portale attivato e email inviata!
+    <% } else if (saved==='rifiutato') { %>❌ Richiesta rifiutata.
     <% } %>
   </div>
-  <script>setTimeout(() => { const t = document.getElementById('toast'); if(t) t.remove(); }, 4000);</script>
+  <script>setTimeout(()=>{const t=document.getElementById('toast');if(t)t.remove();},4000);</script>
   <% } %>
 
   <script>
     function showTab(name, btn) {
-      document.querySelectorAll('.request-section').forEach(s => s.classList.remove('visible'));
-      document.querySelectorAll('.acc-tab').forEach(b => b.classList.remove('active'));
-      document.getElementById('tab-' + name).classList.add('visible');
+      document.querySelectorAll('.request-section').forEach(s=>s.classList.remove('visible'));
+      document.querySelectorAll('.acc-tab').forEach(b=>b.classList.remove('active'));
+      document.getElementById('tab-'+name).classList.add('visible');
       btn.classList.add('active');
     }
   </script>
