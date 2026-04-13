@@ -17,7 +17,7 @@ const db          = require('./db');
 const { promisify } = require('util');
 const dbAll = promisify(db.all.bind(db));
 const dbGet = promisify(db.get.bind(db));
-const dbRun = promisify(db.run.bind(db));
+function dbRun(sql,...p){return new Promise((resolve,reject)=>{db.run(sql,p,function(err){if(err)return reject(err);resolve({lastID:this.lastID,changes:this.changes});});});}
 
 function createNotification(type,title,message,rT,rI){
   db.run("INSERT INTO notifications(type,title,message,related_type,related_id)VALUES(?,?,?,?,?)",[type,title,message,rT||null,rI||null],function(err){if(!err)trySendEmail(title,message);});}
@@ -2868,3 +2868,4 @@ app.get('/search', requireAuth, (req, res) => {
   app.listen(PORT, () => {
     console.log(`Server avviato su http://localhost:${PORT}`);
   });
+
