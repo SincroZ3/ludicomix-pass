@@ -2714,28 +2714,41 @@ app.get('/search', requireAuth, (req, res) => {
 
   // POST — invio richiesta
   app.post('/richiesta-accreditamento', async (req, res) => {
-    const { company_name, contact_name, email, phone, stand_type, stand_size, notes } = req.body;
+    const { company_name, contact_name, email, phone,
+            stand_type, stand_size, accreditation_type,
+            media_outlet, press_role, publisher, genre,
+            channel_url, platform, subscribers, notes } = req.body;
     if (!company_name || !contact_name || !email) {
       return res.redirect('/richiesta-accreditamento?error=campi_obbligatori');
     }
     try {
       await dbRun(
         `INSERT INTO accreditation_requests
-          (company_name, contact_name, email, phone, stand_type, stand_size, notes)
-         VALUES (?,?,?,?,?,?,?)`,
+          (company_name, contact_name, email, phone, stand_type, stand_size,
+           accreditation_type, media_outlet, press_role, publisher, genre,
+           channel_url, platform, subscribers, notes)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         company_name.trim(), contact_name.trim(), email.trim().toLowerCase(),
-        phone || null, stand_type || null, stand_size || null, notes || null
+        phone || null, stand_type || null, stand_size || null,
+        accreditation_type || 'espositore',
+        media_outlet || null, press_role || null, publisher || null, genre || null,
+        channel_url || null, platform || null, subscribers || null,
+        notes || null
       );
       createNotification(
         'accreditation', 'Nuova richiesta accreditamento',
         `<strong>${company_name}</strong> (${contact_name}) ha inviato una richiesta di accreditamento.`,
         null, null
       );
+      const accTypeLabel = {espositore:'🏪 Espositore',stampa:'📰 Stampa/Media',autore:'✍️ Autore',content_creator:'🎥 Content Creator'};
       trySendEmail(
-        'Nuova richiesta accreditamento',
-        '<p><strong>' + company_name + '</strong> — ' + contact_name + ' (' + email + ') ha richiesto accreditamento.</p>' +
-        '<p>Tipo: ' + (stand_type || 'n/d') + ' — Dimensione: ' + (stand_size || 'n/d') + '</p>' +
-        '<p>Note: ' + (notes || '—') + '</p>' +
+        'Nuova richiesta accreditamento — ' + (accTypeLabel[accreditation_type||'espositore']||accreditation_type),
+        '<p>' + (accTypeLabel[accreditation_type||'espositore']||'') + ' <strong>' + company_name + '</strong> — ' + contact_name + ' (' + email + ')</p>' +
+        (stand_type ? '<p>Stand: ' + stand_type + ' — ' + (stand_size||'n/d') + '</p>' : '') +
+        (media_outlet ? '<p>Testata: ' + media_outlet + (press_role ? ' (' + press_role + ')' : '') + '</p>' : '') +
+        (channel_url ? '<p>Canale: <a href="' + channel_url + '">' + channel_url + '</a> (' + (platform||'?') + ', ' + (subscribers||'?') + ' follower)</p>' : '') +
+        (publisher ? '<p>Editore: ' + publisher + (genre ? ' — ' + genre : '') + '</p>' : '') +
+        (notes ? '<p>Note: ' + notes + '</p>' : '') +
         '<p><a href="' + (process.env.BASE_URL || '') + '/admin/accreditamento">→ Gestisci richieste</a></p>'
       );
       res.redirect('/richiesta-accreditamento?sent=1');

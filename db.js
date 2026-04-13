@@ -258,5 +258,11 @@ db.run(`CREATE TABLE IF NOT EXISTS accreditation_requests (
   created_at          TEXT    DEFAULT (datetime('now'))
 )`);
 
+
+// -------- Mod.5: colonne extra accreditation_requests --------
+['accreditation_type','media_outlet','press_role','publisher','genre','channel_url','platform','subscribers']
+  .forEach(function(col){
+    db.run('ALTER TABLE accreditation_requests ADD COLUMN ' + col + ' TEXT', function(){});
+  });
 db.dbPath = dbPath;
 module.exports = db;
