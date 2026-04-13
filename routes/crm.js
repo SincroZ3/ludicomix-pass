@@ -212,9 +212,7 @@ module.exports = function(app, db, deps) {
         [status, req.session.user.id, review_notes || null, did]
       );
       logAction(req.session.user.id, 'review_portal_doc', 'portal_document', did, `Stato → ${status}`);
-      // Redirect back alla scheda documenti del gruppo
-      const redirectTo = req.body.redirect_to || req.get('Referer') || '/';
-      res.redirect(redirectTo);
+      res.json({ ok: true });
     } catch(e) { res.status(500).json({ error: e.message }); }
   });
 

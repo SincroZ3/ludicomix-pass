@@ -171,13 +171,11 @@ db.run(`CREATE TABLE IF NOT EXISTS auto_passes (
 
 [
   ['ap_template',''], ['ap_esp_x','350'], ['ap_esp_y','125'], ['ap_esp_size','20'],
-  ['ap_num_x','95'], ['ap_num_y','125'], ['ap_tot_x','95'], ['ap_tot_y','95'],
-  ['ap_qr_x','660'], ['ap_qr_y','45'], ['ap_qr_size','80']
+  ['ap_num_x','95'],  ['ap_num_y','125'], ['ap_tot_x','95'],  ['ap_tot_y','95'],
+  ['ap_qr_x','660'],  ['ap_qr_y','45'],  ['ap_qr_size','80']
 ].forEach(function(p) { db.run('INSERT OR IGNORE INTO app_settings(key,value)VALUES(?,?)', p); });
 
-db.run("INSERT OR IGNORE INTO app_settings(key,value) VALUES('qr_logo_b64','')")
-  db.run("INSERT OR IGNORE INTO app_settings(key,value) VALUES('portal_window_from','')");
-  db.run("INSERT OR IGNORE INTO app_settings(key,value) VALUES('portal_window_until','')");;
+db.run("INSERT OR IGNORE INTO app_settings(key,value) VALUES('qr_logo_b64','')");
 
 db.run(`CREATE TABLE IF NOT EXISTS scan_attempts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -192,138 +190,70 @@ db.run(`CREATE TABLE IF NOT EXISTS scan_attempts (
 )`);
 
 // ✅ Performance indexes
-db.run(`CREATE INDEX IF NOT EXISTS idx_passes_participant ON passes(participant_id)`);
-db.run(`CREATE INDEX IF NOT EXISTS idx_passes_status ON passes(status)`);
-db.run(`CREATE INDEX IF NOT EXISTS idx_participants_group ON participants(assignment_group_id)`);
-db.run(`CREATE INDEX IF NOT EXISTS idx_pass_history_pass ON pass_status_history(pass_id)`);
-db.run(`CREATE INDEX IF NOT EXISTS idx_scan_attempts_code ON scan_attempts(code)`);
-db.run(`CREATE INDEX IF NOT EXISTS idx_action_logs_user ON action_logs(user_id)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_passes_participant  ON passes(participant_id)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_passes_status       ON passes(status)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_participants_group  ON participants(assignment_group_id)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_pass_history_pass   ON pass_status_history(pass_id)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_scan_attempts_code  ON scan_attempts(code)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_action_logs_user    ON action_logs(user_id)`);
 
 // ═══════════════════════════════════════════════════════
 // BACHECA COMUNICAZIONI — tabelle
 // ═══════════════════════════════════════════════════════
 
+// Comunicazioni dell'organizzazione verso i portali espositore
 db.run(`CREATE TABLE IF NOT EXISTS announcements (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title TEXT NOT NULL,
-  message TEXT NOT NULL,
-  emoji TEXT DEFAULT '📣',
-  type TEXT DEFAULT 'info',
-  is_pinned INTEGER DEFAULT 0,
-  created_by INTEGER,
-  created_at TEXT DEFAULT (datetime('now')),
-  expires_at TEXT,
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  title       TEXT    NOT NULL,
+  message     TEXT    NOT NULL,
+  emoji       TEXT    DEFAULT '📣',
+  type        TEXT    DEFAULT 'info',     -- info | warning | urgent
+  is_pinned   INTEGER DEFAULT 0,
+  created_by  INTEGER,
+  created_at  TEXT    DEFAULT (datetime('now')),
+  expires_at  TEXT,
   FOREIGN KEY(created_by) REFERENCES users(id)
 )`);
 
+// Traccia quali stand hanno letto quale messaggio
 db.run(`CREATE TABLE IF NOT EXISTS announcement_reads (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
   announcement_id INTEGER NOT NULL,
-  portal_token TEXT NOT NULL,
-  read_at TEXT DEFAULT (datetime('now')),
+  portal_token    TEXT    NOT NULL,
+  read_at         TEXT    DEFAULT (datetime('now')),
   UNIQUE(announcement_id, portal_token),
   FOREIGN KEY(announcement_id) REFERENCES announcements(id) ON DELETE CASCADE
 )`);
 
 db.run(`CREATE INDEX IF NOT EXISTS idx_ann_reads_token ON announcement_reads(portal_token)`);
-db.run(`CREATE INDEX IF NOT EXISTS idx_ann_pinned ON announcements(is_pinned, created_at)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_ann_pinned     ON announcements(is_pinned, created_at)`);
+
+
+// -------- Mod.1: contract_status su assignment_groups --------
+db.run(`ALTER TABLE assignmentgroups ADD COLUMN contractstatus TEXT DEFAULT 'bozza'`, () => {});
+db.run(`ALTER TABLE assignmentgroups ADD COLUMN portalenabled  INTEGER DEFAULT 0`,   () => {});
+db.run(`ALTER TABLE assignmentgroups ADD COLUMN portaltoken    TEXT`,                 () => {});
+db.run(`ALTER TABLE assignmentgroups ADD COLUMN portal_open_from  TEXT`,              () => {});
+db.run(`ALTER TABLE assignmentgroups ADD COLUMN portal_open_until TEXT`,              () => {});
+db.run(`ALTER TABLE assignmentgroups ADD COLUMN portal_status  TEXT DEFAULT 'chiuso'`,() => {});
+
+// -------- Mod.5: Accreditamento --------
+db.run(`CREATE TABLE IF NOT EXISTS accreditation_requests (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_name        TEXT NOT NULL,
+  contact_name        TEXT NOT NULL,
+  email               TEXT NOT NULL,
+  phone               TEXT,
+  stand_type          TEXT,
+  stand_size          TEXT,
+  notes               TEXT,
+  status              TEXT    DEFAULT 'in_attesa',
+  reviewed_by         INTEGER,
+  reviewed_at         TEXT,
+  rejection_reason    TEXT,
+  assignment_group_id INTEGER,
+  created_at          TEXT    DEFAULT (datetime('now'))
+)`);
 
 db.dbPath = dbPath;
-
-// ═══════════════════════════════════════════════════════
-// CRM — tabelle aggiuntive
-// Wrappato in db.serialize() per garantire esecuzione
-// sequenziale DOPO tutto lo schema base.
-// DROP + CREATE per risolvere schema rotto su volume Railway.
-// ═══════════════════════════════════════════════════════
-db.serialize(function() {
-
-
-  db.run(`CREATE TABLE IF NOT EXISTS contacts (
-    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-    assignment_group_id INTEGER NOT NULL,
-    name                TEXT    NOT NULL,
-    role                TEXT,
-    email               TEXT,
-    phone               TEXT,
-    is_primary          INTEGER DEFAULT 0,
-    created_at          TEXT    DEFAULT (datetime('now')),
-    FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS payments (
-    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-    assignment_group_id INTEGER NOT NULL,
-    description         TEXT    NOT NULL,
-    amount              REAL    NOT NULL,
-    status              TEXT    DEFAULT 'da_pagare',
-    due_date            TEXT,
-    paid_at             TEXT,
-    notes               TEXT,
-    created_at          TEXT    DEFAULT (datetime('now')),
-    FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS group_documents (
-    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-    assignment_group_id INTEGER NOT NULL,
-    filename            TEXT    NOT NULL,
-    original_name       TEXT,
-    doc_type            TEXT    DEFAULT 'altro',
-    uploaded_by         INTEGER,
-    uploaded_at         TEXT    DEFAULT (datetime('now')),
-    notes               TEXT,
-    FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE,
-    FOREIGN KEY(uploaded_by) REFERENCES users(id)
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS portal_documents (
-    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-    assignment_group_id INTEGER NOT NULL,
-    doc_type            TEXT    NOT NULL,
-    filename            TEXT    NOT NULL,
-    original_name       TEXT,
-    status              TEXT    DEFAULT 'ricevuto',
-    uploaded_at         TEXT    DEFAULT (datetime('now')),
-    reviewed_by         INTEGER,
-    reviewed_at         TEXT,
-    review_notes        TEXT,
-    FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS support_tickets (
-    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-    assignment_group_id INTEGER NOT NULL,
-    portal_token        TEXT    NOT NULL,
-    subject             TEXT    NOT NULL,
-    message             TEXT    NOT NULL,
-    status              TEXT    DEFAULT 'aperto',
-    created_at          TEXT    DEFAULT (datetime('now')),
-    closed_at           TEXT,
-    FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id)
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS ticket_replies (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    ticket_id   INTEGER NOT NULL,
-    message     TEXT    NOT NULL,
-    is_admin    INTEGER DEFAULT 0,
-    author_name TEXT,
-    created_at  TEXT    DEFAULT (datetime('now')),
-    FOREIGN KEY(ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE
-  )`);
-
-  db.run('CREATE INDEX IF NOT EXISTS idx_contacts_group    ON contacts(assignment_group_id)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_payments_group    ON payments(assignment_group_id)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_group_docs_group  ON group_documents(assignment_group_id)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_portal_docs_group ON portal_documents(assignment_group_id)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_tickets_group     ON support_tickets(assignment_group_id)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_ticket_replies    ON ticket_replies(ticket_id)');
-
-  ['portal_open_from TEXT', 'portal_open_until TEXT', "contract_status TEXT DEFAULT 'bozza'"].forEach(function(col) {
-    db.run('ALTER TABLE assignment_groups ADD COLUMN ' + col, function() {});
-  });
-
-});
-
 module.exports = db;

@@ -985,7 +985,56 @@ app.get('/home', requireAuth, (req, res) => {
     });
   }
 
-  // -------- Pass singolo e bulk --------
+  
+// -------- Trigger: genera pass batch alla chiusura finestra portale --------
+async function triggerBatchPassOnClose(groupId) {
+  try {
+    const group = await dbGet(
+      `SELECT ag.id, ag.name, g.passtypeid
+       FROM assignmentgroups ag
+       LEFT JOIN groups g ON g.id = ag.groupid
+       WHERE ag.id = ?`,
+      groupId
+    );
+    if (!group || !group.passtypeid) {
+      console.warn(`[batchClose] Gruppo ${groupId} senza passtype — skip`);
+      return 0;
+    }
+    const toGenerate = await dbAll(
+      `SELECT id FROM participants
+       WHERE assignmentgroupid = ?
+         AND id NOT IN (
+           SELECT participantid FROM passes WHERE status != 'INVALIDATO'
+         )`,
+      groupId
+    );
+    if (!toGenerate.length) return 0;
+
+    let ok = 0, errors = 0;
+    for (const p of toGenerate) {
+      try {
+        await generatePassForParticipant(p.id, group.passtypeid, null);
+        ok++;
+      } catch (e) {
+        console.error(`[batchClose] Errore pass partecipante ${p.id}:`, e.message);
+        errors++;
+      }
+    }
+    createNotification(
+      'batchpass', 'Pass generati automaticamente',
+      `Chiusura portale gruppo <strong>${group.name}</strong>: generati <strong>${ok}</strong> pass${errors ? `, ${errors} errori` : ''}.`,
+      'assignmentgroup', groupId
+    );
+    logAction(null, 'batch_pass_on_close', 'assignmentgroup', groupId,
+      `Trigger chiusura finestra: ${ok} pass generati, ${errors} errori`);
+    return ok;
+  } catch (e) {
+    console.error('[triggerBatchPassOnClose] Errore:', e.message);
+    return 0;
+  }
+}
+
+// -------- Pass singolo e bulk --------
 
 
   // API: controlla se un partecipante ha già pass generati
@@ -1199,7 +1248,7 @@ app.get('/home', requireAuth, (req, res) => {
   // ✅ FIX: refactored con async/await + Promise.all (parallelizza 7 query)
   app.get('/admin/settings', requireAuth, requireAdmin, async (req, res) => {
     try {
-      const [groups, types, zones, users, smtpRows, scanAttempts, apRows, portalGroups] = await Promise.all([
+      const [groups, types, zones, users, smtpRows, scanAttempts, apRows] = await Promise.all([
         dbAll(`SELECT g.id, g.name, g.priority, g.pass_type_id, pt.name AS pass_type_name
                FROM groups g LEFT JOIN pass_types pt ON pt.id = g.pass_type_id
                ORDER BY g.priority ASC, g.name ASC`),
@@ -1208,43 +1257,14 @@ app.get('/home', requireAuth, (req, res) => {
         dbAll('SELECT id, username, role, created_at FROM users ORDER BY username ASC'),
         dbAll("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'"),
         dbAll('SELECT sa.*, u.username FROM scan_attempts sa LEFT JOIN users u ON u.id=sa.user_id ORDER BY sa.id DESC LIMIT 500'),
-        dbAll('SELECT * FROM app_settings'),
-        dbAll(`SELECT ag.id, ag.name, ag.portal_open_from, ag.portal_open_until,
-          (SELECT COUNT(*) FROM participants WHERE assignment_group_id=ag.id) AS n_participants
-          FROM assignment_groups ag WHERE ag.portal_enabled=1 ORDER BY ag.name`)
+        dbAll('SELECT * FROM app_settings')
       ]);
       const smtp = Object.fromEntries((smtpRows||[]).map(r => [r.key, r.value]));
       const apSettings = Object.fromEntries((apRows||[]).map(r => [r.key, r.value]));
-      res.render('admin_settings', { groups, types, zones, users, smtp, scanAttempts: scanAttempts||[], apSettings, portalGroups: portalGroups||[] });
+      res.render('admin_settings', { groups, types, zones, users, smtp, scanAttempts: scanAttempts||[], apSettings });
     } catch (err) {
       console.error('Errore /admin/settings:', err);
       res.status(500).send('Errore interno del server');
-    }
-  });
-
-
-  // -------- Finestra Portali (date globali apertura/chiusura) --------
-  app.post('/admin/settings/portal-window', requireAuth, requireAdmin, async (req, res) => {
-    try {
-      const { portal_window_from, portal_window_until, apply_to_all, group_ids } = req.body;
-      await dbRun('INSERT OR REPLACE INTO app_settings(key,value) VALUES(?,?)', 'portal_window_from', portal_window_from||'');
-      await dbRun('INSERT OR REPLACE INTO app_settings(key,value) VALUES(?,?)', 'portal_window_until', portal_window_until||'');
-      if (apply_to_all === '1') {
-        await dbRun('UPDATE assignment_groups SET portal_open_from=NULL, portal_open_until=NULL WHERE portal_enabled=1');
-      } else if (group_ids) {
-        const ids = Array.isArray(group_ids) ? group_ids : [group_ids];
-        for (const id of ids) {
-          await dbRun(
-            'UPDATE assignment_groups SET portal_open_from=?, portal_open_until=? WHERE id=?',
-            portal_window_from||null, portal_window_until||null, parseInt(id,10)
-          );
-        }
-      }
-      logAction(req.session.user.id, 'update_portal_window', 'settings', null, 'Finestra portali aggiornata');
-      res.redirect('/admin/settings#portali');
-    } catch(err) {
-      console.error('Errore portal-window:', err);
-      res.status(500).send('Errore salvataggio finestra portali');
     }
   });
 
@@ -1612,6 +1632,11 @@ app.get('/home', requireAuth, (req, res) => {
         </div></body></html>`);
     }
     if (group.portal_open_until && _now > group.portal_open_until) {
+      // Trigger batch pass alla prima chiusura finestra
+      if (group.portal_status !== 'scaduto') {
+        triggerBatchPassOnClose(group.id).catch(e => console.error('[batchClose]', e.message));
+        try { await dbRun(`UPDATE assignmentgroups SET portal_status='scaduto' WHERE id=?`, group.id); } catch(e2) {}
+      }
       const dtC = new Date(group.portal_open_until).toLocaleString('it-IT', { dateStyle: 'long', timeStyle: 'short' });
       return res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
         body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f2f5;margin:0}
@@ -2672,6 +2697,174 @@ app.get('/search', requireAuth, (req, res) => {
     return { pdfBytes: await pdfDoc.save(), code };
   }
 
+
+
+  // ════════════════════════════════════════════════════════
+  // MOD.5 — ACCREDITAMENTO ESPOSITORI
+  // ════════════════════════════════════════════════════════
+
+  // GET — form pubblica (no auth)
+  app.get('/richiesta-accreditamento', (req, res) => {
+    res.render('accreditation-request', {
+      sent:  req.query.sent  || null,
+      error: req.query.error || null
+    });
+  });
+
+  // POST — invio richiesta
+  app.post('/richiesta-accreditamento', async (req, res) => {
+    const { company_name, contact_name, email, phone, stand_type, stand_size, notes } = req.body;
+    if (!company_name || !contact_name || !email) {
+      return res.redirect('/richiesta-accreditamento?error=campi_obbligatori');
+    }
+    try {
+      await dbRun(
+        `INSERT INTO accreditation_requests
+          (company_name, contact_name, email, phone, stand_type, stand_size, notes)
+         VALUES (?,?,?,?,?,?,?)`,
+        company_name.trim(), contact_name.trim(), email.trim().toLowerCase(),
+        phone || null, stand_type || null, stand_size || null, notes || null
+      );
+      createNotification(
+        'accreditation', 'Nuova richiesta accreditamento',
+        `<strong>${company_name}</strong> (${contact_name}) ha inviato una richiesta di accreditamento.`,
+        null, null
+      );
+      trySendEmail(
+        'Nuova richiesta accreditamento',
+        `<p><strong>${company_name}</strong> — ${contact_name} (${email}) ha richiesto accreditamento.</p>
+         <p>Tipo stand: ${stand_type || 'n/d'} — Dimensione: ${stand_size || 'n/d'}</p>
+         <p>Note: ${notes || '—'}</p>
+         <p><a href="${process.env.BASE_URL || ''}/admin/accreditamento">→ Gestisci richieste</a></p>`
+      );
+      res.redirect('/richiesta-accreditamento?sent=1');
+    } catch (e) {
+      console.error('Errore invio accreditamento:', e.message);
+      res.redirect('/richiesta-accreditamento?error=db');
+    }
+  });
+
+  // GET — dashboard admin (lista richieste)
+  app.get('/admin/accreditamento', requireAuth, requireOrganizer, async (req, res) => {
+    try {
+      const requests = await dbAll(
+        `SELECT ar.*, u.username AS reviewer_name
+         FROM accreditation_requests ar
+         LEFT JOIN users u ON u.id = ar.reviewed_by
+         ORDER BY
+           CASE ar.status WHEN 'in_attesa' THEN 0 ELSE 1 END,
+           ar.created_at DESC`
+      );
+      const groups = await dbAll(`SELECT id, name FROM groups ORDER BY priority, name`);
+      res.render('admin-accreditamento', {
+        requests,
+        groups,
+        saved: req.query.saved || null
+      });
+    } catch (e) {
+      res.status(500).send('Errore interno: ' + e.message);
+    }
+  });
+
+  // POST — approva richiesta → crea assignment_group + contatto + email portale
+  app.post('/admin/accreditamento/:id/approva', requireAuth, requireOrganizer, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { group_id, zone, stand_name, max_passes } = req.body;
+    try {
+      const request = await dbGet(`SELECT * FROM accreditation_requests WHERE id=?`, id);
+      if (!request) return res.status(404).send('Richiesta non trovata');
+
+      const crypto = require('crypto');
+      const portalToken = crypto.randomBytes(24).toString('hex');
+
+      const result = await dbRun(
+        `INSERT INTO assignmentgroups
+          (name, groupid, zone, standname, maxpasses, email, portaltoken, portalenabled, contractstatus)
+         VALUES (?,?,?,?,?,?,?,1,'bozza')`,
+        request.company_name,
+        group_id   ? parseInt(group_id, 10) : null,
+        zone       || null,
+        stand_name || request.company_name,
+        max_passes ? parseInt(max_passes, 10) : null,
+        request.email,
+        portalToken
+      );
+      const newGroupId = result.lastID;
+
+      // Crea contatto principale dal referente della richiesta
+      await dbRun(
+        `INSERT INTO contacts (assignmentgroupid, name, email, phone, role, isprimary)
+         VALUES (?,?,?,?,?,1)`,
+        newGroupId, request.contact_name, request.email, request.phone || null, 'referente'
+      );
+
+      // Aggiorna stato richiesta
+      await dbRun(
+        `UPDATE accreditation_requests
+         SET status='portale_attivato', reviewed_by=?, reviewed_at=datetime('now'), assignment_group_id=?
+         WHERE id=?`,
+        req.session.user.id, newGroupId, id
+      );
+
+      // Email espositore con link portale
+      const portalUrl = (process.env.BASE_URL || '') + '/portale/' + portalToken;
+      trySendEmail(
+        'Accreditamento approvato — accedi al tuo portale',
+        '<p>Gentile <strong>' + request.contact_name + '</strong>,</p>' +
+        '<p>La tua richiesta di accreditamento per <strong>' + request.company_name + '</strong> è stata <strong>approvata</strong>!</p>' +
+        '<p>Accedi al portale per inserire i nominativi dei tuoi collaboratori:</p>' +
+        '<p style="margin:1.5rem 0">' +
+        '<a href="' + portalUrl + '" style="background:#1e2d4e;color:#f5c842;padding:.75rem 1.5rem;border-radius:8px;text-decoration:none;font-weight:700">Accedi al Portale Espositore</a>' +
+        '</p>' +
+        '<p>Link diretto: <a href="' + portalUrl + '">' + portalUrl + '</a></p>' +
+        '<p><em>Conserva questo link — è il tuo accesso personale.</em></p>'
+      );
+
+      logAction(req.session.user.id, 'approve_accreditation', 'accreditation_request', id,
+        'Approvata richiesta ' + request.company_name + ' → gruppo ' + newGroupId);
+      createNotification('accreditation', 'Richiesta approvata',
+        'Accreditamento <strong>' + request.company_name + '</strong> approvato. Portale attivato.',
+        null, null);
+
+      res.redirect('/admin/accreditamento?saved=approvato');
+    } catch (e) {
+      console.error('Errore approvazione accreditamento:', e.message);
+      res.status(500).send('Errore: ' + e.message);
+    }
+  });
+
+  // POST — rifiuta richiesta con motivazione opzionale
+  app.post('/admin/accreditamento/:id/rifiuta', requireAuth, requireOrganizer, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { rejection_reason } = req.body;
+    try {
+      const request = await dbGet(`SELECT * FROM accreditation_requests WHERE id=?`, id);
+      if (!request) return res.status(404).send('Richiesta non trovata');
+
+      await dbRun(
+        `UPDATE accreditation_requests
+         SET status='rifiutato', reviewed_by=?, reviewed_at=datetime('now'), rejection_reason=?
+         WHERE id=?`,
+        req.session.user.id, rejection_reason || null, id
+      );
+
+      trySendEmail(
+        'Aggiornamento sulla tua richiesta di accreditamento',
+        '<p>Gentile <strong>' + request.contact_name + '</strong>,</p>' +
+        '<p>La richiesta di accreditamento per <strong>' + request.company_name + '</strong> non ha potuto essere accettata.</p>' +
+        (rejection_reason ? '<p>Motivazione: ' + rejection_reason + '</p>' : '') +
+        '<p>Per ulteriori informazioni puoi rispondere a questa email.</p>'
+      );
+
+      logAction(req.session.user.id, 'reject_accreditation', 'accreditation_request', id,
+        'Rifiutata richiesta ' + request.company_name);
+
+      res.redirect('/admin/accreditamento?saved=rifiutato');
+    } catch (e) {
+      console.error('Errore rifiuto accreditamento:', e.message);
+      res.status(500).send('Errore: ' + e.message);
+    }
+  });
 
   app.listen(PORT, () => {
     console.log(`Server avviato su http://localhost:${PORT}`);

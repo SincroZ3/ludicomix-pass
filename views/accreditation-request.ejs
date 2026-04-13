@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Richiesta Accreditamento — Ludicomix</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .topbar {
+      background: #1e2d4e;
+      color: #fff;
+      padding: .9rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .topbar .logo { font-size: 1.25rem; font-weight: 700; color: #f5c842; letter-spacing: .02em; }
+    .topbar .subtitle { font-size: .85rem; opacity: .7; }
+    .wrap { max-width: 680px; margin: 2.5rem auto; padding: 0 1.25rem; width: 100%; }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 2rem 2.25rem;
+      box-shadow: 0 2px 16px rgba(0,0,0,.08);
+    }
+    h1 { font-size: 1.5rem; color: #1e2d4e; margin-bottom: .35rem; }
+    .subtitle-text { color: #64748b; font-size: .9rem; margin-bottom: 1.75rem; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .field { display: flex; flex-direction: column; gap: .35rem; }
+    .field.full { grid-column: 1 / -1; }
+    label { font-size: .82rem; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: .04em; }
+    input, select, textarea {
+      border: 1.5px solid #d1d5db;
+      border-radius: 7px;
+      padding: .55rem .75rem;
+      font-size: .95rem;
+      color: #111;
+      transition: border-color .15s;
+      width: 100%;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #1e2d4e;
+    }
+    textarea { resize: vertical; min-height: 90px; }
+    .alert {
+      padding: .75rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1.25rem;
+      font-size: .9rem;
+    }
+    .alert-error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .btn-primary {
+      grid-column: 1 / -1;
+      background: #1e2d4e;
+      color: #f5c842;
+      border: none;
+      border-radius: 8px;
+      padding: .8rem 2rem;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .15s;
+      margin-top: .5rem;
+    }
+    .btn-primary:hover { background: #162340; }
+    .success-box { text-align: center; padding: 3rem 1.5rem; }
+    .success-icon { font-size: 3.5rem; margin-bottom: 1rem; }
+    .success-box h2 { color: #1e2d4e; font-size: 1.5rem; margin-bottom: .5rem; }
+    .success-box p { color: #64748b; }
+    @media (max-width: 540px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .card { padding: 1.5rem 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="logo">🎲 Ludicomix</div>
+      <div class="subtitle">Portale Espositori</div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <% if (sent) { %>
+      <div class="card">
+        <div class="success-box">
+          <div class="success-icon">✅</div>
+          <h2>Richiesta inviata!</h2>
+          <p>Grazie per la tua richiesta di accreditamento.<br>
+             Ti risponderemo all'indirizzo email fornito il prima possibile.</p>
+        </div>
+      </div>
+    <% } else { %>
+      <div class="card">
+        <h1>Richiesta di Accreditamento</h1>
+        <p class="subtitle-text">Compila il modulo per richiedere uno spazio espositivo a Ludicomix.<br>
+           I campi contrassegnati con <strong>*</strong> sono obbligatori.</p>
+
+        <% if (error) { %>
+          <div class="alert alert-error">
+            <% if (error === 'campi_obbligatori') { %>
+              Compila tutti i campi obbligatori (nome stand, referente, email).
+            <% } else { %>
+              Si è verificato un errore. Riprova tra qualche minuto.
+            <% } %>
+          </div>
+        <% } %>
+
+        <form method="POST" action="/richiesta-accreditamento" class="form-grid">
+          <div class="field">
+            <label for="company_name">Nome stand / azienda *</label>
+            <input type="text" id="company_name" name="company_name"
+                   placeholder="Es. Ludoteca dei Mondi" required>
+          </div>
+          <div class="field">
+            <label for="contact_name">Nome referente *</label>
+            <input type="text" id="contact_name" name="contact_name"
+                   placeholder="Nome e cognome" required>
+          </div>
+          <div class="field">
+            <label for="email">Email *</label>
+            <input type="email" id="email" name="email"
+                   placeholder="email@esempio.it" required>
+          </div>
+          <div class="field">
+            <label for="phone">Telefono</label>
+            <input type="tel" id="phone" name="phone"
+                   placeholder="+39 xxx xxx xxxx">
+          </div>
+          <div class="field">
+            <label for="stand_type">Tipologia partecipante</label>
+            <select id="stand_type" name="stand_type">
+              <option value="">— seleziona —</option>
+              <option value="espositore">Espositore commerciale</option>
+              <option value="hobbista">Hobbista / Autoproduzione</option>
+              <option value="associazione">Associazione / Club</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="stand_size">Dimensione stand richiesta</label>
+            <select id="stand_size" name="stand_size">
+              <option value="">— seleziona —</option>
+              <option value="1 tavolo">1 tavolo</option>
+              <option value="2 tavoli">2 tavoli</option>
+              <option value="spazio 3x3">Spazio 3×3 m</option>
+              <option value="spazio 6x3">Spazio 6×3 m</option>
+              <option value="da definire">Da definire</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label for="notes">Note aggiuntive</label>
+            <textarea id="notes" name="notes"
+                      placeholder="Descrivi brevemente la tua partecipazione, eventuali esigenze particolari, ecc."></textarea>
+          </div>
+          <button type="submit" class="btn-primary">Invia richiesta →</button>
+        </form>
+      </div>
+    <% } %>
+  </div>
+</body>
+</html>
