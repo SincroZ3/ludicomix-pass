@@ -264,5 +264,80 @@ db.run(`CREATE TABLE IF NOT EXISTS accreditation_requests (
   .forEach(function(col){
     db.run('ALTER TABLE accreditation_requests ADD COLUMN ' + col + ' TEXT', function(){});
   });
+
+// -------- Mod.1: CRM — tabelle referenti, pagamenti, documenti --------
+db.run(`CREATE TABLE IF NOT EXISTS contacts (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  assignment_group_id INTEGER NOT NULL,
+  name                TEXT    NOT NULL,
+  role                TEXT,
+  email               TEXT,
+  phone               TEXT,
+  is_primary          INTEGER DEFAULT 0,
+  FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
+)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS payments (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  assignment_group_id INTEGER NOT NULL,
+  description         TEXT,
+  amount              REAL    NOT NULL,
+  status              TEXT    DEFAULT 'da_pagare',
+  due_date            TEXT,
+  paid_at             TEXT,
+  notes               TEXT,
+  FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
+)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS group_documents (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  assignment_group_id INTEGER NOT NULL,
+  filename            TEXT    NOT NULL,
+  original_name       TEXT,
+  doc_type            TEXT,
+  notes               TEXT,
+  uploaded_by         INTEGER,
+  uploaded_at         TEXT    DEFAULT (datetime('now')),
+  FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
+)`);
+
+// -------- Mod.2: Portale — documenti espositore e ticket supporto --------
+db.run(`CREATE TABLE IF NOT EXISTS portal_documents (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  assignment_group_id INTEGER NOT NULL,
+  doc_type            TEXT    NOT NULL,
+  filename            TEXT    NOT NULL,
+  original_name       TEXT,
+  status              TEXT    DEFAULT 'ricevuto',
+  uploaded_at         TEXT    DEFAULT (datetime('now')),
+  reviewed_by         INTEGER,
+  reviewed_at         TEXT,
+  review_notes        TEXT,
+  FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
+)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS support_tickets (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  assignment_group_id INTEGER NOT NULL,
+  portal_token        TEXT    NOT NULL,
+  subject             TEXT    NOT NULL,
+  message             TEXT    NOT NULL,
+  status              TEXT    DEFAULT 'aperto',
+  created_at          TEXT    DEFAULT (datetime('now')),
+  closed_at           TEXT,
+  FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
+)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS ticket_replies (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticket_id  INTEGER NOT NULL,
+  message    TEXT    NOT NULL,
+  is_admin   INTEGER DEFAULT 0,
+  author_name TEXT,
+  created_at TEXT    DEFAULT (datetime('now')),
+  FOREIGN KEY(ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE
+)`);
+
 db.dbPath = dbPath;
 module.exports = db;
+
