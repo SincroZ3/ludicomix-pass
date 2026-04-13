@@ -1,149 +1,280 @@
-<%- include('partials/header') %>
-<nav class="breadcrumb-bar">
-  Sei in: <a href="/home">Home</a>
-  <span class="sep">&rsaquo;</span> <strong>🎫 Accreditamento Espositori</strong>
-</nav>
-<h1 class="page-title">🎫 Accreditamento Espositori</h1>
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Richieste Accreditamento — Admin</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    /* ── TABS STATUS ── */
+    .acc-tabs{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.5rem}
+    .acc-tab{padding:.45rem 1rem;border-radius:20px;font-size:.82rem;font-weight:600;cursor:pointer;border:1.5px solid transparent;background:#f1f5f9;color:#475569;transition:all .15s}
+    .acc-tab.active,.acc-tab:hover{background:#1e2d4e;color:#fff}
+    .req-section{display:none}.req-section.visible{display:block}
 
-<% if (saved) { %>
-<div class="alert alert-success" style="margin-bottom:1.25rem;padding:.75rem 1rem;border-radius:8px;
-  background:<%= saved==='approvato' ? '#d1fae5' : '#fee2e2' %>;
-  color:<%= saved==='approvato' ? '#065f46' : '#991b1b' %>;
-  border:1px solid <%= saved==='approvato' ? '#6ee7b7' : '#fecaca' %>;">
-  <% if(saved==='approvato') { %>✅ Richiesta approvata, portale attivato e email inviata!
-  <% } else if(saved==='rifiutato') { %>❌ Richiesta rifiutata.
-  <% } %>
-</div>
-<% } %>
+    /* ── TYPE SECTION HEADER ── */
+    .type-section{margin-bottom:2rem}
+    .type-header{display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;border-radius:8px;margin-bottom:.75rem;font-weight:700;font-size:.88rem;border-left:4px solid}
+    .type-header.espositore{background:#fefce8;color:#854d0e;border-color:#f5c842}
+    .type-header.stampa    {background:#eff6ff;color:#1e40af;border-color:#3b82f6}
+    .type-header.autore    {background:#f0fdf4;color:#14532d;border-color:#22c55e}
+    .type-header.creator   {background:#fdf4ff;color:#701a75;border-color:#d946ef}
+    .type-header .count    {margin-left:auto;font-size:.78rem;font-weight:600;opacity:.7}
+    .empty-type            {font-size:.82rem;color:#94a3b8;padding:.5rem .75rem}
 
-<div style="margin-bottom:1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;">
-  <div class="pill-tabs" style="margin:0">
-    <button type="button" class="pill-tab active" id="btn-in_attesa"   onclick="showTab('in_attesa',this)">⏳ In attesa <span class="badge-count"><%= requests.filter(function(r){return r.status==='in_attesa';}).length %></span></button>
-    <button type="button" class="pill-tab"        id="btn-portale_att" onclick="showTab('portale_attivato',this)">🚀 Portale attivato <span class="badge-count"><%= requests.filter(function(r){return r.status==='portale_attivato';}).length %></span></button>
-    <button type="button" class="pill-tab"        id="btn-rifiutato"   onclick="showTab('rifiutato',this)">❌ Rifiutate <span class="badge-count"><%= requests.filter(function(r){return r.status==='rifiutato';}).length %></span></button>
-  </div>
-  <div style="display:flex;align-items:center;gap:.6rem;">
-    <span style="font-size:.78rem;color:#64748b;">Link form pubblico:</span>
-    <code id="pub-link" style="font-size:.78rem;background:#f1f5f9;padding:.25rem .55rem;border-radius:5px;border:1px solid #e2e8f0;">/richiesta-accreditamento</code>
-    <button onclick="copyLink()" style="font-size:.75rem;padding:.25rem .65rem;border-radius:5px;border:1px solid #d1d9e6;background:#fff;cursor:pointer;" title="Copia link completo">📋</button>
-    <a href="/richiesta-accreditamento" target="_blank" style="font-size:.75rem;padding:.25rem .65rem;border-radius:5px;border:1px solid #1e2d4e;color:#1e2d4e;text-decoration:none;">🔗 Apri</a>
-  </div>
-</div>
+    /* ── CARDS ── */
+    .req-card{background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:1.1rem 1.4rem;margin-bottom:.85rem;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+    .req-top{display:flex;flex-wrap:wrap;gap:.4rem .65rem;align-items:baseline;margin-bottom:.5rem}
+    .req-top strong{font-size:1rem;color:#1e2d4e}
+    .meta{font-size:.8rem;color:#94a3b8}
+    .meta-pill{font-size:.76rem;background:#f1f5f9;color:#475569;border-radius:12px;padding:.12rem .5rem;white-space:nowrap}
+    .badge{font-size:.72rem;font-weight:700;padding:.18rem .5rem;border-radius:10px;text-transform:uppercase;letter-spacing:.04em}
+    .badge-in_attesa        {background:#fef3c7;color:#92400e}
+    .badge-portale_attivato {background:#dbeafe;color:#1e40af}
+    .badge-rifiutato        {background:#fee2e2;color:#991b1b}
+    .req-notes{font-size:.84rem;color:#475569;border-left:3px solid #e2e8f0;padding-left:.65rem;margin:.45rem 0 .65rem}
 
-<style>
-.badge-count{display:inline-block;background:rgba(255,255,255,.3);color:inherit;border-radius:9999px;padding:.05rem .45rem;font-size:.72rem;font-weight:700;margin-left:.3rem;}
-.pill-tab .badge-count{background:rgba(0,0,0,.07);}
-.pill-tab.active .badge-count{background:rgba(255,255,255,.3);}
-.req-card{background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:1.25rem 1.5rem;margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,.05);}
-.req-header{display:flex;flex-wrap:wrap;gap:.4rem .75rem;align-items:baseline;margin-bottom:.6rem;}
-.req-header strong{font-size:1.05rem;color:#1e2d4e;}
-.req-header .muted{font-size:.82rem;color:#94a3b8;}
-.req-notes{font-size:.88rem;color:#475569;margin:.5rem 0;border-left:3px solid #e2e8f0;padding-left:.75rem;}
-.approve-form,.reject-form{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:.75rem;padding-top:.75rem;border-top:1px dashed #e2e8f0;}
-.approve-form select,.approve-form input,.reject-form input{border:1.5px solid #d1d5db;border-radius:7px;padding:.4rem .65rem;font-size:.88rem;min-width:130px;}
-.approve-form select:focus,.approve-form input:focus,.reject-form input:focus{outline:none;border-color:#1e2d4e;}
-.btn-approve{background:#1e2d4e;color:#f5c842;border:none;border-radius:7px;padding:.45rem 1rem;font-size:.88rem;font-weight:700;cursor:pointer;white-space:nowrap;}
-.btn-approve:hover{background:#162340;}
-.btn-reject{background:#fee2e2;color:#991b1b;border:none;border-radius:7px;padding:.45rem 1rem;font-size:.88rem;font-weight:600;cursor:pointer;white-space:nowrap;}
-.btn-reject:hover{background:#fecaca;}
-.badge-status{font-size:.72rem;font-weight:700;padding:.18rem .5rem;border-radius:12px;text-transform:uppercase;letter-spacing:.04em;}
-.s-in_attesa{background:#fef3c7;color:#92400e;}
-.s-portale_attivato{background:#dbeafe;color:#1e40af;}
-.s-rifiutato{background:#fee2e2;color:#991b1b;}
-.empty-acc{text-align:center;color:#94a3b8;padding:2.5rem 1rem;font-size:.95rem;}
-.acc-panel{display:none;}.acc-panel.visible{display:block;}
-</style>
+    /* ── APPROVE FORMS ── */
+    .approve-wrap{border-top:1px dashed #e2e8f0;padding-top:.85rem;margin-top:.65rem}
+    .approve-form,.reject-form{display:flex;flex-wrap:wrap;gap:.45rem;align-items:center}
+    .approve-form select,.approve-form input,.reject-form input{border:1.5px solid #d1d5db;border-radius:7px;padding:.38rem .6rem;font-size:.85rem}
+    .approve-form select:focus,.approve-form input:focus,.reject-form input:focus{outline:none;border-color:#1e2d4e}
+    .approve-form .w-auto{width:auto;min-width:130px}
+    .approve-form .w-num{width:90px}
+    .reject-form .w-full{flex:1;min-width:180px}
+    .btn-approve{background:#1e2d4e;color:#f5c842;border:none;border-radius:7px;padding:.42rem 1rem;font-size:.85rem;font-weight:700;cursor:pointer}
+    .btn-approve:hover{background:#162340}
+    .btn-reject{background:#fee2e2;color:#991b1b;border:none;border-radius:7px;padding:.42rem .9rem;font-size:.85rem;font-weight:600;cursor:pointer}
+    .btn-reject:hover{background:#fecaca}
+    .btn-link{display:inline-block;margin-top:.65rem;font-size:.82rem;color:#1e2d4e;text-decoration:underline}
+    .sep{width:100%;height:0;border:none}
+    .info-tag{font-size:.76rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:.15rem .5rem;color:#374151}
 
-<!-- ═══ IN ATTESA ═══ -->
-<div id="panel-in_attesa" class="acc-panel visible">
-  <% var pending=requests.filter(function(r){return r.status==='in_attesa';}); %>
-  <% if(!pending.length){ %><div class="empty-acc">✅ Nessuna richiesta in attesa.</div><% } %>
-  <% pending.forEach(function(r){ %>
-  <div class="req-card">
-    <div class="req-header">
-      <strong><%= r.company_name %></strong>
-      <span class="badge-status s-in_attesa">In attesa</span>
-      <span class="muted">👤 <%= r.contact_name %></span>
-      <span class="muted">✉️ <%= r.email %></span>
-      <% if(r.phone){ %><span class="muted">📞 <%= r.phone %></span><% } %>
-      <% if(r.stand_type){ %><span class="muted">🏷 <%= r.stand_type %></span><% } %>
-      <% if(r.stand_size){ %><span class="muted">📐 <%= r.stand_size %></span><% } %>
-      <span class="muted" style="margin-left:auto;">📅 <%= new Date(r.created_at).toLocaleDateString('it-IT') %></span>
+    .empty-state{text-align:center;color:#94a3b8;padding:2.5rem 1rem;font-size:.92rem}
+    .toast{position:fixed;bottom:1.5rem;right:1.5rem;background:#1e2d4e;color:#f5c842;border-radius:10px;padding:.75rem 1.25rem;font-size:.9rem;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.18);z-index:9999;animation:slideIn .3s ease}
+    @keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+  </style>
+</head>
+<body>
+  <%- include('partials/navbar', { currentUser: currentUser }) %>
+  <div class="container" style="max-width:980px;margin:2rem auto;padding:0 1.25rem">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:.5rem">
+      <h1 style="font-size:1.4rem;color:#1e2d4e">Richieste di Accreditamento</h1>
+      <a href="/richiesta-accreditamento" target="_blank"
+         style="font-size:.82rem;color:#1e2d4e;border:1.5px solid #1e2d4e;border-radius:20px;padding:.3rem .85rem;text-decoration:none">
+        🔗 Form pubblica
+      </a>
     </div>
-    <% if(r.notes){ %><p class="req-notes"><%= r.notes %></p><% } %>
-    <form method="POST" action="/admin/accreditamento/<%= r.id %>/approva" class="approve-form">
-      <select name="group_id" required title="Raggruppamento">
-        <option value="">— Raggruppamento —</option>
-        <% groups.forEach(function(g){ %><option value="<%= g.id %>"><%= g.name %></option><% }); %>
-      </select>
-      <input type="text"   name="zone"       placeholder="Zona (A, B, Ext…)">
-      <input type="text"   name="stand_name" placeholder="Nome stand" value="<%= r.company_name %>">
-      <input type="number" name="max_passes" placeholder="Max pass" min="1" style="max-width:105px;">
-      <button type="submit" class="btn-approve">✅ Approva e attiva portale</button>
-    </form>
-    <form method="POST" action="/admin/accreditamento/<%= r.id %>/rifiuta" class="reject-form"
-          onsubmit="return confirm('Rifiutare la richiesta di <%= r.company_name %>?');">
-      <input type="text" name="rejection_reason" placeholder="Motivazione (opzionale)" style="flex:1;min-width:200px;">
-      <button type="submit" class="btn-reject">❌ Rifiuta</button>
-    </form>
-  </div>
-  <% }); %>
-</div>
 
-<!-- ═══ PORTALE ATTIVATO ═══ -->
-<div id="panel-portale_attivato" class="acc-panel">
-  <% var activated=requests.filter(function(r){return r.status==='portale_attivato';}); %>
-  <% if(!activated.length){ %><div class="empty-acc">Nessuna richiesta con portale attivato.</div><% } %>
-  <% activated.forEach(function(r){ %>
-  <div class="req-card">
-    <div class="req-header">
-      <strong><%= r.company_name %></strong>
-      <span class="badge-status s-portale_attivato">Portale attivato</span>
-      <span class="muted">👤 <%= r.contact_name %></span>
-      <span class="muted">✉️ <%= r.email %></span>
-      <% if(r.stand_type){ %><span class="muted">🏷 <%= r.stand_type %></span><% } %>
-      <span class="muted" style="margin-left:auto;">Approvato da <strong><%= r.reviewer_name||'sistema' %></strong> il <%= r.reviewed_at ? new Date(r.reviewed_at).toLocaleDateString('it-IT') : '—' %></span>
-    </div>
-    <% if(r.notes){ %><p class="req-notes"><%= r.notes %></p><% } %>
-    <% if(r.assignment_group_id){ %>
-      <a href="/assignment-groups/<%= r.assignment_group_id %>" style="display:inline-block;margin-top:.5rem;font-size:.85rem;color:#1e2d4e;font-weight:600;">→ Vai alla scheda CRM</a>
+    <% if (saved) { %>
+      <script>setTimeout(()=>{var t=document.createElement('div');t.className='toast';t.textContent=(<%= JSON.stringify({approvato:'✅ Richiesta approvata — portale attivato',rifiutato:'❌ Richiesta rifiutata'}[saved]||'Salvato') %>);document.body.appendChild(t);setTimeout(()=>t.remove(),4000)},100)</script>
     <% } %>
-  </div>
-  <% }); %>
-</div>
 
-<!-- ═══ RIFIUTATE ═══ -->
-<div id="panel-rifiutato" class="acc-panel">
-  <% var rejected=requests.filter(function(r){return r.status==='rifiutato';}); %>
-  <% if(!rejected.length){ %><div class="empty-acc">Nessuna richiesta rifiutata.</div><% } %>
-  <% rejected.forEach(function(r){ %>
-  <div class="req-card">
-    <div class="req-header">
-      <strong><%= r.company_name %></strong>
-      <span class="badge-status s-rifiutato">Rifiutata</span>
-      <span class="muted">👤 <%= r.contact_name %></span>
-      <span class="muted">✉️ <%= r.email %></span>
-      <span class="muted" style="margin-left:auto;">da <%= r.reviewer_name||'sistema' %> il <%= r.reviewed_at ? new Date(r.reviewed_at).toLocaleDateString('it-IT') : '—' %></span>
+    <%
+      var byStatus = { in_attesa:[], portale_attivato:[], rifiutato:[] };
+      requests.forEach(function(r){ if(byStatus[r.status]) byStatus[r.status].push(r); });
+
+      // Ordine di visualizzazione dei tipi
+      var TYPE_ORDER = ['espositore','stampa','autore','content_creator'];
+      var TYPE_META  = {
+        espositore:      { icon:'🏪', label:'Espositori & Associazioni', cls:'espositore' },
+        stampa:          { icon:'📰', label:'Stampa & Media',            cls:'stampa'     },
+        autore:          { icon:'✍️', label:'Autori',                   cls:'autore'     },
+        content_creator: { icon:'🎥', label:'Content Creator',           cls:'creator'    }
+      };
+      function byType(list, type){
+        return list.filter(function(r){ return (r.accreditation_type||'espositore')===type; });
+      }
+    %>
+
+    <div class="acc-tabs">
+      <button class="acc-tab active" onclick="showTab('in_attesa',this)">
+        ⏳ In attesa (<%= byStatus.in_attesa.length %>)
+      </button>
+      <button class="acc-tab" onclick="showTab('portale_attivato',this)">
+        🚀 Approvate (<%= byStatus.portale_attivato.length %>)
+      </button>
+      <button class="acc-tab" onclick="showTab('rifiutato',this)">
+        ❌ Rifiutate (<%= byStatus.rifiutato.length %>)
+      </button>
     </div>
-    <% if(r.rejection_reason){ %><p class="req-notes">Motivazione: <%= r.rejection_reason %></p><% } %>
-  </div>
-  <% }); %>
-</div>
 
-<script>
-function showTab(name, btn) {
-  document.querySelectorAll('.acc-panel').forEach(function(p){ p.classList.remove('visible'); });
-  document.querySelectorAll('.pill-tab').forEach(function(b){ b.classList.remove('active'); });
-  document.getElementById('panel-' + name).classList.add('visible');
-  btn.classList.add('active');
-}
-function copyLink() {
-  var url = location.origin + '/richiesta-accreditamento';
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(url).then(function(){ alert('Link copiato: ' + url); });
-  } else {
-    prompt('Copia questo link:', url);
+    <!-- ═══════════════ IN ATTESA ═══════════════ -->
+    <div id="tab-in_attesa" class="req-section visible">
+      <% if (!byStatus.in_attesa.length) { %>
+        <div class="empty-state">Nessuna richiesta in attesa 🎉</div>
+      <% } else { %>
+        <% TYPE_ORDER.forEach(function(type){ %>
+          <% var group = byType(byStatus.in_attesa, type); if (!group.length) return; %>
+          <% var tm = TYPE_META[type]; %>
+          <div class="type-section">
+            <div class="type-header <%= tm.cls %>">
+              <%= tm.icon %> <%= tm.label %>
+              <span class="count"><%= group.length %> richiesta<%= group.length!==1?'e':'' %></span>
+            </div>
+
+            <% group.forEach(function(r){ %>
+            <div class="req-card">
+              <div class="req-top">
+                <strong><%= r.company_name %></strong>
+                <% if (type==='stampa' && r.press_role) { %><span class="info-tag"><%= r.press_role %></span><% } %>
+                <% if (type==='autore' && r.publisher)  { %><span class="info-tag">📚 <%= r.publisher %></span><% } %>
+                <% if (type==='autore' && r.genre)      { %><span class="info-tag"><%= r.genre %></span><% } %>
+                <% if (type==='content_creator') { %>
+                  <% if (r.platform)    { %><span class="info-tag"><%= r.platform %></span><% } %>
+                  <% if (r.subscribers) { %><span class="info-tag">👥 <%= r.subscribers %></span><% } %>
+                <% } %>
+                <span style="margin-left:auto" class="meta">
+                  📅 <%= new Date(r.created_at).toLocaleDateString('it-IT') %>
+                </span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:.3rem .5rem;margin-bottom:.3rem">
+                <span class="meta">👤 <%= r.contact_name %></span>
+                <span class="meta">✉️ <%= r.email %></span>
+                <% if (r.phone) { %><span class="meta">📞 <%= r.phone %></span><% } %>
+                <% if (type==='espositore') { %>
+                  <% if (r.stand_type) { %><span class="meta-pill">🏷️ <%= r.stand_type %></span><% } %>
+                  <% if (r.stand_size) { %><span class="meta-pill">📐 <%= r.stand_size %></span><% } %>
+                <% } %>
+                <% if (type==='content_creator' && r.channel_url) { %>
+                  <a href="<%= r.channel_url %>" target="_blank" class="meta">🔗 <%= r.channel_url.replace(/https?:\/\/(www\.)?/,'').substr(0,40) %></a>
+                <% } %>
+              </div>
+              <% if (r.notes) { %><p class="req-notes"><%= r.notes %></p><% } %>
+
+              <div class="approve-wrap">
+                <!-- ── FORM APPROVAZIONE: diversa per tipo ── -->
+                <% if (type === 'espositore') { %>
+                  <!-- ESPOSITORE: zone + stand_name + max_passes -->
+                  <form method="POST" action="/admin/accreditamento/<%= r.id %>/approva" class="approve-form">
+                    <input type="hidden" name="accreditation_type" value="espositore">
+                    <select name="group_id" required class="w-auto" title="Raggruppamento">
+                      <option value="">— Raggruppamento —</option>
+                      <% groups.forEach(function(g){ %><option value="<%= g.id %>"><%= g.name %></option><% }); %>
+                    </select>
+                    <input type="text"   name="zone"       placeholder="Zona (es. A, B, Ext)" class="w-auto">
+                    <input type="text"   name="stand_name" placeholder="Nome stand" value="<%= r.company_name %>" class="w-auto">
+                    <input type="number" name="max_passes" placeholder="Max pass" min="1" class="w-num">
+                    <button type="submit" class="btn-approve">✅ Approva</button>
+                  </form>
+
+                <% } else { %>
+                  <!-- STAMPA / AUTORE / CREATOR: solo gruppo + max_passes (no stand/zona) -->
+                  <form method="POST" action="/admin/accreditamento/<%= r.id %>/approva" class="approve-form">
+                    <input type="hidden" name="accreditation_type" value="<%= type %>">
+                    <select name="group_id" required class="w-auto" title="Raggruppamento">
+                      <option value="">— Raggruppamento —</option>
+                      <% groups.forEach(function(g){ %><option value="<%= g.id %>"><%= g.name %></option><% }); %>
+                    </select>
+                    <input type="number" name="max_passes" placeholder="Pass (default 1)" min="1" max="10" class="w-num" value="1">
+                    <button type="submit" class="btn-approve">✅ Approva</button>
+                  </form>
+                <% } %>
+
+                <div class="sep"></div>
+                <form method="POST" action="/admin/accreditamento/<%= r.id %>/rifiuta" class="reject-form"
+                      onsubmit="return confirm('Confermi il rifiuto per <%= r.company_name.replace(/'/g,"\'\'") %>?')">
+                  <input type="text" name="rejection_reason" placeholder="Motivazione rifiuto (opzionale)" class="w-full">
+                  <button type="submit" class="btn-reject">❌ Rifiuta</button>
+                </form>
+              </div>
+            </div>
+            <% }); /* end forEach group */ %>
+          </div>
+        <% }); /* end TYPE_ORDER */ %>
+      <% } %>
+    </div>
+
+    <!-- ═══════════════ APPROVATE ═══════════════ -->
+    <div id="tab-portale_attivato" class="req-section">
+      <% if (!byStatus.portale_attivato.length) { %>
+        <div class="empty-state">Nessuna richiesta approvata.</div>
+      <% } else { %>
+        <% TYPE_ORDER.forEach(function(type){ %>
+          <% var group = byType(byStatus.portale_attivato, type); if (!group.length) return; %>
+          <% var tm = TYPE_META[type]; %>
+          <div class="type-section">
+            <div class="type-header <%= tm.cls %>">
+              <%= tm.icon %> <%= tm.label %>
+              <span class="count"><%= group.length %></span>
+            </div>
+            <% group.forEach(function(r){ %>
+            <div class="req-card">
+              <div class="req-top">
+                <strong><%= r.company_name %></strong>
+                <span class="badge badge-portale_attivato">Portale attivato</span>
+                <% if (type==='stampa' && r.press_role)     { %><span class="info-tag"><%= r.press_role %></span><% } %>
+                <% if (type==='autore' && r.publisher)      { %><span class="info-tag">📚 <%= r.publisher %></span><% } %>
+                <% if (type==='content_creator' && r.platform) { %><span class="info-tag"><%= r.platform %></span><% } %>
+                <span style="margin-left:auto" class="meta">
+                  Approvato da <strong><%= r.reviewer_name||'sistema' %></strong>
+                  il <%= r.reviewed_at ? new Date(r.reviewed_at).toLocaleDateString('it-IT') : '—' %>
+                </span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:.3rem .5rem">
+                <span class="meta">👤 <%= r.contact_name %></span>
+                <span class="meta">✉️ <%= r.email %></span>
+              </div>
+              <% if (r.notes) { %><p class="req-notes"><%= r.notes %></p><% } %>
+              <% if (r.assignment_group_id) { %>
+                <a href="/assignment-groups/<%= r.assignment_group_id %>" class="btn-link">
+                  → Vai alla scheda CRM
+                </a>
+              <% } %>
+            </div>
+            <% }); %>
+          </div>
+        <% }); %>
+      <% } %>
+    </div>
+
+    <!-- ═══════════════ RIFIUTATE ═══════════════ -->
+    <div id="tab-rifiutato" class="req-section">
+      <% if (!byStatus.rifiutato.length) { %>
+        <div class="empty-state">Nessuna richiesta rifiutata.</div>
+      <% } else { %>
+        <% TYPE_ORDER.forEach(function(type){ %>
+          <% var group = byType(byStatus.rifiutato, type); if (!group.length) return; %>
+          <% var tm = TYPE_META[type]; %>
+          <div class="type-section">
+            <div class="type-header <%= tm.cls %>">
+              <%= tm.icon %> <%= tm.label %>
+              <span class="count"><%= group.length %></span>
+            </div>
+            <% group.forEach(function(r){ %>
+            <div class="req-card">
+              <div class="req-top">
+                <strong><%= r.company_name %></strong>
+                <span class="badge badge-rifiutato">Rifiutata</span>
+                <span style="margin-left:auto" class="meta">
+                  da <strong><%= r.reviewer_name||'sistema' %></strong>
+                  il <%= r.reviewed_at ? new Date(r.reviewed_at).toLocaleDateString('it-IT') : '—' %>
+                </span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:.3rem .5rem">
+                <span class="meta">👤 <%= r.contact_name %></span>
+                <span class="meta">✉️ <%= r.email %></span>
+              </div>
+              <% if (r.rejection_reason) { %>
+                <p class="req-notes">Motivazione: <%= r.rejection_reason %></p>
+              <% } %>
+            </div>
+            <% }); %>
+          </div>
+        <% }); %>
+      <% } %>
+    </div>
+
+  </div>
+
+  <script>
+  function showTab(id, btn) {
+    document.querySelectorAll('.req-section').forEach(function(s){ s.classList.remove('visible'); });
+    document.querySelectorAll('.acc-tab').forEach(function(b){ b.classList.remove('active'); });
+    document.getElementById('tab-'+id).classList.add('visible');
+    btn.classList.add('active');
   }
-}
-</script>
-<%- include('partials/footer') %>
+  </script>
+</body>
+</html>

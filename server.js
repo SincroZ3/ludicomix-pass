@@ -2783,15 +2783,24 @@ app.get('/search', requireAuth, (req, res) => {
       if (!request) return res.status(404).send('Richiesta non trovata');
       const crypto = require('crypto');
       const portalToken = crypto.randomBytes(24).toString('hex');
+
+      // Espositori e associazioni → hanno stand/zona; tutti gli altri no
+      const isExhibitor = ['espositore','associazione'].includes(
+        (request.accreditation_type || 'espositore').toLowerCase()
+      );
+      const resolvedStand  = isExhibitor ? (stand_name || request.company_name) : null;
+      const resolvedZone   = isExhibitor ? (zone || null) : null;
+      const resolvedPasses = max_passes ? parseInt(max_passes, 10) : (isExhibitor ? null : 1);
+
       const result = await dbRun(
         `INSERT INTO assignment_groups
           (name, group_id, zone, stand_name, max_passes, email, portal_token, portal_enabled, contract_status)
          VALUES (?,?,?,?,?,?,?,1,'bozza')`,
         request.company_name,
-        group_id   ? parseInt(group_id, 10) : null,
-        zone       || null,
-        stand_name || request.company_name,
-        max_passes ? parseInt(max_passes, 10) : null,
+        group_id ? parseInt(group_id, 10) : null,
+        resolvedZone,
+        resolvedStand,
+        resolvedPasses,
         request.email,
         portalToken
       );
@@ -2812,7 +2821,7 @@ app.get('/search', requireAuth, (req, res) => {
         'Accreditamento approvato — accedi al tuo portale',
         '<p>Gentile <strong>' + request.contact_name + '</strong>,</p>' +
         '<p>La tua richiesta di accreditamento per <strong>' + request.company_name + '</strong> è stata <strong>approvata</strong>!</p>' +
-        '<p style="margin:1.5rem 0"><a href="' + portalUrl + '" style="background:#1e2d4e;color:#f5c842;padding:.75rem 1.5rem;border-radius:8px;text-decoration:none;font-weight:700">Accedi al Portale Espositore</a></p>' +
+        '<p style="margin:1.5rem 0"><a href="' + portalUrl + '" style="background:#1e2d4e;color:#f5c842;padding:.75rem 1.5rem;border-radius:8px;text-decoration:none;font-weight:700">Accedi al tuo Portale</a></p>' +
         '<p>Link diretto: <a href="' + portalUrl + '">' + portalUrl + '</a></p>' +
         '<p><em>Conserva questo link — è il tuo accesso personale.</em></p>'
       );
