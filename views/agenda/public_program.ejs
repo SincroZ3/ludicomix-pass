@@ -192,12 +192,13 @@ button{cursor:pointer;font:inherit;color:inherit;background:none;border:none}
 
 .ev-time{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:.75rem .5rem;background:var(--navy);gap:.1rem;position:relative;
+  padding:.75rem .6rem;background:#eef1f7;gap:.1rem;position:relative;
+  border-right:1px solid var(--border);
 }
-.et-start{font-size:1.05rem;font-weight:900;color:var(--cream);line-height:1}
-.et-end{font-size:.64rem;color:rgba(232,223,200,.45);line-height:1}
+.et-start{font-size:1.1rem;font-weight:900;color:var(--navy);line-height:1}
+.et-end{font-size:.65rem;color:var(--muted);line-height:1;margin-top:.15rem}
 .et-dot{
-  position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
+  position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
   width:8px;height:8px;border-radius:50%;
 }
 
@@ -318,14 +319,17 @@ button{cursor:pointer;font:inherit;color:inherit;background:none;border:none}
 
 /* ───── RESPONSIVE ───── */
 @media(max-width:700px){
-  .ev-row{grid-template-columns:72px 1fr}
-  .ev-right{display:none}
+  .ev-row{grid-template-columns:72px 1fr auto}
+  .ev-right{min-width:80px}
+  .ev-btn{padding:.3rem .55rem;font-size:.65rem}
+  .ev-seats{font-size:.65rem}
 }
-@media(max-width:420px){
-  .feat-grid{grid-template-columns:1fr}
+@media(max-width:460px){
   .ev-row{grid-template-columns:64px 1fr}
-  .ev-time{padding:.6rem .35rem}
-  .et-start{font-size:.9rem}
+  .ev-right{display:none}
+  .feat-grid{grid-template-columns:1fr}
+  .ev-time{padding:.55rem .4rem}
+  .et-start{font-size:.92rem}
 }
 </style>
 </head>
@@ -527,7 +531,7 @@ function isoToIt(d,opts){
         <div class="et-start"><%= e.starttime %></div>
         <div class="et-end"><%= e.endtime %></div>
         <% if(e.spacecolor){ %>
-          <div class="et-dot" style="background:#<%= e.spacecolor.replace('#','') %>"></div>
+          <div class="et-dot" style="background:<%= e.spacecolor.startsWith('#')?e.spacecolor:'#'+e.spacecolor %>"></div>
         <% } %>
       </div>
 
@@ -555,14 +559,14 @@ function isoToIt(d,opts){
           <div class="ev-bar">
             <div class="ev-fill" style="width:<%= pct %>%;background:<%= isFull?'#c0392b':'#1d6a39' %>"></div>
           </div>
-          <% if(e.registrationsopen){ %>
-            <a href="/programma/iscriviti/<%= e.id %>"
-               class="ev-btn<%= isFull?' full':'' %>"
-               onclick="event.stopPropagation()">
-              &#127914; <%= isFull?'Esaurito':'Iscriviti' %>
-            </a>
-          <% } %>
-        <% } else { %>
+        <% } %>
+        <% if(e.registrationsopen){ %>
+          <a href="/programma/iscriviti/<%= e.id %>"
+             class="ev-btn<%= isFull?' full':'' %>"
+             onclick="event.stopPropagation()">
+            &#127914; <%= isFull?'Esaurito':'Iscriviti' %>
+          </a>
+        <% } else if(!e.maxseats || e.maxseats === 0){ %>
           <div class="ev-free">&#10003; Ingresso<br>libero</div>
         <% } %>
       </div>
@@ -628,7 +632,7 @@ ED[<%= e.id %>]={
   start:<%- JSON.stringify(e.starttime||'') %>,
   end:<%- JSON.stringify(e.endtime||'') %>,
   space:<%- JSON.stringify(e.spacename||'') %>,
-  sc:<%- JSON.stringify(e.spacecolor||'') %>,
+  sc:<%- JSON.stringify(e.spacecolor?(e.spacecolor.startsWith('#')?e.spacecolor:'#'+e.spacecolor):'') %>,
   type:<%- JSON.stringify(e.eventtype||'') %>,
   spk:<%- JSON.stringify(e.speakerslist||'') %>,
   max:<%= e.maxseats||0 %>,
