@@ -1,513 +1,716 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= title %></title>
-  <style>
-    :root {
-      --brand-dark:   #1e2d4e;
-      --brand-yellow: #f5c842;
-      --brand-gold:   #c9a227;
-      --brand-violet: #6b3fa0;
-      --accent-blue:  #1d6fa4;
-      --bg:           #f0f2f5;
-      --white:        #ffffff;
-      --border:       #d1d9e6;
-      --border-light: #e8ecf3;
-      --text:         #1a2744;
-      --muted:        #718096;
-      --radius-sm:    4px;
-      --radius-md:    8px;
-      --radius-lg:    12px;
-      --shadow-sm:    0 1px 3px rgba(30,45,78,.10);
-      --shadow-md:    0 3px 10px rgba(30,45,78,.15);
-    }
-    *, *::before, *::after { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: -apple-system, 'Segoe UI', Arial, sans-serif;
-      font-size: 15px;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.55;
-    }
-    a { color: var(--accent-blue); text-decoration: none; }
-    a:hover { text-decoration: underline; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title><%= title %> — Programma</title>
+<style>
+:root{
+  --navy:    #1e2d4e;
+  --navy2:   #162240;
+  --gold:    #c9a227;
+  --yellow:  #f5c842;
+  --violet:  #6b3fa0;
+  --violet2: #5a3388;
+  --cream:   #e8dfc8;
+  --bg:      #f2efe9;
+  --white:   #ffffff;
+  --card-bg: #ffffff;
+  --border:  #dbd5c8;
+  --text:    #1a1a2e;
+  --muted:   #6b6660;
+  --red:     #c0392b;
+  --green:   #1d6a39;
+  --r4:4px; --r8:8px; --r12:12px; --r20:20px;
+  --sh1: 0 2px 8px rgba(30,45,78,.10);
+  --sh2: 0 6px 24px rgba(30,45,78,.16);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh}
+a{text-decoration:none;color:inherit}
+img{display:block;max-width:100%}
+button{cursor:pointer;font:inherit;color:inherit;background:none;border:none}
 
-    /* ── TOPBAR ── */
-    .topbar {
-      background: var(--brand-dark);
-      border-bottom: 3px solid var(--brand-yellow);
-      padding: 0 1.5rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: .5rem;
-      min-height: 70px;
-      isolation: isolate;
-    }
-    .brand { display: flex; align-items: center; gap: .65rem; }
-    .brand-ciuco {
-      height: 62px; width: auto; display: block;
-      margin-right: .2rem;
-      filter: drop-shadow(0 2px 4px rgba(0,0,0,.4));
-    }
-    .brand-logo-img {
-      height: 54px; width: auto; display: block;
-      mix-blend-mode: lighten;
-      filter: drop-shadow(0 1px 2px rgba(0,0,0,.3));
-    }
-    .brand-text-block { display: flex; flex-direction: column; gap: .05rem; }
-    .brand-name { font-size: 1.05rem; font-weight: 800; color: #fff; letter-spacing: .3px; }
-    .brand-sub  { font-size: .73rem; color: #aec6e8; font-style: italic; letter-spacing: .2px; }
-    .topbar-right { font-size: .8rem; color: rgba(255,255,255,.5); text-align: right; white-space: nowrap; }
-    @media (max-width: 600px) {
-      .topbar { padding: 0 .9rem; }
-      .brand-ciuco { height: 44px; }
-      .brand-logo-img { height: 36px; }
-    }
+/* ══════════════ TOPBAR ══════════════ */
+.topbar{
+  background:var(--navy);
+  border-bottom:4px solid var(--gold);
+  padding:0 2rem;
+  display:flex;align-items:center;justify-content:space-between;
+  gap:1rem;min-height:76px;
+  position:sticky;top:0;z-index:200;
+}
+.brand{display:flex;align-items:center;gap:.75rem}
+.brand-ciuco{height:68px;width:auto;filter:drop-shadow(0 2px 6px rgba(0,0,0,.5))}
+.brand-logo{height:52px;width:auto;filter:drop-shadow(0 1px 3px rgba(0,0,0,.4))}
+.brand-text{display:flex;flex-direction:column;line-height:1.15}
+.brand-name{font-size:1.15rem;font-weight:900;color:var(--cream);letter-spacing:.5px}
+.brand-sub{font-size:.72rem;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:1px}
+.topbar-badge{
+  background:var(--gold);color:var(--navy);
+  font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;
+  padding:.35rem .9rem;border-radius:999px;white-space:nowrap;
+}
+@media(max-width:640px){
+  .topbar{padding:0 1rem;min-height:62px}
+  .brand-ciuco{height:50px}
+  .brand-logo{height:38px}
+  .brand-name{font-size:.95rem}
+  .topbar-badge{display:none}
+}
 
-    /* ── CONTAINER ── */
-    .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+/* ══════════════ HERO BAND ══════════════ */
+.hero-band{
+  background:linear-gradient(135deg, var(--navy2) 0%, var(--navy) 60%, #2a3d6b 100%);
+  padding:2.5rem 2rem 0;
+  position:relative;overflow:hidden;
+}
+.hero-band::before{
+  content:'';position:absolute;inset:0;
+  background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c9a227' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events:none;
+}
+.hero-inner{max-width:1160px;margin:0 auto;position:relative}
+.hero-title{
+  font-size:clamp(1.4rem,3vw,2rem);font-weight:900;
+  color:var(--cream);letter-spacing:.5px;
+  display:flex;align-items:center;gap:.75rem;margin-bottom:1.75rem;
+}
+.hero-title::after{
+  content:'';flex:1;height:2px;
+  background:linear-gradient(90deg,var(--gold) 0%,transparent 100%);
+  margin-left:.5rem;
+}
 
-    /* ── DATE FILTER ── */
-    .date-filter {
-      display: flex; gap: .5rem; flex-wrap: wrap;
-      margin-bottom: 1.5rem;
-      border-bottom: 2px solid var(--border);
-      padding-bottom: 1rem;
-    }
-    .date-btn {
-      padding: .4rem 1.1rem;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      background: var(--white);
-      font-size: .8rem; font-weight: 700;
-      cursor: pointer; text-decoration: none; color: var(--text);
-      transition: background .15s;
-    }
-    .date-btn:hover { background: var(--border-light); text-decoration: none; }
-    .date-btn.active {
-      background: var(--brand-dark);
-      color: var(--brand-yellow);
-      border-color: var(--brand-dark);
-    }
+/* ── In Evidenza cards ── */
+.featured-scroll{
+  display:flex;gap:1rem;
+  overflow-x:auto;padding-bottom:1.5rem;
+  scrollbar-width:thin;scrollbar-color:var(--gold) transparent;
+}
+.featured-scroll::-webkit-scrollbar{height:4px}
+.featured-scroll::-webkit-scrollbar-thumb{background:var(--gold);border-radius:4px}
+.feat-card{
+  min-width:280px;max-width:300px;flex-shrink:0;
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(201,162,39,.25);
+  border-radius:var(--r12);
+  padding:1.2rem 1.1rem;
+  cursor:pointer;
+  transition:background .2s,border-color .2s,transform .15s;
+}
+.feat-card:hover{background:rgba(255,255,255,.13);border-color:var(--gold);transform:translateY(-2px)}
+.feat-date{font-size:.72rem;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.4rem}
+.feat-time{font-size:.78rem;color:rgba(232,223,200,.6);margin-bottom:.6rem}
+.feat-title{font-size:.95rem;font-weight:800;color:var(--cream);line-height:1.3;margin-bottom:.5rem}
+.feat-desc{font-size:.78rem;color:rgba(232,223,200,.55);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.feat-space{
+  display:inline-block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;
+  padding:.15rem .5rem;border-radius:999px;
+  border:1px solid rgba(201,162,39,.4);color:var(--gold);
+  margin-top:.75rem;
+}
 
-    /* ── DAY SECTION ── */
-    .day-section { margin-bottom: 2.5rem; }
-    .day-label {
-      font-size: .75rem; font-weight: 800;
-      text-transform: uppercase; letter-spacing: .5px;
-      color: var(--muted);
-      margin-bottom: 1rem;
-      padding-bottom: .4rem;
-      border-bottom: 1px solid var(--border-light);
-    }
+/* ══════════════ MAIN LAYOUT ══════════════ */
+.main-wrap{max-width:1160px;margin:0 auto;padding:1.75rem 2rem 4rem}
+@media(max-width:640px){.main-wrap{padding:1.25rem 1rem 3rem}}
 
-    /* ── EVENT CARD ── */
-    .event-card {
-      background: var(--white);
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow-sm);
-      padding: 1rem 1.25rem;
-      margin-bottom: .75rem;
-      display: grid;
-      grid-template-columns: 90px 1fr auto;
-      gap: 1rem;
-      align-items: start;
-      cursor: pointer;
-      transition: box-shadow .15s, transform .1s;
-    }
-    .event-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
-    .event-time {
-      font-weight: 700; font-size: .9rem;
-      color: var(--brand-dark);
-      text-align: center; padding-top: .1rem;
-    }
-    .event-time .end-time { font-size: .75rem; font-weight: 400; color: var(--muted); }
-    .event-space {
-      display: inline-block; font-size: .72rem; font-weight: 700;
-      text-transform: uppercase; letter-spacing: .4px;
-      padding: .1rem .5rem; border-radius: 999px;
-      background: var(--bg); border: 1px solid var(--border);
-      color: var(--muted); margin-bottom: .35rem;
-    }
-    .event-title { font-size: 1rem; font-weight: 700; margin: 0 0 .3rem; color: var(--brand-dark); }
-    .event-type {
-      display: inline-block; font-size: .7rem; font-weight: 700;
-      text-transform: uppercase; letter-spacing: .3px;
-      padding: .1rem .4rem; border-radius: 3px;
-      background: #e8edf8; color: var(--brand-dark); margin-right: .4rem;
-    }
-    .event-desc { font-size: .83rem; color: var(--muted); margin: .4rem 0; }
-    .event-speakers { font-size: .8rem; color: #4a5568; margin-top: .3rem; }
-    .event-speakers strong { color: var(--brand-violet); }
-    .seats-badge { text-align: right; font-size: .78rem; font-weight: 700; white-space: nowrap; }
-    .seats-badge.full      { color: #c0392b; }
-    .seats-badge.available { color: #1d6a39; }
-    .seats-bar {
-      display: block; height: 5px; border-radius: 9999px;
-      background: var(--border-light); overflow: hidden;
-      margin-top: .3rem; width: 80px; margin-left: auto;
-    }
-    .seats-bar-fill { height: 100%; background: var(--brand-dark); display: block; }
-    .btn-iscriviti {
-      display: inline-block; margin-top: .6rem;
-      padding: .4rem .9rem;
-      background: var(--brand-yellow); color: var(--brand-dark);
-      font-weight: 700; font-size: .78rem;
-      text-transform: uppercase; letter-spacing: .4px;
-      border-radius: var(--radius-sm);
-      transition: background .15s; text-decoration: none;
-    }
-    .btn-iscriviti:hover { background: #ffe066; text-decoration: none; }
-    .btn-iscriviti.full { background: var(--border); color: var(--muted); cursor: not-allowed; pointer-events: none; }
-    @media (max-width: 600px) {
-      .event-card { grid-template-columns: 1fr; gap: .5rem; }
-      .seats-badge { text-align: left; }
-      .seats-bar { margin-left: 0; }
-    }
+/* ── Section header ── */
+.section-header{
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;
+}
+.section-title{
+  font-size:1.15rem;font-weight:900;color:var(--navy);
+  display:flex;align-items:center;gap:.5rem;
+}
+.section-title::before{content:'';width:4px;height:1.2em;background:var(--gold);border-radius:2px;display:inline-block}
 
-    /* ── FOOTER ── */
-    .footer {
-      text-align: center; padding: 2rem 1rem;
-      color: var(--muted); font-size: .78rem;
-      border-top: 1px solid var(--border-light); margin-top: 2rem;
-    }
+/* ── Filters ── */
+.filter-bar{
+  background:var(--white);
+  border:1px solid var(--border);
+  border-radius:var(--r12);
+  padding:1rem 1.25rem;
+  margin-bottom:1.5rem;
+  display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end;
+  box-shadow:var(--sh1);
+}
+.filter-group{display:flex;flex-direction:column;gap:.25rem;min-width:140px}
+.filter-group label{font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.filter-group select,.filter-group input{
+  padding:.42rem .75rem;
+  border:1px solid var(--border);border-radius:var(--r8);
+  font-size:.85rem;background:var(--bg);color:var(--text);
+  outline:none;transition:border-color .15s;
+}
+.filter-group select:focus,.filter-group input:focus{border-color:var(--navy)}
+.filter-actions{display:flex;gap:.5rem;align-items:flex-end;margin-left:auto}
+.btn-filter{
+  padding:.42rem 1rem;
+  background:var(--navy);color:var(--cream);
+  border-radius:var(--r8);font-size:.82rem;font-weight:700;
+  transition:background .15s;white-space:nowrap;
+}
+.btn-filter:hover{background:var(--navy2)}
+.btn-reset{
+  padding:.42rem .9rem;
+  border:1px solid var(--border);background:var(--white);color:var(--muted);
+  border-radius:var(--r8);font-size:.82rem;
+}
+.btn-reset:hover{background:var(--bg)}
 
-    /* ── MODAL ── */
-    .modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(20,28,50,.6);
-      backdrop-filter: blur(3px);
-      z-index: 1000;
-      display: flex; align-items: center; justify-content: center;
-      padding: 1rem;
-      opacity: 0; pointer-events: none;
-      transition: opacity .2s;
-    }
-    .modal-overlay.open { opacity: 1; pointer-events: all; }
-    .modal {
-      background: var(--white);
-      border-radius: var(--radius-lg);
-      box-shadow: 0 20px 60px rgba(20,28,50,.3);
-      width: 100%; max-width: 680px; max-height: 90vh;
-      overflow-y: auto;
-      transform: translateY(20px) scale(.97);
-      transition: transform .2s;
-    }
-    .modal-overlay.open .modal { transform: translateY(0) scale(1); }
-    .modal-banner { width: 100%; max-height: 240px; object-fit: cover; border-radius: var(--radius-lg) var(--radius-lg) 0 0; display: block; }
-    .modal-banner-placeholder {
-      background: linear-gradient(135deg, var(--brand-dark) 0%, #253660 100%);
-      height: 110px;
-      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 2.5rem;
-    }
-    .modal-body { padding: 1.5rem 1.75rem 1.75rem; }
-    .modal-meta { display: flex; flex-wrap: wrap; gap: .6rem; margin-bottom: 1rem; font-size: .8rem; }
-    .modal-meta span {
-      display: inline-flex; align-items: center; gap: .3rem;
-      padding: .25rem .65rem; border-radius: 999px;
-      background: var(--bg); border: 1px solid var(--border);
-      color: var(--text); font-weight: 600;
-    }
-    .modal-title { font-size: 1.4rem; font-weight: 700; color: var(--brand-dark); margin: 0 0 .35rem; line-height: 1.25; }
-    .modal-type {
-      display: inline-block; font-size: .7rem; font-weight: 700;
-      text-transform: uppercase; letter-spacing: .3px;
-      padding: .15rem .5rem; border-radius: 3px;
-      background: #e8edf8; color: var(--brand-dark); margin-bottom: .85rem;
-    }
-    .modal-desc { font-size: .93rem; color: #4a5568; line-height: 1.65; margin-bottom: 1rem; white-space: pre-line; }
-    .modal-speakers {
-      background: #f4f0fa; border-left: 3px solid var(--brand-violet);
-      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-      padding: .75rem 1rem; margin-bottom: 1rem;
-      font-size: .88rem; color: var(--brand-violet); font-weight: 600;
-    }
-    .modal-tags { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1.25rem; }
-    .modal-tag {
-      font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
-      padding: .2rem .6rem; border-radius: 999px;
-      background: #e8edf8; color: var(--brand-dark); border: 1px solid var(--border);
-    }
-    .modal-seats { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.25rem; font-size: .85rem; }
-    .modal-seats-bar { flex: 1; height: 6px; border-radius: 9999px; background: var(--border-light); overflow: hidden; }
-    .modal-seats-fill { height: 100%; border-radius: 9999px; background: var(--brand-dark); transition: width .4s; }
-    .modal-footer {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-light);
-    }
-    .btn-modal-close {
-      padding: .4rem .9rem; border: 1px solid var(--border);
-      border-radius: var(--radius-sm); font-size: .82rem; font-weight: 700;
-      color: var(--muted); cursor: pointer; background: var(--white); transition: background .15s;
-    }
-    .btn-modal-close:hover { background: var(--bg); }
-    .btn-modal-iscriviti {
-      display: inline-block; padding: .5rem 1.25rem;
-      background: var(--brand-yellow); color: var(--brand-dark);
-      font-weight: 700; font-size: .85rem;
-      text-transform: uppercase; letter-spacing: .4px;
-      border-radius: var(--radius-sm); transition: background .15s; text-decoration: none;
-    }
-    .btn-modal-iscriviti:hover { background: #ffe066; text-decoration: none; }
-    .btn-modal-iscriviti.full { background: var(--border); color: var(--muted); cursor: not-allowed; pointer-events: none; }
-    @media (max-width: 600px) {
-      .modal-body { padding: 1.25rem 1.1rem 1.25rem; }
-      .modal-title { font-size: 1.15rem; }
-    }
-  </style>
+/* ── Date tabs ── */
+.date-tabs{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1.25rem}
+.date-tab{
+  padding:.38rem 1rem;
+  border:1px solid var(--border);border-radius:999px;
+  background:var(--white);font-size:.8rem;font-weight:700;
+  color:var(--muted);cursor:pointer;text-decoration:none;
+  transition:all .15s;
+}
+.date-tab:hover{border-color:var(--navy);color:var(--navy)}
+.date-tab.active{background:var(--navy);color:var(--gold);border-color:var(--navy)}
+
+/* ── View toggle ── */
+.view-toggle{display:flex;gap:.25rem}
+.view-btn{
+  padding:.35rem .65rem;border-radius:var(--r8);border:1px solid var(--border);
+  background:var(--white);color:var(--muted);font-size:.85rem;
+  transition:all .15s;
+}
+.view-btn.active,.view-btn:hover{background:var(--navy);color:var(--gold);border-color:var(--navy)}
+
+/* ══════════════ DAY SECTION ══════════════ */
+.day-section{margin-bottom:2.5rem}
+.day-label{
+  font-size:.8rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;
+  color:var(--muted);padding:.5rem 0;margin-bottom:1rem;
+  border-bottom:2px solid var(--border);
+  display:flex;align-items:center;gap:.6rem;
+}
+.day-label::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--gold);flex-shrink:0}
+
+/* ══════════════ EVENT CARD — LIST VIEW ══════════════ */
+.event-list{}
+.event-card{
+  background:var(--card-bg);
+  border:1px solid var(--border);
+  border-radius:var(--r12);
+  margin-bottom:.85rem;
+  display:grid;
+  grid-template-columns:120px 1fr auto;
+  overflow:hidden;
+  box-shadow:var(--sh1);
+  cursor:pointer;
+  transition:box-shadow .2s,transform .15s;
+  position:relative;
+}
+.event-card:hover{box-shadow:var(--sh2);transform:translateY(-1px)}
+.event-card.featured{border-left:4px solid var(--gold)}
+
+/* left column */
+.card-left{
+  background:var(--navy);
+  padding:1.1rem .9rem;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:.4rem;text-align:center;flex-shrink:0;
+}
+.card-date{font-size:.72rem;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.3px;line-height:1.2}
+.card-time{font-size:1rem;font-weight:900;color:var(--cream);line-height:1}
+.card-time-end{font-size:.72rem;color:rgba(232,223,200,.55);font-weight:400}
+.card-space-dot{
+  width:10px;height:10px;border-radius:50%;margin-top:.25rem;flex-shrink:0;
+}
+
+/* middle column */
+.card-body{padding:1rem 1.2rem;min-width:0}
+.card-tags{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.55rem}
+.tag{
+  display:inline-block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;
+  padding:.12rem .5rem;border-radius:999px;
+}
+.tag-type{background:#ede8f8;color:var(--violet)}
+.tag-space{background:var(--bg);border:1px solid var(--border);color:var(--muted)}
+.tag-prenotazione{background:#fef3cd;color:#7d5200;border:1px solid #f5c842}
+.tag-esaurito{background:#fde8e8;color:var(--red)}
+.card-title{font-size:1.02rem;font-weight:800;color:var(--navy);line-height:1.3;margin-bottom:.45rem}
+.card-desc{font-size:.83rem;color:var(--muted);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card-speakers{font-size:.8rem;color:var(--violet);font-weight:600;margin-top:.4rem}
+
+/* right column */
+.card-right{
+  padding:.9rem .85rem;
+  display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;
+  gap:.5rem;min-width:110px;flex-shrink:0;
+  border-left:1px solid var(--border);
+}
+.seats-info{text-align:right;font-size:.75rem;font-weight:700;white-space:nowrap}
+.seats-info.full{color:var(--red)}
+.seats-info.avail{color:var(--green)}
+.seats-bar{width:80px;height:5px;border-radius:999px;background:var(--border);overflow:hidden;margin-top:.3rem}
+.seats-fill{height:100%;border-radius:999px;background:var(--navy)}
+.btn-iscr{
+  display:inline-block;padding:.38rem .85rem;
+  background:var(--gold);color:var(--navy);
+  font-weight:800;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;
+  border-radius:var(--r8);transition:background .15s;text-decoration:none;white-space:nowrap;
+}
+.btn-iscr:hover{background:var(--yellow)}
+.btn-iscr.full{background:var(--border);color:var(--muted);pointer-events:none;cursor:default}
+.ingresso-libero{font-size:.72rem;color:var(--muted);text-align:right;font-weight:600}
+
+/* ══════════════ GRID VIEW ══════════════ */
+.event-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+  gap:1rem;
+}
+.event-grid .event-card{
+  grid-template-columns:1fr;
+  grid-template-rows:auto;
+}
+.event-grid .card-left{
+  flex-direction:row;justify-content:flex-start;
+  padding:.7rem 1rem;gap:.75rem;
+}
+.event-grid .card-right{
+  flex-direction:row;align-items:center;justify-content:space-between;
+  border-left:none;border-top:1px solid var(--border);
+  padding:.7rem 1rem;
+}
+
+/* ══════════════ EMPTY ══════════════ */
+.empty-state{
+  text-align:center;padding:4rem 1rem;color:var(--muted);
+}
+.empty-icon{font-size:3.5rem;margin-bottom:1rem}
+
+/* ══════════════ MODAL ══════════════ */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(20,28,50,.65);
+  backdrop-filter:blur(4px);z-index:500;
+  display:flex;align-items:center;justify-content:center;padding:1rem;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{
+  background:var(--white);border-radius:var(--r20);
+  box-shadow:0 24px 72px rgba(20,28,50,.3);
+  width:100%;max-width:700px;max-height:92vh;overflow-y:auto;
+  transform:translateY(24px) scale(.97);transition:transform .22s;
+}
+.modal-overlay.open .modal{transform:translateY(0) scale(1)}
+
+.modal-head{
+  background:var(--navy);border-radius:var(--r20) var(--r20) 0 0;
+  padding:1.5rem 1.75rem 1.25rem;
+  display:flex;align-items:flex-start;gap:1rem;
+}
+.modal-head-left{flex:1;min-width:0}
+.modal-head-date{font-size:.75rem;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.4px;margin-bottom:.25rem}
+.modal-head-title{font-size:1.35rem;font-weight:900;color:var(--cream);line-height:1.25}
+.modal-close-btn{
+  background:rgba(255,255,255,.12);border:none;color:var(--cream);
+  width:34px;height:34px;border-radius:50%;font-size:1.1rem;flex-shrink:0;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .15s;margin-top:-.25rem;
+}
+.modal-close-btn:hover{background:rgba(255,255,255,.22)}
+
+.modal-meta-row{
+  display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.75rem;
+  background:var(--bg);border-bottom:1px solid var(--border);
+}
+.modal-meta-pill{
+  display:inline-flex;align-items:center;gap:.3rem;
+  font-size:.78rem;font-weight:600;padding:.25rem .7rem;
+  background:var(--white);border:1px solid var(--border);
+  border-radius:999px;color:var(--text);
+}
+.modal-body-inner{padding:1.5rem 1.75rem}
+.modal-section{margin-bottom:1.25rem}
+.modal-section-label{
+  font-size:.68rem;font-weight:800;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.6px;margin-bottom:.4rem;
+}
+.modal-desc{font-size:.95rem;color:#3a3a5c;line-height:1.7;white-space:pre-line}
+.modal-speakers-box{
+  background:#f4f0fa;border-left:3px solid var(--violet);
+  border-radius:0 var(--r8) var(--r8) 0;
+  padding:.75rem 1rem;font-size:.9rem;color:var(--violet);font-weight:600;
+}
+.modal-seats-row{display:flex;align-items:center;gap:1rem;font-size:.85rem}
+.modal-seats-bar{flex:1;height:7px;border-radius:999px;background:var(--border);overflow:hidden}
+.modal-seats-fill{height:100%;border-radius:999px;background:var(--navy);transition:width .4s}
+.modal-footer{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:1rem;padding:1.1rem 1.75rem;border-top:1px solid var(--border);
+  flex-wrap:wrap;
+}
+.btn-close-modal{
+  padding:.5rem 1.1rem;border:1px solid var(--border);border-radius:var(--r8);
+  font-size:.85rem;font-weight:700;color:var(--muted);background:var(--white);
+  transition:background .15s;
+}
+.btn-close-modal:hover{background:var(--bg)}
+.btn-iscr-modal{
+  display:inline-block;padding:.55rem 1.4rem;
+  background:var(--gold);color:var(--navy);
+  font-weight:800;font-size:.9rem;text-transform:uppercase;letter-spacing:.5px;
+  border-radius:var(--r8);transition:background .15s;text-decoration:none;
+}
+.btn-iscr-modal:hover{background:var(--yellow)}
+.btn-iscr-modal.full{background:var(--border);color:var(--muted);pointer-events:none}
+
+/* ══════════════ FOOTER ══════════════ */
+.footer{
+  background:var(--navy);border-top:3px solid var(--gold);
+  text-align:center;padding:1.5rem;
+  color:rgba(232,223,200,.5);font-size:.78rem;
+}
+.footer strong{color:var(--gold)}
+
+/* ══════════════ RESPONSIVE ══════════════ */
+@media(max-width:700px){
+  .event-card{grid-template-columns:90px 1fr}
+  .card-right{display:none}
+  .hero-band{padding:1.5rem 1rem 0}
+}
+@media(max-width:480px){
+  .event-card{grid-template-columns:1fr}
+  .card-left{flex-direction:row;justify-content:flex-start;padding:.65rem .85rem}
+}
+</style>
 </head>
 <body>
 
-<!-- TOPBAR con loghi Ludicomix -->
-<div class="topbar">
+<%
+/* ── helpers ── */
+function fmtDate(d){
+  try{ return new Date(d+'T12:00:00').toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'}); }
+  catch(e){ return d||''; }
+}
+function fmtDateLong(d){
+  try{ return new Date(d+'T12:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}); }
+  catch(e){ return d||''; }
+}
+var featuredEvents = (events||[]).filter(function(e){return e.featured||e.inevidenza});
+var byDay = {};
+(events||[]).forEach(function(e){
+  if(!byDay[e.date]) byDay[e.date]=[];
+  byDay[e.date].push(e);
+});
+var sortedDays = Object.keys(byDay).sort();
+%>
+
+<!-- ══ TOPBAR ══ -->
+<header class="topbar">
   <div class="brand">
     <img src="/img/ciuchino.png" class="brand-ciuco" alt="Ciuchino Ludicomix"
          onerror="this.style.display='none'">
-    <img src="/img/logo.png" class="brand-logo-img" alt="Logo Ludicomix"
+    <img src="/img/logo.png" class="brand-logo" alt="Logo Ludicomix"
          onerror="this.style.display='none'">
-    <div class="brand-text-block">
-      <span class="brand-name">Ludicomix</span>
-      <span class="brand-sub">Programma eventi</span>
+    <div class="brand-text">
+      <span class="brand-name">Ludicomix<span style="color:var(--gold)"> Empoli</span></span>
+      <span class="brand-sub">Programma Ufficiale</span>
     </div>
   </div>
-  <div class="topbar-right">
-    Aggiornato<br>
-    <strong style="color:#fff"><%= new Date().toLocaleDateString('it-IT') %></strong>
+  <div class="topbar-badge">&#128197; Programma</div>
+</header>
+
+<!-- ══ HERO — IN EVIDENZA ══ -->
+<% if(featuredEvents.length > 0){ %>
+<section class="hero-band">
+  <div class="hero-inner">
+    <h2 class="hero-title">&#11088; In evidenza</h2>
+    <div class="featured-scroll">
+      <% featuredEvents.forEach(function(e){ %>
+      <div class="feat-card" onclick="openModal(<%= e.id %>)">
+        <div class="feat-date"><%= fmtDate(e.date) %></div>
+        <div class="feat-time"><%= e.starttime %> &ndash; <%= e.endtime %></div>
+        <div class="feat-title"><%= e.title %></div>
+        <% if(e.description){ %>
+          <div class="feat-desc"><%= e.description %></div>
+        <% } %>
+        <span class="feat-space"><%= e.spacename %></span>
+      </div>
+      <% }) %>
+    </div>
   </div>
-</div>
+</section>
+<% } %>
 
-<div class="container">
+<!-- ══ MAIN ══ -->
+<main class="main-wrap">
 
-  <!-- Filtri data -->
-  <% if(dates && dates.length > 1) { %>
-  <div class="date-filter">
-    <a href="/programma" class="date-btn <%= !filters.date ? 'active' : '' %>">Tutte le date</a>
+  <!-- ── Sezione title + toggle ── -->
+  <div class="section-header">
+    <h2 class="section-title">Scopri gli eventi</h2>
+    <div style="display:flex;align-items:center;gap:.75rem">
+      <span style="font-size:.78rem;color:var(--muted)"><%= (events||[]).length %> eventi</span>
+      <div class="view-toggle">
+        <button class="view-btn active" id="btn-list" onclick="setView('list')" title="Vista lista">&#9776;</button>
+        <button class="view-btn" id="btn-grid" onclick="setView('grid')" title="Vista griglia">&#9783;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Date tabs ── -->
+  <% if(dates && dates.length > 1){ %>
+  <div class="date-tabs">
+    <a href="/programma" class="date-tab <%= !filters.date ? 'active' : '' %>">Tutti i giorni</a>
     <% dates.forEach(function(d){ %>
       <a href="/programma?date=<%= d.date %>"
-         class="date-btn <%= filters.date === d.date ? 'active' : '' %>">
-        <%= new Date(d.date + 'T12:00:00').toLocaleDateString('it-IT', {weekday:'short', day:'2-digit', month:'short'}) %>
+         class="date-tab <%= filters.date === d.date ? 'active' : '' %>">
+        <%= new Date(d.date+'T12:00:00').toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'short'}) %>
       </a>
     <% }) %>
   </div>
   <% } %>
 
-  <!-- Lista eventi -->
-  <% if (!events || events.length === 0) { %>
-    <div style="text-align:center;padding:4rem 1rem;color:var(--muted)">
-      <div style="font-size:3rem;margin-bottom:.75rem">&#128525;</div>
-      <p>Nessun evento pubblicato<%= filters && filters.date ? ' per questa data' : '' %>.</p>
+  <!-- ── Filter bar ── -->
+  <form class="filter-bar" method="GET" action="/programma">
+    <% if(filters.date){ %><input type="hidden" name="date" value="<%= filters.date %>"><% } %>
+    <div class="filter-group" style="flex:1;min-width:160px">
+      <label>Cerca titolo / ospite</label>
+      <input type="text" name="q" value="<%= filters.q||'' %>" placeholder="Es. Mario Rossi...">
+    </div>
+    <div class="filter-group">
+      <label>Sala / Spazio</label>
+      <select name="spaceid">
+        <option value="">Tutti gli spazi</option>
+        <% (spaces||[]).forEach(function(s){ %>
+          <option value="<%= s.id %>" <%= filters.spaceid==s.id?'selected':'' %>><%= s.name %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Tipo evento</label>
+      <select name="eventtype">
+        <option value="">Tutti i tipi</option>
+        <% (eventtypes||[]).forEach(function(t){ %>
+          <option value="<%= t %>" <%= filters.eventtype===t?'selected':'' %>><%= t %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="filter-actions">
+      <button type="submit" class="btn-filter">Filtra</button>
+      <a href="/programma<%= filters.date?'?date='+filters.date:'' %>" class="btn-reset">Reset</a>
+    </div>
+  </form>
+
+  <!-- ── Event list ── -->
+  <% if(!events || events.length === 0){ %>
+    <div class="empty-state">
+      <div class="empty-icon">&#128525;</div>
+      <p style="font-size:1rem;font-weight:700;margin-bottom:.5rem">Nessun evento trovato</p>
+      <p style="font-size:.85rem">Prova a modificare i filtri o scegli un altro giorno.</p>
     </div>
   <% } else { %>
-    <%
-      var byDay = {};
-      events.forEach(function(e) {
-        if (!byDay[e.date]) byDay[e.date] = [];
-        byDay[e.date].push(e);
-      });
-      var sortedDays = Object.keys(byDay).sort();
-    %>
-    <% sortedDays.forEach(function(day) { %>
+
+    <div id="events-container">
+    <% sortedDays.forEach(function(day){ %>
       <div class="day-section">
-        <div class="day-label">
-          <%= new Date(day + 'T12:00:00').toLocaleDateString('it-IT', {weekday:'long', day:'2-digit', month:'long', year:'numeric'}) %>
-        </div>
-        <% byDay[day].forEach(function(e) { %>
+        <div class="day-label"><%= fmtDateLong(day) %></div>
+        <div class="event-list" id="list-<%= day.replace(/-/g,'') %>">
+        <% byDay[day].forEach(function(e){ %>
           <% var isFull = e.availability === 'full'; %>
-          <div class="event-card" onclick="openModal(<%= e.id %>)" role="button" tabindex="0">
-            <div class="event-time">
-              <%= e.starttime %><br>
-              <span class="end-time">&ndash; <%= e.endtime %></span>
-            </div>
-            <div>
+          <article class="event-card <%= e.featured||e.inevidenza?'featured':'' %>"
+                   onclick="openModal(<%= e.id %>)"
+                   role="button" tabindex="0"
+                   aria-label="<%= e.title %>">
+            <!-- LEFT -->
+            <div class="card-left">
               <div>
-                <span class="event-space" style="border-color:<%= e.spacecolor || '#d1d9e6' %>"><%= e.spacename %></span>
-                <span class="event-type"><%= e.eventtype %></span>
+                <div class="card-date"><%= fmtDate(e.date) %></div>
+                <div class="card-time"><%= e.starttime %></div>
+                <div class="card-time-end">&ndash; <%= e.endtime %></div>
               </div>
-              <div class="event-title"><%= e.title %></div>
-              <% if (e.description) { %>
-                <div class="event-desc"><%= e.description.slice(0, 180) %><%= e.description.length > 180 ? '&hellip;' : '' %></div>
+              <% if(e.spacecolor){ %>
+                <div class="card-space-dot" style="background:<%= e.spacecolor %>" title="<%= e.spacename %>"></div>
               <% } %>
-              <% if (e.speakerslist) { %>
-                <div class="event-speakers"><strong><%= e.speakerslist %></strong></div>
+            </div>
+            <!-- BODY -->
+            <div class="card-body">
+              <div class="card-tags">
+                <% if(e.eventtype){ %><span class="tag tag-type"><%= e.eventtype %></span><% } %>
+                <% if(e.spacename){ %><span class="tag tag-space">&#128205; <%= e.spacename %></span><% } %>
+                <% if(e.registrationsopen && isFull){ %><span class="tag tag-esaurito">&#128683; Esaurito</span><% } %>
+                <% if(e.registrationsopen && !isFull && e.maxseats>0){ %><span class="tag tag-prenotazione">&#127914; Prenotazione</span><% } %>
+              </div>
+              <div class="card-title"><%= e.title %></div>
+              <% if(e.description){ %>
+                <div class="card-desc"><%= e.description.slice(0,200)+(e.description.length>200?'…':'') %></div>
               <% } %>
-              <% if (e.registrationsopen) { %>
-                <% if (isFull) { %>
-                  <span class="btn-iscriviti full" onclick="event.stopPropagation()">Posti esauriti</span>
-                <% } else { %>
-                  <a href="/programma/iscriviti/<%= e.id %>" class="btn-iscriviti" onclick="event.stopPropagation()">Iscriviti &rarr;</a>
+              <% if(e.speakerslist){ %>
+                <div class="card-speakers">&#127908; <%= e.speakerslist %></div>
+              <% } %>
+            </div>
+            <!-- RIGHT -->
+            <div class="card-right">
+              <% if(e.maxseats > 0){ %>
+                <div>
+                  <div class="seats-info <%= isFull?'full':'avail' %>">
+                    <%= e.seatstaken %> / <%= e.maxseats %>
+                  </div>
+                  <div class="seats-bar">
+                    <div class="seats-fill" style="width:<%= Math.min(100,Math.round(e.seatstaken/e.maxseats*100)) %>%;background:<%= isFull?'#c0392b':'var(--navy)' %>"></div>
+                  </div>
+                </div>
+                <% if(e.registrationsopen){ %>
+                  <% if(isFull){ %>
+                    <span class="btn-iscr full">Esaurito</span>
+                  <% } else { %>
+                    <a href="/programma/iscriviti/<%= e.id %>" class="btn-iscr" onclick="event.stopPropagation()">Iscriviti &rarr;</a>
+                  <% } %>
                 <% } %>
-              <% } %>
-            </div>
-            <div class="seats-badge <%= e.maxseats > 0 ? (isFull ? 'full' : 'available') : '' %>">
-              <% if (e.maxseats > 0) { %>
-                <%= e.seatstaken %> / <%= e.maxseats %>
-                <% if (isFull) { %><br><span>ESAURITO</span><% } %>
-                <span class="seats-bar">
-                  <span class="seats-bar-fill" style="width:<%= Math.min(100, Math.round(e.seatstaken / e.maxseats * 100)) %>%"></span>
-                </span>
               <% } else { %>
-                <span style="color:var(--muted);font-weight:400;font-size:.75rem">Ingresso<br>libero</span>
+                <div class="ingresso-libero">&#10003; Ingresso<br>libero</div>
               <% } %>
             </div>
-          </div>
+          </article>
         <% }) %>
+        </div>
       </div>
     <% }) %>
+    </div>
+
   <% } %>
+</main>
 
-</div>
+<footer class="footer">
+  <p>Programma aggiornato in tempo reale &middot; <strong><%= title %></strong></p>
+</footer>
 
-<div class="footer">
-  <p>Programma aggiornato in tempo reale &middot; <%= title %></p>
-</div>
-
-<!-- MODAL dettaglio evento -->
+<!-- ══ MODAL ══ -->
 <div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
-  <div class="modal" role="dialog" aria-modal="true">
-    <div id="modal-banner-area"></div>
-    <div class="modal-body">
-      <div class="modal-meta" id="modal-meta"></div>
-      <div id="modal-type-badge" class="modal-type"></div>
-      <h2 class="modal-title" id="modal-title"></h2>
-      <div class="modal-desc" id="modal-desc"></div>
-      <div class="modal-speakers" id="modal-speakers" style="display:none"></div>
-      <div class="modal-tags" id="modal-tags" style="display:none"></div>
-      <div class="modal-seats" id="modal-seats" style="display:none">
-        <span id="modal-seats-label"></span>
-        <div class="modal-seats-bar">
-          <div class="modal-seats-fill" id="modal-seats-fill"></div>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-head">
+      <div class="modal-head-left">
+        <div class="modal-head-date" id="modal-date"></div>
+        <h2 class="modal-head-title" id="modal-title"></h2>
+      </div>
+      <button class="modal-close-btn" onclick="closeModal()" aria-label="Chiudi">&#10005;</button>
+    </div>
+    <div class="modal-meta-row" id="modal-meta"></div>
+    <div class="modal-body-inner">
+      <div class="modal-section" id="modal-desc-wrap">
+        <div class="modal-section-label">Descrizione</div>
+        <div class="modal-desc" id="modal-desc"></div>
+      </div>
+      <div class="modal-section" id="modal-spk-wrap" style="display:none">
+        <div class="modal-section-label">Ospiti / Speaker</div>
+        <div class="modal-speakers-box" id="modal-spk"></div>
+      </div>
+      <div class="modal-section" id="modal-seats-wrap" style="display:none">
+        <div class="modal-section-label">Disponibilità posti</div>
+        <div class="modal-seats-row">
+          <span id="modal-seats-txt"></span>
+          <div class="modal-seats-bar"><div class="modal-seats-fill" id="modal-seats-fill"></div></div>
+          <span id="modal-seats-pct"></span>
         </div>
-        <span id="modal-seats-pct"></span>
       </div>
-      <div class="modal-footer">
-        <button class="btn-modal-close" onclick="closeModal()">&#10005; Chiudi</button>
-        <span id="modal-iscriviti-wrap"></span>
-      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-close-modal" onclick="closeModal()">&#10005; Chiudi</button>
+      <span id="modal-cta"></span>
     </div>
   </div>
 </div>
 
 <script>
-function safeJSON(v) {
-  var s = JSON.stringify(v == null ? '' : v);
-  return s.replace(/</g, '\u003c').replace(/>/g, '\u003e');
+/* ── Data map ── */
+var ED = {};
+<% (events||[]).forEach(function(e){ var isFull=e.availability==='full'; %>
+ED[<%= e.id %>]={
+  id:         <%= e.id %>,
+  title:      <%- JSON.stringify(e.title||'') %>,
+  desc:       <%- JSON.stringify(e.description||'') %>,
+  date:       <%- JSON.stringify(e.date||'') %>,
+  start:      <%- JSON.stringify(e.starttime||'') %>,
+  end:        <%- JSON.stringify(e.endtime||'') %>,
+  space:      <%- JSON.stringify(e.spacename||'') %>,
+  spacecolor: <%- JSON.stringify(e.spacecolor||'#d1d9e6') %>,
+  type:       <%- JSON.stringify(e.eventtype||'') %>,
+  speakers:   <%- JSON.stringify(e.speakerslist||'') %>,
+  tags:       <%- JSON.stringify(e.tags||'') %>,
+  maxseats:   <%= e.maxseats||0 %>,
+  taken:      <%= e.seatstaken||0 %>,
+  regopen:    <%= e.registrationsopen?1:0 %>,
+  full:       <%= isFull?'true':'false' %>
+};
+<% }) %>
+
+function fmtDate(d){
+  if(!d) return '';
+  try{return new Date(d+'T12:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});}
+  catch(ex){return d;}
 }
 
-var EVENTSDATA = {};
-<% if(events && events.length) { events.forEach(function(e) { %>
-EVENTSDATA[<%= e.id %>] = {
-  id:          <%= e.id %>,
-  title:       <%- JSON.stringify(e.title       || '') %>,
-  description: <%- JSON.stringify(e.description || '') %>,
-  date:        <%- JSON.stringify(e.date        || '') %>,
-  starttime:   <%- JSON.stringify(e.starttime   || '') %>,
-  endtime:     <%- JSON.stringify(e.endtime     || '') %>,
-  spacename:   <%- JSON.stringify(e.spacename   || '') %>,
-  spacecolor:  <%- JSON.stringify(e.spacecolor  || '#d1d9e6') %>,
-  eventtype:   <%- JSON.stringify(e.eventtype   || '') %>,
-  imageurl:    <%- JSON.stringify(e.imageurl    || '') %>,
-  tags:        <%- JSON.stringify(e.tags        || '') %>,
-  speakers:    <%- JSON.stringify(e.speakerslist|| '') %>,
-  maxseats:    <%= e.maxseats   || 0 %>,
-  seatstaken:  <%= e.seatstaken || 0 %>,
-  regopen:     <%= e.registrationsopen ? 1 : 0 %>,
-  isfull:      <%= e.availability === 'full' ? 'true' : 'false' %>
-};
-<% }) } %>
-
-function openModal(id) {
-  var e = EVENTSDATA[id];
-  if (!e) return;
-
-  /* banner */
-  var ba = document.getElementById('modal-banner-area');
-  ba.innerHTML = e.imageurl
-    ? '<img src="' + e.imageurl + '" class="modal-banner" alt="">'
-    : '<div class="modal-banner-placeholder">&#128197;</div>';
+function openModal(id){
+  var e=ED[id]; if(!e) return;
+  document.getElementById('modal-date').textContent=fmtDate(e.date);
+  document.getElementById('modal-title').textContent=e.title;
 
   /* meta pills */
-  var dateStr = e.date
-    ? new Date(e.date + 'T12:00:00').toLocaleDateString('it-IT', {weekday:'long', day:'2-digit', month:'long', year:'numeric'})
-    : '';
-  document.getElementById('modal-meta').innerHTML =
-    '<span>&#128197; ' + dateStr + '</span>' +
-    '<span>&#128336; ' + e.starttime + ' &ndash; ' + e.endtime + '</span>' +
-    '<span style="border-color:' + e.spacecolor + '">&#128205; ' + e.spacename + '</span>';
+  var meta='';
+  meta+='<span class="modal-meta-pill">&#128336; '+e.start+' &ndash; '+e.end+'</span>';
+  if(e.space) meta+='<span class="modal-meta-pill" style="border-color:'+e.spacecolor+'">&#128205; '+e.space+'</span>';
+  if(e.type)  meta+='<span class="modal-meta-pill">&#127914; '+e.type+'</span>';
+  document.getElementById('modal-meta').innerHTML=meta;
 
-  document.getElementById('modal-type-badge').textContent = e.eventtype;
-  document.getElementById('modal-title').textContent = e.title;
+  /* desc */
+  var dw=document.getElementById('modal-desc-wrap');
+  var dt=document.getElementById('modal-desc');
+  if(e.desc){dt.textContent=e.desc;dw.style.display='';}else{dw.style.display='none';}
 
-  var descEl = document.getElementById('modal-desc');
-  descEl.textContent = e.description;
-  descEl.style.display = e.description ? '' : 'none';
+  /* speakers */
+  var sw=document.getElementById('modal-spk-wrap');
+  if(e.speakers){document.getElementById('modal-spk').innerHTML='&#127908; <strong>'+e.speakers+'</strong>';sw.style.display='';}else{sw.style.display='none';}
 
-  var spkEl = document.getElementById('modal-speakers');
-  if (e.speakers) {
-    spkEl.innerHTML = '&#127908; <strong>' + e.speakers + '</strong>';
-    spkEl.style.display = '';
-  } else {
-    spkEl.style.display = 'none';
-  }
+  /* seats */
+  var seatW=document.getElementById('modal-seats-wrap');
+  if(e.maxseats>0){
+    var pct=Math.min(100,Math.round(e.taken/e.maxseats*100));
+    document.getElementById('modal-seats-txt').textContent=e.taken+' / '+e.maxseats+' iscritti';
+    var fill=document.getElementById('modal-seats-fill');
+    fill.style.width=pct+'%';
+    fill.style.background=e.full?'#c0392b':'var(--navy)';
+    document.getElementById('modal-seats-pct').textContent=pct+'%';
+    seatW.style.display='';
+  }else{seatW.style.display='none';}
 
-  var tagsEl = document.getElementById('modal-tags');
-  if (e.tags) {
-    var html = e.tags.split(',').map(function(t) {
-      return t.trim() ? '<span class="modal-tag">' + t.trim() + '</span>' : '';
-    }).join('');
-    tagsEl.innerHTML = html;
-    tagsEl.style.display = html ? '' : 'none';
-  } else {
-    tagsEl.style.display = 'none';
-  }
-
-  var seatsEl = document.getElementById('modal-seats');
-  if (e.maxseats > 0) {
-    var pct = Math.min(100, Math.round(e.seatstaken / e.maxseats * 100));
-    document.getElementById('modal-seats-label').textContent = e.seatstaken + ' / ' + e.maxseats + ' iscritti';
-    document.getElementById('modal-seats-fill').style.width = pct + '%';
-    document.getElementById('modal-seats-fill').style.background = e.isfull ? '#c0392b' : 'var(--brand-dark)';
-    document.getElementById('modal-seats-pct').textContent = pct + '%';
-    seatsEl.style.display = '';
-  } else {
-    seatsEl.style.display = 'none';
-  }
-
-  var wrapEl = document.getElementById('modal-iscriviti-wrap');
-  if (e.regopen) {
-    wrapEl.innerHTML = e.isfull
-      ? '<span class="btn-modal-iscriviti full">Posti esauriti</span>'
-      : '<a href="/programma/iscriviti/' + e.id + '" class="btn-modal-iscriviti">Iscriviti gratuitamente &rarr;</a>';
-  } else {
-    wrapEl.innerHTML = '';
-  }
+  /* CTA */
+  var cta=document.getElementById('modal-cta');
+  if(e.regopen){
+    cta.innerHTML=e.full
+      ?'<span class="btn-iscr-modal full">&#128683; Posti esauriti</span>'
+      :'<a href="/programma/iscriviti/'+e.id+'" class="btn-iscr-modal">&#127914; Iscriviti gratuitamente &rarr;</a>';
+  }else{cta.innerHTML='';}
 
   document.getElementById('modal-overlay').classList.add('open');
-  document.body.style.overflow = 'hidden';
+  document.body.style.overflow='hidden';
 }
-
-/* FIX: closeModal semplice, nessun controllo su event.target qui */
-function closeModal() {
+function closeModal(){
   document.getElementById('modal-overlay').classList.remove('open');
-  document.body.style.overflow = '';
+  document.body.style.overflow='';
 }
-
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeModal();
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();});
+document.querySelectorAll('.event-card').forEach(function(c){
+  c.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();c.click();}});
 });
 
-document.querySelectorAll('.event-card').forEach(function(card) {
-  card.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); }
+/* ── View toggle ── */
+function setView(v){
+  var container=document.getElementById('events-container');
+  document.querySelectorAll('.event-list').forEach(function(l){
+    l.className=v==='grid'?'event-grid':'event-list';
   });
-});
+  document.getElementById('btn-list').classList.toggle('active',v==='list');
+  document.getElementById('btn-grid').classList.toggle('active',v==='grid');
+}
 </script>
 </body>
 </html>
