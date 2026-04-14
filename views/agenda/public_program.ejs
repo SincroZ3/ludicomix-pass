@@ -1,698 +1,405 @@
 <!DOCTYPE html>
-<html lang="it" data-theme="light">
+<html lang="it">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= title %> — Programma</title>
-  <meta name="description" content="Scopri il programma completo di Ludicomix: panel, workshop, talk e tanto altro.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %></title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Work+Sans:wght@300..700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
-    /* ── TOKENS ────────────────────────────────────────────── */
-    :root {
-      --bg:           #f7f6f2;
-      --surface:      #f9f8f5;
-      --surface-2:    #ffffff;
-      --border:       rgba(40,37,29,0.10);
-      --divider:      #dcd9d5;
-      --text:         #28251d;
-      --text-muted:   #7a7974;
-      --text-faint:   #bab9b4;
-      --primary:      #01696f;
-      --primary-h:    #0c4e54;
-      --primary-hl:   #cedcd8;
-      --accent:       #da7101;
-      --error:        #a12c7b;
-      --success:      #437a22;
-      --shadow-sm:    0 1px 3px rgba(40,37,29,.07);
-      --shadow-md:    0 4px 16px rgba(40,37,29,.09);
-      --shadow-lg:    0 12px 40px rgba(40,37,29,.13);
-      --r-sm: .375rem; --r-md: .5rem; --r-lg: .75rem; --r-xl: 1rem; --r-full: 9999px;
-      --font-display: 'Instrument Serif', Georgia, serif;
-      --font-body:    'Work Sans', system-ui, sans-serif;
-      --trans:        180ms cubic-bezier(.16,1,.3,1);
-      --content:      1100px;
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --navy:#1e2d4e;--navy-mid:#253660;--accent:#6b3fa0;
+      --yellow:#f5c842;--gold:#c9a227;--violet:#6b3fa0;--violet-light:#8b5cc0;
+      --green:#2d6a4f;--red:#c0392b;--blue:#1d6fa4;--gray:#9ca3af;
+      --bg:#f0f2f5;--surface:#fff;--border:#d1d9e6;--border-light:#e8ecf3;
+      --text:#1a2744;--muted:#64748b;--faint:#94a3b8;
+      --radius:12px;--radius-sm:8px;--radius-xs:6px;
+      --shadow:0 1px 3px rgba(30,45,78,.08),0 2px 8px rgba(30,45,78,.05);
+      --shadow-md:0 3px 12px rgba(30,45,78,.11);--shadow-lg:0 8px 32px rgba(30,45,78,.16);
     }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { -webkit-font-smoothing: antialiased; scroll-behavior: smooth; }
-    body { font-family: var(--font-body); font-size: 1rem; color: var(--text); background: var(--bg); min-height: 100dvh; }
-    img { display: block; max-width: 100%; height: auto; }
-    a { color: inherit; text-decoration: none; }
-    button { cursor: pointer; font: inherit; border: none; background: none; }
-    ::selection { background: color-mix(in oklab, var(--primary) 20%, transparent); }
+    body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.55}
+    a{color:inherit;text-decoration:none}
 
-    /* ── LAYOUT ─────────────────────────────────────────────── */
-    .container { max-width: var(--content); margin-inline: auto; padding-inline: 1.25rem; }
+    /* TOPBAR identica al portale */
+    .topbar{display:flex;justify-content:space-between;align-items:center;padding:0 1.5rem;background:var(--navy);min-height:70px;border-bottom:3px solid var(--yellow);position:sticky;top:0;z-index:100}
+    .brand{display:flex;align-items:center;gap:.75rem}
+    .brand-ciuco{height:62px;width:auto;display:block;margin-right:.25rem;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))}
+    .brand-logo-img{height:54px;width:auto;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
+    .brand-text-block{display:flex;flex-direction:column;gap:.05rem}
+    .brand-name{font-size:1.05rem;font-weight:800;color:#fff;letter-spacing:.3px}
+    .brand-sub{font-size:.73rem;color:#aec6e8;font-style:italic;letter-spacing:.2px}
+    .topbar-right{display:flex;gap:.6rem;align-items:center}
 
-    /* ── TOPBAR ─────────────────────────────────────────────── */
-    .topbar {
-      background: var(--primary);
-      color: #fff;
-      padding: 1rem 0;
-      position: sticky; top: 0; z-index: 100;
-      box-shadow: var(--shadow-md);
-    }
-    .topbar-inner {
-      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-      flex-wrap: wrap;
-    }
-    .topbar-brand { display: flex; align-items: center; gap: .75rem; }
-    .brand-logo {
-      width: 36px; height: 36px; flex-shrink: 0;
-    }
-    .brand-title { font-family: var(--font-display); font-size: 1.35rem; color: #fff; line-height: 1.1; }
-    .brand-sub  { font-size: .75rem; opacity: .8; letter-spacing: .04em; }
-    .topbar-nav { display: flex; gap: .5rem; align-items: center; }
-    .nav-tab {
-      padding: .45rem .9rem; border-radius: var(--r-full);
-      font-size: .875rem; font-weight: 500; color: rgba(255,255,255,.75);
-      transition: background var(--trans), color var(--trans);
-    }
-    .nav-tab:hover, .nav-tab.active {
-      background: rgba(255,255,255,.18); color: #fff;
-    }
-    .nav-tab.active { font-weight: 700; }
-    .qr-btn {
-      padding: .45rem .9rem; border-radius: var(--r-full);
-      font-size: .8rem; font-weight: 600;
-      background: rgba(255,255,255,.15); color: #fff;
-      border: 1px solid rgba(255,255,255,.25);
-      display: flex; align-items: center; gap: .4rem;
-      transition: background var(--trans);
-    }
-    .qr-btn:hover { background: rgba(255,255,255,.25); }
+    /* WRAP */
+    .wrap{max-width:960px;margin:0 auto;padding:1.4rem 1.5rem 3rem}
 
-    /* ── HERO ────────────────────────────────────────────────── */
-    .hero {
-      background: linear-gradient(135deg in oklab, var(--primary) 0%, #0c4e54 60%, #1a3a30 100%);
-      color: #fff; padding: clamp(2.5rem,6vw,5rem) 0 clamp(2rem,4vw,3.5rem);
-      text-align: center;
-    }
-    .hero-eyebrow {
-      font-size: .8rem; letter-spacing: .12em; text-transform: uppercase;
-      opacity: .7; margin-bottom: .75rem;
-    }
-    .hero-title {
-      font-family: var(--font-display); font-size: clamp(2.4rem,5vw,4.2rem);
-      line-height: 1.08; margin-bottom: .75rem;
-    }
-    .hero-sub { font-size: 1.05rem; opacity: .8; max-width: 44ch; margin-inline: auto; }
+    /* PAGE HERO */
+    .page-hero{padding:1.2rem 0 .9rem}
+    .page-hero h1{font-size:1.55rem;font-weight:800;color:var(--navy)}
+    .page-hero p{font-size:.83rem;color:var(--muted);margin-top:.3rem}
 
-    /* ── FEATURED STRIP ─────────────────────────────────────── */
-    .featured-strip { padding: 2rem 0 0; }
-    .strip-label {
-      font-size: .72rem; letter-spacing: .1em; text-transform: uppercase;
-      color: var(--text-muted); font-weight: 600; margin-bottom: .9rem;
-      display: flex; align-items: center; gap: .5rem;
-    }
-    .strip-label::after {
-      content: ''; flex: 1; height: 1px; background: var(--divider);
-    }
-    .featured-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(min(300px,100%), 1fr));
-      gap: 1rem;
-    }
-    .featured-card {
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: var(--r-xl);
-      overflow: hidden;
-      box-shadow: var(--shadow-sm);
-      display: flex; flex-direction: column;
-      transition: transform var(--trans), box-shadow var(--trans);
-    }
-    .featured-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-    .featured-img {
-      width: 100%; aspect-ratio: 16/7; object-fit: cover;
-      background: var(--primary-hl);
-    }
-    .featured-img-placeholder {
-      width: 100%; aspect-ratio: 16/7;
-      background: linear-gradient(135deg, var(--primary-hl), color-mix(in oklab, var(--primary) 15%, white));
-      display: flex; align-items: center; justify-content: center;
-      font-size: 2.5rem;
-    }
-    .featured-body { padding: 1rem 1.1rem 1.2rem; flex: 1; display: flex; flex-direction: column; }
-    .event-meta-row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-bottom: .5rem; }
-    .tag-type {
-      font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-      padding: .2em .65em; border-radius: var(--r-full);
-      background: var(--primary-hl); color: var(--primary);
-    }
-    .tag-space {
-      font-size: .72rem; padding: .2em .65em; border-radius: var(--r-full);
-      background: rgba(40,37,29,.07); color: var(--text-muted);
-    }
-    .tag-full {
-      font-size: .7rem; padding: .2em .65em; border-radius: var(--r-full);
-      background: #fce8e1; color: #c0392b; font-weight: 600;
-    }
-    .featured-title {
-      font-family: var(--font-display); font-size: 1.2rem; line-height: 1.25;
-      margin-bottom: .35rem;
-    }
-    .featured-time { font-size: .82rem; color: var(--text-muted); margin-bottom: .4rem; }
-    .featured-speakers { font-size: .8rem; color: var(--text-muted); margin-bottom: .75rem; flex: 1; }
-    .featured-speakers strong { color: var(--text); }
-    .btn-register {
-      display: inline-flex; align-items: center; gap: .4rem;
-      padding: .55rem 1.1rem; border-radius: var(--r-full);
-      background: var(--primary); color: #fff;
-      font-size: .85rem; font-weight: 600;
-      transition: background var(--trans);
-      align-self: flex-start;
-    }
-    .btn-register:hover { background: var(--primary-h); }
-    .btn-register.full { background: var(--text-muted); cursor: default; }
+    /* FILTER BAR */
+    .filter-bar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;margin-bottom:1rem;box-shadow:var(--shadow)}
+    .filter-bar select,.filter-bar input{padding:.36rem .65rem;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:.82rem;color:var(--text);background:var(--bg);font-family:inherit;transition:border-color .15s,box-shadow .15s}
+    .filter-bar select:focus,.filter-bar input:focus{outline:none;border-color:var(--violet);box-shadow:0 0 0 3px rgba(107,63,160,.12)}
+    .filter-count{font-size:.75rem;color:var(--muted);margin-left:auto;white-space:nowrap}
 
-    /* ── FILTERS ─────────────────────────────────────────────── */
-    .filters-bar {
-      position: sticky; top: 64px; z-index: 50;
-      background: var(--surface); border-bottom: 1px solid var(--divider);
-      padding: .75rem 0;
-    }
-    .filters-inner {
-      display: flex; gap: .5rem; flex-wrap: wrap; align-items: center;
-    }
-    .filter-select, .filter-input {
-      padding: .45rem .75rem; border-radius: var(--r-full);
-      border: 1px solid var(--border);
-      background: var(--surface-2); color: var(--text);
-      font: inherit; font-size: .85rem;
-      transition: border-color var(--trans), box-shadow var(--trans);
-    }
-    .filter-select:focus, .filter-input:focus {
-      outline: none; border-color: var(--primary);
-      box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 18%, transparent);
-    }
-    .filter-input { flex: 1; min-width: 160px; max-width: 260px; }
-    .filter-btn {
-      padding: .45rem .9rem; border-radius: var(--r-full);
-      background: var(--primary); color: #fff;
-      font-size: .85rem; font-weight: 600;
-      transition: background var(--trans);
-    }
-    .filter-btn:hover { background: var(--primary-h); }
-    .filter-reset {
-      padding: .45rem .7rem; border-radius: var(--r-full); font-size: .8rem;
-      color: var(--text-muted);
-      transition: background var(--trans);
-    }
-    .filter-reset:hover { background: var(--border); }
-    .results-count {
-      margin-left: auto; font-size: .78rem; color: var(--text-muted);
-    }
+    /* DATE TABS */
+    .date-tabs{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1rem}
+    .date-tab{padding:.28rem .75rem;border-radius:9999px;font-size:.77rem;font-weight:700;border:1.5px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;transition:all .15s}
+    .date-tab:hover,.date-tab.active{background:var(--navy);color:var(--yellow);border-color:var(--navy)}
+    .date-tab.all.active{background:var(--violet);border-color:var(--violet);color:#fff}
 
-    /* ── DATE TABS ───────────────────────────────────────────── */
-    .date-tabs {
-      display: flex; gap: .4rem; flex-wrap: wrap;
-      padding: 1.25rem 0 .5rem;
-    }
-    .date-tab {
-      padding: .4rem .85rem; border-radius: var(--r-full);
-      font-size: .82rem; font-weight: 500;
-      border: 1px solid var(--border);
-      color: var(--text-muted); background: var(--surface-2);
-      transition: all var(--trans); cursor: pointer;
-    }
-    .date-tab:hover, .date-tab.active {
-      background: var(--primary); color: #fff; border-color: var(--primary);
-    }
+    /* DAY GROUP */
+    .day-group{margin-bottom:1.5rem}
+    .day-header{font-size:.69rem;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);padding:.4rem 0;border-bottom:2px solid var(--border);margin-bottom:.6rem;display:flex;align-items:center;gap:.5rem}
+    .day-header::after{content:'';flex:1;height:1px;background:var(--border-light)}
 
-    /* ── MAIN SECTIONS ───────────────────────────────────────── */
-    #section-programma { padding: 1.5rem 0 4rem; }
-    #section-ospiti    { padding: 2.5rem 0 4rem; display: none; }
+    /* EVENT ROW */
+    .event-row{display:flex;align-items:flex-start;gap:.8rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.75rem 1rem;margin-bottom:.45rem;cursor:pointer;transition:box-shadow .15s,border-color .15s;box-shadow:var(--shadow)}
+    .event-row:hover{box-shadow:var(--shadow-md);border-color:var(--violet)}
+    .event-time{font-size:.77rem;font-weight:700;color:var(--navy);white-space:nowrap;min-width:54px;padding-top:.1rem}
+    .event-dot{width:9px;height:9px;border-radius:50%;margin-top:.33rem;flex-shrink:0}
+    .event-body{flex:1;min-width:0}
+    .event-title{font-size:.88rem;font-weight:700;color:var(--navy);margin-bottom:.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .event-meta{font-size:.74rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:.35rem;align-items:center}
+    .pill{display:inline-flex;align-items:center;padding:.13rem .52rem;border-radius:9999px;font-size:.66rem;font-weight:800;white-space:nowrap}
+    .pill-navy{background:var(--navy);color:var(--yellow)}
+    .pill-blue{background:#eff6ff;color:#1d6fa4}
+    .pill-green{background:#f0fdf4;color:#2d6a4f}
+    .pill-red{background:#fef2f2;color:#c0392b}
+    .pill-gray{background:#f1f5f9;color:#64748b}
+    .pill-violet{background:rgba(107,63,160,.1);color:var(--violet)}
+    .event-right{display:flex;flex-direction:column;gap:.3rem;align-items:flex-end;flex-shrink:0}
+    .slots-badge{font-size:.69rem;font-weight:700;padding:.18rem .55rem;border-radius:9999px;white-space:nowrap}
+    .slots-ok{background:#f0fdf4;color:#2d6a4f}
+    .slots-full{background:#fef2f2;color:#c0392b}
+    .slots-none{background:#f1f5f9;color:#64748b}
 
-    /* ── EVENT LIST ──────────────────────────────────────────── */
-    .day-block { margin-bottom: 2.5rem; }
-    .day-header {
-      font-family: var(--font-display); font-size: 1.3rem;
-      padding-bottom: .5rem; margin-bottom: 1rem;
-      border-bottom: 2px solid var(--divider);
-      display: flex; align-items: baseline; gap: .75rem;
-    }
-    .day-header .day-count { font-family: var(--font-body); font-size: .78rem; color: var(--text-muted); font-weight: 400; }
-    .event-row {
-      display: grid;
-      grid-template-columns: 80px 1fr auto;
-      gap: .75rem; align-items: start;
-      padding: .9rem; border-radius: var(--r-lg);
-      background: var(--surface-2); border: 1px solid var(--border);
-      margin-bottom: .6rem;
-      transition: box-shadow var(--trans), transform var(--trans);
-    }
-    .event-row:hover { box-shadow: var(--shadow-sm); transform: translateX(2px); }
-    .event-time-col {
-      text-align: right; padding-right: .75rem;
-      border-right: 2px solid var(--divider);
-    }
-    .event-start { font-weight: 700; font-size: 1rem; color: var(--primary); line-height: 1; }
-    .event-end   { font-size: .75rem; color: var(--text-muted); margin-top: .15rem; }
-    .event-main-col { display: flex; flex-direction: column; gap: .25rem; }
-    .event-title-row {
-      display: flex; align-items: flex-start; gap: .5rem; flex-wrap: wrap;
-    }
-    .event-title { font-weight: 600; font-size: .98rem; line-height: 1.3; }
-    .space-dot {
-      display: inline-block; width: 10px; height: 10px;
-      border-radius: 50%; flex-shrink: 0; margin-top: .3rem;
-    }
-    .event-info { font-size: .8rem; color: var(--text-muted); display: flex; gap: .5rem; flex-wrap: wrap; }
-    .event-speakers { font-size: .82rem; color: var(--text-muted); }
-    .event-speakers strong { color: var(--text); }
-    .event-action-col { display: flex; flex-direction: column; align-items: flex-end; gap: .4rem; }
-    .seats-badge {
-      font-size: .72rem; padding: .2em .6em; border-radius: var(--r-full);
-      background: rgba(67,122,34,.1); color: var(--success); white-space: nowrap;
-    }
-    .seats-badge.full { background: rgba(161,44,123,.1); color: var(--error); }
-    .btn-iscriviti {
-      padding: .4rem .85rem; border-radius: var(--r-full);
-      background: var(--primary); color: #fff;
-      font-size: .78rem; font-weight: 600;
-      transition: background var(--trans); white-space: nowrap;
-    }
-    .btn-iscriviti:hover { background: var(--primary-h); }
+    /* BTN */
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.48rem 1.05rem;border:none;border-radius:var(--radius-xs);font-size:.81rem;font-weight:700;cursor:pointer;text-decoration:none;transition:background .15s;font-family:inherit;white-space:nowrap;line-height:1}
+    .btn:active{transform:scale(.98)}
+    .btn-primary{background:var(--navy);color:#fff}
+    .btn-primary:hover{background:var(--violet)}
+    .btn-accent{background:var(--accent);color:#fff}
+    .btn-accent:hover{background:var(--violet-light)}
+    .btn-outline{background:transparent;color:var(--text);border:1.5px solid var(--border)}
+    .btn-outline:hover{background:var(--bg);border-color:var(--navy)}
+    .btn-ghost-nav{background:rgba(255,255,255,.15);border:none;color:#fff;font-size:.8rem;font-weight:700;padding:.38rem .85rem;border-radius:var(--radius-xs);cursor:pointer;font-family:inherit;transition:background .15s}
+    .btn-ghost-nav:hover{background:rgba(255,255,255,.28)}
 
-    /* ── EMPTY STATE ─────────────────────────────────────────── */
-    .empty-state {
-      text-align: center; padding: 4rem 1rem;
-      color: var(--text-muted);
-    }
-    .empty-state .icon { font-size: 3rem; margin-bottom: 1rem; }
-    .empty-state h3 { font-size: 1.15rem; color: var(--text); margin-bottom: .5rem; }
+    /* MODAL EVENTO */
+    .modal-overlay{display:none;position:fixed;inset:0;z-index:8000;background:rgba(10,20,45,.72);backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:1rem}
+    .modal-overlay.open{display:flex}
+    .modal-box{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow-lg);width:100%;max-width:560px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .2s ease}
+    @keyframes slideUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+    .modal-header{display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;padding:.9rem 1.2rem .75rem;border-bottom:1px solid var(--border-light);background:var(--navy);flex-shrink:0}
+    .modal-header-title{font-size:.98rem;font-weight:800;color:#fff;line-height:1.3}
+    .modal-header-sub{font-size:.73rem;color:#aec6e8;margin-top:.18rem}
+    .modal-close{width:28px;height:28px;border-radius:50%;border:none;background:rgba(255,255,255,.15);cursor:pointer;font-size:.85rem;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s}
+    .modal-close:hover{background:rgba(255,255,255,.3)}
+    .modal-body{overflow-y:auto;padding:1rem 1.2rem;flex:1}
+    .modal-row{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:.7rem}
+    .modal-field{display:flex;flex-direction:column;gap:.18rem}
+    .modal-field-label{font-size:.63rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+    .modal-field-value{font-size:.84rem;font-weight:600;color:var(--text)}
+    .modal-desc{font-size:.82rem;color:var(--text);line-height:1.6;margin-bottom:.7rem}
+    .modal-speakers-wrap{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.7rem}
+    .speaker-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.22rem .65rem;border-radius:9999px;background:rgba(107,63,160,.08);color:var(--violet);font-size:.74rem;font-weight:700}
+    .modal-footer{padding:.8rem 1.2rem;border-top:1px solid var(--border-light);display:flex;gap:.5rem;flex-wrap:wrap;flex-shrink:0;background:var(--bg)}
 
-    /* ── GUESTS GRID ─────────────────────────────────────────── */
-    .section-title {
-      font-family: var(--font-display); font-size: clamp(1.6rem,3vw,2.2rem);
-      margin-bottom: .5rem;
-    }
-    .section-sub { color: var(--text-muted); margin-bottom: 2rem; font-size: .95rem; }
-    .guests-filter-row { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
-    .cat-pill {
-      padding: .35rem .85rem; border-radius: var(--r-full); font-size: .8rem; font-weight: 500;
-      border: 1px solid var(--border); color: var(--text-muted); cursor: pointer;
-      transition: all var(--trans); background: var(--surface-2);
-    }
-    .cat-pill:hover, .cat-pill.active {
-      background: var(--primary); color: #fff; border-color: var(--primary);
-    }
-    .guests-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(min(220px,100%), 1fr));
-      gap: 1.2rem;
-    }
-    .guest-card {
-      background: var(--surface-2); border: 1px solid var(--border);
-      border-radius: var(--r-xl); overflow: hidden;
-      box-shadow: var(--shadow-sm);
-      transition: transform var(--trans), box-shadow var(--trans);
-      display: flex; flex-direction: column;
-    }
-    .guest-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
-    .guest-photo {
-      width: 100%; aspect-ratio: 3/2; object-fit: cover;
-      background: var(--primary-hl);
-    }
-    .guest-photo-placeholder {
-      width: 100%; aspect-ratio: 3/2;
-      background: linear-gradient(135deg, var(--primary-hl), color-mix(in oklab, var(--primary) 10%, white));
-      display: flex; align-items: center; justify-content: center;
-      font-size: 3rem; color: var(--primary);
-    }
-    .guest-body { padding: .9rem 1rem 1.1rem; flex: 1; display: flex; flex-direction: column; }
-    .guest-cat {
-      font-size: .7rem; letter-spacing: .07em; text-transform: uppercase;
-      color: var(--primary); font-weight: 700; margin-bottom: .35rem;
-    }
-    .guest-name { font-weight: 700; font-size: 1rem; line-height: 1.2; margin-bottom: .3rem; }
-    .guest-stand { font-size: .78rem; color: var(--text-muted); margin-bottom: .5rem; }
-    .guest-bio {
-      font-size: .82rem; color: var(--text-muted); line-height: 1.5; flex: 1;
-      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-    }
-    .guest-links { display: flex; gap: .5rem; margin-top: .75rem; flex-wrap: wrap; }
-    .guest-link {
-      font-size: .75rem; color: var(--primary); font-weight: 500;
-      padding: .2rem .55rem; border-radius: var(--r-full);
-      border: 1px solid var(--primary-hl);
-      transition: background var(--trans);
-    }
-    .guest-link:hover { background: var(--primary-hl); }
-    .featured-star {
-      display: inline-block; margin-left: .3rem; font-size: .8rem;
-    }
+    /* QR MODAL */
+    .qr-modal-overlay{display:none;position:fixed;inset:0;z-index:9000;background:rgba(10,20,45,.8);align-items:center;justify-content:center;padding:1rem}
+    .qr-modal-overlay.open{display:flex}
+    .qr-box{background:#fff;border-radius:var(--radius);padding:1.8rem;text-align:center;max-width:300px;width:100%;box-shadow:var(--shadow-lg)}
+    .qr-box h3{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:.9rem}
+    .qr-box img{max-width:200px;width:100%;border:3px solid var(--border);border-radius:var(--radius-sm)}
 
-    /* ── QR MODAL ────────────────────────────────────────────── */
-    .modal-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,.5);
-      display: none; align-items: center; justify-content: center;
-      z-index: 1000; padding: 1rem;
-    }
-    .modal-overlay.open { display: flex; }
-    .modal-box {
-      background: var(--surface-2); border-radius: var(--r-xl);
-      padding: 2rem; text-align: center; max-width: 320px; width: 100%;
-      box-shadow: var(--shadow-lg);
-    }
-    .modal-box h3 { font-family: var(--font-display); font-size: 1.3rem; margin-bottom: .5rem; }
-    .modal-box p  { font-size: .85rem; color: var(--text-muted); margin-bottom: 1.25rem; }
-    .modal-box img { width: 200px; height: 200px; margin-inline: auto; border-radius: var(--r-md); }
-    .modal-close {
-      margin-top: 1.25rem; padding: .5rem 1.25rem; border-radius: var(--r-full);
-      background: var(--primary); color: #fff; font-size: .85rem; font-weight: 600;
-    }
+    /* FEATURED */
+    .featured-strip{margin-bottom:1.3rem}
+    .featured-label{font-size:.69rem;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--violet);margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem}
+    .featured-label::after{content:'';flex:1;height:1px;background:rgba(107,63,160,.2)}
+    .featured-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.7rem}
+    .featured-card{background:var(--navy);color:#fff;border-radius:var(--radius-sm);padding:.9rem 1rem;cursor:pointer;transition:box-shadow .15s,transform .15s;box-shadow:var(--shadow)}
+    .featured-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px)}
+    .featured-card-title{font-size:.87rem;font-weight:800;margin-bottom:.3rem}
+    .featured-card-meta{font-size:.71rem;color:rgba(255,255,255,.6);display:flex;gap:.35rem;flex-wrap:wrap;align-items:center}
+    .featured-card .yellow{color:var(--yellow)}
 
-    /* ── FOOTER ──────────────────────────────────────────────── */
-    .prog-footer {
-      background: #1c1b19; color: rgba(255,255,255,.55);
-      padding: 2rem 0; text-align: center; font-size: .8rem;
-    }
-    .prog-footer a { color: rgba(255,255,255,.75); }
+    /* EMPTY */
+    .empty-state{text-align:center;padding:3rem 1rem;color:var(--muted)}
+    .empty-state .empty-icon{font-size:2.5rem;margin-bottom:.5rem}
 
-    /* ── MOBILE ──────────────────────────────────────────────── */
-    @media (max-width: 640px) {
-      .topbar-brand .brand-sub { display: none; }
-      .event-row { grid-template-columns: 68px 1fr; }
-      .event-action-col { display: none; }
-      .filter-input { min-width: 120px; }
-      .results-count { display: none; }
-      .hero-title { font-size: 2rem; }
-    }
-    @media (max-width: 480px) {
-      .event-row { grid-template-columns: 1fr; }
-      .event-time-col { text-align: left; padding-right: 0; border-right: none; border-bottom: 1px solid var(--divider); padding-bottom: .4rem; display: flex; gap: .5rem; align-items: baseline; }
+    @media(max-width:520px){
+      .topbar{padding:0 .9rem}
+      .brand-ciuco{height:48px}
+      .brand-logo-img{height:40px}
+      .wrap{padding:1rem .85rem 2rem}
+      .modal-row{grid-template-columns:1fr}
+      .event-right{display:none}
+      .filter-bar{flex-direction:column;align-items:stretch}
+      .filter-bar select,.filter-bar input{width:100%}
     }
   </style>
 </head>
 <body>
 
-<!-- ── TOPBAR ─────────────────────────────────────────── -->
-<header class="topbar" role="banner">
-  <div class="container topbar-inner">
-    <div class="topbar-brand">
-      <svg class="brand-logo" viewBox="0 0 36 36" fill="none" aria-hidden="true">
-        <rect width="36" height="36" rx="8" fill="rgba(255,255,255,.15)"/>
-        <path d="M8 26 L18 10 L28 26 M13 20 H23" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="18" cy="28" r="2" fill="white"/>
-      </svg>
-      <div>
-        <div class="brand-title">Ludicomix</div>
-        <div class="brand-sub">Programma ufficiale</div>
-      </div>
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="brand">
+    <img src="/img/ciuchino.png" class="brand-ciuco" alt="Ciuchino Ludicomix" onerror="this.style.display='none'">
+    <img src="/img/logo.png" class="brand-logo-img" alt="Logo Ludicomix" onerror="this.style.display='none'">
+    <div class="brand-text-block">
+      <span class="brand-name">Ludicomix</span>
+      <span class="brand-sub">Programma Ufficiale</span>
     </div>
-    <nav class="topbar-nav" role="navigation" aria-label="Sezioni programma">
-      <a href="#" class="nav-tab active" onclick="showSection('programma',this);return false;">📅 Programma</a>
-      <% if (guests && guests.length > 0) { %>
-      <a href="#" class="nav-tab" onclick="showSection('ospiti',this);return false;">🧑‍🎤 Ospiti</a>
-      <% } %>
-      <button class="qr-btn" onclick="document.getElementById('qrModal').classList.add('open')" aria-label="Mostra QR code">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3m0 4h4m-4-4v4m-3-4h-1"/></svg>
-        QR
-      </button>
-    </nav>
+  </div>
+  <div class="topbar-right">
+    <button class="btn-ghost-nav" onclick="openQrModal()">&#128247; QR</button>
   </div>
 </header>
 
-<!-- ── HERO ──────────────────────────────────────────── -->
-<section class="hero" role="banner">
-  <div class="container">
-    <p class="hero-eyebrow">📍 Ludicomix — Edizione 2026</p>
-    <h1 class="hero-title">Il Programma</h1>
-    <p class="hero-sub">Panel, workshop, talk, ospiti speciali e tanto altro — tutto in un posto solo.</p>
+<div class="wrap">
+  <div class="page-hero">
+    <h1>&#128197; Programma</h1>
+    <p>Programma aggiornato in tempo reale &middot; <%= title %></p>
   </div>
-</section>
 
-<!-- ══════════════════════════════════════════════════════ -->
-<!-- SEZIONE PROGRAMMA                                      -->
-<!-- ══════════════════════════════════════════════════════ -->
-<div id="section-programma">
-  <div class="container">
-
-    <!-- ── FEATURED ─────────────────────────────────────── -->
-    <% if (featured && featured.length > 0) { %>
-    <section class="featured-strip" aria-label="In evidenza">
-      <p class="strip-label">⭐ In evidenza</p>
-      <div class="featured-grid">
-        <% featured.forEach(ev => { %>
-        <article class="featured-card">
-          <% if (ev.image_url) { %>
-          <img src="<%= ev.image_url %>" alt="<%= ev.title %>" class="featured-img" loading="lazy" width="400" height="175">
-          <% } else { %>
-          <div class="featured-img-placeholder" aria-hidden="true">
-            <%= ev.event_type === 'panel' ? '🎙️' : ev.event_type === 'workshop' ? '🛠️' : ev.event_type === 'talk' ? '💬' : ev.event_type === 'gaming' ? '🎮' : ev.event_type === 'mostra' ? '🖼️' : '✨' %>
-          </div>
-          <% } %>
-          <div class="featured-body">
-            <div class="event-meta-row">
-              <span class="tag-type"><%= ev.event_type %></span>
-              <span class="tag-space"><%= ev.space_name %></span>
-              <% if (ev.availability === 'full') { %><span class="tag-full">Sold out</span><% } %>
-            </div>
-            <h3 class="featured-title"><%= ev.title %></h3>
-            <p class="featured-time">
-              📅 <%= ev.date %> &nbsp;·&nbsp; 🕐 <%= ev.start_time %>–<%= ev.end_time %>
-            </p>
-            <% if (ev.speakers_list) { %>
-            <p class="featured-speakers"><strong><%= ev.speakers_list %></strong></p>
-            <% } %>
-            <% if (ev.registrations_open) { %>
-            <a href="/programma/iscriviti/<%= ev.id %>"
-               class="btn-register<%= ev.availability === 'full' ? ' full' : '' %>"
-               <%= ev.availability === 'full' ? 'aria-disabled="true"' : '' %>>
-              🎟️ <%= ev.availability === 'full' ? 'Sold out' : 'Iscriviti' %>
-            </a>
-            <% } %>
-          </div>
-        </article>
-        <% }); %>
-      </div>
-    </section>
+  <!-- FILTER BAR -->
+  <form method="GET" action="" class="filter-bar" id="filterForm">
+    <select name="date" onchange="this.form.submit()" title="Filtra per data">
+      <option value="">&#128197; Tutte le date</option>
+      <% if(typeof dates !== 'undefined' && dates){ dates.forEach(function(d){ %>
+        <option value="<%= d.date %>" <%= (typeof filters!=='undefined'&&filters.date===d.date)?'selected':'' %>>
+          <%= new Date(d.date).toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'}) %>
+        </option>
+      <% })} %>
+    </select>
+    <select name="space" onchange="this.form.submit()" title="Filtra per sala">
+      <option value="">&#127963; Tutte le sale</option>
+      <% if(typeof spaces!=='undefined'&&spaces){ spaces.forEach(function(s){ %>
+        <option value="<%= s.id %>" <%= (typeof filters!=='undefined'&&filters.space==s.id)?'selected':'' %>><%= s.name %></option>
+      <% })} %>
+    </select>
+    <select name="type" onchange="this.form.submit()" title="Filtra per tipo">
+      <option value="">&#127917; Tutti i tipi</option>
+      <% ['Torneo','Dimostrazione','Panel','Workshop','Spettacolo','Altro'].forEach(function(t){ %>
+        <option value="<%= t %>" <%= (typeof filters!=='undefined'&&filters.type===t)?'selected':'' %>><%= t %></option>
+      <% }) %>
+    </select>
+    <input type="text" name="q" placeholder="&#128269; Cerca..."
+           value="<%= (typeof filters!=='undefined'&&filters.q)?filters.q:'' %>"
+           onchange="this.form.submit()" style="min-width:120px">
+    <% if(typeof filters!=='undefined'&&(filters.date||filters.space||filters.type||filters.q)){ %>
+      <a href="?" class="btn btn-outline" style="font-size:.77rem;padding:.28rem .7rem">&#10005; Reset</a>
     <% } %>
+    <span class="filter-count">
+      <% var evCount=(typeof events!=='undefined'&&events)?events.length:0; %>
+      <%= evCount %> event<%= evCount===1?'o':'i' %>
+    </span>
+  </form>
 
-    <!-- ── FILTERS ────────────────────────────────────────── -->
-    <form class="filters-bar" method="GET" action="/programma" role="search" aria-label="Filtri programma">
-      <div class="container filters-inner">
-        <select name="date" class="filter-select" aria-label="Filtra per data">
-          <option value="">Tutte le date</option>
-          <% (dates||[]).forEach(d => { %>
-          <option value="<%= d.date %>" <%= filters.date === d.date ? 'selected' : '' %>>
-            📅 <%= d.date %>
-          </option>
-          <% }); %>
-        </select>
-        <select name="space" class="filter-select" aria-label="Filtra per sala">
-          <option value="">Tutte le sale</option>
-          <% (spaces||[]).forEach(s => { %>
-          <option value="<%= s.name %>" <%= filters.space === s.name ? 'selected' : '' %>>
-            🏛️ <%= s.name %>
-          </option>
-          <% }); %>
-        </select>
-        <select name="type" class="filter-select" aria-label="Filtra per tipo">
-          <option value="">Tutti i tipi</option>
-          <% ['panel','workshop','talk','mostra','firma copie','gaming','altro'].forEach(t => { %>
-          <option value="<%= t %>" <%= filters.type === t ? 'selected' : '' %>><%= t.charAt(0).toUpperCase()+t.slice(1) %></option>
-          <% }); %>
-        </select>
-        <input type="text" name="q" class="filter-input"
-               placeholder="🔍 Cerca evento o ospite…"
-               value="<%= filters.q || '' %>" aria-label="Cerca">
-        <button type="submit" class="filter-btn">Filtra</button>
-        <% if (filters.date || filters.space || filters.type || filters.q) { %>
-        <a href="/programma" class="filter-reset" aria-label="Rimuovi filtri">✕ Reset</a>
-        <% } %>
-        <span class="results-count"><%= events.length %> event<%= events.length===1?'o':'i' %></span>
-      </div>
-    </form>
-
-    <!-- ── DATE TABS (rapidi) ────────────────────────────── -->
-    <% if (dates && dates.length > 1 && !filters.q) { %>
-    <div class="date-tabs" role="tablist" aria-label="Selezione rapida data">
-      <a href="/programma" class="date-tab <%= !filters.date ? 'active' : '' %>" role="tab">Tutti</a>
-      <% dates.forEach(d => { %>
-      <a href="/programma?date=<%= d.date %><%= filters.space ? '&space='+encodeURIComponent(filters.space) : '' %><%= filters.type ? '&type='+filters.type : '' %>"
-         class="date-tab <%= filters.date === d.date ? 'active' : '' %>" role="tab">
-        <%= d.date %>
-      </a>
-      <% }); %>
-    </div>
-    <% } %>
-
-    <!-- ── EVENTS LIST ───────────────────────────────────── -->
-    <% if (!events || events.length === 0) { %>
-    <div class="empty-state" role="status">
-      <div class="icon">📭</div>
-      <h3>Nessun evento pubblicato<%= filters.date ? ' per questa data' : '' %>.</h3>
-      <p>Torna presto — il programma si aggiorna costantemente!</p>
-    </div>
-    <% } else {
-      // Raggruppa per data
-      const grouped = {};
-      events.forEach(ev => {
-        if (!grouped[ev.date]) grouped[ev.date] = [];
-        grouped[ev.date].push(ev);
-      });
-      Object.keys(grouped).sort().forEach(date => {
-        const dayEvents = grouped[date];
-    %>
-    <section class="day-block" aria-label="Programma del <%= date %>">
-      <% if (!filters.date || Object.keys(grouped).length > 1) { %>
-      <h2 class="day-header">
-        📅 <%= date %>
-        <span class="day-count"><%= dayEvents.length %> event<%= dayEvents.length===1?'o':'i' %></span>
-      </h2>
-      <% } %>
-      <% dayEvents.forEach(ev => {
-           const isFull = ev.availability === 'full';
-           const hasSeats = ev.max_seats > 0;
-      %>
-      <article class="event-row" role="article" aria-label="<%= ev.title %>">
-        <div class="event-time-col" aria-label="Orario">
-          <div class="event-start"><%= ev.start_time %></div>
-          <div class="event-end"><%= ev.end_time %></div>
-        </div>
-        <div class="event-main-col">
-          <div class="event-title-row">
-            <span class="space-dot" style="background:<%= ev.space_color %>" title="<%= ev.space_name %>"></span>
-            <span class="event-title"><%= ev.title %></span>
-            <% if (ev.featured) { %><span class="featured-star" aria-label="In evidenza">⭐</span><% } %>
-          </div>
-          <div class="event-info">
-            <span class="tag-type" style="font-size:.68rem"><%= ev.event_type %></span>
-            <span>🏛️ <%= ev.space_name %></span>
-            <% if (ev.tags) { %><span>🏷️ <%= ev.tags %></span><% } %>
-          </div>
-          <% if (ev.speakers_list) { %>
-          <div class="event-speakers"><strong>🎤 <%= ev.speakers_list %></strong></div>
-          <% } %>
-        </div>
-        <div class="event-action-col">
-          <% if (hasSeats) { %>
-          <span class="seats-badge<%= isFull ? ' full' : '' %>">
-            <%= isFull ? '🔴 Sold out' : '🟢 ' + ev.seats_taken + '/' + ev.max_seats %>
-          </span>
-          <% } %>
-          <% if (ev.registrations_open && !isFull) { %>
-          <a href="/programma/iscriviti/<%= ev.id %>" class="btn-iscriviti">🎟️ Iscriviti</a>
-          <% } else if (ev.registrations_open && isFull) { %>
-          <span class="btn-iscriviti" style="background:var(--text-muted);cursor:default">Sold out</span>
-          <% } %>
-        </div>
-      </article>
-      <% }); %>
-    </section>
-    <% }); } %>
-
-  </div><!-- /.container -->
-</div><!-- /#section-programma -->
-
-<!-- ══════════════════════════════════════════════════════ -->
-<!-- SEZIONE OSPITI                                         -->
-<!-- ══════════════════════════════════════════════════════ -->
-<% if (guests && guests.length > 0) { %>
-<div id="section-ospiti" style="display:none">
-  <div class="container">
-    <h2 class="section-title">Gli Ospiti</h2>
-    <p class="section-sub">Scopri gli ospiti speciali di questa edizione di Ludicomix.</p>
-
-    <!-- Filtri per categoria -->
-    <% const cats = [...new Set(guests.map(g => g.category))]; %>
-    <% if (cats.length > 1) { %>
-    <div class="guests-filter-row" role="group" aria-label="Filtra per categoria">
-      <button class="cat-pill active" onclick="filterGuests('',this)">Tutti</button>
-      <% cats.forEach(c => { %>
-      <button class="cat-pill" onclick="filterGuests('<%= c %>',this)">
-        <%= c.charAt(0).toUpperCase()+c.slice(1) %>
+  <!-- DATE TABS -->
+  <% if(typeof dates!=='undefined'&&dates&&dates.length>1){ %>
+  <div class="date-tabs">
+    <button class="date-tab all <%= (!filters||!filters.date)?'active':'' %>" onclick="location.href='?'">Tutti</button>
+    <% dates.forEach(function(d){ %>
+      <button class="date-tab <%= (typeof filters!=='undefined'&&filters.date===d.date)?'active':'' %>"
+              onclick="location.href='?date=<%= encodeURIComponent(d.date) %>'">
+        <%= new Date(d.date).toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'short'}) %>
       </button>
-      <% }); %>
-    </div>
-    <% } %>
+    <% }) %>
+  </div>
+  <% } %>
 
-    <div class="guests-grid" id="guestsGrid">
-      <% guests.forEach(g => { %>
-      <article class="guest-card" data-category="<%= g.category %>">
-        <% if (g.photo_url) { %>
-        <img src="<%= g.photo_url %>" alt="<%= g.name %>" class="guest-photo" loading="lazy" width="300" height="200">
-        <% } else { %>
-        <div class="guest-photo-placeholder" aria-hidden="true">
-          <%= g.category === 'autore' ? '✍️' : g.category === 'artista' ? '🎨' : g.category === 'cosplayer' ? '🦸' : g.category === 'youtuber' || g.category === 'streamer' ? '📹' : '🧑‍🎤' %>
+  <!-- FEATURED -->
+  <% var featuredEvs=(typeof featured!=='undefined'&&featured)?featured:[]; %>
+  <% if(featuredEvs.length>0&&(!filters||(!filters.date&&!filters.space&&!filters.type&&!filters.q))){ %>
+  <div class="featured-strip">
+    <div class="featured-label">&#11088; In evidenza</div>
+    <div class="featured-cards">
+      <% featuredEvs.forEach(function(ev){ %>
+      <div class="featured-card" onclick="openEventModal(<%= ev.id %>)">
+        <div class="featured-card-title"><%= ev.title %></div>
+        <div class="featured-card-meta">
+          <% if(ev.event_date){ %><span class="yellow">&#128197; <%= new Date(ev.event_date).toLocaleDateString('it-IT',{day:'numeric',month:'short'}) %></span><% } %>
+          <% if(ev.start_time){ %><span>&#128336; <%= ev.start_time.substring(0,5) %></span><% } %>
+          <% if(ev.space_name){ %><span>&#127963; <%= ev.space_name %></span><% } %>
         </div>
-        <% } %>
-        <div class="guest-body">
-          <p class="guest-cat"><%= g.category %><%= g.featured ? '<span class="featured-star">⭐</span>' : '' %></p>
-          <h3 class="guest-name"><%- g.name %></h3>
-          <% if (g.stand_location) { %>
-          <p class="guest-stand">📍 <%= g.stand_location %></p>
-          <% } %>
-          <% if (g.bio) { %>
-          <p class="guest-bio"><%= g.bio %></p>
-          <% } %>
-          <% if (g.website_url || g.social_url) { %>
-          <div class="guest-links">
-            <% if (g.website_url) { %><a href="<%= g.website_url %>" target="_blank" rel="noopener" class="guest-link">🌐 Sito</a><% } %>
-            <% if (g.social_url) { %><a href="<%= g.social_url %>" target="_blank" rel="noopener" class="guest-link">📱 Social</a><% } %>
+      </div>
+      <% }) %>
+    </div>
+  </div>
+  <% } %>
+
+  <!-- LISTA EVENTI -->
+  <% var allEvs=(typeof events!=='undefined'&&events)?events:[]; %>
+  <% if(allEvs.length===0){ %>
+    <div class="empty-state">
+      <div class="empty-icon">&#128525;</div>
+      <strong>Nessun evento pubblicato<%= (typeof filters!=='undefined'&&filters.date)?' per questa data':'' %>.</strong>
+      <% if(typeof filters!=='undefined'&&(filters.date||filters.space||filters.type||filters.q)){ %>
+        <p style="margin-top:.5rem;font-size:.82rem"><a href="?" style="color:var(--violet)">Rimuovi i filtri</a> per vedere tutti gli eventi.</p>
+      <% } %>
+    </div>
+  <% } else { %>
+    <%
+      var groups={};
+      allEvs.forEach(function(ev){
+        var k=ev.event_date||'Senza data';
+        if(!groups[k])groups[k]=[];
+        groups[k].push(ev);
+      });
+      var gkeys=Object.keys(groups).sort();
+    %>
+    <% gkeys.forEach(function(dk){ %>
+    <div class="day-group" data-date="<%= dk %>">
+      <div class="day-header">
+        <% if(dk!=='Senza data'){ %>
+          &#128197; <%= new Date(dk).toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'}) %>
+        <% }else{ %>&#128197; Data da definire<% } %>
+      </div>
+      <% groups[dk].forEach(function(ev){ %>
+        <% var sc=ev.space_color||'#6b3fa0'; var slotsLeft=ev.max_participants?(ev.max_participants-(ev.registrations_count||0)):null; %>
+        <div class="event-row" onclick="openEventModal(<%= ev.id %>)">
+          <div class="event-time"><%= ev.start_time?ev.start_time.substring(0,5):'--:--' %></div>
+          <div class="event-dot" style="background:<%= sc %>"></div>
+          <div class="event-body">
+            <div class="event-title"><%= ev.title %></div>
+            <div class="event-meta">
+              <% if(ev.space_name){ %><span class="pill pill-navy">&#127963; <%= ev.space_name %></span><% } %>
+              <% if(ev.event_type){ %><span class="pill pill-violet"><%= ev.event_type %></span><% } %>
+              <% if(ev.end_time){ %><span style="color:var(--faint)">fino alle <%= ev.end_time.substring(0,5) %></span><% } %>
+              <% if(ev.speakers_names){ %><span style="color:var(--muted)">&#128100; <%= ev.speakers_names %></span><% } %>
+            </div>
           </div>
-          <% } %>
+          <div class="event-right">
+            <% if(ev.max_participants){ %>
+              <% if(slotsLeft<=0){ %><span class="slots-badge slots-full">&#128308; Sold out</span>
+              <% }else{ %><span class="slots-badge slots-ok">&#128994; <%= slotsLeft %> posti</span><% } %>
+            <% }else{ %><span class="slots-badge slots-none">Ingresso libero</span><% } %>
+            <% if(ev.requires_registration){ %><span class="pill pill-blue">&#128221; Iscrizione</span><% } %>
+          </div>
         </div>
-      </article>
-      <% }); %>
+      <% }) %>
     </div>
-
-  </div>
+    <% }) %>
+  <% } %>
 </div>
-<% } %>
 
-<!-- ── QR MODAL ────────────────────────────────────────── -->
-<div class="modal-overlay" id="qrModal" role="dialog" aria-modal="true" aria-label="QR Code programma"
-     onclick="if(event.target===this)this.classList.remove('open')">
+<!-- MODAL EVENTO -->
+<div id="eventModal" class="modal-overlay" onclick="if(event.target===this)closeEventModal()">
   <div class="modal-box">
-    <h3>📱 QR Code</h3>
-    <p>Scansiona per condividere il programma.</p>
-    <img src="/programma/qr" alt="QR code del programma" width="200" height="200" loading="lazy">
-    <br>
-    <button class="modal-close" onclick="document.getElementById('qrModal').classList.remove('open')">
-      Chiudi
-    </button>
+    <div class="modal-header">
+      <div>
+        <div class="modal-header-title" id="modal-title">—</div>
+        <div class="modal-header-sub" id="modal-sub">—</div>
+      </div>
+      <button class="modal-close" onclick="closeEventModal()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <div id="modal-pills" style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.65rem"></div>
+      <div class="modal-row">
+        <div class="modal-field"><div class="modal-field-label">&#128197; Data</div><div class="modal-field-value" id="modal-date">—</div></div>
+        <div class="modal-field"><div class="modal-field-label">&#128336; Orario</div><div class="modal-field-value" id="modal-time">—</div></div>
+        <div class="modal-field"><div class="modal-field-label">&#127963; Sala</div><div class="modal-field-value" id="modal-space">—</div></div>
+        <div class="modal-field"><div class="modal-field-label">&#127917; Tipo</div><div class="modal-field-value" id="modal-type">—</div></div>
+      </div>
+      <div id="modal-desc-wrap" style="display:none;margin-bottom:.7rem">
+        <div class="modal-field-label" style="margin-bottom:.25rem">&#128196; Descrizione</div>
+        <p class="modal-desc" id="modal-desc"></p>
+      </div>
+      <div id="modal-speakers-wrap" style="display:none;margin-bottom:.7rem">
+        <div class="modal-field-label" style="margin-bottom:.25rem">&#128100; Speaker / Ospiti</div>
+        <div class="modal-speakers-wrap" id="modal-speakers"></div>
+      </div>
+      <div id="modal-slots-wrap" style="display:none;margin-bottom:.5rem">
+        <div class="modal-field-label" style="margin-bottom:.25rem">&#127997; Posti</div>
+        <div id="modal-slots"></div>
+      </div>
+    </div>
+    <div class="modal-footer" id="modal-footer"></div>
   </div>
 </div>
 
-<!-- ── FOOTER ─────────────────────────────────────────── -->
-<footer class="prog-footer" role="contentinfo">
-  <div class="container">
-    <p>Programma aggiornato in tempo reale &nbsp;·&nbsp; <%= title %></p>
-    <p style="margin-top:.4rem">
-      <a href="/programma/qr">Scarica QR</a>
-    </p>
+<!-- MODAL QR -->
+<div id="qrModal" class="qr-modal-overlay" onclick="if(event.target===this)closeQrModal()">
+  <div class="qr-box">
+    <h3>&#128247; QR Programma</h3>
+    <img src="/programma/qr" alt="QR Code Programma" onerror="this.alt='QR non disponibile'">
+    <p style="font-size:.74rem;color:var(--muted);margin-top:.7rem">Inquadra il QR per accedere al programma</p>
+    <button class="btn btn-primary" style="margin-top:.8rem;width:100%" onclick="closeQrModal()">Chiudi</button>
   </div>
-</footer>
+</div>
 
 <script>
-// ── TAB SWITCHING ────────────────────────────────────────
-function showSection(name, el) {
-  document.getElementById('section-programma').style.display = name === 'programma' ? '' : 'none';
-  const ospiti = document.getElementById('section-ospiti');
-  if (ospiti) ospiti.style.display = name === 'ospiti' ? '' : 'none';
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  if (el) el.classList.add('active');
-}
+var EMAP = {};
+<% if(typeof events!=='undefined'&&events){ events.forEach(function(ev){ %>
+EMAP[<%= ev.id %>]={
+  id:<%= ev.id %>,
+  title:<%- JSON.stringify(ev.title||'') %>,
+  event_date:<%- JSON.stringify(ev.event_date||'') %>,
+  start_time:<%- JSON.stringify(ev.start_time||'') %>,
+  end_time:<%- JSON.stringify(ev.end_time||'') %>,
+  space_name:<%- JSON.stringify(ev.space_name||'') %>,
+  space_color:<%- JSON.stringify(ev.space_color||'#6b3fa0') %>,
+  event_type:<%- JSON.stringify(ev.event_type||'') %>,
+  description:<%- JSON.stringify(ev.description||'') %>,
+  speakers_names:<%- JSON.stringify(ev.speakers_names||'') %>,
+  max_participants:<%= ev.max_participants||'null' %>,
+  registrations_count:<%= ev.registrations_count||0 %>,
+  requires_registration:<%= ev.requires_registration?'true':'false' %>,
+  registration_url:<%- JSON.stringify(ev.registration_url||'') %>
+};
+<% })} %>
 
-// ── GUEST CATEGORY FILTER ────────────────────────────────
-function filterGuests(cat, el) {
-  const cards = document.querySelectorAll('#guestsGrid .guest-card');
-  cards.forEach(c => {
-    c.style.display = (!cat || c.dataset.category === cat) ? '' : 'none';
-  });
-  document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
-  if (el) el.classList.add('active');
+function openEventModal(id){
+  var ev=EMAP[id]; if(!ev)return;
+  document.getElementById('modal-title').textContent=ev.title;
+  var sub=[];
+  if(ev.space_name)sub.push('\u{1F3DB} '+ev.space_name);
+  if(ev.event_type)sub.push('\u{1F3AD} '+ev.event_type);
+  document.getElementById('modal-sub').textContent=sub.join(' \u00B7 ');
+  var pills='';
+  if(ev.event_type)pills+='<span class="pill pill-violet">'+ev.event_type+'</span>';
+  if(ev.requires_registration)pills+='<span class="pill pill-blue">\uD83D\uDCDD Iscrizione</span>';
+  if(ev.max_participants){var l=ev.max_participants-ev.registrations_count;
+    pills+=l<=0?'<span class="pill pill-red">\uD83D\uDD34 Sold out</span>':'<span class="pill pill-green">\uD83D\uDFE2 '+l+' posti</span>';
+  }
+  document.getElementById('modal-pills').innerHTML=pills;
+  if(ev.event_date){try{var d=new Date(ev.event_date);document.getElementById('modal-date').textContent=d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});}catch(e){document.getElementById('modal-date').textContent=ev.event_date;}}else{document.getElementById('modal-date').textContent='Da definire';}
+  var t=ev.start_time?ev.start_time.substring(0,5):'--:--';
+  if(ev.end_time)t+=' \u2192 '+ev.end_time.substring(0,5);
+  document.getElementById('modal-time').textContent=t;
+  document.getElementById('modal-space').textContent=ev.space_name||'\u2014';
+  document.getElementById('modal-type').textContent=ev.event_type||'\u2014';
+  if(ev.description){document.getElementById('modal-desc').textContent=ev.description;document.getElementById('modal-desc-wrap').style.display='block';}else{document.getElementById('modal-desc-wrap').style.display='none';}
+  if(ev.speakers_names){
+    var chips=ev.speakers_names.split(',').map(function(s){return '<span class="speaker-chip">\uD83D\uDC64 '+s.trim()+'</span>';}).join('');
+    document.getElementById('modal-speakers').innerHTML=chips;
+    document.getElementById('modal-speakers-wrap').style.display='block';
+  }else{document.getElementById('modal-speakers-wrap').style.display='none';}
+  if(ev.max_participants){
+    var left=ev.max_participants-ev.registrations_count;
+    document.getElementById('modal-slots').innerHTML=left>0
+      ?'<span class="slots-badge slots-ok">\uD83D\uDFE2 '+left+' / '+ev.max_participants+' posti liberi</span>'
+      :'<span class="slots-badge slots-full">\uD83D\uDD34 Esaurito ('+ev.max_participants+' posti)</span>';
+    document.getElementById('modal-slots-wrap').style.display='block';
+  }else{document.getElementById('modal-slots-wrap').style.display='none';}
+  var footer='';
+  if(ev.requires_registration&&ev.registration_url)footer+='<a href="'+ev.registration_url+'" target="_blank" rel="noopener" class="btn btn-accent">\uD83D\uDCDD Iscriviti</a>';
+  else if(ev.requires_registration)footer+='<button class="btn btn-accent" disabled style="opacity:.55">\uD83D\uDCDD Iscrizione non aperta</button>';
+  footer+='<button class="btn btn-outline" onclick="closeEventModal()">Chiudi</button>';
+  document.getElementById('modal-footer').innerHTML=footer;
+  document.getElementById('eventModal').classList.add('open');
+  document.body.style.overflow='hidden';
 }
-
-// ── ESC closes modal ────────────────────────────────────
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') document.getElementById('qrModal').classList.remove('open');
-});
+function closeEventModal(){document.getElementById('eventModal').classList.remove('open');document.body.style.overflow='';}
+function openQrModal(){document.getElementById('qrModal').classList.add('open');}
+function closeQrModal(){document.getElementById('qrModal').classList.remove('open');}
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeEventModal();closeQrModal();}});
 </script>
 </body>
 </html>

@@ -1,281 +1,257 @@
 <%- include('../partials/header') %>
 
-<div class="page-header">
-  <h1><%= title %></h1>
-  <a href="/agenda/events" class="btn btn-ghost">← Tutti gli eventi</a>
-</div>
+<nav class="breadcrumb-bar">
+  Sei in <a href="/agenda/events">&#128197; Agenda</a> &rsaquo; <strong><%= event ? 'Modifica Evento' : 'Nuovo Evento' %></strong>
+</nav>
 
-<% if (flash) { %>
-<div class="alert alert-<%= flash.type %>">
-  <%= flash.type === 'error' ? '⚠️' : '✅' %>
-  <%- flash.msg %>
-</div>
-<% } %>
+<h1 class="page-title"><%= event ? '&#9998; Modifica Evento' : '&#128197; Nuovo Evento' %></h1>
 
-<form method="POST" action="<%= event.id ? '/agenda/events/'+event.id : '/agenda/events' %>" id="eventForm">
+<style>
+  /* ---- SEZIONI FORM ---- */
+  .ev-section{background:var(--bg-white,#fff);border:1px solid var(--border,#d1d9e6);border-radius:var(--radius-md,10px);box-shadow:var(--shadow-sm,0 1px 3px rgba(30,45,78,.07));margin-bottom:1.1rem;overflow:hidden}
+  .ev-section-hd{display:flex;align-items:center;gap:.45rem;padding:.6rem 1.1rem;background:var(--bg-section,#f0f2f5);border-bottom:1px solid var(--border-light,#e8ecf3);font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted,#64748b)}
+  .ev-section-body{padding:.9rem 1.1rem}
 
-  <!-- ─── INFORMAZIONI EVENTO ─── -->
-  <div class="card mb-4">
-    <div class="card-header"><h3>📋 Informazioni evento</h3></div>
-    <div class="card-body">
+  /* ---- FIELD ---- */
+  .fg{display:flex;flex-direction:column;gap:.26rem}
+  .fg label{font-size:.69rem;font-weight:700;color:var(--text-muted,#64748b);text-transform:uppercase;letter-spacing:.45px}
+  .fg input,.fg select,.fg textarea{width:100%;padding:.42rem .68rem;border:1.5px solid var(--border,#d1d9e6);border-radius:var(--radius-xs,6px);font-size:.83rem;font-family:inherit;color:var(--text-primary,#1a2744);background:var(--bg-white,#fff);transition:border-color .15s,box-shadow .15s}
+  .fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:var(--accent,#6b3fa0);box-shadow:0 0 0 3px rgba(107,63,160,.1)}
+  .fg textarea{resize:vertical;min-height:68px}
+  .fg-hint{font-size:.7rem;color:var(--text-muted,#64748b)}
 
-      <div class="form-group">
-        <label for="title">Titolo *</label>
-        <input type="text" id="title" name="title" class="form-control"
-               value="<%= event.title || '' %>" required>
-      </div>
+  /* ---- GRIGLIE ---- */
+  .fgrid-2{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-bottom:.7rem}
+  .fgrid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.7rem;margin-bottom:.7rem}
+  .fspan{grid-column:1/-1;margin-bottom:.7rem}
 
-      <div class="form-group">
-        <label for="description">Descrizione</label>
-        <textarea id="description" name="description" class="form-control" rows="3"><%= event.description || '' %></textarea>
-      </div>
+  /* ---- CHECKBOX ROW ---- */
+  .cb-row{display:flex;align-items:center;gap:.5rem;padding-top:.3rem}
+  .cb-row input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent,#6b3fa0);cursor:pointer}
+  .cb-row label{font-size:.83rem;color:var(--text-primary,#1a2744);text-transform:none;letter-spacing:0;font-weight:600;cursor:pointer}
 
-      <div class="row">
-        <div class="col">
-          <div class="form-group">
-            <label for="event_type">Tipo evento</label>
-            <select id="event_type" name="event_type" class="form-control">
-              <% ['panel','workshop','talk','mostra','firma copie','gaming','altro'].forEach(t => { %>
-              <option value="<%= t %>" <%= (event.event_type||'panel') === t ? 'selected' : '' %>><%= t.charAt(0).toUpperCase()+t.slice(1) %></option>
-              <% }); %>
-            </select>
-          </div>
-        </div>
-        <div class="col">
-          <div class="form-group">
-            <label for="tags">Tag / Categorie</label>
-            <input type="text" id="tags" name="tags" class="form-control"
-                   value="<%= event.tags || '' %>" placeholder="Separati da virgola">
-          </div>
-        </div>
-      </div>
+  /* ---- COLOR PICKER ---- */
+  .color-wrap{display:flex;gap:.5rem;align-items:center}
+  .color-swatch{width:36px;height:34px;padding:2px;border-radius:6px;border:1.5px solid var(--border,#d1d9e6);cursor:pointer;flex-shrink:0}
 
-      <div class="form-group">
-        <label for="image_url">Immagine (URL)</label>
-        <input type="url" id="image_url" name="image_url" class="form-control"
-               value="<%= event.image_url || '' %>">
-      </div>
+  /* ---- CTA BUTTONS ---- */
+  .ev-cta-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.65rem;margin-bottom:1rem;padding:.75rem 1.1rem;background:var(--bg-white,#fff);border:1px solid var(--border,#d1d9e6);border-radius:var(--radius-md,10px);box-shadow:var(--shadow-sm)}
+  .ev-cta-bottom{position:sticky;bottom:0;z-index:50;background:var(--bg-white,#fff);border-top:2px solid var(--border,#d1d9e6);padding:.8rem 1.1rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;box-shadow:0 -4px 16px rgba(30,45,78,.09)}
 
-      <div class="form-group">
-        <label for="notes">Note interne</label>
-        <textarea id="notes" name="notes" class="form-control" rows="2"><%= event.notes || '' %></textarea>
-      </div>
+  /* tasto SALVA / CREA - grande e prominente */
+  .btn-ev-save{
+    display:inline-flex;align-items:center;gap:.45rem;
+    padding:.68rem 2rem;color:#fff;border:none;border-radius:var(--radius-xs,6px);
+    font-size:.95rem;font-weight:800;cursor:pointer;font-family:inherit;
+    transition:background .15s,transform .1s,box-shadow .15s;white-space:nowrap;
+    background:var(--accent,#6b3fa0);box-shadow:0 2px 10px rgba(107,63,160,.35);
+  }
+  .btn-ev-save.save-blue{background:var(--accent-blue,#1d6fa4);box-shadow:0 2px 10px rgba(29,111,164,.35)}
+  .btn-ev-save:hover{filter:brightness(1.1)}
+  .btn-ev-save:active{transform:scale(.97)}
 
-    </div>
+  .btn-ev-back{display:inline-flex;align-items:center;gap:.35rem;padding:.58rem 1.1rem;background:transparent;color:var(--text-muted,#64748b);border:1.5px solid var(--border,#d1d9e6);border-radius:var(--radius-xs,6px);font-size:.83rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;white-space:nowrap;transition:background .15s,border-color .15s}
+  .btn-ev-back:hover{background:var(--bg-section,#f0f2f5);border-color:var(--text-muted,#64748b)}
+
+  .ev-save-status{font-size:.76rem;color:var(--text-muted,#64748b);margin-left:auto}
+
+  @media(max-width:680px){
+    .fgrid-2,.fgrid-3{grid-template-columns:1fr}
+    .fspan{grid-column:1}
+  }
+</style>
+
+<form method="POST" action="/agenda/events/<%= event ? event.id + '/edit' : 'new' %>" id="evForm">
+
+  <!-- CTA TOP -->
+  <div class="ev-cta-top">
+    <a href="/agenda/events" class="btn-ev-back">&#8592; Torna agli eventi</a>
+    <button type="submit" class="btn-ev-save <%= event ? 'save-blue' : '' %>">
+      <% if(event){ %>&#10003; Salva Modifiche<% }else{ %>&#43; Crea Evento<% } %>
+    </button>
   </div>
 
-  <!-- ─── OSPITI E SPEAKER ─── -->
-  <div class="card mb-4">
-    <div class="card-header"><h3>🎤 Ospiti e Speaker</h3></div>
-    <div class="card-body">
-      <% if (speakers.length === 0) { %>
-      <p class="text-muted">Nessuno speaker registrato. <a href="/agenda/speakers">Aggiungine uno.</a></p>
-      <% } else { %>
-      <p class="text-muted mb-2">Seleziona uno o più speaker e assegna loro un ruolo.</p>
-      <div class="speakers-grid">
-        <% speakers.forEach((s, i) => {
-          const sel = selectedSpeakers.find(ss => ss.speaker_id == s.id);
-        %>
-        <div class="speaker-row" id="speaker-row-<%= s.id %>">
-          <label class="speaker-check">
-            <input type="checkbox" name="speaker_ids[]" value="<%= s.id %>"
-                   <%= sel ? 'checked' : '' %>
-                   onchange="toggleRole(<%= s.id %>, this.checked)">
-            <span class="speaker-name"><%= s.name %></span>
-          </label>
-          <select name="speaker_roles[]" class="form-control form-control-sm role-select"
-                  id="role-<%= s.id %>" <%= sel ? '' : 'disabled' %>>
-            <% ['speaker','moderatore','ospite','autore','giurato'].forEach(r => { %>
-            <option value="<%= r %>" <%= sel && sel.role === r ? 'selected' : '' %>>
-              <%= r.charAt(0).toUpperCase()+r.slice(1) %>
-            </option>
-            <% }); %>
+  <!-- 1. INFORMAZIONI PRINCIPALI -->
+  <div class="ev-section">
+    <div class="ev-section-hd">&#128203; Informazioni principali</div>
+    <div class="ev-section-body">
+      <div class="fspan">
+        <div class="fg">
+          <label>Titolo *</label>
+          <input type="text" name="title" required value="<%= event ? event.title : '' %>" placeholder="Nome dell'evento..." maxlength="200">
+        </div>
+      </div>
+      <div class="fgrid-2">
+        <div class="fg">
+          <label>Tipo evento</label>
+          <select name="event_type">
+            <option value="">&#8212; Seleziona &#8212;</option>
+            <% ['Torneo','Dimostrazione','Panel','Workshop','Spettacolo','Altro'].forEach(function(t){ %>
+              <option value="<%= t %>" <%= (event&&event.event_type===t)?'selected':'' %>><%= t %></option>
+            <% }) %>
           </select>
         </div>
-        <% }); %>
+        <div class="fg">
+          <label>Sala / Spazio</label>
+          <select name="space_id">
+            <option value="">&#8212; Seleziona &#8212;</option>
+            <% if(typeof spaces!=='undefined'&&spaces){ spaces.forEach(function(s){ %>
+              <option value="<%= s.id %>" <%= (event&&event.space_id==s.id)?'selected':'' %>><%= s.name %></option>
+            <% })} %>
+          </select>
+        </div>
       </div>
-      <% } %>
+      <div class="fspan" style="margin-bottom:0">
+        <div class="fg">
+          <label>Descrizione</label>
+          <textarea name="description" rows="3" placeholder="Descrizione breve..."><%= event ? event.description||'' : '' %></textarea>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- ─── PROGRAMMAZIONE ─── -->
-  <div class="card mb-4">
-    <div class="card-header"><h3>📍 Luogo e orari</h3></div>
-    <div class="card-body">
-
-      <!-- Tipo di location -->
-      <div class="form-group">
-        <label>Tipo di luogo *</label>
-        <div class="radio-group">
-          <label class="radio-label">
-            <input type="radio" name="location_type" value="space"
-                   <%= (!event.location_type || event.location_type==='space') ? 'checked' : '' %>
-                   onchange="toggleLocationType(this.value)">
-            🏛️ Sala / Spazio
-          </label>
-          <label class="radio-label">
-            <input type="radio" name="location_type" value="stand"
-                   <%= event.location_type==='stand' ? 'checked' : '' %>
-                   onchange="toggleLocationType(this.value)">
-            🪧 Stand espositore
-          </label>
-          <label class="radio-label">
-            <input type="radio" name="location_type" value="external"
-                   <%= event.location_type==='external' ? 'checked' : '' %>
-                   onchange="toggleLocationType(this.value)">
-            📍 Luogo esterno
-          </label>
+  <!-- 2. DATA E ORARIO -->
+  <div class="ev-section">
+    <div class="ev-section-hd">&#128336; Data e orario</div>
+    <div class="ev-section-body" style="padding-bottom:.9rem">
+      <div class="fgrid-3" style="margin-bottom:0">
+        <div class="fg">
+          <label>Data *</label>
+          <input type="date" name="event_date" required value="<%= event ? event.event_date||'' : '' %>">
+        </div>
+        <div class="fg">
+          <label>Ora inizio</label>
+          <input type="time" name="start_time" value="<%= event ? event.start_time||'' : '' %>">
+        </div>
+        <div class="fg">
+          <label>Ora fine</label>
+          <input type="time" name="end_time" value="<%= event ? event.end_time||'' : '' %>">
         </div>
       </div>
+    </div>
+  </div>
 
-      <!-- Sala (visibile solo se type=space) -->
-      <div class="form-group" id="space-selector">
-        <label for="space_id">Sala / Spazio *</label>
-        <select id="space_id" name="space_id" class="form-control">
-          <option value="">— Seleziona sala —</option>
-          <% spaces.forEach(s => { %>
-          <option value="<%= s.id %>" <%= event.space_id == s.id ? 'selected' : '' %>>
-            <%= s.name %> (cap. <%= s.capacity %>)
-          </option>
-          <% }); %>
+  <!-- 3. SPEAKER E OSPITI -->
+  <div class="ev-section">
+    <div class="ev-section-hd">&#128100; Speaker e ospiti</div>
+    <div class="ev-section-body">
+      <div class="fg">
+        <label>Speaker assegnati</label>
+        <select name="speaker_ids[]" multiple style="min-height:88px">
+          <% if(typeof speakers!=='undefined'&&speakers){ speakers.forEach(function(sp){ %>
+            <option value="<%= sp.id %>"
+              <%= (event&&event.speaker_ids&&event.speaker_ids.includes(sp.id))?'selected':'' %>>
+              <%= sp.name %><% if(sp.category){ %> &#8212; <%= sp.category %><% } %>
+            </option>
+          <% })} %>
         </select>
+        <span class="fg-hint">Ctrl+clic (o &#8984;+clic su Mac) per selezionare pi&#249; speaker.</span>
       </div>
-
-      <!-- Custom location (visibile per stand/external) -->
-      <div class="form-group" id="custom-location-field" style="display:none">
-        <label for="custom_location">Nome stand / indirizzo *</label>
-        <input type="text" id="custom_location" name="custom_location" class="form-control"
-               value="<%= event.custom_location || '' %>"
-               placeholder="Es. Stand B12 — Padiglione Ovest">
-      </div>
-
-      <div class="row">
-        <div class="col">
-          <div class="form-group">
-            <label for="date">Data *</label>
-            <input type="date" id="date" name="date" class="form-control"
-                   value="<%= event.date || '' %>" required>
-          </div>
-        </div>
-        <div class="col">
-          <div class="form-group">
-            <label for="start_time">Inizio *</label>
-            <input type="time" id="start_time" name="start_time" class="form-control"
-                   value="<%= event.start_time || '' %>" required>
-          </div>
-        </div>
-        <div class="col">
-          <div class="form-group">
-            <label for="end_time">Fine *</label>
-            <input type="time" id="end_time" name="end_time" class="form-control"
-                   value="<%= event.end_time || '' %>" required>
-          </div>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="max_seats">Posti massimi (iscrizioni)</label>
-        <input type="number" id="max_seats" name="max_seats" class="form-control"
-               value="<%= event.max_seats || 0 %>" min="0">
-        <small class="text-muted">0 = nessun limite</small>
-      </div>
-
     </div>
   </div>
 
-  <!-- ─── PUBBLICAZIONE ─── -->
-  <div class="card mb-4">
-    <div class="card-header"><h3>📡 Pubblicazione</h3></div>
-    <div class="card-body">
-
-      <div class="checkbox-group">
-        <label class="checkbox-label">
-          <input type="checkbox" name="is_public" value="1" <%= event.is_public !== 0 ? 'checked' : '' %>>
-          🌐 Visibile nel programma pubblico
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" name="published" value="1" <%= event.published ? 'checked' : '' %>>
-          📡 Pubblicato (attivo nel sito)
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" name="featured" value="1" <%= event.featured ? 'checked' : '' %>>
-          ⭐ In evidenza (homepage programma)
-        </label>
+  <!-- 4. ISCRIZIONI E POSTI -->
+  <div class="ev-section">
+    <div class="ev-section-hd">&#127997; Iscrizioni e posti</div>
+    <div class="ev-section-body">
+      <div class="fgrid-2" style="margin-bottom:.7rem">
+        <div class="fg">
+          <div class="cb-row">
+            <input type="checkbox" name="requires_registration" id="req_reg" value="1"
+              <%= (event&&event.requires_registration)?'checked':'' %>>
+            <label for="req_reg">Richiede iscrizione</label>
+          </div>
+        </div>
+        <div class="fg">
+          <label>Max partecipanti</label>
+          <input type="number" name="max_participants" min="0"
+            value="<%= event ? event.max_participants||'' : '' %>"
+            placeholder="Lascia vuoto = illimitato">
+        </div>
       </div>
-
-      <hr>
-      <h4 class="mt-3">🎟 Iscrizioni pubbliche</h4>
-      <label class="checkbox-label">
-        <input type="checkbox" name="registrations_open" value="1" <%= event.registrations_open ? 'checked' : '' %>>
-        Abilita pulsante "Iscriviti" — se attivo, il bottone è visibile sulla pagina pubblica dell'evento.
-      </label>
-
+      <div class="fg" style="margin-bottom:0">
+        <label>URL iscrizione</label>
+        <input type="url" name="registration_url"
+          value="<%= event ? event.registration_url||'' : '' %>"
+          placeholder="https://...">
+      </div>
     </div>
   </div>
 
-  <!-- ─── AZIONI ─── -->
-  <div class="form-actions">
-    <!-- honeypot -->
-    <input type="text" name="_hp" style="position:absolute;opacity:0;width:0;height:0;">
+  <!-- 5. VISIBILITÀ E ASPETTO -->
+  <div class="ev-section">
+    <div class="ev-section-hd">&#128065; Visibilit&#224; e aspetto</div>
+    <div class="ev-section-body">
+      <div class="fgrid-2" style="margin-bottom:.8rem">
+        <div class="fg">
+          <div class="cb-row">
+            <input type="checkbox" name="is_published" id="is_pub" value="1"
+              <%= (!event||event.is_published)?'checked':'' %>>
+            <label for="is_pub">Pubblicato nel programma pubblico</label>
+          </div>
+        </div>
+        <div class="fg">
+          <div class="cb-row">
+            <input type="checkbox" name="featured" id="ev_featured" value="1"
+              <%= (event&&event.featured)?'checked':'' %>>
+            <label for="ev_featured">&#11088; In evidenza</label>
+          </div>
+        </div>
+      </div>
+      <div class="fgrid-2" style="margin-bottom:0">
+        <div class="fg">
+          <label>Colore sala (punto colorato)</label>
+          <div class="color-wrap">
+            <input type="color" name="space_color" id="colorPicker" class="color-swatch"
+              value="<%= event&&event.space_color?event.space_color:'#6b3fa0' %>">
+            <input type="text" name="space_color_hex" id="colorHex"
+              value="<%= event&&event.space_color?event.space_color:'#6b3fa0' %>"
+              placeholder="#6b3fa0" maxlength="7" style="flex:1">
+          </div>
+        </div>
+        <div class="fg">
+          <label>Note interne (solo admin)</label>
+          <input type="text" name="notes"
+            value="<%= event ? event.notes||'' : '' %>"
+            placeholder="Appunti interni...">
+        </div>
+      </div>
+    </div>
+  </div>
 
-    <button type="submit" class="btn btn-primary">
-      <%= event.id ? '💾 Salva modifiche' : '✅ Crea evento' %>
+  <!-- CTA BOTTOM STICKY -->
+  <div class="ev-cta-bottom">
+    <button type="submit" class="btn-ev-save <%= event ? 'save-blue' : '' %>">
+      <% if(event){ %>&#10003; Salva Modifiche<% }else{ %>&#43; Crea Evento<% } %>
     </button>
-    <a href="/agenda/events" class="btn btn-ghost">Annulla</a>
+    <a href="/agenda/events" class="btn-ev-back">Annulla</a>
+    <span class="ev-save-status" id="saveStatus"></span>
   </div>
-
-  <% if (event.id) { %>
-  <div class="card mt-4">
-    <div class="card-header"><h4>⚡ Azioni rapide</h4></div>
-    <div class="card-body quick-actions">
-      <a href="/agenda/events/<%= event.id %>/registrations" class="btn btn-secondary">
-        👥 Visualizza iscritti
-      </a>
-      <form method="POST" action="/agenda/events/<%= event.id %>/publish" style="display:inline">
-        <button type="submit" class="btn <%= event.published ? 'btn-warning' : 'btn-success' %>">
-          <%= event.published ? '↩ Rimetti in bozza' : '📡 Pubblica ora' %>
-        </button>
-      </form>
-      <form method="POST" action="/agenda/events/<%= event.id %>/delete" style="display:inline"
-            onsubmit="return confirm('Eliminare definitivamente questo evento?')">
-        <button type="submit" class="btn btn-danger">🗑 Elimina evento</button>
-      </form>
-    </div>
-  </div>
-  <% } %>
 
 </form>
 
 <script>
-function toggleRole(speakerId, checked) {
-  const sel = document.getElementById('role-' + speakerId);
-  if (sel) sel.disabled = !checked;
-}
-
-function toggleLocationType(value) {
-  const spaceSelector = document.getElementById('space-selector');
-  const customField   = document.getElementById('custom-location-field');
-  const spaceSelect   = document.getElementById('space_id');
-  const customInput   = document.getElementById('custom_location');
-
-  if (value === 'space') {
-    spaceSelector.style.display = '';
-    customField.style.display   = 'none';
-    spaceSelect.required        = true;
-    customInput.required        = false;
-  } else {
-    spaceSelector.style.display = 'none';
-    customField.style.display   = '';
-    spaceSelect.required        = false;
-    customInput.required        = true;
+(function(){
+  var cp=document.getElementById('colorPicker');
+  var ch=document.getElementById('colorHex');
+  if(cp&&ch){
+    cp.addEventListener('input',function(){ch.value=this.value;});
+    ch.addEventListener('input',function(){if(/^#[0-9a-fA-F]{6}$/.test(this.value))cp.value=this.value;});
   }
-}
-
-// Inizializza stato al caricamento
-document.addEventListener('DOMContentLoaded', () => {
-  const checked = document.querySelector('input[name="location_type"]:checked');
-  if (checked) toggleLocationType(checked.value);
-});
+  var form=document.getElementById('evForm');
+  var dirty=false;
+  if(form){
+    form.addEventListener('change',function(){dirty=true;});
+    form.addEventListener('submit',function(){
+      dirty=false;
+      var s=document.getElementById('saveStatus');
+      if(s)s.textContent='Salvataggio in corso...';
+    });
+    window.addEventListener('beforeunload',function(e){
+      if(dirty){e.preventDefault();e.returnValue='';}
+    });
+  }
+})();
 </script>
 
 <%- include('../partials/footer') %>
