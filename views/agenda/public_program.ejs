@@ -2,404 +2,512 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= title %></title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    :root{
-      --navy:#1e2d4e;--navy-mid:#253660;--accent:#6b3fa0;
-      --yellow:#f5c842;--gold:#c9a227;--violet:#6b3fa0;--violet-light:#8b5cc0;
-      --green:#2d6a4f;--red:#c0392b;--blue:#1d6fa4;--gray:#9ca3af;
-      --bg:#f0f2f5;--surface:#fff;--border:#d1d9e6;--border-light:#e8ecf3;
-      --text:#1a2744;--muted:#64748b;--faint:#94a3b8;
-      --radius:12px;--radius-sm:8px;--radius-xs:6px;
-      --shadow:0 1px 3px rgba(30,45,78,.08),0 2px 8px rgba(30,45,78,.05);
-      --shadow-md:0 3px 12px rgba(30,45,78,.11);--shadow-lg:0 8px 32px rgba(30,45,78,.16);
+    :root {
+      --brand-dark:   #1e2d4e;
+      --brand-yellow: #f5c842;
+      --brand-gold:   #c9a227;
+      --brand-violet: #6b3fa0;
+      --accent-blue:  #1d6fa4;
+      --bg:           #f0f2f5;
+      --white:        #ffffff;
+      --border:       #d1d9e6;
+      --border-light: #e8ecf3;
+      --text:         #1a2744;
+      --muted:        #718096;
+      --radius-sm:    4px;
+      --radius-md:    8px;
+      --radius-lg:    12px;
+      --shadow-sm:    0 1px 3px rgba(30,45,78,.10);
+      --shadow-md:    0 3px 10px rgba(30,45,78,.15);
     }
-    body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.55}
-    a{color:inherit;text-decoration:none}
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, 'Segoe UI', Arial, sans-serif;
+      font-size: 15px;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    a { color: var(--accent-blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
 
-    /* TOPBAR identica al portale */
-    .topbar{display:flex;justify-content:space-between;align-items:center;padding:0 1.5rem;background:var(--navy);min-height:70px;border-bottom:3px solid var(--yellow);position:sticky;top:0;z-index:100}
-    .brand{display:flex;align-items:center;gap:.75rem}
-    .brand-ciuco{height:62px;width:auto;display:block;margin-right:.25rem;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))}
-    .brand-logo-img{height:54px;width:auto;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
-    .brand-text-block{display:flex;flex-direction:column;gap:.05rem}
-    .brand-name{font-size:1.05rem;font-weight:800;color:#fff;letter-spacing:.3px}
-    .brand-sub{font-size:.73rem;color:#aec6e8;font-style:italic;letter-spacing:.2px}
-    .topbar-right{display:flex;gap:.6rem;align-items:center}
+    /* ── TOPBAR ── */
+    .topbar {
+      background: var(--brand-dark);
+      border-bottom: 3px solid var(--brand-yellow);
+      padding: 0 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: .5rem;
+      min-height: 70px;
+      isolation: isolate;
+    }
+    .brand { display: flex; align-items: center; gap: .65rem; }
+    .brand-ciuco {
+      height: 62px; width: auto; display: block;
+      margin-right: .2rem;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,.4));
+    }
+    .brand-logo-img {
+      height: 54px; width: auto; display: block;
+      mix-blend-mode: lighten;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,.3));
+    }
+    .brand-text-block { display: flex; flex-direction: column; gap: .05rem; }
+    .brand-name { font-size: 1.05rem; font-weight: 800; color: #fff; letter-spacing: .3px; }
+    .brand-sub  { font-size: .73rem; color: #aec6e8; font-style: italic; letter-spacing: .2px; }
+    .topbar-right { font-size: .8rem; color: rgba(255,255,255,.5); text-align: right; white-space: nowrap; }
+    @media (max-width: 600px) {
+      .topbar { padding: 0 .9rem; }
+      .brand-ciuco { height: 44px; }
+      .brand-logo-img { height: 36px; }
+    }
 
-    /* WRAP */
-    .wrap{max-width:960px;margin:0 auto;padding:1.4rem 1.5rem 3rem}
+    /* ── CONTAINER ── */
+    .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
 
-    /* PAGE HERO */
-    .page-hero{padding:1.2rem 0 .9rem}
-    .page-hero h1{font-size:1.55rem;font-weight:800;color:var(--navy)}
-    .page-hero p{font-size:.83rem;color:var(--muted);margin-top:.3rem}
+    /* ── DATE FILTER ── */
+    .date-filter {
+      display: flex; gap: .5rem; flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 1rem;
+    }
+    .date-btn {
+      padding: .4rem 1.1rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--white);
+      font-size: .8rem; font-weight: 700;
+      cursor: pointer; text-decoration: none; color: var(--text);
+      transition: background .15s;
+    }
+    .date-btn:hover { background: var(--border-light); text-decoration: none; }
+    .date-btn.active {
+      background: var(--brand-dark);
+      color: var(--brand-yellow);
+      border-color: var(--brand-dark);
+    }
 
-    /* FILTER BAR */
-    .filter-bar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;margin-bottom:1rem;box-shadow:var(--shadow)}
-    .filter-bar select,.filter-bar input{padding:.36rem .65rem;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:.82rem;color:var(--text);background:var(--bg);font-family:inherit;transition:border-color .15s,box-shadow .15s}
-    .filter-bar select:focus,.filter-bar input:focus{outline:none;border-color:var(--violet);box-shadow:0 0 0 3px rgba(107,63,160,.12)}
-    .filter-count{font-size:.75rem;color:var(--muted);margin-left:auto;white-space:nowrap}
+    /* ── DAY SECTION ── */
+    .day-section { margin-bottom: 2.5rem; }
+    .day-label {
+      font-size: .75rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: .5px;
+      color: var(--muted);
+      margin-bottom: 1rem;
+      padding-bottom: .4rem;
+      border-bottom: 1px solid var(--border-light);
+    }
 
-    /* DATE TABS */
-    .date-tabs{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1rem}
-    .date-tab{padding:.28rem .75rem;border-radius:9999px;font-size:.77rem;font-weight:700;border:1.5px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;transition:all .15s}
-    .date-tab:hover,.date-tab.active{background:var(--navy);color:var(--yellow);border-color:var(--navy)}
-    .date-tab.all.active{background:var(--violet);border-color:var(--violet);color:#fff}
+    /* ── EVENT CARD ── */
+    .event-card {
+      background: var(--white);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      padding: 1rem 1.25rem;
+      margin-bottom: .75rem;
+      display: grid;
+      grid-template-columns: 90px 1fr auto;
+      gap: 1rem;
+      align-items: start;
+      cursor: pointer;
+      transition: box-shadow .15s, transform .1s;
+    }
+    .event-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+    .event-time {
+      font-weight: 700; font-size: .9rem;
+      color: var(--brand-dark);
+      text-align: center; padding-top: .1rem;
+    }
+    .event-time .end-time { font-size: .75rem; font-weight: 400; color: var(--muted); }
+    .event-space {
+      display: inline-block; font-size: .72rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .4px;
+      padding: .1rem .5rem; border-radius: 999px;
+      background: var(--bg); border: 1px solid var(--border);
+      color: var(--muted); margin-bottom: .35rem;
+    }
+    .event-title { font-size: 1rem; font-weight: 700; margin: 0 0 .3rem; color: var(--brand-dark); }
+    .event-type {
+      display: inline-block; font-size: .7rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .3px;
+      padding: .1rem .4rem; border-radius: 3px;
+      background: #e8edf8; color: var(--brand-dark); margin-right: .4rem;
+    }
+    .event-desc { font-size: .83rem; color: var(--muted); margin: .4rem 0; }
+    .event-speakers { font-size: .8rem; color: #4a5568; margin-top: .3rem; }
+    .event-speakers strong { color: var(--brand-violet); }
+    .seats-badge { text-align: right; font-size: .78rem; font-weight: 700; white-space: nowrap; }
+    .seats-badge.full      { color: #c0392b; }
+    .seats-badge.available { color: #1d6a39; }
+    .seats-bar {
+      display: block; height: 5px; border-radius: 9999px;
+      background: var(--border-light); overflow: hidden;
+      margin-top: .3rem; width: 80px; margin-left: auto;
+    }
+    .seats-bar-fill { height: 100%; background: var(--brand-dark); display: block; }
+    .btn-iscriviti {
+      display: inline-block; margin-top: .6rem;
+      padding: .4rem .9rem;
+      background: var(--brand-yellow); color: var(--brand-dark);
+      font-weight: 700; font-size: .78rem;
+      text-transform: uppercase; letter-spacing: .4px;
+      border-radius: var(--radius-sm);
+      transition: background .15s; text-decoration: none;
+    }
+    .btn-iscriviti:hover { background: #ffe066; text-decoration: none; }
+    .btn-iscriviti.full { background: var(--border); color: var(--muted); cursor: not-allowed; pointer-events: none; }
+    @media (max-width: 600px) {
+      .event-card { grid-template-columns: 1fr; gap: .5rem; }
+      .seats-badge { text-align: left; }
+      .seats-bar { margin-left: 0; }
+    }
 
-    /* DAY GROUP */
-    .day-group{margin-bottom:1.5rem}
-    .day-header{font-size:.69rem;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);padding:.4rem 0;border-bottom:2px solid var(--border);margin-bottom:.6rem;display:flex;align-items:center;gap:.5rem}
-    .day-header::after{content:'';flex:1;height:1px;background:var(--border-light)}
+    /* ── FOOTER ── */
+    .footer {
+      text-align: center; padding: 2rem 1rem;
+      color: var(--muted); font-size: .78rem;
+      border-top: 1px solid var(--border-light); margin-top: 2rem;
+    }
 
-    /* EVENT ROW */
-    .event-row{display:flex;align-items:flex-start;gap:.8rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.75rem 1rem;margin-bottom:.45rem;cursor:pointer;transition:box-shadow .15s,border-color .15s;box-shadow:var(--shadow)}
-    .event-row:hover{box-shadow:var(--shadow-md);border-color:var(--violet)}
-    .event-time{font-size:.77rem;font-weight:700;color:var(--navy);white-space:nowrap;min-width:54px;padding-top:.1rem}
-    .event-dot{width:9px;height:9px;border-radius:50%;margin-top:.33rem;flex-shrink:0}
-    .event-body{flex:1;min-width:0}
-    .event-title{font-size:.88rem;font-weight:700;color:var(--navy);margin-bottom:.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .event-meta{font-size:.74rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:.35rem;align-items:center}
-    .pill{display:inline-flex;align-items:center;padding:.13rem .52rem;border-radius:9999px;font-size:.66rem;font-weight:800;white-space:nowrap}
-    .pill-navy{background:var(--navy);color:var(--yellow)}
-    .pill-blue{background:#eff6ff;color:#1d6fa4}
-    .pill-green{background:#f0fdf4;color:#2d6a4f}
-    .pill-red{background:#fef2f2;color:#c0392b}
-    .pill-gray{background:#f1f5f9;color:#64748b}
-    .pill-violet{background:rgba(107,63,160,.1);color:var(--violet)}
-    .event-right{display:flex;flex-direction:column;gap:.3rem;align-items:flex-end;flex-shrink:0}
-    .slots-badge{font-size:.69rem;font-weight:700;padding:.18rem .55rem;border-radius:9999px;white-space:nowrap}
-    .slots-ok{background:#f0fdf4;color:#2d6a4f}
-    .slots-full{background:#fef2f2;color:#c0392b}
-    .slots-none{background:#f1f5f9;color:#64748b}
-
-    /* BTN */
-    .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.48rem 1.05rem;border:none;border-radius:var(--radius-xs);font-size:.81rem;font-weight:700;cursor:pointer;text-decoration:none;transition:background .15s;font-family:inherit;white-space:nowrap;line-height:1}
-    .btn:active{transform:scale(.98)}
-    .btn-primary{background:var(--navy);color:#fff}
-    .btn-primary:hover{background:var(--violet)}
-    .btn-accent{background:var(--accent);color:#fff}
-    .btn-accent:hover{background:var(--violet-light)}
-    .btn-outline{background:transparent;color:var(--text);border:1.5px solid var(--border)}
-    .btn-outline:hover{background:var(--bg);border-color:var(--navy)}
-    .btn-ghost-nav{background:rgba(255,255,255,.15);border:none;color:#fff;font-size:.8rem;font-weight:700;padding:.38rem .85rem;border-radius:var(--radius-xs);cursor:pointer;font-family:inherit;transition:background .15s}
-    .btn-ghost-nav:hover{background:rgba(255,255,255,.28)}
-
-    /* MODAL EVENTO */
-    .modal-overlay{display:none;position:fixed;inset:0;z-index:8000;background:rgba(10,20,45,.72);backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:1rem}
-    .modal-overlay.open{display:flex}
-    .modal-box{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow-lg);width:100%;max-width:560px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .2s ease}
-    @keyframes slideUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
-    .modal-header{display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;padding:.9rem 1.2rem .75rem;border-bottom:1px solid var(--border-light);background:var(--navy);flex-shrink:0}
-    .modal-header-title{font-size:.98rem;font-weight:800;color:#fff;line-height:1.3}
-    .modal-header-sub{font-size:.73rem;color:#aec6e8;margin-top:.18rem}
-    .modal-close{width:28px;height:28px;border-radius:50%;border:none;background:rgba(255,255,255,.15);cursor:pointer;font-size:.85rem;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s}
-    .modal-close:hover{background:rgba(255,255,255,.3)}
-    .modal-body{overflow-y:auto;padding:1rem 1.2rem;flex:1}
-    .modal-row{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:.7rem}
-    .modal-field{display:flex;flex-direction:column;gap:.18rem}
-    .modal-field-label{font-size:.63rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
-    .modal-field-value{font-size:.84rem;font-weight:600;color:var(--text)}
-    .modal-desc{font-size:.82rem;color:var(--text);line-height:1.6;margin-bottom:.7rem}
-    .modal-speakers-wrap{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.7rem}
-    .speaker-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.22rem .65rem;border-radius:9999px;background:rgba(107,63,160,.08);color:var(--violet);font-size:.74rem;font-weight:700}
-    .modal-footer{padding:.8rem 1.2rem;border-top:1px solid var(--border-light);display:flex;gap:.5rem;flex-wrap:wrap;flex-shrink:0;background:var(--bg)}
-
-    /* QR MODAL */
-    .qr-modal-overlay{display:none;position:fixed;inset:0;z-index:9000;background:rgba(10,20,45,.8);align-items:center;justify-content:center;padding:1rem}
-    .qr-modal-overlay.open{display:flex}
-    .qr-box{background:#fff;border-radius:var(--radius);padding:1.8rem;text-align:center;max-width:300px;width:100%;box-shadow:var(--shadow-lg)}
-    .qr-box h3{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:.9rem}
-    .qr-box img{max-width:200px;width:100%;border:3px solid var(--border);border-radius:var(--radius-sm)}
-
-    /* FEATURED */
-    .featured-strip{margin-bottom:1.3rem}
-    .featured-label{font-size:.69rem;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--violet);margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem}
-    .featured-label::after{content:'';flex:1;height:1px;background:rgba(107,63,160,.2)}
-    .featured-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.7rem}
-    .featured-card{background:var(--navy);color:#fff;border-radius:var(--radius-sm);padding:.9rem 1rem;cursor:pointer;transition:box-shadow .15s,transform .15s;box-shadow:var(--shadow)}
-    .featured-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px)}
-    .featured-card-title{font-size:.87rem;font-weight:800;margin-bottom:.3rem}
-    .featured-card-meta{font-size:.71rem;color:rgba(255,255,255,.6);display:flex;gap:.35rem;flex-wrap:wrap;align-items:center}
-    .featured-card .yellow{color:var(--yellow)}
-
-    /* EMPTY */
-    .empty-state{text-align:center;padding:3rem 1rem;color:var(--muted)}
-    .empty-state .empty-icon{font-size:2.5rem;margin-bottom:.5rem}
-
-    @media(max-width:520px){
-      .topbar{padding:0 .9rem}
-      .brand-ciuco{height:48px}
-      .brand-logo-img{height:40px}
-      .wrap{padding:1rem .85rem 2rem}
-      .modal-row{grid-template-columns:1fr}
-      .event-right{display:none}
-      .filter-bar{flex-direction:column;align-items:stretch}
-      .filter-bar select,.filter-bar input{width:100%}
+    /* ── MODAL ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(20,28,50,.6);
+      backdrop-filter: blur(3px);
+      z-index: 1000;
+      display: flex; align-items: center; justify-content: center;
+      padding: 1rem;
+      opacity: 0; pointer-events: none;
+      transition: opacity .2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 20px 60px rgba(20,28,50,.3);
+      width: 100%; max-width: 680px; max-height: 90vh;
+      overflow-y: auto;
+      transform: translateY(20px) scale(.97);
+      transition: transform .2s;
+    }
+    .modal-overlay.open .modal { transform: translateY(0) scale(1); }
+    .modal-banner { width: 100%; max-height: 240px; object-fit: cover; border-radius: var(--radius-lg) var(--radius-lg) 0 0; display: block; }
+    .modal-banner-placeholder {
+      background: linear-gradient(135deg, var(--brand-dark) 0%, #253660 100%);
+      height: 110px;
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem;
+    }
+    .modal-body { padding: 1.5rem 1.75rem 1.75rem; }
+    .modal-meta { display: flex; flex-wrap: wrap; gap: .6rem; margin-bottom: 1rem; font-size: .8rem; }
+    .modal-meta span {
+      display: inline-flex; align-items: center; gap: .3rem;
+      padding: .25rem .65rem; border-radius: 999px;
+      background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); font-weight: 600;
+    }
+    .modal-title { font-size: 1.4rem; font-weight: 700; color: var(--brand-dark); margin: 0 0 .35rem; line-height: 1.25; }
+    .modal-type {
+      display: inline-block; font-size: .7rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .3px;
+      padding: .15rem .5rem; border-radius: 3px;
+      background: #e8edf8; color: var(--brand-dark); margin-bottom: .85rem;
+    }
+    .modal-desc { font-size: .93rem; color: #4a5568; line-height: 1.65; margin-bottom: 1rem; white-space: pre-line; }
+    .modal-speakers {
+      background: #f4f0fa; border-left: 3px solid var(--brand-violet);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      padding: .75rem 1rem; margin-bottom: 1rem;
+      font-size: .88rem; color: var(--brand-violet); font-weight: 600;
+    }
+    .modal-tags { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1.25rem; }
+    .modal-tag {
+      font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
+      padding: .2rem .6rem; border-radius: 999px;
+      background: #e8edf8; color: var(--brand-dark); border: 1px solid var(--border);
+    }
+    .modal-seats { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.25rem; font-size: .85rem; }
+    .modal-seats-bar { flex: 1; height: 6px; border-radius: 9999px; background: var(--border-light); overflow: hidden; }
+    .modal-seats-fill { height: 100%; border-radius: 9999px; background: var(--brand-dark); transition: width .4s; }
+    .modal-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-light);
+    }
+    .btn-modal-close {
+      padding: .4rem .9rem; border: 1px solid var(--border);
+      border-radius: var(--radius-sm); font-size: .82rem; font-weight: 700;
+      color: var(--muted); cursor: pointer; background: var(--white); transition: background .15s;
+    }
+    .btn-modal-close:hover { background: var(--bg); }
+    .btn-modal-iscriviti {
+      display: inline-block; padding: .5rem 1.25rem;
+      background: var(--brand-yellow); color: var(--brand-dark);
+      font-weight: 700; font-size: .85rem;
+      text-transform: uppercase; letter-spacing: .4px;
+      border-radius: var(--radius-sm); transition: background .15s; text-decoration: none;
+    }
+    .btn-modal-iscriviti:hover { background: #ffe066; text-decoration: none; }
+    .btn-modal-iscriviti.full { background: var(--border); color: var(--muted); cursor: not-allowed; pointer-events: none; }
+    @media (max-width: 600px) {
+      .modal-body { padding: 1.25rem 1.1rem 1.25rem; }
+      .modal-title { font-size: 1.15rem; }
     }
   </style>
 </head>
 <body>
 
-<!-- TOPBAR -->
-<header class="topbar">
+<!-- TOPBAR con loghi Ludicomix -->
+<div class="topbar">
   <div class="brand">
-    <img src="/img/ciuchino.png" class="brand-ciuco" alt="Ciuchino Ludicomix" onerror="this.style.display='none'">
-    <img src="/img/logo.png" class="brand-logo-img" alt="Logo Ludicomix" onerror="this.style.display='none'">
+    <img src="/img/ciuchino.png" class="brand-ciuco" alt="Ciuchino Ludicomix"
+         onerror="this.style.display='none'">
+    <img src="/img/logo.png" class="brand-logo-img" alt="Logo Ludicomix"
+         onerror="this.style.display='none'">
     <div class="brand-text-block">
       <span class="brand-name">Ludicomix</span>
-      <span class="brand-sub">Programma Ufficiale</span>
+      <span class="brand-sub">Programma eventi</span>
     </div>
   </div>
   <div class="topbar-right">
-    <button class="btn-ghost-nav" onclick="openQrModal()">&#128247; QR</button>
+    Aggiornato<br>
+    <strong style="color:#fff"><%= new Date().toLocaleDateString('it-IT') %></strong>
   </div>
-</header>
+</div>
 
-<div class="wrap">
-  <div class="page-hero">
-    <h1>&#128197; Programma</h1>
-    <p>Programma aggiornato in tempo reale &middot; <%= title %></p>
-  </div>
+<div class="container">
 
-  <!-- FILTER BAR -->
-  <form method="GET" action="" class="filter-bar" id="filterForm">
-    <select name="date" onchange="this.form.submit()" title="Filtra per data">
-      <option value="">&#128197; Tutte le date</option>
-      <% if(typeof dates !== 'undefined' && dates){ dates.forEach(function(d){ %>
-        <option value="<%= d.date %>" <%= (typeof filters!=='undefined'&&filters.date===d.date)?'selected':'' %>>
-          <%= new Date(d.date).toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'}) %>
-        </option>
-      <% })} %>
-    </select>
-    <select name="space" onchange="this.form.submit()" title="Filtra per sala">
-      <option value="">&#127963; Tutte le sale</option>
-      <% if(typeof spaces!=='undefined'&&spaces){ spaces.forEach(function(s){ %>
-        <option value="<%= s.id %>" <%= (typeof filters!=='undefined'&&filters.space==s.id)?'selected':'' %>><%= s.name %></option>
-      <% })} %>
-    </select>
-    <select name="type" onchange="this.form.submit()" title="Filtra per tipo">
-      <option value="">&#127917; Tutti i tipi</option>
-      <% ['Torneo','Dimostrazione','Panel','Workshop','Spettacolo','Altro'].forEach(function(t){ %>
-        <option value="<%= t %>" <%= (typeof filters!=='undefined'&&filters.type===t)?'selected':'' %>><%= t %></option>
-      <% }) %>
-    </select>
-    <input type="text" name="q" placeholder="&#128269; Cerca..."
-           value="<%= (typeof filters!=='undefined'&&filters.q)?filters.q:'' %>"
-           onchange="this.form.submit()" style="min-width:120px">
-    <% if(typeof filters!=='undefined'&&(filters.date||filters.space||filters.type||filters.q)){ %>
-      <a href="?" class="btn btn-outline" style="font-size:.77rem;padding:.28rem .7rem">&#10005; Reset</a>
-    <% } %>
-    <span class="filter-count">
-      <% var evCount=(typeof events!=='undefined'&&events)?events.length:0; %>
-      <%= evCount %> event<%= evCount===1?'o':'i' %>
-    </span>
-  </form>
-
-  <!-- DATE TABS -->
-  <% if(typeof dates!=='undefined'&&dates&&dates.length>1){ %>
-  <div class="date-tabs">
-    <button class="date-tab all <%= (!filters||!filters.date)?'active':'' %>" onclick="location.href='?'">Tutti</button>
+  <!-- Filtri data -->
+  <% if(dates && dates.length > 1) { %>
+  <div class="date-filter">
+    <a href="/programma" class="date-btn <%= !filters.date ? 'active' : '' %>">Tutte le date</a>
     <% dates.forEach(function(d){ %>
-      <button class="date-tab <%= (typeof filters!=='undefined'&&filters.date===d.date)?'active':'' %>"
-              onclick="location.href='?date=<%= encodeURIComponent(d.date) %>'">
-        <%= new Date(d.date).toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'short'}) %>
-      </button>
+      <a href="/programma?date=<%= d.date %>"
+         class="date-btn <%= filters.date === d.date ? 'active' : '' %>">
+        <%= new Date(d.date + 'T12:00:00').toLocaleDateString('it-IT', {weekday:'short', day:'2-digit', month:'short'}) %>
+      </a>
     <% }) %>
   </div>
   <% } %>
 
-  <!-- FEATURED -->
-  <% var featuredEvs=(typeof featured!=='undefined'&&featured)?featured:[]; %>
-  <% if(featuredEvs.length>0&&(!filters||(!filters.date&&!filters.space&&!filters.type&&!filters.q))){ %>
-  <div class="featured-strip">
-    <div class="featured-label">&#11088; In evidenza</div>
-    <div class="featured-cards">
-      <% featuredEvs.forEach(function(ev){ %>
-      <div class="featured-card" onclick="openEventModal(<%= ev.id %>)">
-        <div class="featured-card-title"><%= ev.title %></div>
-        <div class="featured-card-meta">
-          <% if(ev.event_date){ %><span class="yellow">&#128197; <%= new Date(ev.event_date).toLocaleDateString('it-IT',{day:'numeric',month:'short'}) %></span><% } %>
-          <% if(ev.start_time){ %><span>&#128336; <%= ev.start_time.substring(0,5) %></span><% } %>
-          <% if(ev.space_name){ %><span>&#127963; <%= ev.space_name %></span><% } %>
-        </div>
-      </div>
-      <% }) %>
-    </div>
-  </div>
-  <% } %>
-
-  <!-- LISTA EVENTI -->
-  <% var allEvs=(typeof events!=='undefined'&&events)?events:[]; %>
-  <% if(allEvs.length===0){ %>
-    <div class="empty-state">
-      <div class="empty-icon">&#128525;</div>
-      <strong>Nessun evento pubblicato<%= (typeof filters!=='undefined'&&filters.date)?' per questa data':'' %>.</strong>
-      <% if(typeof filters!=='undefined'&&(filters.date||filters.space||filters.type||filters.q)){ %>
-        <p style="margin-top:.5rem;font-size:.82rem"><a href="?" style="color:var(--violet)">Rimuovi i filtri</a> per vedere tutti gli eventi.</p>
-      <% } %>
+  <!-- Lista eventi -->
+  <% if (!events || events.length === 0) { %>
+    <div style="text-align:center;padding:4rem 1rem;color:var(--muted)">
+      <div style="font-size:3rem;margin-bottom:.75rem">&#128525;</div>
+      <p>Nessun evento pubblicato<%= filters && filters.date ? ' per questa data' : '' %>.</p>
     </div>
   <% } else { %>
     <%
-      var groups={};
-      allEvs.forEach(function(ev){
-        var k=ev.event_date||'Senza data';
-        if(!groups[k])groups[k]=[];
-        groups[k].push(ev);
+      var byDay = {};
+      events.forEach(function(e) {
+        if (!byDay[e.date]) byDay[e.date] = [];
+        byDay[e.date].push(e);
       });
-      var gkeys=Object.keys(groups).sort();
+      var sortedDays = Object.keys(byDay).sort();
     %>
-    <% gkeys.forEach(function(dk){ %>
-    <div class="day-group" data-date="<%= dk %>">
-      <div class="day-header">
-        <% if(dk!=='Senza data'){ %>
-          &#128197; <%= new Date(dk).toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'}) %>
-        <% }else{ %>&#128197; Data da definire<% } %>
-      </div>
-      <% groups[dk].forEach(function(ev){ %>
-        <% var sc=ev.space_color||'#6b3fa0'; var slotsLeft=ev.max_participants?(ev.max_participants-(ev.registrations_count||0)):null; %>
-        <div class="event-row" onclick="openEventModal(<%= ev.id %>)">
-          <div class="event-time"><%= ev.start_time?ev.start_time.substring(0,5):'--:--' %></div>
-          <div class="event-dot" style="background:<%= sc %>"></div>
-          <div class="event-body">
-            <div class="event-title"><%= ev.title %></div>
-            <div class="event-meta">
-              <% if(ev.space_name){ %><span class="pill pill-navy">&#127963; <%= ev.space_name %></span><% } %>
-              <% if(ev.event_type){ %><span class="pill pill-violet"><%= ev.event_type %></span><% } %>
-              <% if(ev.end_time){ %><span style="color:var(--faint)">fino alle <%= ev.end_time.substring(0,5) %></span><% } %>
-              <% if(ev.speakers_names){ %><span style="color:var(--muted)">&#128100; <%= ev.speakers_names %></span><% } %>
+    <% sortedDays.forEach(function(day) { %>
+      <div class="day-section">
+        <div class="day-label">
+          <%= new Date(day + 'T12:00:00').toLocaleDateString('it-IT', {weekday:'long', day:'2-digit', month:'long', year:'numeric'}) %>
+        </div>
+        <% byDay[day].forEach(function(e) { %>
+          <% var isFull = e.availability === 'full'; %>
+          <div class="event-card" onclick="openModal(<%= e.id %>)" role="button" tabindex="0">
+            <div class="event-time">
+              <%= e.starttime %><br>
+              <span class="end-time">&ndash; <%= e.endtime %></span>
+            </div>
+            <div>
+              <div>
+                <span class="event-space" style="border-color:<%= e.spacecolor || '#d1d9e6' %>"><%= e.spacename %></span>
+                <span class="event-type"><%= e.eventtype %></span>
+              </div>
+              <div class="event-title"><%= e.title %></div>
+              <% if (e.description) { %>
+                <div class="event-desc"><%= e.description.slice(0, 180) %><%= e.description.length > 180 ? '&hellip;' : '' %></div>
+              <% } %>
+              <% if (e.speakerslist) { %>
+                <div class="event-speakers"><strong><%= e.speakerslist %></strong></div>
+              <% } %>
+              <% if (e.registrationsopen) { %>
+                <% if (isFull) { %>
+                  <span class="btn-iscriviti full" onclick="event.stopPropagation()">Posti esauriti</span>
+                <% } else { %>
+                  <a href="/programma/iscriviti/<%= e.id %>" class="btn-iscriviti" onclick="event.stopPropagation()">Iscriviti &rarr;</a>
+                <% } %>
+              <% } %>
+            </div>
+            <div class="seats-badge <%= e.maxseats > 0 ? (isFull ? 'full' : 'available') : '' %>">
+              <% if (e.maxseats > 0) { %>
+                <%= e.seatstaken %> / <%= e.maxseats %>
+                <% if (isFull) { %><br><span>ESAURITO</span><% } %>
+                <span class="seats-bar">
+                  <span class="seats-bar-fill" style="width:<%= Math.min(100, Math.round(e.seatstaken / e.maxseats * 100)) %>%"></span>
+                </span>
+              <% } else { %>
+                <span style="color:var(--muted);font-weight:400;font-size:.75rem">Ingresso<br>libero</span>
+              <% } %>
             </div>
           </div>
-          <div class="event-right">
-            <% if(ev.max_participants){ %>
-              <% if(slotsLeft<=0){ %><span class="slots-badge slots-full">&#128308; Sold out</span>
-              <% }else{ %><span class="slots-badge slots-ok">&#128994; <%= slotsLeft %> posti</span><% } %>
-            <% }else{ %><span class="slots-badge slots-none">Ingresso libero</span><% } %>
-            <% if(ev.requires_registration){ %><span class="pill pill-blue">&#128221; Iscrizione</span><% } %>
-          </div>
-        </div>
-      <% }) %>
-    </div>
+        <% }) %>
+      </div>
     <% }) %>
   <% } %>
+
 </div>
 
-<!-- MODAL EVENTO -->
-<div id="eventModal" class="modal-overlay" onclick="if(event.target===this)closeEventModal()">
-  <div class="modal-box">
-    <div class="modal-header">
-      <div>
-        <div class="modal-header-title" id="modal-title">—</div>
-        <div class="modal-header-sub" id="modal-sub">—</div>
-      </div>
-      <button class="modal-close" onclick="closeEventModal()">&#10005;</button>
-    </div>
+<div class="footer">
+  <p>Programma aggiornato in tempo reale &middot; <%= title %></p>
+</div>
+
+<!-- MODAL dettaglio evento -->
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div id="modal-banner-area"></div>
     <div class="modal-body">
-      <div id="modal-pills" style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.65rem"></div>
-      <div class="modal-row">
-        <div class="modal-field"><div class="modal-field-label">&#128197; Data</div><div class="modal-field-value" id="modal-date">—</div></div>
-        <div class="modal-field"><div class="modal-field-label">&#128336; Orario</div><div class="modal-field-value" id="modal-time">—</div></div>
-        <div class="modal-field"><div class="modal-field-label">&#127963; Sala</div><div class="modal-field-value" id="modal-space">—</div></div>
-        <div class="modal-field"><div class="modal-field-label">&#127917; Tipo</div><div class="modal-field-value" id="modal-type">—</div></div>
+      <div class="modal-meta" id="modal-meta"></div>
+      <div id="modal-type-badge" class="modal-type"></div>
+      <h2 class="modal-title" id="modal-title"></h2>
+      <div class="modal-desc" id="modal-desc"></div>
+      <div class="modal-speakers" id="modal-speakers" style="display:none"></div>
+      <div class="modal-tags" id="modal-tags" style="display:none"></div>
+      <div class="modal-seats" id="modal-seats" style="display:none">
+        <span id="modal-seats-label"></span>
+        <div class="modal-seats-bar">
+          <div class="modal-seats-fill" id="modal-seats-fill"></div>
+        </div>
+        <span id="modal-seats-pct"></span>
       </div>
-      <div id="modal-desc-wrap" style="display:none;margin-bottom:.7rem">
-        <div class="modal-field-label" style="margin-bottom:.25rem">&#128196; Descrizione</div>
-        <p class="modal-desc" id="modal-desc"></p>
-      </div>
-      <div id="modal-speakers-wrap" style="display:none;margin-bottom:.7rem">
-        <div class="modal-field-label" style="margin-bottom:.25rem">&#128100; Speaker / Ospiti</div>
-        <div class="modal-speakers-wrap" id="modal-speakers"></div>
-      </div>
-      <div id="modal-slots-wrap" style="display:none;margin-bottom:.5rem">
-        <div class="modal-field-label" style="margin-bottom:.25rem">&#127997; Posti</div>
-        <div id="modal-slots"></div>
+      <div class="modal-footer">
+        <button class="btn-modal-close" onclick="closeModal()">&#10005; Chiudi</button>
+        <span id="modal-iscriviti-wrap"></span>
       </div>
     </div>
-    <div class="modal-footer" id="modal-footer"></div>
-  </div>
-</div>
-
-<!-- MODAL QR -->
-<div id="qrModal" class="qr-modal-overlay" onclick="if(event.target===this)closeQrModal()">
-  <div class="qr-box">
-    <h3>&#128247; QR Programma</h3>
-    <img src="/programma/qr" alt="QR Code Programma" onerror="this.alt='QR non disponibile'">
-    <p style="font-size:.74rem;color:var(--muted);margin-top:.7rem">Inquadra il QR per accedere al programma</p>
-    <button class="btn btn-primary" style="margin-top:.8rem;width:100%" onclick="closeQrModal()">Chiudi</button>
   </div>
 </div>
 
 <script>
-var EMAP = {};
-<% if(typeof events!=='undefined'&&events){ events.forEach(function(ev){ %>
-EMAP[<%= ev.id %>]={
-  id:<%= ev.id %>,
-  title:<%- JSON.stringify(ev.title||'') %>,
-  event_date:<%- JSON.stringify(ev.event_date||'') %>,
-  start_time:<%- JSON.stringify(ev.start_time||'') %>,
-  end_time:<%- JSON.stringify(ev.end_time||'') %>,
-  space_name:<%- JSON.stringify(ev.space_name||'') %>,
-  space_color:<%- JSON.stringify(ev.space_color||'#6b3fa0') %>,
-  event_type:<%- JSON.stringify(ev.event_type||'') %>,
-  description:<%- JSON.stringify(ev.description||'') %>,
-  speakers_names:<%- JSON.stringify(ev.speakers_names||'') %>,
-  max_participants:<%= ev.max_participants||'null' %>,
-  registrations_count:<%= ev.registrations_count||0 %>,
-  requires_registration:<%= ev.requires_registration?'true':'false' %>,
-  registration_url:<%- JSON.stringify(ev.registration_url||'') %>
-};
-<% })} %>
-
-function openEventModal(id){
-  var ev=EMAP[id]; if(!ev)return;
-  document.getElementById('modal-title').textContent=ev.title;
-  var sub=[];
-  if(ev.space_name)sub.push('\u{1F3DB} '+ev.space_name);
-  if(ev.event_type)sub.push('\u{1F3AD} '+ev.event_type);
-  document.getElementById('modal-sub').textContent=sub.join(' \u00B7 ');
-  var pills='';
-  if(ev.event_type)pills+='<span class="pill pill-violet">'+ev.event_type+'</span>';
-  if(ev.requires_registration)pills+='<span class="pill pill-blue">\uD83D\uDCDD Iscrizione</span>';
-  if(ev.max_participants){var l=ev.max_participants-ev.registrations_count;
-    pills+=l<=0?'<span class="pill pill-red">\uD83D\uDD34 Sold out</span>':'<span class="pill pill-green">\uD83D\uDFE2 '+l+' posti</span>';
-  }
-  document.getElementById('modal-pills').innerHTML=pills;
-  if(ev.event_date){try{var d=new Date(ev.event_date);document.getElementById('modal-date').textContent=d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});}catch(e){document.getElementById('modal-date').textContent=ev.event_date;}}else{document.getElementById('modal-date').textContent='Da definire';}
-  var t=ev.start_time?ev.start_time.substring(0,5):'--:--';
-  if(ev.end_time)t+=' \u2192 '+ev.end_time.substring(0,5);
-  document.getElementById('modal-time').textContent=t;
-  document.getElementById('modal-space').textContent=ev.space_name||'\u2014';
-  document.getElementById('modal-type').textContent=ev.event_type||'\u2014';
-  if(ev.description){document.getElementById('modal-desc').textContent=ev.description;document.getElementById('modal-desc-wrap').style.display='block';}else{document.getElementById('modal-desc-wrap').style.display='none';}
-  if(ev.speakers_names){
-    var chips=ev.speakers_names.split(',').map(function(s){return '<span class="speaker-chip">\uD83D\uDC64 '+s.trim()+'</span>';}).join('');
-    document.getElementById('modal-speakers').innerHTML=chips;
-    document.getElementById('modal-speakers-wrap').style.display='block';
-  }else{document.getElementById('modal-speakers-wrap').style.display='none';}
-  if(ev.max_participants){
-    var left=ev.max_participants-ev.registrations_count;
-    document.getElementById('modal-slots').innerHTML=left>0
-      ?'<span class="slots-badge slots-ok">\uD83D\uDFE2 '+left+' / '+ev.max_participants+' posti liberi</span>'
-      :'<span class="slots-badge slots-full">\uD83D\uDD34 Esaurito ('+ev.max_participants+' posti)</span>';
-    document.getElementById('modal-slots-wrap').style.display='block';
-  }else{document.getElementById('modal-slots-wrap').style.display='none';}
-  var footer='';
-  if(ev.requires_registration&&ev.registration_url)footer+='<a href="'+ev.registration_url+'" target="_blank" rel="noopener" class="btn btn-accent">\uD83D\uDCDD Iscriviti</a>';
-  else if(ev.requires_registration)footer+='<button class="btn btn-accent" disabled style="opacity:.55">\uD83D\uDCDD Iscrizione non aperta</button>';
-  footer+='<button class="btn btn-outline" onclick="closeEventModal()">Chiudi</button>';
-  document.getElementById('modal-footer').innerHTML=footer;
-  document.getElementById('eventModal').classList.add('open');
-  document.body.style.overflow='hidden';
+function safeJSON(v) {
+  var s = JSON.stringify(v == null ? '' : v);
+  return s.replace(/</g, '\u003c').replace(/>/g, '\u003e');
 }
-function closeEventModal(){document.getElementById('eventModal').classList.remove('open');document.body.style.overflow='';}
-function openQrModal(){document.getElementById('qrModal').classList.add('open');}
-function closeQrModal(){document.getElementById('qrModal').classList.remove('open');}
-document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeEventModal();closeQrModal();}});
+
+var EVENTSDATA = {};
+<% if(events && events.length) { events.forEach(function(e) { %>
+EVENTSDATA[<%= e.id %>] = {
+  id:          <%= e.id %>,
+  title:       <%- JSON.stringify(e.title       || '') %>,
+  description: <%- JSON.stringify(e.description || '') %>,
+  date:        <%- JSON.stringify(e.date        || '') %>,
+  starttime:   <%- JSON.stringify(e.starttime   || '') %>,
+  endtime:     <%- JSON.stringify(e.endtime     || '') %>,
+  spacename:   <%- JSON.stringify(e.spacename   || '') %>,
+  spacecolor:  <%- JSON.stringify(e.spacecolor  || '#d1d9e6') %>,
+  eventtype:   <%- JSON.stringify(e.eventtype   || '') %>,
+  imageurl:    <%- JSON.stringify(e.imageurl    || '') %>,
+  tags:        <%- JSON.stringify(e.tags        || '') %>,
+  speakers:    <%- JSON.stringify(e.speakerslist|| '') %>,
+  maxseats:    <%= e.maxseats   || 0 %>,
+  seatstaken:  <%= e.seatstaken || 0 %>,
+  regopen:     <%= e.registrationsopen ? 1 : 0 %>,
+  isfull:      <%= e.availability === 'full' ? 'true' : 'false' %>
+};
+<% }) } %>
+
+function openModal(id) {
+  var e = EVENTSDATA[id];
+  if (!e) return;
+
+  /* banner */
+  var ba = document.getElementById('modal-banner-area');
+  ba.innerHTML = e.imageurl
+    ? '<img src="' + e.imageurl + '" class="modal-banner" alt="">'
+    : '<div class="modal-banner-placeholder">&#128197;</div>';
+
+  /* meta pills */
+  var dateStr = e.date
+    ? new Date(e.date + 'T12:00:00').toLocaleDateString('it-IT', {weekday:'long', day:'2-digit', month:'long', year:'numeric'})
+    : '';
+  document.getElementById('modal-meta').innerHTML =
+    '<span>&#128197; ' + dateStr + '</span>' +
+    '<span>&#128336; ' + e.starttime + ' &ndash; ' + e.endtime + '</span>' +
+    '<span style="border-color:' + e.spacecolor + '">&#128205; ' + e.spacename + '</span>';
+
+  document.getElementById('modal-type-badge').textContent = e.eventtype;
+  document.getElementById('modal-title').textContent = e.title;
+
+  var descEl = document.getElementById('modal-desc');
+  descEl.textContent = e.description;
+  descEl.style.display = e.description ? '' : 'none';
+
+  var spkEl = document.getElementById('modal-speakers');
+  if (e.speakers) {
+    spkEl.innerHTML = '&#127908; <strong>' + e.speakers + '</strong>';
+    spkEl.style.display = '';
+  } else {
+    spkEl.style.display = 'none';
+  }
+
+  var tagsEl = document.getElementById('modal-tags');
+  if (e.tags) {
+    var html = e.tags.split(',').map(function(t) {
+      return t.trim() ? '<span class="modal-tag">' + t.trim() + '</span>' : '';
+    }).join('');
+    tagsEl.innerHTML = html;
+    tagsEl.style.display = html ? '' : 'none';
+  } else {
+    tagsEl.style.display = 'none';
+  }
+
+  var seatsEl = document.getElementById('modal-seats');
+  if (e.maxseats > 0) {
+    var pct = Math.min(100, Math.round(e.seatstaken / e.maxseats * 100));
+    document.getElementById('modal-seats-label').textContent = e.seatstaken + ' / ' + e.maxseats + ' iscritti';
+    document.getElementById('modal-seats-fill').style.width = pct + '%';
+    document.getElementById('modal-seats-fill').style.background = e.isfull ? '#c0392b' : 'var(--brand-dark)';
+    document.getElementById('modal-seats-pct').textContent = pct + '%';
+    seatsEl.style.display = '';
+  } else {
+    seatsEl.style.display = 'none';
+  }
+
+  var wrapEl = document.getElementById('modal-iscriviti-wrap');
+  if (e.regopen) {
+    wrapEl.innerHTML = e.isfull
+      ? '<span class="btn-modal-iscriviti full">Posti esauriti</span>'
+      : '<a href="/programma/iscriviti/' + e.id + '" class="btn-modal-iscriviti">Iscriviti gratuitamente &rarr;</a>';
+  } else {
+    wrapEl.innerHTML = '';
+  }
+
+  document.getElementById('modal-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+/* FIX: closeModal semplice, nessun controllo su event.target qui */
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModal();
+});
+
+document.querySelectorAll('.event-card').forEach(function(card) {
+  card.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); }
+  });
+});
 </script>
 </body>
 </html>
