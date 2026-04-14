@@ -703,6 +703,10 @@
       <div style="background:#fee2e2;color:#991b1b;padding:.5rem .85rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem">⚠️ Non puoi eliminare l'edizione corrente</div>
     <% } else if (edErr === 'inuse') { %>
       <div style="background:#fef3c7;color:#92400e;padding:.5rem .85rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem">⚠️ Questa edizione ha stand associati — non può essere eliminata</div>
+    <% } else if (edErr === 'anno') { %>
+      <div style="background:#fee2e2;color:#991b1b;padding:.5rem .85rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem">⚠️ L'anno è obbligatorio (es. 2027)</div>
+    <% } else if (edErr === 'db') { %>
+      <div style="background:#fee2e2;color:#991b1b;padding:.5rem .85rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem">⚠️ Errore database — controlla i log del server</div>
     <% } %>
 
     <!-- Crea nuova edizione -->
@@ -716,7 +720,7 @@
         </div>
         <div>
           <label style="display:block;font-size:.74rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.3rem">Anno</label>
-          <input type="number" name="year" placeholder="2027" min="2020" max="2099"
+          <input type="number" name="year" placeholder="2027" min="2020" max="2099" required
             style="border:1.5px solid #d1d9e6;border-radius:8px;padding:.45rem .75rem;font-size:.9rem;width:110px">
         </div>
         <button type="submit" class="btn btn-primary" style="padding:.5rem 1.25rem;font-size:.88rem">Crea edizione</button>

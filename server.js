@@ -2734,38 +2734,55 @@ app.get('/search', requireAuth, (req, res) => {
 
   // Crea nuova edizione
   app.post('/admin/editions', requireAuth, requireAdmin, async (req, res) => {
-    const { name, year } = req.body;
-    if (!name || !name.trim()) return res.redirect('/admin/settings?tab=edizioni&err=nome');
-    await dbRun('INSERT INTO editions (name, year, is_current) VALUES (?,?,0)', name.trim(), parseInt(year)||null);
-    logAction(req.session.user.id, 'create_edition', 'edition', null, `Creata edizione: ${name.trim()}`);
-    res.redirect('/admin/settings?tab=edizioni&saved=1');
+    try {
+      const { name, year } = req.body;
+      if (!name || !name.trim()) return res.redirect('/admin/settings?tab=edizioni&err=nome');
+      const yearInt = parseInt(year, 10);
+      if (!yearInt || isNaN(yearInt)) return res.redirect('/admin/settings?tab=edizioni&err=anno');
+      await dbRun('INSERT INTO editions (name, year, is_current) VALUES (?,?,0)', name.trim(), yearInt);
+      logAction(req.session.user.id, 'create_edition', 'edition', null, `Creata edizione: ${name.trim()}`);
+      res.redirect('/admin/settings?tab=edizioni&saved=1');
+    } catch(e) {
+      console.error('Errore creazione edizione:', e.message);
+      res.redirect('/admin/settings?tab=edizioni&err=db');
+    }
   });
 
   // Imposta edizione corrente
   app.post('/admin/editions/:id/set-current', requireAuth, requireAdmin, async (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    await dbRun('UPDATE editions SET is_current=0');
-    await dbRun('UPDATE editions SET is_current=1 WHERE id=?', id);
-    refreshCurrentEdition(function() {
-      if (_currentEdition) {
-        db.run('UPDATE assignment_groups SET edition_id=? WHERE edition_id IS NULL', [_currentEdition.id]);
-      }
-    });
-    logAction(req.session.user.id, 'set_current_edition', 'edition', id, 'Edizione corrente aggiornata');
-    res.redirect('/admin/settings?tab=edizioni&saved=1');
+    try {
+      const id = parseInt(req.params.id, 10);
+      await dbRun('UPDATE editions SET is_current=0');
+      await dbRun('UPDATE editions SET is_current=1 WHERE id=?', id);
+      refreshCurrentEdition(function() {
+        if (_currentEdition) {
+          db.run('UPDATE assignment_groups SET edition_id=? WHERE edition_id IS NULL', [_currentEdition.id]);
+        }
+      });
+      logAction(req.session.user.id, 'set_current_edition', 'edition', id, 'Edizione corrente aggiornata');
+      res.redirect('/admin/settings?tab=edizioni&saved=1');
+    } catch(e) {
+      console.error('Errore set-current edizione:', e.message);
+      res.redirect('/admin/settings?tab=edizioni&err=db');
+    }
   });
 
   // Elimina edizione (solo se non corrente e senza gruppi associati)
   app.post('/admin/editions/:id/delete', requireAuth, requireAdmin, async (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    const ed  = await dbGet('SELECT * FROM editions WHERE id=?', id);
-    if (!ed) return res.redirect('/admin/settings?tab=edizioni&err=notfound');
-    if (ed.is_current) return res.redirect('/admin/settings?tab=edizioni&err=current');
-    const cnt = await dbGet('SELECT COUNT(*) AS n FROM assignment_groups WHERE edition_id=?', id);
-    if (cnt && cnt.n > 0) return res.redirect('/admin/settings?tab=edizioni&err=inuse');
-    await dbRun('DELETE FROM editions WHERE id=?', id);
-    logAction(req.session.user.id, 'delete_edition', 'edition', id, `Eliminata edizione ${ed.name}`);
-    res.redirect('/admin/settings?tab=edizioni&saved=1');
+    try {
+      const id = parseInt(req.params.id, 10);
+      const ed  = await dbGet('SELECT * FROM editions WHERE id=?', id);
+      if (!ed) return res.redirect('/admin/settings?tab=edizioni&err=notfound');
+      if (ed.is_current) return res.redirect('/admin/settings?tab=edizioni&err=current');
+      const cnt = await dbGet('SELECT COUNT(*) AS n FROM assignment_groups WHERE edition_id=?', id);
+      if (cnt && cnt.n > 0) return res.redirect('/admin/settings?tab=edizioni&err=inuse');
+      await dbRun('DELETE FROM editions WHERE id=?', id);
+      logAction(req.session.user.id, 'delete_edition', 'edition', id, `Eliminata edizione ${ed.name}`);
+      res.redirect('/admin/settings?tab=edizioni&saved=1');
+    } catch(e) {
+      console.error('Errore delete edizione:', e.message);
+      res.redirect('/admin/settings?tab=edizioni&err=db');
+    }
   });
 
   app.get('/richiesta-accreditamento', (req, res) => {
