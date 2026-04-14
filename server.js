@@ -355,6 +355,7 @@ app.get('/home', requireAuth, (req, res) => {
           FROM assignment_groups ag
           JOIN groups g ON g.id = ag.group_id
           LEFT JOIN participants p ON p.assignment_group_id = ag.id
+          WHERE (1=1) ${edFilter()}
           GROUP BY ag.id, ag.name, ag.notes, ag.group_id, ag.stand_name, ag.zone, ag.stand_code, ag.max_passes, g.name, g.priority
           ORDER BY g.priority, g.name, ag.name
         `;
@@ -2114,7 +2115,7 @@ app.get('/api/search', requireAuth, (req, res) => {
       ORDER BY pa.last_name LIMIT 6`;
     const sqlG = `SELECT ag.id, ag.name, ag.stand_name, ag.zone
       FROM assignment_groups ag
-      WHERE ag.name LIKE ? OR ag.stand_name LIKE ? OR ag.zone LIKE ? OR ag.stand_code LIKE ?
+      WHERE (ag.name LIKE ? OR ag.stand_name LIKE ? OR ag.zone LIKE ? OR ag.stand_code LIKE ?) ${edFilter()}
       ORDER BY ag.name LIMIT 5`;
     db.all(sqlP, [like,like,like,like,like,like,like], (e1, passes) => {
       db.all(sqlPa, [like,like,like,like], (e2, participants) => {
@@ -2158,7 +2159,7 @@ app.get('/search', requireAuth, (req, res) => {
       LEFT JOIN groups g ON g.id=ag.group_id
       LEFT JOIN participants pa ON pa.assignment_group_id=ag.id
       LEFT JOIN passes p ON p.participant_id=pa.id AND p.status!='INVALIDATO'
-      WHERE ag.name LIKE ? OR ag.stand_name LIKE ? OR ag.zone LIKE ? OR ag.stand_code LIKE ?
+      WHERE (ag.name LIKE ? OR ag.stand_name LIKE ? OR ag.zone LIKE ? OR ag.stand_code LIKE ?) ${edFilter()}
       GROUP BY ag.id ORDER BY ag.name LIMIT 80`;
     db.all(sqlP, [like,like,like,like,like,like,like], (e1, passes) => {
       db.all(sqlPa, [like,like,like,like,like], (e2, participants) => {
@@ -2178,6 +2179,7 @@ app.get('/search', requireAuth, (req, res) => {
         LEFT JOIN groups g ON g.id = ag.group_id
         LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
         LEFT JOIN passes p ON p.participant_id = pa.id
+        WHERE (1=1) ${edFilter()}
         GROUP BY ag.id ORDER BY g.name, ag.name`,
         [], (e2, groupStats) => {
           db.get("SELECT COUNT(*) as total FROM participants WHERE id NOT IN (SELECT DISTINCT participant_id FROM passes WHERE status!='INVALIDATO')",
@@ -2249,6 +2251,7 @@ app.get('/search', requireAuth, (req, res) => {
       LEFT JOIN groups g ON g.id = ag.group_id
       LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
       LEFT JOIN passes p ON p.participant_id = pa.id
+      WHERE (1=1) ${edFilter()}
       GROUP BY ag.id ORDER BY g.name, ag.name`,
       [], (err, rows) => {
         if (err) return res.status(500).send('Errore generazione report');
