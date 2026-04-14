@@ -559,9 +559,11 @@ router.get('/programma/iscriviti/:id', (req, res) => {
           GROUP BY e.id`, [req.params.id], (err, event) => {
     if (!event) return res.redirect('/programma');
     const full = event.max_seats > 0 && event.seats_taken >= event.max_seats;
+    const success = req.query.success === '1';
     res.render('agenda/register_form', { currentUser: null,
       event,
       full,
+      success,
       flash: getFlash(req),
       title: `Iscrizione — ${event.title}`
     });
@@ -606,6 +608,27 @@ router.post('/programma/iscriviti/:id', (req, res) => {
         res.redirect(`/programma/iscriviti/${eventId}?success=1`);
       }
     );
+  });
+});
+
+
+// ── API: Ricerca partecipanti per collegamento speaker ───────
+router.get('/api/agenda/search-participants', requireAuth, (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (q.length < 2) return res.json([]);
+  const like = '%' + q + '%';
+  db.all(`
+    SELECT p.id, p.first_name, p.last_name, p.email, p.phone,
+           ag.name AS group_name
+    FROM participants p
+    LEFT JOIN assignment_groups ag ON ag.id = p.assignment_group_id
+    WHERE p.first_name LIKE ? OR p.last_name LIKE ? OR p.email LIKE ?
+       OR (p.first_name || ' ' || p.last_name) LIKE ?
+    ORDER BY p.last_name, p.first_name
+    LIMIT 20
+  `, [like, like, like, like], (err, rows) => {
+    if (err) return res.json([]);
+    res.json(rows || []);
   });
 });
 
