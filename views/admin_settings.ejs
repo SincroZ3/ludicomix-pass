@@ -632,20 +632,16 @@
 </div>
 
 
-<
-
-<script>
-(function () {
-
 <!-- ===== TAB EDIZIONI ===== -->
 <div id="panel-edizioni" class="settings-panel" style="display:none">
   <div class="card">
     <div class="card-title">🗓️ Gestione Edizioni</div>
 
-    <% if (locals.saved && req && req.query && req.query.saved) { %>
-      <div class="alert-success" style="background:#d1fae5;color:#065f46;padding:.65rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.88rem">✅ Salvato</div>
+    <% var edSaved = (typeof query !== 'undefined' ? query : (locals.query||{})).saved; %>
+    <% var edErr   = (typeof query !== 'undefined' ? query : (locals.query||{})).err; %>
+    <% if (edSaved) { %>
+      <div style="background:#d1fae5;color:#065f46;padding:.65rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.88rem">✅ Salvato</div>
     <% } %>
-    <% var edErr = (typeof editions !== 'undefined' && typeof req !== 'undefined' && req.query) ? req.query.err : null; %>
 
     <!-- Edizione corrente in evidenza -->
     <% var currentEd = (typeof editions !== 'undefined') ? editions.find(function(e){return e.is_current==1}) : null; %>
@@ -654,7 +650,7 @@
       <span style="font-size:1.5rem">🏆</span>
       <div>
         <div style="font-weight:800;font-size:1rem;color:#1e2d4e"><%= currentEd.name %></div>
-        <div style="font-size:.8rem;color:#64748b">Edizione attiva — tutti i nuovi stand vengono associati a questa edizione</div>
+        <div style="font-size:.8rem;color:#64748b">Edizione attiva — tutti i nuovi stand e le accreditazioni vengono associati a questa edizione</div>
       </div>
     </div>
     <% } %>
@@ -670,7 +666,7 @@
         </tr>
       </thead>
       <tbody>
-        <% if (typeof editions !== 'undefined') { editions.forEach(function(ed) { %>
+        <% if (typeof editions !== 'undefined' && editions.length) { editions.forEach(function(ed) { %>
         <tr style="border-bottom:1px solid #f1f5f9">
           <td style="padding:.65rem .75rem;font-weight:700;color:#1e2d4e"><%= ed.name %></td>
           <td style="padding:.65rem .75rem;color:#64748b"><%= ed.year || '—' %></td>
@@ -681,12 +677,14 @@
               <span style="background:#f1f5f9;color:#94a3b8;font-size:.72rem;font-weight:600;padding:.2rem .55rem;border-radius:12px;text-transform:uppercase">Archivio</span>
             <% } %>
           </td>
-          <td style="padding:.65rem .75rem;text-align:right;display:flex;gap:.4rem;justify-content:flex-end">
+          <td style="padding:.65rem .75rem;text-align:right">
             <% if (!ed.is_current) { %>
-            <form method="post" action="/admin/editions/<%= ed.id %>/set-current" style="display:inline" onsubmit="return confirm('Impostare «<%= ed.name %>» come edizione corrente? Gli stand e le accreditazioni future saranno associati a questa edizione.')">
+            <form method="post" action="/admin/editions/<%= ed.id %>/set-current" style="display:inline"
+              onsubmit="return confirm('Impostare «<%= ed.name %>» come edizione corrente?')">
               <button type="submit" style="background:#1e2d4e;color:#f5c842;border:none;border-radius:6px;padding:.3rem .75rem;font-size:.78rem;font-weight:700;cursor:pointer">↑ Imposta corrente</button>
             </form>
-            <form method="post" action="/admin/editions/<%= ed.id %>/delete" style="display:inline" onsubmit="return confirm('Eliminare «<%= ed.name %>»? È possibile solo se non ha stand associati.')">
+            <form method="post" action="/admin/editions/<%= ed.id %>/delete" style="display:inline;margin-left:.3rem"
+              onsubmit="return confirm('Eliminare «<%= ed.name %>»? Solo se non ha stand associati.')">
               <button type="submit" style="background:#fee2e2;color:#991b1b;border:none;border-radius:6px;padding:.3rem .65rem;font-size:.78rem;font-weight:600;cursor:pointer">🗑</button>
             </form>
             <% } else { %>
@@ -694,23 +692,22 @@
             <% } %>
           </td>
         </tr>
-        <% }); } %>
-        <% if (typeof editions === 'undefined' || !editions.length) { %>
+        <% }); } else { %>
         <tr><td colspan="4" style="padding:1.5rem;text-align:center;color:#94a3b8;font-size:.88rem">Nessuna edizione configurata</td></tr>
         <% } %>
       </tbody>
     </table>
 
+    <!-- Errori -->
+    <% if (edErr === 'current') { %>
+      <div style="background:#fee2e2;color:#991b1b;padding:.5rem .85rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem">⚠️ Non puoi eliminare l'edizione corrente</div>
+    <% } else if (edErr === 'inuse') { %>
+      <div style="background:#fef3c7;color:#92400e;padding:.5rem .85rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem">⚠️ Questa edizione ha stand associati — non può essere eliminata</div>
+    <% } %>
+
     <!-- Crea nuova edizione -->
     <div style="border-top:1px solid #e2e8f0;padding-top:1.25rem">
       <div style="font-weight:700;font-size:.9rem;color:#1e2d4e;margin-bottom:.75rem">➕ Crea nuova edizione</div>
-      <% if (edErr === 'nome') { %>
-        <div style="background:#fee2e2;color:#991b1b;padding:.5rem .85rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem">⚠️ Il nome è obbligatorio</div>
-      <% } else if (edErr === 'current') { %>
-        <div style="background:#fee2e2;color:#991b1b;padding:.5rem .85rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem">⚠️ Non puoi eliminare l'edizione corrente</div>
-      <% } else if (edErr === 'inuse') { %>
-        <div style="background:#fef3c7;color:#92400e;padding:.5rem .85rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem">⚠️ Questa edizione ha stand associati — non può essere eliminata</div>
-      <% } %>
       <form method="post" action="/admin/editions" style="display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap">
         <div>
           <label style="display:block;font-size:.74rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.3rem">Nome edizione *</label>
@@ -725,13 +722,19 @@
         <button type="submit" class="btn btn-primary" style="padding:.5rem 1.25rem;font-size:.88rem">Crea edizione</button>
       </form>
       <p style="font-size:.78rem;color:#94a3b8;margin-top:.65rem">
-        💡 Dopo la creazione usa <strong>↑ Imposta corrente</strong> per attivare la nuova edizione. I dati delle edizioni precedenti restano accessibili nell'archivio storico.
+        💡 Dopo la creazione usa <strong>↑ Imposta corrente</strong> per attivare la nuova edizione.
+        I dati delle edizioni precedenti restano accessibili nell'archivio.
       </p>
     </div>
   </div>
 </div>
 
+
+
+<
+
 <script>
+(function () {
   var PANELS = { zone: 'panel-zone', raggruppamenti: 'panel-raggruppamenti', tipologie: 'panel-tipologie', backup:'panel-backup',notifiche:'panel-notifiche', utenti: 'panel-utenti', scan: 'panel-scan', auto_pass: 'panel-auto_pass', edizioni: 'panel-edizioni' };
   var tabs   = document.querySelectorAll('[data-tab]');
 
