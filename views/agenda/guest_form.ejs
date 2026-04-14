@@ -1,0 +1,123 @@
+<%- include('../partials/header') %>
+
+<div class="page-header">
+  <h1><%= title %></h1>
+  <a href="/agenda/guests" class="btn btn-ghost">← Tutti gli ospiti</a>
+</div>
+
+<% if (flash) { %>
+<div class="alert alert-<%= flash.type %>">
+  <%= flash.type === 'error' ? '⚠️' : '✅' %> <%- flash.msg %>
+</div>
+<% } %>
+
+<form method="POST" action="<%= guest.id ? '/agenda/guests/'+guest.id : '/agenda/guests' %>">
+
+  <div class="card mb-4">
+    <div class="card-header"><h3>🧑‍🎤 Dati ospite</h3></div>
+    <div class="card-body">
+
+      <div class="row">
+        <div class="col">
+          <div class="form-group">
+            <label for="name">Nome *</label>
+            <input type="text" id="name" name="name" class="form-control"
+                   value="<%= guest.name || '' %>" required>
+          </div>
+        </div>
+        <div class="col">
+          <div class="form-group">
+            <label for="category">Categoria *</label>
+            <select id="category" name="category" class="form-control">
+              <% ['ospite','autore','editore','artista','cosplayer','youtuber','streamer','giornalista','altro'].forEach(c => { %>
+              <option value="<%= c %>" <%= (guest.category||'ospite') === c ? 'selected' : '' %>>
+                <%= c.charAt(0).toUpperCase()+c.slice(1) %>
+              </option>
+              <% }); %>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="bio">Biografia pubblica</label>
+        <textarea id="bio" name="bio" class="form-control" rows="4"><%= guest.bio || '' %></textarea>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <div class="form-group">
+            <label for="photo_url">Foto (URL)</label>
+            <input type="url" id="photo_url" name="photo_url" class="form-control"
+                   value="<%= guest.photo_url || '' %>">
+          </div>
+        </div>
+        <div class="col">
+          <div class="form-group">
+            <label for="stand_location">Stand / Luogo</label>
+            <input type="text" id="stand_location" name="stand_location" class="form-control"
+                   value="<%= guest.stand_location || '' %>" placeholder="Es. Stand A4 — Padiglione Est">
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <div class="form-group">
+            <label for="website_url">Sito web</label>
+            <input type="url" id="website_url" name="website_url" class="form-control"
+                   value="<%= guest.website_url || '' %>">
+          </div>
+        </div>
+        <div class="col">
+          <div class="form-group">
+            <label for="social_url">Social principale (URL)</label>
+            <input type="url" id="social_url" name="social_url" class="form-control"
+                   value="<%= guest.social_url || '' %>">
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <div class="form-group">
+            <label for="sort_order">Ordine di visualizzazione</label>
+            <input type="number" id="sort_order" name="sort_order" class="form-control"
+                   value="<%= guest.sort_order || 0 %>" min="0">
+            <small class="text-muted">Numeri più bassi appaiono prima</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="checkbox-group mt-3">
+        <label class="checkbox-label">
+          <input type="checkbox" name="is_published" value="1" <%= guest.is_published ? 'checked' : '' %>>
+          📡 Pubblicato nel programma pubblico
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" name="featured" value="1" <%= guest.featured ? 'checked' : '' %>>
+          ⭐ In evidenza (mostrato in cima alla lista ospiti)
+        </label>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">
+      <%= guest.id ? '💾 Salva modifiche' : '✅ Aggiungi ospite' %>
+    </button>
+    <a href="/agenda/guests" class="btn btn-ghost">Annulla</a>
+
+    <% if (guest.id) { %>
+    &nbsp;
+    <form method="POST" action="/agenda/guests/<%= guest.id %>/delete" style="display:inline"
+          onsubmit="return confirm('Eliminare definitivamente questo ospite?')">
+      <button type="submit" class="btn btn-danger">🗑 Elimina</button>
+    </form>
+    <% } %>
+  </div>
+
+</form>
+
+<%- include('../partials/footer') %>
