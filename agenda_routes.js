@@ -75,7 +75,7 @@ router.get('/agenda', requireAuth, (req, res) => {
       db.get(`SELECT COUNT(*) AS total FROM events`, [], (err3, totRow) => {
         db.get(`SELECT COUNT(*) AS total FROM registrations WHERE status='confirmed'`, [], (err4, regRow) => {
           res.render('agenda/dashboard', {
-            user: req.session.user,
+            currentUser: req.session.user,
             flash: getFlash(req),
             events: events || [],
             spaces: spaces || [],
@@ -101,7 +101,7 @@ router.get('/agenda/spaces', requireAuth, (req, res) => {
           GROUP BY s.id
           ORDER BY s.name`, [], (err, spaces) => {
     res.render('agenda/spaces', {
-      user: req.session.user,
+      currentUser: req.session.user,
       flash: getFlash(req),
       spaces: spaces || [],
       title: 'Sale e Spazi'
@@ -143,6 +143,7 @@ router.post('/agenda/spaces/:id', requireAuth, (req, res) => {
 
 router.post('/agenda/spaces/:id/delete', requireAuth, (req, res) => {
   db.get(`SELECT COUNT(*) AS n FROM events WHERE space_id = ?`, [req.params.id], (err, row) => {
+    if (err) { console.error('[Agenda]', err.message); return res.status(500).send('Errore interno'); }
     if (row && row.n > 0) {
       flash(req, 'error', 'Impossibile eliminare: la sala ha eventi associati.');
       return res.redirect('/agenda/spaces');
@@ -165,7 +166,7 @@ router.get('/agenda/speakers', requireAuth, (req, res) => {
           GROUP BY sp.id
           ORDER BY sp.name`, [], (err, speakers) => {
     res.render('agenda/speakers', {
-      user: req.session.user,
+      currentUser: req.session.user,
       flash: getFlash(req),
       speakers: speakers || [],
       title: 'Ospiti e Speaker'
@@ -235,9 +236,10 @@ router.get('/agenda/events', requireAuth, (req, res) => {
   sql += ` GROUP BY e.id ORDER BY e.date, e.start_time`;
 
   db.all(sql, params, (err, events) => {
+    if (err) { console.error('[Agenda]', err.message); return res.status(500).send('Errore interno'); }
     db.all(`SELECT * FROM spaces WHERE active=1 ORDER BY name`, [], (err2, spaces) => {
       res.render('agenda/events', {
-        user: req.session.user,
+        currentUser: req.session.user,
         flash: getFlash(req),
         events: events || [],
         spaces: spaces || [],
@@ -250,9 +252,10 @@ router.get('/agenda/events', requireAuth, (req, res) => {
 
 router.get('/agenda/events/new', requireAuth, (req, res) => {
   db.all(`SELECT * FROM spaces WHERE active=1 ORDER BY name`, [], (err, spaces) => {
+    if (err) { console.error('[Agenda]', err.message); return res.status(500).send('Errore interno'); }
     db.all(`SELECT * FROM speakers WHERE active=1 ORDER BY name`, [], (err2, speakers) => {
       res.render('agenda/event_form', {
-        user: req.session.user,
+        currentUser: req.session.user,
         flash: getFlash(req),
         event: {},
         spaces: spaces || [],
@@ -320,13 +323,14 @@ router.post('/agenda/events', requireAuth, (req, res) => {
 
 router.get('/agenda/events/:id/edit', requireAuth, (req, res) => {
   db.get(`SELECT * FROM events WHERE id = ?`, [req.params.id], (err, event) => {
+    if (err) { console.error('[Agenda]', err.message); return res.status(500).send('Errore interno'); }
     if (!event) return res.redirect('/agenda/events');
     db.all(`SELECT * FROM spaces WHERE active=1 ORDER BY name`, [], (err2, spaces) => {
       db.all(`SELECT * FROM speakers WHERE active=1 ORDER BY name`, [], (err3, speakers) => {
         db.all(`SELECT speaker_id, role FROM event_speakers WHERE event_id = ? ORDER BY order_num`,
           [req.params.id], (err4, selectedSpeakers) => {
           res.render('agenda/event_form', {
-            user: req.session.user,
+            currentUser: req.session.user,
             flash: getFlash(req),
             event,
             spaces: spaces || [],
@@ -399,6 +403,7 @@ router.post('/agenda/events/:id', requireAuth, (req, res) => {
 
 router.post('/agenda/events/:id/delete', requireAuth, (req, res) => {
   db.get(`SELECT title FROM events WHERE id=?`, [req.params.id], (err, ev) => {
+    if (err) { console.error('[Agenda]', err.message); return res.status(500).send('Errore interno'); }
     db.run(`DELETE FROM events WHERE id=?`, [req.params.id], (err2) => {
       flash(req, err2 ? 'error' : 'success',
         err2 ? 'Errore eliminazione.' : `Evento "${ev ? ev.title : ''}" eliminato.`);
@@ -409,6 +414,7 @@ router.post('/agenda/events/:id/delete', requireAuth, (req, res) => {
 
 router.post('/agenda/events/:id/publish', requireAuth, (req, res) => {
   db.get(`SELECT published FROM events WHERE id=?`, [req.params.id], (err, ev) => {
+    if (err) { console.error('[Agenda]', err.message); return res.status(500).send('Errore interno'); }
     const newStatus = ev && ev.published === 1 ? 0 : 1;
     db.run(`UPDATE events SET published=?, updated_at=datetime('now') WHERE id=?`,
       [newStatus, req.params.id], (err2) => {
@@ -436,7 +442,7 @@ router.get('/agenda/events/:id/registrations', requireAuth, (req, res) => {
       db.get(`SELECT COUNT(*) AS confirmed FROM registrations
               WHERE event_id=? AND status='confirmed'`, [req.params.id], (err3, cnt) => {
         res.render('agenda/registrations', {
-          user: req.session.user,
+          currentUser: req.session.user,
           flash: getFlash(req),
           event,
           registrations: regs || [],
@@ -470,7 +476,7 @@ router.get('/agenda/registrations', requireAuth, (req, res) => {
           ORDER BY r.registered_at DESC
           LIMIT 200`, [], (err, regs) => {
     res.render('agenda/all_registrations', {
-      user: req.session.user,
+      currentUser: req.session.user,
       flash: getFlash(req),
       registrations: regs || [],
       title: 'Tutte le Iscrizioni'
@@ -491,6 +497,7 @@ router.get('/programma', (req, res) => {
   sql += ` ORDER BY date, start_time`;
 
   db.all(sql, params, (err, events) => {
+    if (err) { console.error('[Agenda]', err.message); return res.status(500).send('Errore interno'); }
     // Ricava le date disponibili per il filtro
     db.all(`SELECT DISTINCT date FROM events WHERE published=1 AND is_public=1 ORDER BY date`,
       [], (err2, dates) => {
@@ -507,7 +514,7 @@ router.get('/programma', (req, res) => {
           grouped[ev.date][ev.space_name].push(ev);
         });
 
-        res.render('agenda/public_program', {
+        res.render('agenda/public_program', { currentUser: null,
           grouped,
           events: events || [],
           dates: dates || [],
@@ -552,7 +559,7 @@ router.get('/programma/iscriviti/:id', (req, res) => {
           GROUP BY e.id`, [req.params.id], (err, event) => {
     if (!event) return res.redirect('/programma');
     const full = event.max_seats > 0 && event.seats_taken >= event.max_seats;
-    res.render('agenda/register_form', {
+    res.render('agenda/register_form', { currentUser: null,
       event,
       full,
       flash: getFlash(req),
