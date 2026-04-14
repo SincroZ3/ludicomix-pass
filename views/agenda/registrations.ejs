@@ -1,0 +1,115 @@
+<%- include('../partials/header') %>
+<main class="content">
+
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.2rem;">
+    <h1 class="page-title" style="margin:0;border:none;">👥 Iscrizioni — <%= event.title %></h1>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <a href="/agenda/events/<%= event.id %>/edit" class="secondary">✏️ Modifica evento</a>
+      <a href="/agenda/events" class="secondary">← Tutti gli eventi</a>
+    </div>
+  </div>
+
+  <% if (flash) { %>
+    <div class="alert alert-<%= flash.type === 'error' ? 'danger' : 'success' %>">
+      <span><%= flash.type === 'error' ? '⚠️' : '✅' %></span>
+      <span><%- flash.msg %></span>
+    </div>
+  <% } %>
+
+  <!-- Riepilogo evento -->
+  <div class="card">
+    <div class="card-title">Dettagli evento</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem;">
+      <div>
+        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);">Data e Orario</div>
+        <div style="font-weight:700;"><%= event.date %> · <%= event.start_time %> – <%= event.end_time %></div>
+      </div>
+      <div>
+        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);">Sala</div>
+        <div style="font-weight:700;"><%= event.space_name %></div>
+      </div>
+      <div>
+        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);">Posti</div>
+        <div style="font-weight:700;">
+          <% if(event.max_seats > 0) { %>
+            <span style="color:<%= confirmedCount >= event.max_seats ? '#c0392b' : '#1d6a39' %>;">
+              <%= confirmedCount %> / <%= event.max_seats %>
+            </span>
+            <% if(confirmedCount >= event.max_seats) { %> <span style="color:#c0392b;">ESAURITO</span><% } %>
+          <% } else { %>
+            <span><%= confirmedCount %> iscritti (senza limite)</span>
+          <% } %>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);">Stato</div>
+        <div style="font-weight:700;">
+          <% if(event.published) { %><span style="color:#1d6a39;">● Pubblicato</span><% } else { %><span style="color:#7d5a00;">○ Bozza</span><% } %>
+        </div>
+      </div>
+    </div>
+    <% if(event.max_seats > 0) { %>
+      <div style="margin-top:1rem;background:var(--bg-section);border-radius:var(--radius-sm);height:8px;overflow:hidden;">
+        <div style="background:var(--brand-dark);height:100%;width:<%= Math.min(100, Math.round(confirmedCount/event.max_seats*100)) %>%;transition:width .3s;"></div>
+      </div>
+      <div style="font-size:.75rem;color:var(--text-muted);margin-top:.3rem;"><%= Math.min(100, Math.round(confirmedCount/event.max_seats*100)) %>% dei posti occupati</div>
+    <% } %>
+  </div>
+
+  <!-- Tabella iscritti -->
+  <% if (registrations.length === 0) { %>
+    <div class="card" style="text-align:center;padding:3rem;color:var(--text-muted);">
+      <div style="font-size:2.5rem;margin-bottom:.75rem;">📭</div>
+      <p>Nessuna iscrizione ricevuta per questo evento.</p>
+      <div style="margin-top:.75rem;">
+        <span style="font-size:.85rem;">Link iscrizione pubblica: </span>
+        <a href="/programma/iscriviti/<%= event.id %>" target="_blank" class="link-action">/programma/iscriviti/<%= event.id %></a>
+      </div>
+    </div>
+  <% } else { %>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;gap:.5rem;">
+      <span style="font-size:.85rem;color:var(--text-muted);"><%= registrations.length %> iscrizione/i totali, <%= confirmedCount %> confermate</span>
+      <span style="font-size:.82rem;">Link iscrizione: <a href="/programma/iscriviti/<%= event.id %>" target="_blank" class="link-action">/programma/iscriviti/<%= event.id %> ↗</a></span>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr>
+          <th>#</th><th>Nome</th><th>Email</th><th>Telefono</th><th>Pass</th><th>Stato</th><th>Iscritto il</th><th>Azioni</th>
+        </tr></thead>
+        <tbody>
+        <% registrations.forEach((r, i) => { %>
+          <tr style="<%= r.status === 'cancelled' ? 'opacity:.55;' : '' %>">
+            <td style="color:var(--text-muted);font-size:.78rem;"><%= i+1 %></td>
+            <td><strong><%= r.last_name %> <%= r.first_name %></strong></td>
+            <td><a href="mailto:<%= r.email %>" class="link-action"><%= r.email %></a></td>
+            <td><%= r.phone || '—' %></td>
+            <td>
+              <% if(r.pass_id) { %><span style="color:#1d6a39;font-weight:700;">✓ Sì</span><% } else { %><span style="color:var(--text-muted)">—</span><% } %>
+            </td>
+            <td>
+              <% if(r.status === 'confirmed') { %>
+                <span style="color:#1d6a39;font-weight:700;">● Confermata</span>
+              <% } else if(r.status === 'cancelled') { %>
+                <span style="color:#c0392b;">✕ Annullata</span>
+              <% } else { %>
+                <span class="chip"><%= r.status %></span>
+              <% } %>
+            </td>
+            <td style="font-size:.78rem;color:var(--text-muted)"><%= r.registered_at ? r.registered_at.slice(0,16).replace('T',' ') : '—' %></td>
+            <td>
+              <% if(r.status === 'confirmed') { %>
+                <form method="POST" action="/agenda/events/<%= event.id %>/registrations/<%= r.id %>/cancel"
+                  onsubmit="return confirm('Annullare l\'iscrizione di <%= r.first_name %> <%= r.last_name %>?')">
+                  <button class="btn-danger">Annulla</button>
+                </form>
+              <% } %>
+            </td>
+          </tr>
+        <% }); %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+
+</main>
+<%- include('../partials/footer') %>

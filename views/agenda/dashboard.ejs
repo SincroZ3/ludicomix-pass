@@ -1,0 +1,122 @@
+<%- include('../partials/header') %>
+<main class="content">
+
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.2rem;">
+    <h1 class="page-title" style="margin:0;border:none;">📅 Agenda Palinsesto</h1>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+      <a href="/agenda/events/new" class="primary">+ Nuovo Evento</a>
+      <a href="/agenda/events" class="secondary">Tutti gli eventi</a>
+      <a href="/agenda/spaces" class="secondary">🏛 Sale</a>
+      <a href="/agenda/speakers" class="secondary">🎤 Speaker</a>
+      <a href="/agenda/registrations" class="secondary">📋 Iscrizioni</a>
+    </div>
+  </div>
+
+  <% if (flash) { %>
+    <div class="alert alert-<%= flash.type === 'error' ? 'danger' : 'success' %>">
+      <span><%= flash.type === 'error' ? '⚠️' : '✅' %></span>
+      <span><%- flash.msg %></span>
+    </div>
+  <% } %>
+
+  <!-- Stats -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem;margin-bottom:1.5rem;">
+    <div class="card" style="margin:0;text-align:center;">
+      <div style="font-size:2rem;">📅</div>
+      <div style="font-size:1.6rem;font-weight:700;color:var(--brand-dark);"><%= totalEvents %></div>
+      <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;">Totale eventi</div>
+    </div>
+    <div class="card" style="margin:0;text-align:center;">
+      <div style="font-size:2rem;">👥</div>
+      <div style="font-size:1.6rem;font-weight:700;color:var(--brand-dark);"><%= totalRegistrations %></div>
+      <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;">Iscrizioni confermate</div>
+    </div>
+    <div class="card" style="margin:0;text-align:center;">
+      <div style="font-size:2rem;">🏛</div>
+      <div style="font-size:1.6rem;font-weight:700;color:var(--brand-dark);"><%= spaces.length %></div>
+      <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;">Sale attive</div>
+    </div>
+    <div class="card" style="margin:0;text-align:center;">
+      <div style="font-size:2rem;">📡</div>
+      <a href="/programma" target="_blank" style="display:block;font-size:0.85rem;font-weight:700;color:var(--accent-blue);margin-top:.4rem;">Programma Pubblico ↗</a>
+      <div style="font-size:0.78rem;color:var(--text-muted);margin-top:.2rem;">
+        <a href="/programma/qr" target="_blank" style="font-size:0.75rem;">🔳 QR Code</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Selettore data -->
+  <div class="card">
+    <div class="card-title">Vista giornaliera</div>
+    <form method="GET" action="/agenda" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+      <label style="margin:0;display:flex;align-items:center;gap:.5rem;">
+        <span style="font-size:.82rem;font-weight:700;color:var(--text-secondary);">Data:</span>
+        <input type="date" name="date" value="<%= selectedDate %>" style="width:auto;" onchange="this.form.submit()">
+      </label>
+      <div style="display:flex;gap:.4rem;">
+        <% const prev = new Date(new Date(selectedDate).getTime() - 86400000).toISOString().slice(0,10); %>
+        <% const next = new Date(new Date(selectedDate).getTime() + 86400000).toISOString().slice(0,10); %>
+        <a href="/agenda?date=<%= prev %>" class="secondary" style="padding:.3rem .7rem;">◀ Giorno prec.</a>
+        <a href="/agenda" class="secondary" style="padding:.3rem .7rem;">Oggi</a>
+        <a href="/agenda?date=<%= next %>" class="secondary" style="padding:.3rem .7rem;">Giorno succ. ▶</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Griglia eventi del giorno -->
+  <% if (events.length === 0) { %>
+    <div class="card" style="text-align:center;padding:3rem;color:var(--text-muted);">
+      <div style="font-size:2.5rem;margin-bottom:.75rem;">📭</div>
+      <p>Nessun evento programmato per <strong><%= selectedDate %></strong>.</p>
+      <a href="/agenda/events/new" class="primary" style="margin-top:.75rem;">+ Crea il primo evento</a>
+    </div>
+  <% } else { %>
+    <% const bySpace = {}; events.forEach(e => { if(!bySpace[e.space_name]) bySpace[e.space_name] = []; bySpace[e.space_name].push(e); }); %>
+    <% Object.entries(bySpace).forEach(([spaceName, evs]) => { %>
+      <div class="card">
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>🏛 <%= spaceName %></span>
+          <span style="font-size:.75rem;color:var(--text-muted)"><%= evs.length %> event<%= evs.length===1?'o':'i' %></span>
+        </div>
+        <div class="table-wrapper" style="margin:0;">
+          <table>
+            <thead><tr>
+              <th>Orario</th><th>Titolo</th><th>Tipo</th><th>Posti</th><th>Stato</th><th>Azioni</th>
+            </tr></thead>
+            <tbody>
+            <% evs.forEach(e => { %>
+              <tr>
+                <td style="white-space:nowrap;font-weight:700;"><%= e.start_time %> – <%= e.end_time %></td>
+                <td><strong><%= e.title %></strong></td>
+                <td><span class="chip"><%= e.event_type %></span></td>
+                <td>
+                  <% if(e.max_seats > 0) { %>
+                    <%= e.seats_taken %> / <%= e.max_seats %>
+                    <% if(e.seats_taken >= e.max_seats) { %><span style="color:#c0392b;font-weight:700;"> ESAURITO</span><% } %>
+                  <% } else { %>
+                    <span style="color:var(--text-muted)">Libero</span>
+                  <% } %>
+                </td>
+                <td>
+                  <% if(e.published) { %>
+                    <span style="color:#1d6a39;font-weight:700;">● Pubblicato</span>
+                  <% } else { %>
+                    <span style="color:#7d5a00;">○ Bozza</span>
+                  <% } %>
+                </td>
+                <td style="white-space:nowrap;">
+                  <a href="/agenda/events/<%= e.id %>/edit" class="link-action">Modifica</a>
+                  &nbsp;
+                  <a href="/agenda/events/<%= e.id %>/registrations" class="link-action">Iscritti</a>
+                </td>
+              </tr>
+            <% }); %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% }); %>
+  <% } %>
+
+</main>
+<%- include('../partials/footer') %>

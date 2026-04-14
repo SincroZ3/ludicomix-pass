@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Iscrizione — <%= event.title %></title>
+  <style>
+    :root {
+      --brand-dark:   #1e2d4e;
+      --brand-yellow: #f5c842;
+      --brand-gold:   #c9a227;
+      --brand-violet: #6b3fa0;
+      --accent-blue:  #1d6fa4;
+      --bg:           #f0f2f5;
+      --white:        #ffffff;
+      --border:       #d1d9e6;
+      --text:         #1a2744;
+      --muted:        #718096;
+      --radius-sm:    4px;
+      --radius-md:    8px;
+      --radius-lg:    12px;
+      --shadow-md:    0 3px 10px rgba(30,45,78,.15);
+      --shadow-lg:    0 8px 30px rgba(30,45,78,.20);
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin:0; font-family:-apple-system,'Segoe UI',Arial,sans-serif; font-size:15px;
+      background: var(--brand-dark);
+      background-image: radial-gradient(ellipse at 20% 60%, rgba(107,63,160,.35) 0%, transparent 60%),
+                        radial-gradient(ellipse at 80% 10%, rgba(245,200,66,.1) 0%, transparent 50%);
+      min-height:100vh; display:flex; align-items:center; justify-content:center; padding:1.5rem;
+    }
+    a { color:var(--accent-blue); }
+
+    .card {
+      background:var(--white); border-radius:var(--radius-lg);
+      box-shadow:var(--shadow-lg); width:100%; max-width:500px;
+      border-top:4px solid var(--brand-yellow);
+      overflow:hidden;
+    }
+    .card-header {
+      background:var(--brand-dark); padding:1.2rem 1.5rem;
+      border-bottom:2px solid var(--brand-yellow);
+    }
+    .card-header .event-name { font-size:1.1rem; font-weight:700; color:#fff; margin:0 0 .5rem; }
+    .event-meta { font-size:.8rem; color:#aec6e8; display:flex; flex-wrap:wrap; gap:.75rem; }
+    .event-meta span { display:flex; align-items:center; gap:.25rem; }
+
+    .card-body { padding:1.5rem; }
+
+    label { display:block; font-size:.82rem; font-weight:700; color:#4a5568; margin-bottom:.6rem; }
+    label span.req { color:#c0392b; }
+    .form-group { margin-bottom:1rem; }
+    input[type="text"], input[type="email"], input[type="tel"] {
+      display:block; width:100%; padding:.5rem .75rem;
+      border:1px solid var(--border); border-radius:var(--radius-sm);
+      font-family:inherit; font-size:.9rem; color:var(--text);
+      transition:border-color .15s, box-shadow .15s;
+    }
+    input:focus { outline:none; border-color:var(--brand-dark); box-shadow:0 0 0 3px rgba(30,45,78,.12); }
+
+    .btn-submit {
+      width:100%; padding:.65rem; background:var(--brand-yellow); color:var(--brand-dark);
+      border:none; border-radius:var(--radius-sm);
+      font-family:'Arial Narrow',Arial,sans-serif; font-weight:700; font-size:1rem;
+      letter-spacing:.5px; text-transform:uppercase; cursor:pointer; margin-top:.5rem;
+      transition:background .15s;
+    }
+    .btn-submit:hover { background:#ffe066; }
+    .btn-submit:disabled { background:var(--border); color:var(--muted); cursor:not-allowed; }
+
+    .alert { padding:.75rem 1rem; border-radius:var(--radius-sm); font-size:.88rem; margin-bottom:1rem; }
+    .alert-success { background:#eafaf1; border:1px solid #a9dfbf; color:#1d6a39; }
+    .alert-danger  { background:#fef0f0; border:1px solid #f5b7b1; color:#922b21; }
+
+    .seats-bar-wrap { background:#e8ecf3; border-radius:9999px; height:6px; margin:.4rem 0; }
+    .seats-bar-fill { height:100%; border-radius:9999px; background:var(--brand-dark); display:block; }
+
+    .back-link { display:block; text-align:center; margin-top:1rem; font-size:.82rem; color:#aec6e8; }
+    .back-link a { color:var(--brand-yellow); }
+
+    .success-box { text-align:center; padding:2.5rem 1.5rem; }
+    .success-icon { font-size:3.5rem; margin-bottom:.75rem; }
+    .success-title { font-size:1.3rem; font-weight:700; color:var(--brand-dark); margin-bottom:.5rem; }
+    .success-sub { color:var(--muted); font-size:.9rem; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <div class="card-header">
+      <p class="event-name"><%= event.title %></p>
+      <div class="event-meta">
+        <span>📅 <%= new Date(event.date).toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'long'}) %></span>
+        <span>🕐 <%= event.start_time %> – <%= event.end_time %></span>
+        <span>🏛 <%= event.space_name %></span>
+      </div>
+      <% if(event.max_seats > 0) { %>
+        <div style="margin-top:.75rem;">
+          <div style="font-size:.72rem;color:#aec6e8;margin-bottom:.25rem;">
+            <% const taken = event.seats_taken || 0; const pct = Math.min(100, Math.round(taken/event.max_seats*100)); %>
+            Posti: <%= taken %> / <%= event.max_seats %>
+          </div>
+          <div class="seats-bar-wrap">
+            <span class="seats-bar-fill" style="width:<%= pct %>%;"></span>
+          </div>
+        </div>
+      <% } %>
+    </div>
+
+    <div class="card-body">
+
+      <% if (success) { %>
+        <div class="success-box">
+          <div class="success-icon">🎉</div>
+          <div class="success-title">Iscrizione confermata!</div>
+          <div class="success-sub">
+            Ci vediamo il <strong><%= new Date(event.date).toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'long'}) %></strong>
+            alle <strong><%= event.start_time %></strong> in <strong><%= event.space_name %></strong>!
+          </div>
+          <a href="/programma" style="display:inline-block;margin-top:1.25rem;color:var(--accent-blue);font-size:.85rem;">
+            ← Torna al programma completo
+          </a>
+        </div>
+
+      <% } else if (event.is_full) { %>
+        <div class="alert alert-danger">
+          <strong>⚠️ Posti esauriti.</strong> Non è più possibile iscriversi a questo evento.
+        </div>
+        <a href="/programma" style="display:block;text-align:center;font-size:.85rem;">← Torna al programma</a>
+
+      <% } else { %>
+
+        <% if (flash && flash.msg) { %>
+          <div class="alert alert-<%= flash.type === 'error' ? 'danger' : 'success' %>">
+            <%= flash.msg %>
+          </div>
+        <% } %>
+
+        <% if(event.description) { %>
+          <p style="font-size:.88rem;color:var(--muted);margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid #e8ecf3;">
+            <%= event.description %>
+          </p>
+        <% } %>
+
+        <form method="POST" action="/programma/iscriviti/<%= event.id %>" id="reg-form">
+          <div class="form-group">
+            <label for="first_name">Nome <span class="req">*</span></label>
+            <input type="text" id="first_name" name="first_name" required placeholder="Il tuo nome">
+          </div>
+          <div class="form-group">
+            <label for="last_name">Cognome <span class="req">*</span></label>
+            <input type="text" id="last_name" name="last_name" required placeholder="Il tuo cognome">
+          </div>
+          <div class="form-group">
+            <label for="email">Email <span class="req">*</span></label>
+            <input type="email" id="email" name="email" required placeholder="email@esempio.it">
+          </div>
+          <div class="form-group">
+            <label for="phone">Telefono <small style="font-weight:400;color:var(--muted);">(opzionale)</small></label>
+            <input type="tel" id="phone" name="phone" placeholder="3xx xxxxxxx">
+          </div>
+          <button type="submit" class="btn-submit" id="btn-submit">Iscriviti gratuitamente →</button>
+        </form>
+
+        <p style="font-size:.75rem;color:var(--muted);text-align:center;margin-top:.75rem;">
+          Iscrivendoti accetti il trattamento dei dati per finalità organizzative dell'evento.
+        </p>
+
+      <% } %>
+    </div>
+  </div>
+
+  <div class="back-link"><a href="/programma">← Programma completo</a></div>
+
+  <script>
+    document.getElementById('reg-form') && document.getElementById('reg-form').addEventListener('submit', function(){
+      var btn = document.getElementById('btn-submit');
+      btn.disabled = true;
+      btn.textContent = 'Invio in corso…';
+    });
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,114 @@
+<%- include('../partials/header') %>
+<main class="content">
+
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.2rem;">
+    <h1 class="page-title" style="margin:0;border:none;">📅 Gestione Eventi</h1>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <a href="/agenda/events/new" class="primary">+ Nuovo Evento</a>
+      <a href="/agenda" class="secondary">← Agenda</a>
+    </div>
+  </div>
+
+  <% if (flash) { %>
+    <div class="alert alert-<%= flash.type === 'error' ? 'danger' : 'success' %>">
+      <span><%= flash.type === 'error' ? '⚠️' : '✅' %></span>
+      <span><%- flash.msg %></span>
+    </div>
+  <% } %>
+
+  <!-- Filtri -->
+  <div class="card">
+    <div class="card-title">Filtri</div>
+    <form method="GET" action="/agenda/events" style="display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end;">
+      <div>
+        <label style="margin-bottom:.3rem;">Data</label>
+        <input type="date" name="date" value="<%= filters.date || '' %>" style="width:auto;">
+      </div>
+      <div>
+        <label style="margin-bottom:.3rem;">Sala</label>
+        <select name="space_id" style="width:auto;">
+          <option value="">Tutte le sale</option>
+          <% spaces.forEach(s => { %>
+            <option value="<%= s.id %>" <%= filters.space_id == s.id ? 'selected' : '' %>><%= s.name %></option>
+          <% }); %>
+        </select>
+      </div>
+      <div>
+        <label style="margin-bottom:.3rem;">Stato</label>
+        <select name="published" style="width:auto;">
+          <option value="">Tutti</option>
+          <option value="0" <%= filters.published === '0' ? 'selected' : '' %>>Solo bozze</option>
+          <option value="1" <%= filters.published === '1' ? 'selected' : '' %>>Solo pubblicati</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:.5rem;">
+        <button type="submit" class="primary">Filtra</button>
+        <a href="/agenda/events" class="secondary">Reset</a>
+      </div>
+    </form>
+  </div>
+
+  <% if (events.length === 0) { %>
+    <div class="card" style="text-align:center;padding:3rem;color:var(--text-muted);">
+      <div style="font-size:2.5rem;margin-bottom:.75rem;">📭</div>
+      <p>Nessun evento trovato con i filtri selezionati.</p>
+      <a href="/agenda/events/new" class="primary" style="margin-top:.75rem;">+ Crea evento</a>
+    </div>
+  <% } else { %>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr>
+          <th>Data</th><th>Orario</th><th>Titolo</th><th>Sala</th><th>Tipo</th><th>Speaker</th><th>Posti</th><th>Stato</th><th>Azioni</th>
+        </tr></thead>
+        <tbody>
+        <% events.forEach(e => { %>
+          <tr>
+            <td style="white-space:nowrap;"><%= e.date %></td>
+            <td style="white-space:nowrap;font-weight:700;"><%= e.start_time %> – <%= e.end_time %></td>
+            <td><strong><%= e.title %></strong></td>
+            <td>
+              <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:<%= e.space_color %>;vertical-align:middle;margin-right:.3rem;"></span>
+              <%= e.space_name %>
+            </td>
+            <td><span class="chip"><%= e.event_type %></span></td>
+            <td style="font-size:.78rem;color:var(--text-muted)"><%= e.speakers_list || '—' %></td>
+            <td>
+              <% if(e.max_seats > 0) { %>
+                <%= e.seats_taken %> / <%= e.max_seats %>
+                <% if(e.seats_taken >= e.max_seats) { %> <span style="color:#c0392b;font-size:.75rem;">FULL</span><% } %>
+              <% } else { %>
+                <span style="color:var(--text-muted)">—</span>
+              <% } %>
+            </td>
+            <td>
+              <% if(e.published) { %>
+                <span style="color:#1d6a39;font-weight:700;">● Pubbl.</span>
+              <% } else { %>
+                <span style="color:#7d5a00;">○ Bozza</span>
+              <% } %>
+            </td>
+            <td style="white-space:nowrap;">
+              <a href="/agenda/events/<%= e.id %>/edit" class="link-action">Modifica</a>
+              &nbsp;
+              <form method="POST" action="/agenda/events/<%= e.id %>/publish" style="display:inline;">
+                <button class="link-action" style="background:none;border:none;cursor:pointer;padding:0;font-family:inherit;font-size:.82rem;">
+                  <%= e.published ? 'Bozza' : 'Pubblica' %>
+                </button>
+              </form>
+              &nbsp;
+              <a href="/agenda/events/<%= e.id %>/registrations" class="link-action">Iscritti</a>
+              &nbsp;
+              <form method="POST" action="/agenda/events/<%= e.id %>/delete" style="display:inline;" onsubmit="return confirm('Eliminare «<%= e.title %>»?')">
+                <button class="btn-danger" style="font-size:.75rem;">✕</button>
+              </form>
+            </td>
+          </tr>
+        <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:.78rem;color:var(--text-muted);text-align:right;"><%= events.length %> event<%= events.length===1?'o':'i' %> trovat<%= events.length===1?'o':'i' %></p>
+  <% } %>
+
+</main>
+<%- include('../partials/footer') %>

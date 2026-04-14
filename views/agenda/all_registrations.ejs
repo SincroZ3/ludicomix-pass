@@ -1,0 +1,57 @@
+<%- include('../partials/header') %>
+<main class="content">
+
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.2rem;">
+    <h1 class="page-title" style="margin:0;border:none;">📋 Tutte le Iscrizioni</h1>
+    <a href="/agenda" class="secondary">← Agenda</a>
+  </div>
+
+  <% if (flash) { %>
+    <div class="alert alert-<%= flash.type === 'error' ? 'danger' : 'success' %>">
+      <span><%= flash.type === 'error' ? '⚠️' : '✅' %></span>
+      <span><%- flash.msg %></span>
+    </div>
+  <% } %>
+
+  <% if (registrations.length === 0) { %>
+    <div class="card" style="text-align:center;padding:3rem;color:var(--text-muted);">
+      <div style="font-size:2.5rem;margin-bottom:.75rem;">📭</div>
+      <p>Nessuna iscrizione ricevuta finora.</p>
+    </div>
+  <% } else { %>
+    <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:.75rem;"><%= registrations.length %> iscrizione/i (ultime 200)</p>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr>
+          <th>Evento</th><th>Data</th><th>Sala</th><th>Iscritto</th><th>Email</th><th>Stato</th><th>Ricevuta il</th><th>Azioni</th>
+        </tr></thead>
+        <tbody>
+        <% registrations.forEach(r => { %>
+          <tr style="<%= r.status === 'cancelled' ? 'opacity:.55;' : '' %>">
+            <td><a href="/agenda/events/<%= r.event_id %>/registrations" class="link-action"><strong><%= r.event_title %></strong></a></td>
+            <td style="white-space:nowrap;font-size:.8rem;"><%= r.date %> <%= r.start_time %></td>
+            <td><%= r.space_name %></td>
+            <td><%= r.last_name %> <%= r.first_name %></td>
+            <td><a href="mailto:<%= r.email %>" class="link-action"><%= r.email %></a></td>
+            <td>
+              <% if(r.status === 'confirmed') { %>
+                <span style="color:#1d6a39;font-weight:700;">● Confermata</span>
+              <% } else if(r.status === 'cancelled') { %>
+                <span style="color:#c0392b;">✕ Annullata</span>
+              <% } else { %>
+                <span class="chip"><%= r.status %></span>
+              <% } %>
+            </td>
+            <td style="font-size:.78rem;color:var(--text-muted)"><%= r.registered_at ? r.registered_at.slice(0,16).replace('T',' ') : '—' %></td>
+            <td>
+              <a href="/agenda/events/<%= r.event_id %>/registrations" class="link-action" style="font-size:.78rem;">Vedi tutti</a>
+            </td>
+          </tr>
+        <% }); %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+
+</main>
+<%- include('../partials/footer') %>
