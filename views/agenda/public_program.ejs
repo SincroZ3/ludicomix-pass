@@ -103,7 +103,7 @@
             <% if (e.speakers_list) { %>
               <div class="event-speakers">🎤 <strong><%= e.speakers_list %></strong></div>
             <% } %>
-            <% if (e.max_seats > 0) { %>
+            <% if (e.registrations_open) { %>
               <% if (isFull) { %>
                 <span class="btn-iscriviti full">Posti esauriti</span>
               <% } else { %>

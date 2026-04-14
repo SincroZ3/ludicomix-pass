@@ -145,6 +145,28 @@
             </label>
           </div>
 
+          <div style="margin-bottom:1rem;padding:.85rem;background:#f7f8fb;border-radius:4px;border:1px solid var(--border);">
+            <div style="font-size:.73rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-secondary,#718096);margin-bottom:.65rem;">
+              🎟 Iscrizioni pubbliche
+            </div>
+            <label style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;cursor:pointer;user-select:none;">
+              <div>
+                <div style="font-size:.88rem;font-weight:600;">Abilita pulsante "Iscriviti"</div>
+                <div style="font-size:.78rem;color:var(--text-muted,#718096);margin-top:.15rem;">
+                  Se attivo, il pulsante "Iscriviti" sarà visibile sulla pagina pubblica dell'evento.
+                </div>
+              </div>
+              <div style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;">
+                <input type="checkbox" name="registrations_open" value="1"
+                  id="chk-reg-open"
+                  <%= event.registrations_open ? 'checked' : '' %>
+                  style="position:absolute;opacity:0;width:0;height:0;">
+                <span id="toggle-reg-slider" style="position:absolute;cursor:pointer;inset:0;background:<%= event.registrations_open ? '#437a22' : '#cbd5e0' %>;border-radius:9999px;transition:background .2s;"></span>
+                <span id="toggle-reg-knob" style="position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:3px;left:<%= event.registrations_open ? '23px' : '3px' %>;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);pointer-events:none;"></span>
+              </div>
+            </label>
+          </div>
+
           <div style="display:flex;flex-direction:column;gap:.5rem;">
             <button type="submit" class="primary" style="width:100%;justify-content:center;">
               <%= event.id ? '💾 Salva modifiche' : '✅ Crea evento' %>
@@ -182,4 +204,20 @@ function toggleRole(id, checked) {
   if (sel) sel.style.opacity = checked ? '1' : '.4';
 }
 </script>
+
+<script>
+(function() {
+  var chk    = document.getElementById('chk-reg-open');
+  var slider = document.getElementById('toggle-reg-slider');
+  var knob   = document.getElementById('toggle-reg-knob');
+  if (!chk) return;
+  function update() {
+    slider.style.background = chk.checked ? '#437a22' : '#cbd5e0';
+    knob.style.left         = chk.checked ? '23px'    : '3px';
+  }
+  chk.addEventListener('change', update);
+  // click sull'intera label gestito dal browser: niente extra
+})();
+</script>
+
 <%- include('../partials/footer') %>
