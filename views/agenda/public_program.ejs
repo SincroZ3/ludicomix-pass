@@ -9,9 +9,9 @@
     *,*::before,*::after{box-sizing:border-box;}
     body{margin:0;font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:15px;background:var(--bg);color:var(--text);line-height:1.55;}
     a{color:var(--accent-blue);text-decoration:none;} a:hover{text-decoration:underline;}
-    .topbar{background:var(--brand-dark);border-bottom:3px solid var(--brand-yellow);padding:0 1.5rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;min-height:70px;}
+    .topbar{background:var(--brand-dark);border-bottom:3px solid var(--brand-yellow);padding:0 1.5rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;min-height:70px;isolation:isolate;}
     .brand{display:flex;align-items:center;gap:.75rem;}
-    .brand-logo-img{height:54px;width:auto;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+    .brand-logo-img{height:54px;width:auto;display:block;mix-blend-mode:lighten;}
     .brand-ciuco{height:62px;width:auto;display:block;margin-right:.25rem;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));}
     .brand-text-block{display:flex;flex-direction:column;gap:.05rem;}
     .brand-sub{font-size:.75rem;color:#aec6e8;font-style:italic;letter-spacing:.2px;}
