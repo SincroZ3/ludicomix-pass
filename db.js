@@ -338,6 +338,39 @@ db.run(`CREATE TABLE IF NOT EXISTS ticket_replies (
   FOREIGN KEY(ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE
 )`);
 
+
+// -------- Multi-edizione --------
+db.run(`CREATE TABLE IF NOT EXISTS editions (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT    NOT NULL,
+  year       INTEGER,
+  is_current INTEGER DEFAULT 0,
+  created_at TEXT    DEFAULT (datetime('now'))
+)`);
+
+db.run('ALTER TABLE assignment_groups ADD COLUMN edition_id INTEGER', function() {});
+
+// Seed edizione corrente se non esiste alcuna edizione
+db.get('SELECT COUNT(*) AS n FROM editions', [], function(err, row) {
+  if (!err && row && row.n === 0) {
+    db.run(
+      "INSERT INTO editions (name, year, is_current) VALUES ('Ludicomix 2026', 2026, 1)",
+      [],
+      function(e2) {
+        if (!e2) {
+          db.run('UPDATE assignment_groups SET edition_id = ? WHERE edition_id IS NULL', [this.lastID]);
+        }
+      }
+    );
+  } else {
+    db.get('SELECT id FROM editions WHERE is_current=1 LIMIT 1', [], function(e3, ed) {
+      if (!e3 && ed) {
+        db.run('UPDATE assignment_groups SET edition_id = ? WHERE edition_id IS NULL', [ed.id]);
+      }
+    });
+  }
+});
+
 db.dbPath = dbPath;
 module.exports = db;
 

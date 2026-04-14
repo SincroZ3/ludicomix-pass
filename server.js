@@ -19,6 +19,22 @@ const dbAll = promisify(db.all.bind(db));
 const dbGet = promisify(db.get.bind(db));
 function dbRun(sql,...p){return new Promise((resolve,reject)=>{db.run(sql,p,function(err){if(err)return reject(err);resolve({lastID:this.lastID,changes:this.changes});});});}
 
+// ── Cache edizione corrente (multi-edizione) ──────────────────────────────
+let _currentEdition = null;
+function refreshCurrentEdition(cb) {
+  db.get('SELECT * FROM editions WHERE is_current=1 LIMIT 1', [], function(err, row) {
+    _currentEdition = row || null;
+    if (cb) cb();
+  });
+}
+function edFilter() {
+  return _currentEdition ? `AND ag.edition_id = ${_currentEdition.id}` : '';
+}
+function edVal() { return _currentEdition ? _currentEdition.id : null; }
+refreshCurrentEdition();
+
+
+
 function createNotification(type,title,message,rT,rI){
   db.run("INSERT INTO notifications(type,title,message,related_type,related_id)VALUES(?,?,?,?,?)",[type,title,message,rT||null,rI||null],function(err){if(!err)trySendEmail(title,message);});}
 function trySendEmail(subj,html){
@@ -191,6 +207,7 @@ crmRoutes(app, db, { requireAuth, requireNotViewer, requireOrganizer, logAction,
 
   app.use((req, res, next) => {
     res.locals.currentUser = req.session.user || null;
+    res.locals.currentEdition = _currentEdition;
     next();
   });
 
@@ -253,6 +270,7 @@ crmRoutes(app, db, { requireAuth, requireNotViewer, requireOrganizer, logAction,
                 FROM assignment_groups ag
                 LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
                 LEFT JOIN passes p ON p.participant_id = pa.id
+                WHERE (1=1) ${edFilter()}
                 GROUP BY ag.id
                 HAVING
                   (COUNT(DISTINCT pa.id)>0 AND COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0)=0)
@@ -296,6 +314,7 @@ app.get('/home', requireAuth, (req, res) => {
                 FROM assignment_groups ag
                 LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
                 LEFT JOIN passes p ON p.participant_id = pa.id
+                WHERE (1=1) ${edFilter()}
                 GROUP BY ag.id
                 HAVING
                   (COUNT(DISTINCT pa.id)>0 AND COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0)=0)
@@ -355,8 +374,8 @@ app.get('/home', requireAuth, (req, res) => {
     if (!name || !group_id) return res.status(400).send('Nome gruppo e categoria obbligatori');
     const maxVal = max_passes && parseInt(max_passes, 10) > 0 ? parseInt(max_passes, 10) : null;
     db.run(
-      'INSERT INTO assignment_groups (name, group_id, stand_name, zone, stand_code, max_passes, notes, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, group_id, stand_name || null, zone || null, stand_code || null, maxVal, notes || null, email || null],
+      'INSERT INTO assignment_groups (name, group_id, stand_name, zone, stand_code, max_passes, notes, email, edition_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, group_id, stand_name || null, zone || null, stand_code || null, maxVal, notes || null, email || null, edVal()],
       function (err) {
         if (err) return res.status(500).send('Errore salvataggio gruppo assegnatari');
         logAction(req.session.user.id, 'create_assignment_group', 'assignment_group', this.lastID, `Creato gruppo ${name}`);
@@ -1258,11 +1277,13 @@ async function triggerBatchPassOnClose(groupId) {
         dbAll('SELECT * FROM app_settings'),
         dbAll(`SELECT ag.id, ag.name, ag.portal_open_from, ag.portal_open_until,
                (SELECT COUNT(*) FROM participants WHERE assignment_group_id=ag.id) AS n_participants
-               FROM assignment_groups ag WHERE ag.portal_enabled=1 ORDER BY ag.name`)
+               FROM assignment_groups ag WHERE ag.portal_enabled=1 ${edFilter()} ORDER BY ag.name`)
       ]);
       const smtp = Object.fromEntries((smtpRows||[]).map(r => [r.key, r.value]));
       const apSettings = Object.fromEntries((apRows||[]).map(r => [r.key, r.value]));
-      res.render('admin_settings', { groups, types, zones, users, smtp, scanAttempts: scanAttempts||[], apSettings, portalGroups: portalGroups||[] });
+      db.all('SELECT * FROM editions ORDER BY year DESC', [], function(errEd, editions) {
+        res.render('admin_settings', { groups, types, zones, users, smtp, scanAttempts: scanAttempts||[], apSettings, portalGroups: portalGroups||[], editions: editions||[] });
+      });
     } catch (err) {
       console.error('Errore /admin/settings:', err);
       res.status(500).send('Errore interno del server');
@@ -1351,7 +1372,7 @@ async function triggerBatchPassOnClose(groupId) {
   function _parseCsvBuffer(buf){var wb=XLSX.read(buf,{type:'buffer'});var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',raw:false});return rows.map(function(r){var c={};Object.keys(r).forEach(function(k){c[k.replace(/^\uFEFF/,'')]=r[k];});return c;});}
 
   app.get('/import',requireAuth,requireOrganizer,function(req,res){
-    db.all(`SELECT ag.id,ag.name,g.name AS cat FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id ORDER BY g.name,ag.name`,[],function(err,groups){
+    db.all(`SELECT ag.id,ag.name,g.name AS cat FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id WHERE (1=1) ${edFilter()} ORDER BY g.name,ag.name`,[],function(err,groups){
       db.get("SELECT value FROM app_settings WHERE key='last_import_batch_id'",[],function(e2,bRow){
         db.get("SELECT value FROM app_settings WHERE key='last_import_batch_gid'",[],function(e3,gRow){
           db.get("SELECT value FROM app_settings WHERE key='last_import_batch_ok'",[],function(e4,okRow){
@@ -1420,7 +1441,7 @@ async function triggerBatchPassOnClose(groupId) {
         }
         logAction(req.session.user.id,'import_csv','import',gid,'Import '+ok+' nel gruppo #'+gid+' (batch:'+batchId+')');
         createNotification('import','Import CSV','Importati <strong>'+ok+'</strong> nel gruppo #'+gid+'. Saltati: '+skip+'.','group',gid);
-        return db.all(`SELECT ag.id,ag.name,g.name AS cat FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id ORDER BY g.name,ag.name`,[],function(e,groups){
+        return db.all(`SELECT ag.id,ag.name,g.name AS cat FROM assignment_groups ag LEFT JOIN groups g ON g.id=ag.group_id WHERE (1=1) ${edFilter()} ORDER BY g.name,ag.name`,[],function(e,groups){
           res.render('import',{groups:groups||[],lastBatch:null,result:{ok,skip,errors:errors.map(function(e){return e.msg;}),batchId,gid,hasErrors:errors.length>0}});
         });
       }
@@ -1818,6 +1839,7 @@ async function triggerBatchPassOnClose(groupId) {
               FROM assignment_groups ag
               LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
               LEFT JOIN passes p ON p.participant_id = pa.id
+              WHERE (1=1) ${edFilter()}
               GROUP BY ag.id ORDER BY ag.zone, ag.name`, [], function(err2, groups) {
         if (err2) return res.status(500).send('Errore DB');
         res.render('mappa', { zones: zones||[], groups: groups||[], isAdmin: !!(req.session.user && req.session.user.role==='admin'), canEdit: !!(req.session.user && req.session.user.role !== 'viewer') });
@@ -2705,6 +2727,47 @@ app.get('/search', requireAuth, (req, res) => {
   // ════════════════════════════════════════════════════════
 
   // GET — form pubblica (no auth)
+
+  // ══════════════════════════════════════════════════════
+  // EDIZIONI — gestione multi-anno
+  // ══════════════════════════════════════════════════════
+
+  // Crea nuova edizione
+  app.post('/admin/editions', requireAuth, requireAdmin, async (req, res) => {
+    const { name, year } = req.body;
+    if (!name || !name.trim()) return res.redirect('/admin/settings?tab=edizioni&err=nome');
+    await dbRun('INSERT INTO editions (name, year, is_current) VALUES (?,?,0)', name.trim(), parseInt(year)||null);
+    logAction(req.session.user.id, 'create_edition', 'edition', null, `Creata edizione: ${name.trim()}`);
+    res.redirect('/admin/settings?tab=edizioni&saved=1');
+  });
+
+  // Imposta edizione corrente
+  app.post('/admin/editions/:id/set-current', requireAuth, requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    await dbRun('UPDATE editions SET is_current=0');
+    await dbRun('UPDATE editions SET is_current=1 WHERE id=?', id);
+    refreshCurrentEdition(function() {
+      if (_currentEdition) {
+        db.run('UPDATE assignment_groups SET edition_id=? WHERE edition_id IS NULL', [_currentEdition.id]);
+      }
+    });
+    logAction(req.session.user.id, 'set_current_edition', 'edition', id, 'Edizione corrente aggiornata');
+    res.redirect('/admin/settings?tab=edizioni&saved=1');
+  });
+
+  // Elimina edizione (solo se non corrente e senza gruppi associati)
+  app.post('/admin/editions/:id/delete', requireAuth, requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const ed  = await dbGet('SELECT * FROM editions WHERE id=?', id);
+    if (!ed) return res.redirect('/admin/settings?tab=edizioni&err=notfound');
+    if (ed.is_current) return res.redirect('/admin/settings?tab=edizioni&err=current');
+    const cnt = await dbGet('SELECT COUNT(*) AS n FROM assignment_groups WHERE edition_id=?', id);
+    if (cnt && cnt.n > 0) return res.redirect('/admin/settings?tab=edizioni&err=inuse');
+    await dbRun('DELETE FROM editions WHERE id=?', id);
+    logAction(req.session.user.id, 'delete_edition', 'edition', id, `Eliminata edizione ${ed.name}`);
+    res.redirect('/admin/settings?tab=edizioni&saved=1');
+  });
+
   app.get('/richiesta-accreditamento', (req, res) => {
     res.render('accreditation-request', {
       sent:  req.query.sent  || null,
@@ -2794,15 +2857,16 @@ app.get('/search', requireAuth, (req, res) => {
 
       const result = await dbRun(
         `INSERT INTO assignment_groups
-          (name, group_id, zone, stand_name, max_passes, email, portal_token, portal_enabled, contract_status)
-         VALUES (?,?,?,?,?,?,?,1,'bozza')`,
+          (name, group_id, zone, stand_name, max_passes, email, portal_token, portal_enabled, contract_status, edition_id)
+         VALUES (?,?,?,?,?,?,?,1,'bozza',?)`,
         request.company_name,
         group_id ? parseInt(group_id, 10) : null,
         resolvedZone,
         resolvedStand,
         resolvedPasses,
         request.email,
-        portalToken
+        portalToken,
+        edVal()
       );
       const newGroupId = result.lastID;
       await dbRun(
