@@ -414,6 +414,8 @@ db.serialize(() => {
   // VIEWS — agenda
   // ═══════════════════════════════════════════════════════
 
+  // Ricrea sempre la view per aggiornare la definizione dopo migrazioni
+  db.run(`DROP VIEW IF EXISTS v_public_program`, () => {
   db.run(`CREATE VIEW IF NOT EXISTS v_public_program AS
     SELECT
       e.id, e.title, e.description, e.date, e.start_time, e.end_time,
@@ -435,7 +437,7 @@ db.serialize(() => {
     LEFT JOIN speakers sp       ON sp.id       = es.speaker_id
     WHERE e.published = 1 AND e.is_public = 1
     GROUP BY e.id
-    ORDER BY e.date, e.start_time`);
+    ORDER BY e.date, e.start_time`); });
 
   // ═══════════════════════════════════════════════════════
   // APP SETTINGS — seed valori default
