@@ -11,7 +11,7 @@
     a{color:var(--accent-blue);text-decoration:none;} a:hover{text-decoration:underline;}
     .topbar{background:var(--brand-dark);border-bottom:3px solid var(--brand-yellow);padding:0 1.5rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;min-height:70px;}
     .brand{display:flex;align-items:center;gap:.75rem;}
-    .brand-logo-img{height:54px;width:auto;display:block;mix-blend-mode:screen;}
+    .brand-logo-img{height:54px;width:auto;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
     .brand-ciuco{height:62px;width:auto;display:block;margin-right:.25rem;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));}
     .brand-text-block{display:flex;flex-direction:column;gap:.05rem;}
     .brand-sub{font-size:.75rem;color:#aec6e8;font-style:italic;letter-spacing:.2px;}
@@ -196,23 +196,27 @@
 </div>
 
 <script>
+function safeJSON(v) {
+  var s = JSON.stringify(v == null ? '' : v);
+  return s.replace(/</g, '\u003c').replace(/>/g, '\u003e');
+}
 var EVENTS_DATA = {};
 <% events.forEach(function(e) {
      var isFull = e.availability === 'full';
 %>
 EVENTS_DATA[<%= e.id %>] = {
   id:         <%= e.id %>,
-  title:      <%- JSON.stringify(e.title) %>,
-  description:<%- JSON.stringify(e.description || '') %>,
-  date:       <%- JSON.stringify(e.date) %>,
-  start_time: <%- JSON.stringify(e.start_time) %>,
-  end_time:   <%- JSON.stringify(e.end_time) %>,
-  space_name: <%- JSON.stringify(e.space_name) %>,
-  space_color:<%- JSON.stringify(e.space_color || '#d1d9e6') %>,
-  event_type: <%- JSON.stringify(e.event_type) %>,
-  image_url:  <%- JSON.stringify(e.image_url || '') %>,
-  tags:       <%- JSON.stringify(e.tags || '') %>,
-  speakers:   <%- JSON.stringify(e.speakers_list || '') %>,
+  title:      <%- safeJSON(e.title) %>,
+  description:<%- safeJSON(e.description || '') %>,
+  date:       <%- safeJSON(e.date) %>,
+  start_time: <%- safeJSON(e.start_time) %>,
+  end_time:   <%- safeJSON(e.end_time) %>,
+  space_name: <%- safeJSON(e.space_name) %>,
+  space_color:<%- safeJSON(e.space_color || '#d1d9e6') %>,
+  event_type: <%- safeJSON(e.event_type) %>,
+  image_url:  <%- safeJSON(e.image_url || '') %>,
+  tags:       <%- safeJSON(e.tags || '') %>,
+  speakers:   <%- safeJSON(e.speakers_list || '') %>,
   max_seats:  <%= e.max_seats %>,
   seats_taken:<%= e.seats_taken %>,
   reg_open:   <%= e.registrations_open ? 1 : 0 %>,
