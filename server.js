@@ -54,7 +54,8 @@ function checkGroupLimit(gid){
     if(pct>=100)createNotification('limit_reached','Limite gruppo raggiunto','Gruppo <strong>'+row.name+'</strong> al 100% ('+row.cnt+'/'+row.max_passes+').','group',gid);
     else if(pct>=90)createNotification('limit_warning','Gruppo vicino al limite','Gruppo <strong>'+row.name+'</strong> al '+pct+'% ('+row.cnt+'/'+row.max_passes+').','group',gid);});}
 
-  const crmRoutes = require('./routes/crm');
+  const crmRoutes   = require('./routes/crm');
+const agendaRoutes = require('./agenda_routes');
 const app = express();
   const PORT = process.env.PORT || 8080;
 
@@ -107,6 +108,7 @@ const app = express();
   const uploadMemory = multer({ storage: multer.memoryStorage(), limits:{ fileSize:2*1024*1024 } });
 
 crmRoutes(app, db, { requireAuth, requireNotViewer, requireOrganizer, logAction, uploadMemory });
+app.use('/', agendaRoutes);
 
 
   // ══════════════════════════════════════════════════════
