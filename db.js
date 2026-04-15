@@ -441,21 +441,23 @@ db.run(`DROP VIEW IF EXISTS v_public_program`, () => {
     SELECT
       e.id, e.title, e.description, e.date, e.start_time, e.end_time,
       e.event_type, e.image_url, e.tags, e.max_seats, e.registrations_open,
+      e.featured,
       s.name AS space_name,
       s.color AS space_color,
       s.capacity AS space_capacity,
-      COUNT(r.id) AS seats_taken,
+      COUNT(DISTINCT r.id) AS seats_taken,
       CASE
         WHEN e.max_seats = 0 THEN 'open'
-        WHEN COUNT(r.id) >= e.max_seats THEN 'full'
+        WHEN COUNT(DISTINCT r.id) >= e.max_seats THEN 'full'
         ELSE 'available'
       END AS availability,
-      GROUP_CONCAT(sp.name, ', ') AS speakers_list
+      (SELECT GROUP_CONCAT(sp2.name, ', ')
+       FROM event_speakers es2
+       JOIN speakers sp2 ON sp2.id = es2.speaker_id
+       WHERE es2.event_id = e.id) AS speakers_list
     FROM events e
     JOIN spaces s ON s.id = e.space_id
     LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'confirmed'
-    LEFT JOIN event_speakers es ON es.event_id = e.id
-    LEFT JOIN speakers sp ON sp.id = es.speaker_id
     WHERE e.published = 1 AND e.is_public = 1
     GROUP BY e.id
     ORDER BY e.date, e.start_time`);
