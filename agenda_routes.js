@@ -404,7 +404,7 @@ router.post('/agenda/events', requireAuth, (req, res) => {
           max_seats, event_type, is_public, published, registrations_open, featured, image_url, tags, notes,
           location_type, location_text,
           speaker_ids, speaker_roles } = req.body;
-  const locationTextVal = location_type === 'espositore' ? (location_text || '').trim() || null : null;
+  const locationTextVal = ['espositore','associazione'].includes(location_type) ? (location_text || '').trim() || null : null;
 
   if (!title || !space_id || !date || !start_time || !end_time) {
     flash(req, 'error', 'Titolo, sala, data e orari sono obbligatori.');
@@ -482,7 +482,7 @@ router.post('/agenda/events/:id', requireAuth, (req, res) => {
           max_seats, event_type, is_public, published, registrations_open, featured, image_url, tags, notes,
           location_type, location_text,
           speaker_ids, speaker_roles } = req.body;
-  const locationTextVal = location_type === 'espositore' ? (location_text || '').trim() || null : null;
+  const locationTextVal = ['espositore','associazione'].includes(location_type) ? (location_text || '').trim() || null : null;
 
   if (!title || !space_id || !date || !start_time || !end_time) {
     flash(req, 'error', 'Titolo, sala, data e orari sono obbligatori.');
