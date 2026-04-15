@@ -111,8 +111,9 @@
           <div style="margin-bottom:.85rem">
             <label>Tipo luogo <span class="req">*</span></label>
             <select name="location_type" id="locationTypeSelect" onchange="toggleLocationUI()">
-              <option value="sala"       <%= (!event.location_text) ? 'selected' : '' %>>🏛 Sala / Spazio</option>
-              <option value="espositore" <%= (event.location_text)  ? 'selected' : '' %>>🏪 Espositore / Stand / Altro</option>
+              <option value="sala"          <%= (!event.location_text) ? 'selected' : '' %>>🏛 Sala / Spazio</option>
+              <option value="espositore"    <%= (event.location_text && event.location_type === 'espositore') ? 'selected' : '' %>>🏪 Espositore / Stand</option>
+              <option value="associazione"  <%= (event.location_text && event.location_type === 'associazione') ? 'selected' : '' %>>🎲 Associazione</option>
             </select>
           </div>
 
@@ -129,12 +130,12 @@
             </select>
           </div>
 
-          <!-- Espositore / Stand -->
+          <!-- Espositore / Stand / Associazione -->
           <div style="margin-bottom:.85rem;display:none" id="espositoreBlock">
-            <label>Nome espositore / luogo <span class="req">*</span></label>
+            <label id="espositoreLabel">Nome espositore / luogo <span class="req">*</span></label>
             <input type="text" name="location_text" id="location_text_input"
                    value="<%= event.location_text || '' %>"
-                   placeholder="Es. Stand B12, Area Espositiva Nord, Palco Esterno…">
+                   placeholder="Es. Stand B12 / Nome Associazione…">
             <span class="help-text">Mostrato al posto della sala nel programma pubblico.</span>
             <!-- space_id nascosto con primo valore valido (soddisfa NOT NULL) -->
             <input type="hidden" name="space_id" id="space_id_hidden"
@@ -286,16 +287,23 @@ function toggleLocationUI() {
   var espB    = document.getElementById('espositoreBlock');
   var salaSel = document.getElementById('space_id_select');
   var espInp  = document.getElementById('location_text_input');
-  if (type === 'espositore') {
+  var espLbl  = document.getElementById('espositoreLabel');
+  var espHidden = document.getElementById('space_id_hidden');
+  if (type === 'espositore' || type === 'associazione') {
+    if (espLbl) espLbl.innerHTML = (type === 'associazione' ? 'Nome associazione <span class="req">*</span>' : 'Nome espositore / luogo <span class="req">*</span>');
     salaB.style.display = 'none';
     espB.style.display  = '';
     salaSel.removeAttribute('required');
+    salaSel.disabled = true;          // NON sottomettere il select sala
     espInp.setAttribute('required','required');
+    if (espHidden) espHidden.disabled = false;
   } else {
     salaB.style.display = '';
     espB.style.display  = 'none';
     salaSel.setAttribute('required','required');
+    salaSel.disabled = false;
     espInp.removeAttribute('required');
+    if (espHidden) espHidden.disabled = true; // NON sottomettere l'hidden quando si usa la sala
   }
 }
 document.addEventListener('DOMContentLoaded', toggleLocationUI);
