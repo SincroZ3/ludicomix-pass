@@ -169,25 +169,6 @@
   </div>
 </div>
 <% } %>
-<% const featured = events.filter(e => e.is_featured); %>
-<% if (featured.length > 0) { %>
-<div style="margin:0 0 1.8rem;padding:1.2rem 1.4rem;background:linear-gradient(135deg,#fffbe6,#fff7cc);border:2px solid #f5c842;border-radius:12px;">
-  <div style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#92400e;margin-bottom:.9rem;">⭐ In evidenza</div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:.7rem;">
-    <% featured.forEach(ev => { %>
-    <div style="background:#fff;border-left:4px solid <%- ev.space_color||'#6b3fa0' %>;border-radius:8px;padding:.8rem 1rem;box-shadow:0 2px 8px rgba(30,45,78,.09);">
-      <div style="font-size:.63rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#6b3fa0;margin-bottom:.25rem;"><%= ev.event_type||'evento' %></div>
-      <div style="font-size:.9rem;font-weight:700;color:#1a2744;margin-bottom:.45rem;line-height:1.3;"><%= ev.title %></div>
-      <div style="display:flex;flex-wrap:wrap;gap:.35rem;font-size:.7rem;color:#64748b;">
-        <span>📅 <%= new Date(ev.date).toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'short'}) %></span>
-        <span>🕐 <%= ev.start_time %>–<%= ev.end_time %></span>
-        <span>📍 <%= ev.space_name %></span>
-      </div>
-    </div>
-    <% }) %>
-  </div>
-</div>
-<% } %>
 <% const byDay = {}; events.forEach(e => { if(!byDay[e.date]) byDay[e.date]=[]; byDay[e.date].push(e); }); %>
       <% Object.entries(byDay).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([date, evs]) => { %>
         <div class="day-section">
