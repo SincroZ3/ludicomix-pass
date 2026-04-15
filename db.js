@@ -419,6 +419,7 @@ db.run(`CREATE INDEX IF NOT EXISTS idx_ann_pinned ON announcements(is_pinned, cr
 
 // Migrazione: aggiunge la colonna se il DB esiste già (no-op se già presente)
 db.run(`ALTER TABLE events ADD COLUMN registrations_open INTEGER NOT NULL DEFAULT 0`, () => {});
+db.run(`ALTER TABLE events ADD COLUMN featured INTEGER NOT NULL DEFAULT 0`, () => {});
 
 db.run(`CREATE INDEX IF NOT EXISTS idx_events_date ON events(date)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_events_space_date ON events(space_id, date, start_time)`);

@@ -146,20 +146,33 @@
         <div class="card">
           <div class="card-title">Pubblicazione</div>
 
-          <div style="margin-bottom:.85rem">
+          <%# BUG FIX #2 — confronto esplicito == 1 su tutti i checkbox
+              così funziona correttamente sia con integer SQLite (0/1)
+              sia con eventuali string "0"/"1" restituite dal driver %>
+
+          <div style="margin-bottom:.75rem">
             <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
               <input type="checkbox" name="is_public" value="1"
-                     <%= (event.id ? event.is_public : 1) ? 'checked' : '' %>>
+                     <%= event.id ? (event.is_public == 1 ? 'checked' : '') : 'checked' %>>
               <span>Visibile nel programma pubblico</span>
             </label>
           </div>
 
-          <div style="margin-bottom:1rem">
+          <div style="margin-bottom:.75rem">
             <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
               <input type="checkbox" name="published" value="1"
-                     <%= event.published ? 'checked' : '' %>>
+                     <%= event.published == 1 ? 'checked' : '' %>>
               <span>Pubblicato / attivo nel sito</span>
             </label>
+          </div>
+
+          <div style="margin-bottom:.75rem">
+            <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+              <input type="checkbox" name="featured" value="1"
+                     <%= event.featured == 1 ? 'checked' : '' %>>
+              <span>⭐ In evidenza nel programma</span>
+            </label>
+            <span class="help-text" style="margin-left:1.5rem">Gli eventi in evidenza appaiono in cima alla pagina pubblica.</span>
           </div>
 
           <!-- Toggle iscrizioni -->
@@ -177,12 +190,12 @@
               <div style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0">
                 <input type="checkbox" name="registrations_open" value="1"
                        id="chk-reg-open"
-                       <%= event.registrations_open ? 'checked' : '' %>
+                       <%= event.registrations_open == 1 ? 'checked' : '' %>
                        style="position:absolute;opacity:0;width:0;height:0">
                 <span id="toggle-reg-slider"
-                      style="position:absolute;cursor:pointer;inset:0;background:<%= event.registrations_open ? '#437a22' : '#cbd5e0' %>;border-radius:9999px;transition:background .2s"></span>
+                      style="position:absolute;cursor:pointer;inset:0;background:<%= event.registrations_open == 1 ? '#437a22' : '#cbd5e0' %>;border-radius:9999px;transition:background .2s"></span>
                 <span id="toggle-reg-knob"
-                      style="position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:3px;left:<%= event.registrations_open ? '23px' : '3px' %>;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);pointer-events:none"></span>
+                      style="position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:3px;left:<%= event.registrations_open == 1 ? '23px' : '3px' %>;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);pointer-events:none"></span>
               </div>
             </label>
           </div>
