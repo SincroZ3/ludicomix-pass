@@ -63,7 +63,7 @@ router.get('/agenda', requireAuth, (req, res) => {
   const date = req.query.date || new Date().toISOString().slice(0, 10);
 
   db.all(`SELECT e.*, s.name AS space_name, s.color AS space_color,
-            COUNT(DISTINCT r.id) AS seats_taken
+            COUNT(r.id) AS seats_taken
           FROM events e
           JOIN spaces s ON s.id = e.space_id
           LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'confirmed'
@@ -218,7 +218,7 @@ router.post('/agenda/speakers/:id/delete', requireAuth, (req, res) => {
 router.get('/agenda/events', requireAuth, (req, res) => {
   const { date, space_id, published } = req.query;
   let sql = `SELECT e.*, s.name AS space_name, s.color AS space_color,
-               COUNT(DISTINCT r.id) AS seats_taken,
+               COUNT(r.id) AS seats_taken,
                GROUP_CONCAT(sp.name, ', ') AS speakers_list
              FROM events e
              JOIN spaces s ON s.id = e.space_id
@@ -551,7 +551,7 @@ router.get('/programma/qr', (req, res) => {
 // ── Iscrizione pubblica a un evento ──────────────────────────
 router.get('/programma/iscriviti/:id', (req, res) => {
   db.get(`SELECT e.*, s.name AS space_name,
-            COUNT(DISTINCT r.id) AS seats_taken
+            COUNT(r.id) AS seats_taken
           FROM events e
           JOIN spaces s ON s.id = e.space_id
           LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'confirmed'
@@ -580,7 +580,7 @@ router.post('/programma/iscriviti/:id', (req, res) => {
   }
 
   // Controlla capienza prima di iscrivere
-  db.get(`SELECT e.max_seats, e.registrations_open, COUNT(DISTINCT r.id) AS seats_taken
+  db.get(`SELECT e.max_seats, e.registrations_open, COUNT(r.id) AS seats_taken
           FROM events e
           LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'confirmed'
           WHERE e.id=? GROUP BY e.id`, [eventId], (err, ev) => {

@@ -423,10 +423,10 @@ db.serialize(() => {
       s.name  AS space_name,
       s.color AS space_color,
       s.capacity AS space_capacity,
-      COUNT(DISTINCT r.id) AS seats_taken,
+      COUNT(r.id) AS seats_taken,
       CASE
         WHEN e.max_seats = 0 THEN 'open'
-        WHEN COUNT(DISTINCT r.id) >= e.max_seats THEN 'full'
+        WHEN COUNT(r.id) >= e.max_seats THEN 'full'
         ELSE 'available'
       END AS availability,
       GROUP_CONCAT(sp.name, ', ') AS speakers_list
