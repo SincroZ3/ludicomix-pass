@@ -420,6 +420,7 @@ db.run(`CREATE INDEX IF NOT EXISTS idx_ann_pinned ON announcements(is_pinned, cr
 // Migrazione: aggiunge la colonna se il DB esiste già (no-op se già presente)
 db.run(`ALTER TABLE events ADD COLUMN registrations_open INTEGER NOT NULL DEFAULT 0`, () => {});
 db.run(`ALTER TABLE events ADD COLUMN featured INTEGER NOT NULL DEFAULT 0`, () => {});
+db.run(`ALTER TABLE events ADD COLUMN location_text TEXT`, () => {});
 
 db.run(`CREATE INDEX IF NOT EXISTS idx_events_date ON events(date)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_events_space_date ON events(space_id, date, start_time)`);
@@ -437,12 +438,14 @@ db.run(`CREATE INDEX IF NOT EXISTS idx_guests_active ON guests(active, sort_orde
 
 // Ricrea sempre la view per aggiornare la definizione dopo migrazioni
 db.run(`DROP VIEW IF EXISTS v_public_program`, () => {
-  db.run(`CREATE VIEW IF NOT EXISTS v_public_program AS
+  db.run(`DROP VIEW IF EXISTS v_public_program`, () => {
+  db.run(`CREATE VIEW v_public_program AS
     SELECT
       e.id, e.title, e.description, e.date, e.start_time, e.end_time,
       e.event_type, e.image_url, e.tags, e.max_seats, e.registrations_open,
       e.featured,
-      s.name AS space_name,
+      e.location_text,
+      COALESCE(e.location_text, s.name) AS space_name,
       s.color AS space_color,
       s.capacity AS space_capacity,
       COUNT(DISTINCT r.id) AS seats_taken,

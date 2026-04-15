@@ -402,7 +402,9 @@ router.get('/agenda/events/new', requireAuth, (req, res) => {
 router.post('/agenda/events', requireAuth, (req, res) => {
   const { title, description, space_id, date, start_time, end_time,
           max_seats, event_type, is_public, published, registrations_open, featured, image_url, tags, notes,
+          location_type, location_text,
           speaker_ids, speaker_roles } = req.body;
+  const locationTextVal = location_type === 'espositore' ? (location_text || '').trim() || null : null;
 
   if (!title || !space_id || !date || !start_time || !end_time) {
     flash(req, 'error', 'Titolo, sala, data e orari sono obbligatori.');
@@ -422,12 +424,12 @@ router.post('/agenda/events', requireAuth, (req, res) => {
 
     db.run(
       `INSERT INTO events (title, description, space_id, date, start_time, end_time,
-        max_seats, event_type, is_public, published, registrations_open, featured, image_url, tags, notes)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        max_seats, event_type, is_public, published, registrations_open, featured, image_url, tags, notes, location_text)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [title.trim(), description || '', parseInt(space_id), date, start_time, end_time,
        parseInt(max_seats) || 0, event_type || 'panel',
        is_public ? 1 : 0, published ? 1 : 0, registrations_open ? 1 : 0, featured ? 1 : 0,
-       image_url || '', tags || '', notes || ''],
+       image_url || '', tags || '', notes || '', locationTextVal],
       function(err2) {
         if (err2) {
           flash(req, 'error', 'Errore salvataggio evento.');
@@ -478,7 +480,9 @@ router.post('/agenda/events/:id', requireAuth, (req, res) => {
   const id = req.params.id;
   const { title, description, space_id, date, start_time, end_time,
           max_seats, event_type, is_public, published, registrations_open, featured, image_url, tags, notes,
+          location_type, location_text,
           speaker_ids, speaker_roles } = req.body;
+  const locationTextVal = location_type === 'espositore' ? (location_text || '').trim() || null : null;
 
   if (!title || !space_id || !date || !start_time || !end_time) {
     flash(req, 'error', 'Titolo, sala, data e orari sono obbligatori.');
@@ -498,13 +502,14 @@ router.post('/agenda/events/:id', requireAuth, (req, res) => {
 
     db.run(
       `UPDATE events SET title=?, description=?, space_id=?, date=?, start_time=?, end_time=?,
-        max_seats=?, event_type=?, is_public=?, published=?, registrations_open=?, featured=?, image_url=?, tags=?, notes=?,
+        max_seats=?, event_type=?, is_public=?, published=?, registrations_open=?, featured=?, image_url=?, tags=?, notes=?, location_text=?,
         updated_at=datetime('now')
        WHERE id=?`,
       [title.trim(), description || '', parseInt(space_id), date, start_time, end_time,
        parseInt(max_seats) || 0, event_type || 'panel',
        is_public ? 1 : 0, published ? 1 : 0, registrations_open ? 1 : 0, featured ? 1 : 0,
-       image_url || '', tags || '', notes || '', id],
+       image_url || '', tags || '', notes || '', locationTextVal,
+       req.params.id],
       function(err2) {
         if (err2) {
           flash(req, 'error', 'Errore aggiornamento evento.');

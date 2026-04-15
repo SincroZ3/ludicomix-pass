@@ -107,9 +107,19 @@
         <div class="card">
           <div class="card-title">Programmazione</div>
 
+          <!-- Tipo luogo -->
           <div style="margin-bottom:.85rem">
+            <label>Tipo luogo <span class="req">*</span></label>
+            <select name="location_type" id="locationTypeSelect" onchange="toggleLocationUI()">
+              <option value="sala"       <%= (!event.location_text) ? 'selected' : '' %>>🏛 Sala / Spazio</option>
+              <option value="espositore" <%= (event.location_text)  ? 'selected' : '' %>>🏪 Espositore / Stand / Altro</option>
+            </select>
+          </div>
+
+          <!-- Sala (default) -->
+          <div style="margin-bottom:.85rem" id="salaBlock">
             <label>Sala / Spazio <span class="req">*</span></label>
-            <select name="space_id" required>
+            <select name="space_id" id="space_id_select">
               <option value="">Seleziona sala</option>
               <% spaces.forEach(s => { %>
                 <option value="<%= s.id %>" <%= event.space_id === s.id ? 'selected' : '' %>>
@@ -117,6 +127,18 @@
                 </option>
               <% }) %>
             </select>
+          </div>
+
+          <!-- Espositore / Stand -->
+          <div style="margin-bottom:.85rem;display:none" id="espositoreBlock">
+            <label>Nome espositore / luogo <span class="req">*</span></label>
+            <input type="text" name="location_text" id="location_text_input"
+                   value="<%= event.location_text || '' %>"
+                   placeholder="Es. Stand B12, Area Espositiva Nord, Palco Esterno…">
+            <span class="help-text">Mostrato al posto della sala nel programma pubblico.</span>
+            <!-- space_id nascosto con primo valore valido (soddisfa NOT NULL) -->
+            <input type="hidden" name="space_id" id="space_id_hidden"
+                   value="<%= spaces[0] ? spaces[0].id : '' %>">
           </div>
 
           <div style="margin-bottom:.85rem">
@@ -254,6 +276,29 @@ function toggleRole(id, checked) {
   }
   chk.addEventListener('change', update);
 })();
+</script>
+
+
+<script>
+function toggleLocationUI() {
+  var type    = document.getElementById('locationTypeSelect').value;
+  var salaB   = document.getElementById('salaBlock');
+  var espB    = document.getElementById('espositoreBlock');
+  var salaSel = document.getElementById('space_id_select');
+  var espInp  = document.getElementById('location_text_input');
+  if (type === 'espositore') {
+    salaB.style.display = 'none';
+    espB.style.display  = '';
+    salaSel.removeAttribute('required');
+    espInp.setAttribute('required','required');
+  } else {
+    salaB.style.display = '';
+    espB.style.display  = 'none';
+    salaSel.setAttribute('required','required');
+    espInp.removeAttribute('required');
+  }
+}
+document.addEventListener('DOMContentLoaded', toggleLocationUI);
 </script>
 
 <%- include('../partials/footer') %>
