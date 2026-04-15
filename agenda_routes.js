@@ -12,10 +12,10 @@
 //   - bwip-js già in package.json
 // ============================================================
 
-const express  = require('express');
-const router   = express.Router();
-const db       = require('./db');
-const bwipjs   = require('bwip-js');
+const express = require('express');
+const router  = express.Router();
+const db      = require('./db');
+const bwipjs  = require('bwip-js');
 
 // ─────────────────────────────────────────────
 // MIDDLEWARE AUTH — protegge tutte le rotte /agenda/*
@@ -34,11 +34,11 @@ function checkConflict(spaceId, date, startTime, endTime, excludeEventId, callba
     SELECT e.id, e.title, e.start_time, e.end_time, s.name AS space_name
     FROM events e
     JOIN spaces s ON s.id = e.space_id
-    WHERE e.space_id  = ?
-      AND e.date      = ?
+    WHERE e.space_id = ?
+      AND e.date = ?
       AND e.start_time < ?
-      AND e.end_time   > ?
-      AND e.id        != ?
+      AND e.end_time > ?
+      AND e.id != ?
   `;
   db.all(sql, [spaceId, date, endTime, startTime, excludeEventId || 0], callback);
 }
@@ -49,6 +49,7 @@ function checkConflict(spaceId, date, startTime, endTime, excludeEventId, callba
 function flash(req, type, msg) {
   req.session.flash = { type, msg };
 }
+
 function getFlash(req) {
   const f = req.session.flash || null;
   delete req.session.flash;
@@ -63,13 +64,13 @@ router.get('/agenda', requireAuth, (req, res) => {
   const date = req.query.date || new Date().toISOString().slice(0, 10);
 
   db.all(`SELECT e.*, s.name AS space_name, s.color AS space_color,
-            COUNT(r.id) AS seats_taken
-          FROM events e
-          JOIN spaces s ON s.id = e.space_id
-          LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'confirmed'
-          WHERE e.date = ?
-          GROUP BY e.id
-          ORDER BY e.start_time`, [date], (err, events) => {
+    COUNT(r.id) AS seats_taken
+    FROM events e
+    JOIN spaces s ON s.id = e.space_id
+    LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'confirmed'
+    WHERE e.date = ?
+    GROUP BY e.id
+    ORDER BY e.start_time`, [date], (err, events) => {
 
     db.all(`SELECT * FROM spaces WHERE active = 1 ORDER BY name`, [], (err2, spaces) => {
       db.get(`SELECT COUNT(*) AS total FROM events`, [], (err3, totRow) => {
@@ -96,10 +97,10 @@ router.get('/agenda', requireAuth, (req, res) => {
 
 router.get('/agenda/spaces', requireAuth, (req, res) => {
   db.all(`SELECT s.*, COUNT(e.id) AS event_count
-          FROM spaces s
-          LEFT JOIN events e ON e.space_id = s.id
-          GROUP BY s.id
-          ORDER BY s.name`, [], (err, spaces) => {
+    FROM spaces s
+    LEFT JOIN events e ON e.space_id = s.id
+    GROUP BY s.id
+    ORDER BY s.name`, [], (err, spaces) => {
     res.render('agenda/spaces', {
       currentUser: req.session.user,
       flash: getFlash(req),
@@ -156,15 +157,15 @@ router.post('/agenda/spaces/:id/delete', requireAuth, (req, res) => {
 });
 
 // ══════════════════════════════════════════════
-// SPEAKER / OSPITI
+// SPEAKER / OSPITI PANEL
 // ══════════════════════════════════════════════
 
 router.get('/agenda/speakers', requireAuth, (req, res) => {
   db.all(`SELECT sp.*, COUNT(es.event_id) AS event_count
-          FROM speakers sp
-          LEFT JOIN event_speakers es ON es.speaker_id = sp.id
-          GROUP BY sp.id
-          ORDER BY sp.name`, [], (err, speakers) => {
+    FROM speakers sp
+    LEFT JOIN event_speakers es ON es.speaker_id = sp.id
+    GROUP BY sp.id
+    ORDER BY sp.name`, [], (err, speakers) => {
     res.render('agenda/speakers', {
       currentUser: req.session.user,
       flash: getFlash(req),
@@ -212,23 +213,154 @@ router.post('/agenda/speakers/:id/delete', requireAuth, (req, res) => {
 });
 
 // ══════════════════════════════════════════════
+// OSPITI FESTIVAL (guests)
+// ══════════════════════════════════════════════
+
+router.get('/agenda/guests', requireAuth, (req, res) => {
+  const { category, featured } = req.query;
+  let sql = `SELECT * FROM guests WHERE 1=1`;
+  const params = [];
+  if (category) { sql += ` AND category = ?`; params.push(category); }
+  if (featured !== undefined && featured !== '') { sql += ` AND featured = ?`; params.push(parseInt(featured)); }
+  sql += ` ORDER BY sort_order ASC, name ASC`;
+
+  db.all(sql, params, (err, guests) => {
+    if (err) { console.error('[Guests]', err.message); return res.status(500).send('Errore interno'); }
+    db.all(`SELECT DISTINCT category FROM guests WHERE category IS NOT NULL AND category != '' ORDER BY category`, [], (err2, cats) => {
+      res.render('agenda/guests', {
+        currentUser: req.session.user,
+        flash: getFlash(req),
+        guests: guests || [],
+        categories: (cats || []).map(c => c.category),
+        filters: { category, featured },
+        title: 'Ospiti del Festival'
+      });
+    });
+  });
+});
+
+router.get('/agenda/guests/new', requireAuth, (req, res) => {
+  db.all(`SELECT DISTINCT category FROM guests WHERE category IS NOT NULL AND category != '' ORDER BY category`, [], (err, cats) => {
+    res.render('agenda/guest_form', {
+      currentUser: req.session.user,
+      flash: getFlash(req),
+      guest: {},
+      categories: (cats || []).map(c => c.category),
+      title: 'Nuovo Ospite'
+    });
+  });
+});
+
+router.post('/agenda/guests', requireAuth, (req, res) => {
+  const { name, bio, photo_url, category, stand_location, sort_order, featured, active } = req.body;
+  if (!name) {
+    flash(req, 'error', 'Il nome è obbligatorio.');
+    return res.redirect('/agenda/guests/new');
+  }
+  db.run(
+    `INSERT INTO guests (name, bio, photo_url, category, stand_location, sort_order, featured, active)
+     VALUES (?,?,?,?,?,?,?,?)`,
+    [
+      name.trim(),
+      bio || '',
+      photo_url || '',
+      category || '',
+      stand_location || '',
+      parseInt(sort_order) || 0,
+      featured ? 1 : 0,
+      active !== undefined ? (active ? 1 : 0) : 1
+    ],
+    function(err) {
+      if (err) {
+        flash(req, 'error', 'Errore salvataggio ospite.');
+        return res.redirect('/agenda/guests/new');
+      }
+      flash(req, 'success', `Ospite "${name}" aggiunto.`);
+      res.redirect('/agenda/guests');
+    }
+  );
+});
+
+router.get('/agenda/guests/:id/edit', requireAuth, (req, res) => {
+  db.get(`SELECT * FROM guests WHERE id = ?`, [req.params.id], (err, guest) => {
+    if (err || !guest) return res.redirect('/agenda/guests');
+    db.all(`SELECT DISTINCT category FROM guests WHERE category IS NOT NULL AND category != '' ORDER BY category`, [], (err2, cats) => {
+      res.render('agenda/guest_form', {
+        currentUser: req.session.user,
+        flash: getFlash(req),
+        guest,
+        categories: (cats || []).map(c => c.category),
+        title: 'Modifica Ospite'
+      });
+    });
+  });
+});
+
+router.post('/agenda/guests/:id', requireAuth, (req, res) => {
+  const { name, bio, photo_url, category, stand_location, sort_order, featured, active } = req.body;
+  if (!name) {
+    flash(req, 'error', 'Il nome è obbligatorio.');
+    return res.redirect(`/agenda/guests/${req.params.id}/edit`);
+  }
+  db.run(
+    `UPDATE guests SET name=?, bio=?, photo_url=?, category=?, stand_location=?,
+     sort_order=?, featured=?, active=? WHERE id=?`,
+    [
+      name.trim(),
+      bio || '',
+      photo_url || '',
+      category || '',
+      stand_location || '',
+      parseInt(sort_order) || 0,
+      featured ? 1 : 0,
+      active ? 1 : 0,
+      req.params.id
+    ],
+    function(err) {
+      flash(req, err ? 'error' : 'success', err ? 'Errore aggiornamento ospite.' : `Ospite "${name}" aggiornato.`);
+      res.redirect('/agenda/guests');
+    }
+  );
+});
+
+router.post('/agenda/guests/:id/delete', requireAuth, (req, res) => {
+  db.get(`SELECT name FROM guests WHERE id=?`, [req.params.id], (err, g) => {
+    db.run(`DELETE FROM guests WHERE id=?`, [req.params.id], (err2) => {
+      flash(req, err2 ? 'error' : 'success', err2 ? 'Errore eliminazione.' : `Ospite "${g ? g.name : ''}" eliminato.`);
+      res.redirect('/agenda/guests');
+    });
+  });
+});
+
+router.post('/agenda/guests/:id/toggle-featured', requireAuth, (req, res) => {
+  db.get(`SELECT featured FROM guests WHERE id=?`, [req.params.id], (err, g) => {
+    if (err || !g) return res.redirect('/agenda/guests');
+    const newVal = g.featured === 1 ? 0 : 1;
+    db.run(`UPDATE guests SET featured=? WHERE id=?`, [newVal, req.params.id], (err2) => {
+      flash(req, err2 ? 'error' : 'success', err2 ? 'Errore.' : (newVal ? 'Ospite messo in evidenza.' : 'Evidenza rimossa.'));
+      res.redirect(req.get('Referer') || '/agenda/guests');
+    });
+  });
+});
+
+// ══════════════════════════════════════════════
 // EVENTI
 // ══════════════════════════════════════════════
 
 router.get('/agenda/events', requireAuth, (req, res) => {
   const { date, space_id, published } = req.query;
   let sql = `SELECT e.*, s.name AS space_name, s.color AS space_color,
-               COUNT(r.id) AS seats_taken,
-               GROUP_CONCAT(sp.name, ', ') AS speakers_list
-             FROM events e
-             JOIN spaces s ON s.id = e.space_id
-             LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'confirmed'
-             LEFT JOIN event_speakers es ON es.event_id = e.id
-             LEFT JOIN speakers sp ON sp.id = es.speaker_id
-             WHERE 1=1`;
+    COUNT(r.id) AS seats_taken,
+    GROUP_CONCAT(sp.name, ', ') AS speakers_list
+    FROM events e
+    JOIN spaces s ON s.id = e.space_id
+    LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'confirmed'
+    LEFT JOIN event_speakers es ON es.event_id = e.id
+    LEFT JOIN speakers sp ON sp.id = es.speaker_id
+    WHERE 1=1`;
   const params = [];
-  if (date)      { sql += ` AND e.date = ?`;        params.push(date); }
-  if (space_id)  { sql += ` AND e.space_id = ?`;    params.push(space_id); }
+  if (date) { sql += ` AND e.date = ?`; params.push(date); }
+  if (space_id) { sql += ` AND e.space_id = ?`; params.push(space_id); }
   if (published !== undefined && published !== '') {
     sql += ` AND e.published = ?`;
     params.push(parseInt(published));
@@ -269,8 +401,8 @@ router.get('/agenda/events/new', requireAuth, (req, res) => {
 
 router.post('/agenda/events', requireAuth, (req, res) => {
   const { title, description, space_id, date, start_time, end_time,
-          max_seats, event_type, is_public, published, registrations_open, is_featured,
-          image_url, tags, notes, speaker_ids, speaker_roles } = req.body;
+          max_seats, event_type, is_public, published, registrations_open, image_url, tags, notes,
+          speaker_ids, speaker_roles } = req.body;
 
   if (!title || !space_id || !date || !start_time || !end_time) {
     flash(req, 'error', 'Titolo, sala, data e orari sono obbligatori.');
@@ -290,12 +422,11 @@ router.post('/agenda/events', requireAuth, (req, res) => {
 
     db.run(
       `INSERT INTO events (title, description, space_id, date, start_time, end_time,
-        max_seats, event_type, is_public, published, registrations_open, is_featured,
-        image_url, tags, notes)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        max_seats, event_type, is_public, published, registrations_open, image_url, tags, notes)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [title.trim(), description || '', parseInt(space_id), date, start_time, end_time,
        parseInt(max_seats) || 0, event_type || 'panel',
-       is_public ? 1 : 0, published ? 1 : 0, registrations_open ? 1 : 0, is_featured ? 1 : 0,
+       is_public ? 1 : 0, published ? 1 : 0, registrations_open ? 1 : 0,
        image_url || '', tags || '', notes || ''],
       function(err2) {
         if (err2) {
@@ -303,13 +434,11 @@ router.post('/agenda/events', requireAuth, (req, res) => {
           return res.redirect('/agenda/events/new');
         }
         const eventId = this.lastID;
-        // Salva associazioni speaker
-        const ids = Array.isArray(speaker_ids) ? speaker_ids : (speaker_ids ? [speaker_ids] : []);
-        const roles = Array.isArray(speaker_roles) ? speaker_roles : (speaker_roles ? [speaker_roles] : []);
+        const ids   = Array.isArray(speaker_ids)   ? speaker_ids   : (speaker_ids   ? [speaker_ids]   : []);
+        const roles = Array.isArray(speaker_roles)  ? speaker_roles : (speaker_roles ? [speaker_roles] : []);
         const stmts = ids.map((sid, i) =>
           new Promise(resolve =>
-            db.run(`INSERT OR IGNORE INTO event_speakers (event_id, speaker_id, role, order_num)
-                    VALUES (?,?,?,?)`,
+            db.run(`INSERT OR IGNORE INTO event_speakers (event_id, speaker_id, role, order_num) VALUES (?,?,?,?)`,
               [eventId, sid, roles[i] || 'speaker', i], resolve)
           )
         );
@@ -348,8 +477,8 @@ router.get('/agenda/events/:id/edit', requireAuth, (req, res) => {
 router.post('/agenda/events/:id', requireAuth, (req, res) => {
   const id = req.params.id;
   const { title, description, space_id, date, start_time, end_time,
-          max_seats, event_type, is_public, published, registrations_open, is_featured,
-          image_url, tags, notes, speaker_ids, speaker_roles } = req.body;
+          max_seats, event_type, is_public, published, registrations_open, image_url, tags, notes,
+          speaker_ids, speaker_roles } = req.body;
 
   if (!title || !space_id || !date || !start_time || !end_time) {
     flash(req, 'error', 'Titolo, sala, data e orari sono obbligatori.');
@@ -369,27 +498,24 @@ router.post('/agenda/events/:id', requireAuth, (req, res) => {
 
     db.run(
       `UPDATE events SET title=?, description=?, space_id=?, date=?, start_time=?, end_time=?,
-        max_seats=?, event_type=?, is_public=?, published=?, registrations_open=?, is_featured=?,
-        image_url=?, tags=?, notes=?,
+        max_seats=?, event_type=?, is_public=?, published=?, registrations_open=?, image_url=?, tags=?, notes=?,
         updated_at=datetime('now')
        WHERE id=?`,
       [title.trim(), description || '', parseInt(space_id), date, start_time, end_time,
        parseInt(max_seats) || 0, event_type || 'panel',
-       is_public ? 1 : 0, published ? 1 : 0, registrations_open ? 1 : 0, is_featured ? 1 : 0,
+       is_public ? 1 : 0, published ? 1 : 0, registrations_open ? 1 : 0,
        image_url || '', tags || '', notes || '', id],
       function(err2) {
         if (err2) {
           flash(req, 'error', 'Errore aggiornamento evento.');
           return res.redirect(`/agenda/events/${id}/edit`);
         }
-        // Riscrive le associazioni speaker
         db.run(`DELETE FROM event_speakers WHERE event_id = ?`, [id], () => {
-          const ids = Array.isArray(speaker_ids) ? speaker_ids : (speaker_ids ? [speaker_ids] : []);
-          const roles = Array.isArray(speaker_roles) ? speaker_roles : (speaker_roles ? [speaker_roles] : []);
+          const ids   = Array.isArray(speaker_ids)   ? speaker_ids   : (speaker_ids   ? [speaker_ids]   : []);
+          const roles = Array.isArray(speaker_roles)  ? speaker_roles : (speaker_roles ? [speaker_roles] : []);
           const stmts = ids.map((sid, i) =>
             new Promise(resolve =>
-              db.run(`INSERT OR IGNORE INTO event_speakers (event_id, speaker_id, role, order_num)
-                      VALUES (?,?,?,?)`,
+              db.run(`INSERT OR IGNORE INTO event_speakers (event_id, speaker_id, role, order_num) VALUES (?,?,?,?)`,
                 [id, sid, roles[i] || 'speaker', i], resolve)
             )
           );
@@ -420,10 +546,10 @@ router.post('/agenda/events/:id/publish', requireAuth, (req, res) => {
     const newStatus = ev && ev.published === 1 ? 0 : 1;
     db.run(`UPDATE events SET published=?, updated_at=datetime('now') WHERE id=?`,
       [newStatus, req.params.id], (err2) => {
-        flash(req, err2 ? 'error' : 'success',
-          err2 ? 'Errore.' : (newStatus ? 'Evento pubblicato nel programma.' : 'Evento rimesso in bozza.'));
-        res.redirect(req.get('Referer') || '/agenda/events');
-      });
+      flash(req, err2 ? 'error' : 'success',
+        err2 ? 'Errore.' : (newStatus ? 'Evento pubblicato nel programma.' : 'Evento rimesso in bozza.'));
+      res.redirect(req.get('Referer') || '/agenda/events');
+    });
   });
 });
 
@@ -433,16 +559,16 @@ router.post('/agenda/events/:id/publish', requireAuth, (req, res) => {
 
 router.get('/agenda/events/:id/registrations', requireAuth, (req, res) => {
   db.get(`SELECT e.*, s.name AS space_name
-          FROM events e JOIN spaces s ON s.id = e.space_id
-          WHERE e.id=?`, [req.params.id], (err, event) => {
+    FROM events e JOIN spaces s ON s.id = e.space_id
+    WHERE e.id=?`, [req.params.id], (err, event) => {
     if (!event) return res.redirect('/agenda/events');
     db.all(`SELECT r.*,
-              CASE WHEN r.pass_id IS NOT NULL THEN 'Sì' ELSE 'No' END AS has_pass
-            FROM registrations r
-            WHERE r.event_id = ?
-            ORDER BY r.registered_at`, [req.params.id], (err2, regs) => {
+      CASE WHEN r.pass_id IS NOT NULL THEN 'Sì' ELSE 'No' END AS has_pass
+      FROM registrations r
+      WHERE r.event_id = ?
+      ORDER BY r.registered_at`, [req.params.id], (err2, regs) => {
       db.get(`SELECT COUNT(*) AS confirmed FROM registrations
-              WHERE event_id=? AND status='confirmed'`, [req.params.id], (err3, cnt) => {
+        WHERE event_id=? AND status='confirmed'`, [req.params.id], (err3, cnt) => {
         res.render('agenda/registrations', {
           currentUser: req.session.user,
           flash: getFlash(req),
@@ -460,10 +586,9 @@ router.post('/agenda/events/:id/registrations/:rid/cancel', requireAuth, (req, r
   db.run(
     `UPDATE registrations SET status='cancelled', cancelled_at=datetime('now') WHERE id=?`,
     [req.params.rid], (err) => {
-      flash(req, err ? 'error' : 'success', err ? 'Errore.' : 'Iscrizione annullata.');
-      res.redirect(`/agenda/events/${req.params.id}/registrations`);
-    }
-  );
+    flash(req, err ? 'error' : 'success', err ? 'Errore.' : 'Iscrizione annullata.');
+    res.redirect(`/agenda/events/${req.params.id}/registrations`);
+  });
 });
 
 // ══════════════════════════════════════════════
@@ -472,11 +597,11 @@ router.post('/agenda/events/:id/registrations/:rid/cancel', requireAuth, (req, r
 
 router.get('/agenda/registrations', requireAuth, (req, res) => {
   db.all(`SELECT r.*, e.title AS event_title, e.date, e.start_time, s.name AS space_name
-          FROM registrations r
-          JOIN events e ON e.id = r.event_id
-          JOIN spaces s ON s.id = e.space_id
-          ORDER BY r.registered_at DESC
-          LIMIT 200`, [], (err, regs) => {
+    FROM registrations r
+    JOIN events e ON e.id = r.event_id
+    JOIN spaces s ON s.id = e.space_id
+    ORDER BY r.registered_at DESC
+    LIMIT 200`, [], (err, regs) => {
     res.render('agenda/all_registrations', {
       currentUser: req.session.user,
       flash: getFlash(req),
@@ -492,23 +617,25 @@ router.get('/agenda/registrations', requireAuth, (req, res) => {
 
 router.get('/programma', (req, res) => {
   const { date, space } = req.query;
+  const selectedDate  = date  || null;
+  const selectedSpace = space || null;
+
   let sql = `SELECT * FROM v_public_program WHERE 1=1`;
   const params = [];
-  if (date)  { sql += ` AND date = ?`;       params.push(date); }
-  if (space) { sql += ` AND space_name = ?`; params.push(space); }
+  if (selectedDate)  { sql += ` AND date = ?`;       params.push(selectedDate); }
+  if (selectedSpace) { sql += ` AND space_name = ?`; params.push(selectedSpace); }
   sql += ` ORDER BY date, start_time`;
 
   db.all(sql, params, (err, events) => {
     if (err) { console.error('[Agenda]', err.message); return res.status(500).send('Errore interno'); }
-    // Ricava le date disponibili per il filtro
+
     db.all(`SELECT DISTINCT date FROM events WHERE published=1 AND is_public=1 ORDER BY date`,
       [], (err2, dates) => {
       db.all(`SELECT DISTINCT s.name FROM spaces s
-              JOIN events e ON e.space_id=s.id
-              WHERE e.published=1 AND e.is_public=1
-              ORDER BY s.name`, [], (err3, spaces) => {
+        JOIN events e ON e.space_id=s.id
+        WHERE e.published=1 AND e.is_public=1
+        ORDER BY s.name`, [], (err3, spaces) => {
 
-        // Raggruppa per data → per sala (per visualizzazione griglia)
         const grouped = {};
         (events || []).forEach(ev => {
           if (!grouped[ev.date]) grouped[ev.date] = {};
@@ -516,14 +643,15 @@ router.get('/programma', (req, res) => {
           grouped[ev.date][ev.space_name].push(ev);
         });
 
-        res.render('agenda/public_program', { currentUser: null,
+        res.render('agenda/public_program', {
+          currentUser: null,
           grouped,
           events: events || [],
           dates: dates || [],
           spaces: spaces || [],
-          filters: { date, space },
-          selectedDate: date || null,
-          selectedSpace: space || null,
+          filters: { date: selectedDate, space: selectedSpace },
+          selectedDate,
+          selectedSpace,
           title: 'Programma Ludicomix'
         });
       });
@@ -533,17 +661,16 @@ router.get('/programma', (req, res) => {
 
 // ── QR CODE che punta al programma pubblico ──────────────────
 router.get('/programma/qr', (req, res) => {
-  const baseUrl = process.env.PUBLIC_URL ||
-    `${req.protocol}://${req.get('host')}`;
+  const baseUrl   = process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
   const targetUrl = `${baseUrl}/programma`;
 
   bwipjs.toBuffer({
-    bcid:        'qrcode',
-    text:        targetUrl,
-    scale:       4,
-    eclevel:     'M',
+    bcid: 'qrcode',
+    text: targetUrl,
+    scale: 4,
+    eclevel: 'M',
     backgroundcolor: 'ffffff',
-    barcolor:    '01696f'
+    barcolor: '01696f'
   }, (err, png) => {
     if (err) return res.status(500).send('Errore QR');
     res.setHeader('Content-Type', 'image/png');
@@ -555,16 +682,17 @@ router.get('/programma/qr', (req, res) => {
 // ── Iscrizione pubblica a un evento ──────────────────────────
 router.get('/programma/iscriviti/:id', (req, res) => {
   db.get(`SELECT e.*, s.name AS space_name,
-            COUNT(r.id) AS seats_taken
-          FROM events e
-          JOIN spaces s ON s.id = e.space_id
-          LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'confirmed'
-          WHERE e.id=? AND e.published=1 AND e.is_public=1 AND e.registrations_open=1
-          GROUP BY e.id`, [req.params.id], (err, event) => {
+    COUNT(r.id) AS seats_taken
+    FROM events e
+    JOIN spaces s ON s.id = e.space_id
+    LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'confirmed'
+    WHERE e.id=? AND e.published=1 AND e.is_public=1 AND e.registrations_open=1
+    GROUP BY e.id`, [req.params.id], (err, event) => {
     if (!event) return res.redirect('/programma');
-    const full = event.max_seats > 0 && event.seats_taken >= event.max_seats;
+    const full    = event.max_seats > 0 && event.seats_taken >= event.max_seats;
     const success = req.query.success === '1';
-    res.render('agenda/register_form', { currentUser: null,
+    res.render('agenda/register_form', {
+      currentUser: null,
       event,
       full,
       success,
@@ -583,11 +711,10 @@ router.post('/programma/iscriviti/:id', (req, res) => {
     return res.redirect(`/programma/iscriviti/${eventId}`);
   }
 
-  // Controlla capienza prima di iscrivere
   db.get(`SELECT e.max_seats, e.registrations_open, COUNT(r.id) AS seats_taken
-          FROM events e
-          LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'confirmed'
-          WHERE e.id=? GROUP BY e.id`, [eventId], (err, ev) => {
+    FROM events e
+    LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'confirmed'
+    WHERE e.id=? GROUP BY e.id`, [eventId], (err, ev) => {
     if (!ev) return res.redirect('/programma');
 
     if (!ev.registrations_open) {
@@ -600,8 +727,7 @@ router.post('/programma/iscriviti/:id', (req, res) => {
     }
 
     db.run(
-      `INSERT INTO registrations (event_id, first_name, last_name, email, phone)
-       VALUES (?,?,?,?,?)`,
+      `INSERT INTO registrations (event_id, first_name, last_name, email, phone) VALUES (?,?,?,?,?)`,
       [eventId, first_name.trim(), last_name.trim(), email.trim().toLowerCase(), phone || ''],
       function(err2) {
         if (err2 && err2.message.includes('UNIQUE')) {
@@ -609,7 +735,7 @@ router.post('/programma/iscriviti/:id', (req, res) => {
           return res.redirect(`/programma/iscriviti/${eventId}`);
         }
         if (err2) {
-          flash(req, 'error', 'Errore durante l\'iscrizione. Riprova.');
+          flash(req, 'error', "Errore durante l'iscrizione. Riprova.");
           return res.redirect(`/programma/iscriviti/${eventId}`);
         }
         flash(req, 'success', 'Iscrizione confermata! Ti aspettiamo.');
@@ -618,7 +744,6 @@ router.post('/programma/iscriviti/:id', (req, res) => {
     );
   });
 });
-
 
 // ── API: Ricerca partecipanti per collegamento speaker ───────
 router.get('/api/agenda/search-participants', requireAuth, (req, res) => {

@@ -1,123 +1,123 @@
 <%- include('../partials/header') %>
 
 <div class="page-header">
-  <h1><%= title %></h1>
-  <a href="/agenda/guests" class="btn btn-ghost">← Tutti gli ospiti</a>
+  <div>
+    <h1><%= title %></h1>
+    <p class="text-muted">
+      <% if (guest.id) { %>
+        Modifica i dati dell'ospite
+      <% } else { %>
+        Inserisci un nuovo ospite del festival
+      <% } %>
+    </p>
+  </div>
+  <a href="/agenda/guests" class="btn btn-ghost">← Torna alla lista</a>
 </div>
 
 <% if (flash) { %>
-<div class="alert alert-<%= flash.type %>">
-  <%= flash.type === 'error' ? '⚠️' : '✅' %> <%- flash.msg %>
-</div>
+  <div class="alert alert-<%= flash.type %>"><%= flash.msg %></div>
 <% } %>
 
-<form method="POST" action="<%= guest.id ? '/agenda/guests/'+guest.id : '/agenda/guests' %>">
+<form method="POST"
+      action="<%= guest.id ? '/agenda/guests/' + guest.id : '/agenda/guests' %>"
+      class="form-card">
 
-  <div class="card mb-4">
-    <div class="card-header"><h3>🧑‍🎤 Dati ospite</h3></div>
-    <div class="card-body">
+  <%/* ── Dati principali ── */%>
+  <section class="form-section">
+    <h2 class="form-section-title">Dati principali</h2>
 
-      <div class="row">
-        <div class="col">
-          <div class="form-group">
-            <label for="name">Nome *</label>
-            <input type="text" id="name" name="name" class="form-control"
-                   value="<%= guest.name || '' %>" required>
-          </div>
-        </div>
-        <div class="col">
-          <div class="form-group">
-            <label for="category">Categoria *</label>
-            <select id="category" name="category" class="form-control">
-              <% ['ospite','autore','editore','artista','cosplayer','youtuber','streamer','giornalista','altro'].forEach(c => { %>
-              <option value="<%= c %>" <%= (guest.category||'ospite') === c ? 'selected' : '' %>>
-                <%= c.charAt(0).toUpperCase()+c.slice(1) %>
-              </option>
-              <% }); %>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="bio">Biografia pubblica</label>
-        <textarea id="bio" name="bio" class="form-control" rows="4"><%= guest.bio || '' %></textarea>
-      </div>
-
-      <div class="row">
-        <div class="col">
-          <div class="form-group">
-            <label for="photo_url">Foto (URL)</label>
-            <input type="url" id="photo_url" name="photo_url" class="form-control"
-                   value="<%= guest.photo_url || '' %>">
-          </div>
-        </div>
-        <div class="col">
-          <div class="form-group">
-            <label for="stand_location">Stand / Luogo</label>
-            <input type="text" id="stand_location" name="stand_location" class="form-control"
-                   value="<%= guest.stand_location || '' %>" placeholder="Es. Stand A4 — Padiglione Est">
-          </div>
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="col">
-          <div class="form-group">
-            <label for="website_url">Sito web</label>
-            <input type="url" id="website_url" name="website_url" class="form-control"
-                   value="<%= guest.website_url || '' %>">
-          </div>
-        </div>
-        <div class="col">
-          <div class="form-group">
-            <label for="social_url">Social principale (URL)</label>
-            <input type="url" id="social_url" name="social_url" class="form-control"
-                   value="<%= guest.social_url || '' %>">
-          </div>
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="col">
-          <div class="form-group">
-            <label for="sort_order">Ordine di visualizzazione</label>
-            <input type="number" id="sort_order" name="sort_order" class="form-control"
-                   value="<%= guest.sort_order || 0 %>" min="0">
-            <small class="text-muted">Numeri più bassi appaiono prima</small>
-          </div>
-        </div>
-      </div>
-
-      <div class="checkbox-group mt-3">
-        <label class="checkbox-label">
-          <input type="checkbox" name="is_published" value="1" <%= guest.is_published ? 'checked' : '' %>>
-          📡 Pubblicato nel programma pubblico
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" name="featured" value="1" <%= guest.featured ? 'checked' : '' %>>
-          ⭐ In evidenza (mostrato in cima alla lista ospiti)
-        </label>
-      </div>
-
+    <div class="form-group required">
+      <label for="name">Nome</label>
+      <input type="text" id="name" name="name"
+             value="<%= guest.name || '' %>"
+             placeholder="Es. Mario Rossi"
+             required maxlength="200">
     </div>
-  </div>
 
-  <div class="form-actions">
-    <button type="submit" class="btn btn-primary">
-      <%= guest.id ? '💾 Salva modifiche' : '✅ Aggiungi ospite' %>
-    </button>
-    <a href="/agenda/guests" class="btn btn-ghost">Annulla</a>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="category">Categoria</label>
+        <input type="text" id="category" name="category"
+               value="<%= guest.category || '' %>"
+               list="category-list"
+               placeholder="Es. Cosplayer, Artista, Autore…">
+        <datalist id="category-list">
+          <% categories.forEach(c => { %>
+            <option value="<%= c %>">
+          <% }) %>
+        </datalist>
+        <span class="field-hint">Puoi scegliere una esistente o crearne una nuova</span>
+      </div>
+      <div class="form-group">
+        <label for="stand_location">Stand / Luogo</label>
+        <input type="text" id="stand_location" name="stand_location"
+               value="<%= guest.stand_location || '' %>"
+               placeholder="Es. Stand B12, Sala Giochi">
+      </div>
+    </div>
 
-    <% if (guest.id) { %>
-    &nbsp;
-    <form method="POST" action="/agenda/guests/<%= guest.id %>/delete" style="display:inline"
-          onsubmit="return confirm('Eliminare definitivamente questo ospite?')">
-      <button type="submit" class="btn btn-danger">🗑 Elimina</button>
-    </form>
+    <div class="form-group">
+      <label for="bio">Biografia</label>
+      <textarea id="bio" name="bio" rows="4"
+                placeholder="Breve descrizione dell'ospite (mostrata nel programma pubblico)"><%= guest.bio || '' %></textarea>
+    </div>
+  </section>
+
+  <%/* ── Foto e URL ── */%>
+  <section class="form-section">
+    <h2 class="form-section-title">Foto</h2>
+
+    <div class="form-group">
+      <label for="photo_url">URL Foto</label>
+      <input type="url" id="photo_url" name="photo_url"
+             value="<%= guest.photo_url || '' %>"
+             placeholder="https://esempio.com/foto.jpg">
+      <span class="field-hint">Link diretto all'immagine (jpg, png, webp)</span>
+    </div>
+
+    <% if (guest.photo_url) { %>
+      <div class="photo-preview">
+        <img src="<%= guest.photo_url %>" alt="Anteprima foto"
+             style="max-height:120px; border-radius:8px;" loading="lazy">
+      </div>
     <% } %>
-  </div>
+  </section>
 
+  <%/* ── Impostazioni ── */%>
+  <section class="form-section">
+    <h2 class="form-section-title">Impostazioni</h2>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="sort_order">Ordine visualizzazione</label>
+        <input type="number" id="sort_order" name="sort_order"
+               value="<%= guest.sort_order !== undefined ? guest.sort_order : 0 %>"
+               min="0" max="9999" style="max-width:120px">
+        <span class="field-hint">0 = primo. Usato per ordinare la lista pubblica.</span>
+      </div>
+    </div>
+
+    <div class="form-row form-row-checks">
+      <div class="form-check">
+        <input type="checkbox" id="featured" name="featured" value="1"
+               <%= guest.featured ? 'checked' : '' %>>
+        <label for="featured">⭐ In evidenza <span class="text-muted">(mostrato in cima / homepage)</span></label>
+      </div>
+      <div class="form-check">
+        <input type="checkbox" id="active" name="active" value="1"
+               <%= (guest.id === undefined || guest.active) ? 'checked' : '' %>>
+        <label for="active">Ospite attivo</label>
+      </div>
+    </div>
+  </section>
+
+  <%/* ── Submit ── */%>
+  <div class="form-actions">
+    <a href="/agenda/guests" class="btn btn-ghost">Annulla</a>
+    <button type="submit" class="btn btn-primary">
+      <%= guest.id ? '💾 Salva modifiche' : '+ Aggiungi ospite' %>
+    </button>
+  </div>
 </form>
 
 <%- include('../partials/footer') %>

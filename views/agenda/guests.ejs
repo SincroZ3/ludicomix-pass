@@ -2,106 +2,107 @@
 
 <div class="page-header">
   <div>
-    <h1>🧑‍🎤 Schede Ospiti</h1>
-    <p class="text-muted">Profili pubblici degli ospiti del festival</p>
+    <h1>Ospiti del Festival</h1>
+    <p class="text-muted">Profili pubblici degli ospiti di Ludicomix</p>
   </div>
   <a href="/agenda/guests/new" class="btn btn-primary">+ Nuovo ospite</a>
 </div>
 
 <% if (flash) { %>
-<div class="alert alert-<%= flash.type %>">
-  <%= flash.type === 'error' ? '⚠️' : '✅' %> <%- flash.msg %>
-</div>
+  <div class="alert alert-<%= flash.type %>"><%= flash.msg %></div>
 <% } %>
 
-<!-- Filtri -->
-<div class="card mb-4">
-  <div class="card-body">
-    <form method="GET" action="/agenda/guests" class="filter-row">
-      <input type="text" name="q" placeholder="🔍 Cerca ospite…"
-             value="<%= filters.q %>" class="form-control form-control-sm">
-      <select name="category" class="form-control form-control-sm">
-        <option value="">Tutte le categorie</option>
-        <% ['ospite','autore','editore','artista','cosplayer','youtuber','streamer','giornalista','altro'].forEach(c => { %>
-        <option value="<%= c %>" <%= filters.category===c ? 'selected' : '' %>>
-          <%= c.charAt(0).toUpperCase()+c.slice(1) %>
-        </option>
-        <% }); %>
-      </select>
-      <select name="published" class="form-control form-control-sm">
-        <option value="">Tutti</option>
-        <option value="1" <%= filters.published==='1' ? 'selected' : '' %>>Pubblicati</option>
-        <option value="0" <%= filters.published==='0' ? 'selected' : '' %>>Bozze</option>
-      </select>
-      <button type="submit" class="btn btn-secondary btn-sm">Filtra</button>
-      <a href="/agenda/guests" class="btn btn-ghost btn-sm">Reset</a>
-    </form>
-  </div>
-</div>
+<%/* Filtri */%>
+<form method="GET" action="/agenda/guests" class="filter-bar">
+  <select name="category" onchange="this.form.submit()">
+    <option value="">Tutte le categorie</option>
+    <% categories.forEach(c => { %>
+      <option value="<%= c %>" <%= filters.category === c ? 'selected' : '' %>><%= c %></option>
+    <% }) %>
+  </select>
+  <select name="featured" onchange="this.form.submit()">
+    <option value="">Tutti</option>
+    <option value="1" <%= filters.featured === '1' ? 'selected' : '' %>>⭐ In evidenza</option>
+    <option value="0" <%= filters.featured === '0' ? 'selected' : '' %>>Non in evidenza</option>
+  </select>
+  <% if (filters.category || filters.featured !== undefined && filters.featured !== '') { %>
+    <a href="/agenda/guests" class="btn btn-ghost btn-sm">✕ Reset</a>
+  <% } %>
+</form>
 
 <% if (guests.length === 0) { %>
-<div class="empty-state">
-  <div class="empty-state-icon">🧑‍🎤</div>
-  <h3>Nessun ospite trovato</h3>
-  <p>Aggiungi il primo ospite del festival.</p>
-  <a href="/agenda/guests/new" class="btn btn-primary">+ Nuovo ospite</a>
-</div>
+  <div class="empty-state">
+    <div class="empty-state-icon">👤</div>
+    <h3>Nessun ospite ancora</h3>
+    <p>Aggiungi il primo ospite del festival.</p>
+    <a href="/agenda/guests/new" class="btn btn-primary">+ Nuovo ospite</a>
+  </div>
 <% } else { %>
-<div class="table-responsive">
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Ospite</th>
-        <th>Categoria</th>
-        <th>Stand / Luogo</th>
-        <th>Ordine</th>
-        <th>Stato</th>
-        <th>In evidenza</th>
-        <th>Azioni</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% guests.forEach(g => { %>
-      <tr>
-        <td>
-          <div class="guest-name-cell">
-            <% if (g.photo_url) { %>
-            <img src="<%= g.photo_url %>" alt="<%= g.name %>" class="guest-thumb" loading="lazy">
-            <% } else { %>
-            <div class="guest-thumb-placeholder">👤</div>
-            <% } %>
-            <div>
-              <strong><%= g.name %></strong>
-              <% if (g.bio) { %>
-              <div class="text-muted text-xs"><%= g.bio.slice(0, 60) %><%= g.bio.length > 60 ? '…' : '' %></div>
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Ospite</th>
+          <th>Categoria</th>
+          <th>Stand / Luogo</th>
+          <th>Ordine</th>
+          <th>Stato</th>
+          <th>In evidenza</th>
+          <th>Azioni</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% guests.forEach(g => { %>
+        <tr class="<%= g.active ? '' : 'row-inactive' %>">
+          <td>
+            <div class="guest-cell">
+              <% if (g.photo_url) { %>
+                <img src="<%= g.photo_url %>" alt="<%= g.name %>" class="guest-avatar" loading="lazy">
+              <% } else { %>
+                <div class="guest-avatar-placeholder">👤</div>
               <% } %>
+              <div>
+                <strong><%= g.name %></strong>
+                <% if (g.bio) { %>
+                  <span class="text-muted text-sm"><%= g.bio.slice(0, 60) %><%= g.bio.length > 60 ? '…' : '' %></span>
+                <% } %>
+              </div>
             </div>
-          </div>
-        </td>
-        <td><span class="badge"><%= g.category %></span></td>
-        <td class="text-muted"><%= g.stand_location || '—' %></td>
-        <td class="text-muted"><%= g.sort_order %></td>
-        <td>
-          <form method="POST" action="/agenda/guests/<%= g.id %>/toggle-publish">
-            <button type="submit" class="badge badge-<%= g.is_published ? 'success' : 'muted' %> btn-badge">
-              <%= g.is_published ? '● Pubbl.' : '○ Bozza' %>
-            </button>
-          </form>
-        </td>
-        <td class="text-center"><%= g.featured ? '⭐' : '—' %></td>
-        <td>
-          <a href="/agenda/guests/<%= g.id %>/edit" class="btn btn-sm btn-secondary">✏️ Modifica</a>
-          <form method="POST" action="/agenda/guests/<%= g.id %>/delete" style="display:inline"
-                onsubmit="return confirm('Eliminare <%= g.name %>?')">
-            <button type="submit" class="btn btn-sm btn-danger">🗑</button>
-          </form>
-        </td>
-      </tr>
-      <% }); %>
-    </tbody>
-  </table>
-</div>
-<p class="text-muted mt-2"><%= guests.length %> ospite<%= guests.length===1?'':'i'%></p>
+          </td>
+          <td><%= g.category || '—' %></td>
+          <td><%= g.stand_location || '—' %></td>
+          <td class="text-center"><%= g.sort_order %></td>
+          <td>
+            <% if (g.active) { %>
+              <span class="badge badge-success">Attivo</span>
+            <% } else { %>
+              <span class="badge badge-muted">Inattivo</span>
+            <% } %>
+          </td>
+          <td class="text-center">
+            <form method="POST" action="/agenda/guests/<%= g.id %>/toggle-featured" style="display:inline">
+              <button type="submit" class="btn-icon" title="<%= g.featured ? 'Rimuovi evidenza' : 'Metti in evidenza' %>">
+                <%= g.featured ? '⭐' : '☆' %>
+              </button>
+            </form>
+          </td>
+          <td>
+            <div class="action-group">
+              <a href="/agenda/guests/<%= g.id %>/edit" class="btn btn-sm btn-ghost">✏️ Modifica</a>
+              <form method="POST" action="/agenda/guests/<%= g.id %>/delete"
+                    onsubmit="return confirm('Eliminare l\'ospite <%= g.name %>?')">
+                <button type="submit" class="btn btn-sm btn-danger">🗑</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+  <p class="text-muted mt-2">
+    <%= guests.length %> ospite<%= guests.length === 1 ? '' : 'i' %>
+  </p>
 <% } %>
 
 <%- include('../partials/footer') %>
