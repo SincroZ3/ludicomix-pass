@@ -373,7 +373,7 @@
                const isFull = ev.availability === 'full';
                const canReg = ev.registrations_open == 1;
           %>
-          <div class="featured-card" data-fi="<%= fi %>">
+          <div class="featured-card" data-fi="<%= fi %>" onclick="openModal(<%= ev.id %>)" style="cursor:pointer" role="button" tabindex="0" onkeydown="if(event.key==='Enter')openModal(<%= ev.id %>)">
             <div class="fc-img-wrap">
               <% if (evImg) { %>
                 <img src="<%= evImg %>" alt="<%= ev.title %>" class="fc-img">
