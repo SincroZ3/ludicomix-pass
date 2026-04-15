@@ -522,6 +522,8 @@ router.get('/programma', (req, res) => {
           dates: dates || [],
           spaces: spaces || [],
           filters: { date, space },
+          selectedDate: date || null,
+          selectedSpace: space || null,
           title: 'Programma Ludicomix'
         });
       });

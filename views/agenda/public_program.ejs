@@ -150,9 +150,7 @@
         <p>Nessun evento pubblicato per la data selezionata.</p>
       </div>
     <% } else { %>
-      <% const selectedDate = (typeof filters !== 'undefined' && filters) ? filters.date : null; %>
-<% const selectedSpace = (typeof filters !== 'undefined' && filters) ? filters.space : null; %>
-<% const featured = events.filter(e => e.is_featured); %>
+      <% const featured = events.filter(e => e.is_featured); %>
 <% if (featured.length > 0) { %>
 <div style="margin:0 0 1.8rem;padding:1.2rem 1.4rem;background:linear-gradient(135deg,#fffbe6,#fff7cc);border:2px solid #f5c842;border-radius:12px;">
   <div style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#92400e;margin-bottom:.9rem;">⭐ In evidenza</div>
