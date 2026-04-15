@@ -1,43 +1,47 @@
 <%- include('../partials/header') %>
-<main class="content">
 
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.2rem;">
-    <h1 class="page-title" style="margin:0;border:none;"><%= title %></h1>
+<main class="content">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.2rem">
+    <h1 class="page-title" style="margin:0;border:none"><%= title %></h1>
     <a href="/agenda/events" class="secondary">← Tutti gli eventi</a>
   </div>
 
   <% if (flash) { %>
     <div class="alert alert-<%= flash.type === 'error' ? 'danger' : 'success' %>">
-      <span><%= flash.type === 'error' ? '⚠️' : '✅' %></span>
-      <span><%- flash.msg %></span>
+      <span><%= flash.type === 'error' ? '❌' : '✅' %></span>
+      <span><%= flash.msg %></span>
     </div>
   <% } %>
 
-  <form method="POST" action="<%= event.id ? '/agenda/events/' + event.id : '/agenda/events' %>">
-    <div style="display:grid;grid-template-columns:2fr 1fr;gap:1.5rem;align-items:start;">
+  <form method="POST" action="<%= event.id ? `/agenda/events/${event.id}` : '/agenda/events' %>">
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:1.5rem;align-items:start">
 
-      <!-- Colonna sinistra -->
+      <!-- ── Colonna sinistra ── -->
       <div>
+
+        <!-- Informazioni evento -->
         <div class="card">
           <div class="card-title">Informazioni evento</div>
 
-          <div style="margin-bottom:.85rem;">
+          <div style="margin-bottom:.85rem">
             <label>Titolo <span class="req">*</span></label>
             <input type="text" name="title" required value="<%= event.title || '' %>" placeholder="Titolo dell'evento">
           </div>
 
-          <div style="margin-bottom:.85rem;">
+          <div style="margin-bottom:.85rem">
             <label>Descrizione</label>
-            <textarea name="description" rows="4" placeholder="Descrizione pubblica dell'evento…"><%= event.description || '' %></textarea>
+            <textarea name="description" rows="4" placeholder="Descrizione pubblica dell'evento"><%= event.description || '' %></textarea>
           </div>
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.85rem;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.85rem">
             <div>
               <label>Tipo evento</label>
               <select name="event_type">
                 <% ['panel','workshop','talk','mostra','firma copie','gaming','altro'].forEach(t => { %>
-                  <option value="<%= t %>" <%= event.event_type === t ? 'selected' : '' %>><%= t.charAt(0).toUpperCase()+t.slice(1) %></option>
-                <% }); %>
+                  <option value="<%= t %>" <%= event.event_type === t ? 'selected' : '' %>>
+                    <%= t.charAt(0).toUpperCase() + t.slice(1) %>
+                  </option>
+                <% }) %>
               </select>
             </div>
             <div>
@@ -47,70 +51,80 @@
             </div>
           </div>
 
-          <div style="margin-bottom:.85rem;">
-            <label>Immagine (URL)</label>
-            <input type="url" name="image_url" value="<%= event.image_url || '' %>" placeholder="https://…">
+          <div style="margin-bottom:.85rem">
+            <label>Immagine URL</label>
+            <input type="url" name="image_url" value="<%= event.image_url || '' %>" placeholder="https://...">
           </div>
 
-          <div style="margin-bottom:.85rem;">
+          <div style="margin-bottom:.85rem">
             <label>Note interne</label>
-            <textarea name="notes" rows="2" placeholder="Note visibili solo agli admin…"><%= event.notes || '' %></textarea>
+            <textarea name="notes" rows="2" placeholder="Note visibili solo agli admin"><%= event.notes || '' %></textarea>
           </div>
         </div>
 
-        <!-- Speaker -->
+        <!-- Ospiti e Speaker -->
         <div class="card">
           <div class="card-title">Ospiti e Speaker</div>
           <% if (speakers.length === 0) { %>
-            <p style="color:var(--text-muted);font-size:.85rem;">Nessuno speaker registrato. <a href="/agenda/speakers" class="link-action">Aggiungine uno</a>.</p>
+            <p style="color:var(--text-muted);font-size:.85rem">
+              Nessuno speaker registrato.
+              <a href="/agenda/speakers" class="link-action">Aggiungine uno</a>.
+            </p>
           <% } else { %>
-            <p class="help-text" style="margin-bottom:.75rem;">Seleziona uno o più speaker e assegna loro un ruolo.</p>
-            <div style="display:grid;gap:.5rem;">
+            <p class="help-text" style="margin-bottom:.75rem">Seleziona uno o più speaker e assegna loro un ruolo.</p>
+            <div style="display:grid;gap:.5rem">
               <% speakers.forEach((s, i) => {
-                const sel = selectedSpeakers.find(ss => ss.speaker_id == s.id);
+                   const sel = selectedSpeakers.find(ss => ss.speaker_id === s.id);
               %>
-                <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem .75rem;background:var(--bg-section);border-radius:var(--radius-sm);border:1px solid var(--border);">
-                  <input type="checkbox" name="speaker_ids" value="<%= s.id %>"
-                    id="spk-<%= s.id %>"
-                    <%= sel ? 'checked' : '' %>
-                    onchange="toggleRole(<%= s.id %>, this.checked)">
-                  <label for="spk-<%= s.id %>" style="margin:0;font-weight:600;flex:1;cursor:pointer;"><%= s.name %></label>
+                <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem .75rem;background:var(--bg-section);border-radius:var(--radius-sm);border:1px solid var(--border)">
+                  <input type="checkbox"
+                         name="speaker_ids"
+                         value="<%= s.id %>"
+                         id="spk-<%= s.id %>"
+                         <%= sel ? 'checked' : '' %>
+                         onchange="toggleRole(<%= s.id %>, this.checked)">
+                  <label for="spk-<%= s.id %>" style="margin:0;font-weight:600;flex:1;cursor:pointer"><%= s.name %></label>
                   <select name="speaker_roles" id="role-<%= s.id %>"
-                    style="width:130px;padding:.25rem .4rem;font-size:.78rem;<%= sel ? '' : 'opacity:.4;' %>">
+                          style="width:130px;padding:.25rem .4rem;font-size:.78rem;<%= sel ? '' : 'opacity:.4' %>">
                     <% ['speaker','moderatore','ospite','autore','giurato'].forEach(r => { %>
-                      <option value="<%= r %>" <%= sel && sel.role===r ? 'selected' : '' %>><%= r.charAt(0).toUpperCase()+r.slice(1) %></option>
-                    <% }); %>
+                      <option value="<%= r %>" <%= sel && sel.role === r ? 'selected' : '' %>>
+                        <%= r.charAt(0).toUpperCase() + r.slice(1) %>
+                      </option>
+                    <% }) %>
                   </select>
                 </div>
-              <% }); %>
+              <% }) %>
             </div>
           <% } %>
         </div>
-      </div>
 
-      <!-- Colonna destra -->
+      </div><!-- /colonna sinistra -->
+
+      <!-- ── Colonna destra ── -->
       <div>
+
+        <!-- Programmazione -->
         <div class="card">
           <div class="card-title">Programmazione</div>
 
-          <div style="margin-bottom:.85rem;">
+          <div style="margin-bottom:.85rem">
             <label>Sala / Spazio <span class="req">*</span></label>
             <select name="space_id" required>
-              <option value="">— Seleziona sala —</option>
+              <option value="">Seleziona sala</option>
               <% spaces.forEach(s => { %>
-                <option value="<%= s.id %>" <%= event.space_id == s.id ? 'selected' : '' %>>
+                <option value="<%= s.id %>" <%= event.space_id === s.id ? 'selected' : '' %>>
                   <%= s.name %> (cap. <%= s.capacity %>)
                 </option>
-              <% }); %>
+              <% }) %>
             </select>
           </div>
 
-          <div style="margin-bottom:.85rem;">
+          <div style="margin-bottom:.85rem">
             <label>Data <span class="req">*</span></label>
             <input type="date" name="date" required value="<%= event.date || '' %>">
           </div>
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.85rem;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.85rem">
             <div>
               <label>Inizio <span class="req">*</span></label>
               <input type="time" name="start_time" required value="<%= event.start_time || '' %>">
@@ -121,81 +135,112 @@
             </div>
           </div>
 
-          <div style="margin-bottom:.85rem;">
+          <div style="margin-bottom:.85rem">
             <label>Posti massimi (iscrizioni)</label>
             <input type="number" name="max_seats" min="0" value="<%= event.max_seats || 0 %>">
             <span class="help-text">0 = nessun limite</span>
           </div>
         </div>
 
+        <!-- Pubblicazione -->
         <div class="card">
           <div class="card-title">Pubblicazione</div>
 
-          <div style="margin-bottom:.85rem;">
-            <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
-              <input type="checkbox" name="is_public" value="1" <%= (!event.id || event.is_public) ? 'checked' : '' %>>
+          <div style="margin-bottom:.85rem">
+            <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+              <input type="checkbox" name="is_public" value="1"
+                     <%= (event.id ? event.is_public : 1) ? 'checked' : '' %>>
               <span>Visibile nel programma pubblico</span>
             </label>
           </div>
 
-          <div style="margin-bottom:1rem;">
-            <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
-              <input type="checkbox" name="published" value="1" <%= event.published ? 'checked' : '' %>>
-              <span>Pubblicato (attivo nel sito)</span>
+          <div style="margin-bottom:1rem">
+            <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+              <input type="checkbox" name="published" value="1"
+                     <%= event.published ? 'checked' : '' %>>
+              <span>Pubblicato / attivo nel sito</span>
             </label>
           </div>
 
-
-          <div style="margin-bottom:1.2rem;padding:.75rem 1rem;background:linear-gradient(135deg,#fffbe6,#fff7cc);border:1.5px solid #f5c842;border-radius:8px;">
-            <label style="display:flex;align-items:center;gap:.6rem;cursor:pointer;">
-              <input type="checkbox" name="is_featured" value="1" <%= event && event.is_featured ? 'checked' : '' %>>
-              <span style="font-weight:700;color:#92400e;">⭐ In evidenza</span>
+          <!-- Toggle iscrizioni -->
+          <div style="margin-bottom:1rem;padding:.85rem;background:#f7f8fb;border-radius:4px;border:1px solid var(--border)">
+            <div style="font-size:.73rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-secondary,#718096);margin-bottom:.65rem">
+              Iscrizioni pubbliche
+            </div>
+            <label style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;cursor:pointer;user-select:none">
+              <div>
+                <div style="font-size:.88rem;font-weight:600">Abilita pulsante "Iscriviti"</div>
+                <div style="font-size:.78rem;color:var(--text-muted,#718096);margin-top:.15rem">
+                  Se attivo, il pulsante Iscriviti sarà visibile sulla pagina pubblica dell'evento.
+                </div>
+              </div>
+              <div style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0">
+                <input type="checkbox" name="registrations_open" value="1"
+                       id="chk-reg-open"
+                       <%= event.registrations_open ? 'checked' : '' %>
+                       style="position:absolute;opacity:0;width:0;height:0">
+                <span id="toggle-reg-slider"
+                      style="position:absolute;cursor:pointer;inset:0;background:<%= event.registrations_open ? '#437a22' : '#cbd5e0' %>;border-radius:9999px;transition:background .2s"></span>
+                <span id="toggle-reg-knob"
+                      style="position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:3px;left:<%= event.registrations_open ? '23px' : '3px' %>;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);pointer-events:none"></span>
+              </div>
             </label>
-            <div style="font-size:.75rem;color:#78350f;margin-top:.3rem;padding-left:1.5rem;">L'evento apparirà nella sezione highlight del programma pubblico</div>
           </div>
-          <div style="display:flex;flex-direction:column;gap:.5rem;">
-            <button type="submit" class="primary" style="width:100%;justify-content:center;">
-              <%= event.id ? '💾 Salva modifiche' : '✅ Crea evento' %>
+
+          <div style="display:flex;flex-direction:column;gap:.5rem">
+            <button type="submit" class="primary" style="width:100%;justify-content:center">
+              <%= event.id ? 'Salva modifiche' : 'Crea evento' %>
             </button>
-            <a href="/agenda/events" class="secondary" style="width:100%;justify-content:center;text-align:center;">Annulla</a>
+            <a href="/agenda/events" class="secondary" style="width:100%;justify-content:center;text-align:center">Annulla</a>
           </div>
         </div>
 
+        <!-- Azioni rapide (solo su edit) -->
         <% if (event.id) { %>
-        <div class="card">
-          <div class="card-title">Azioni rapide</div>
-
-          <div style="margin-bottom:1.2rem;padding:.75rem 1rem;background:linear-gradient(135deg,#fffbe6,#fff7cc);border:1.5px solid #f5c842;border-radius:8px;">
-            <label style="display:flex;align-items:center;gap:.6rem;cursor:pointer;">
-              <input type="checkbox" name="is_featured" value="1" <%= event && event.is_featured ? 'checked' : '' %>>
-              <span style="font-weight:700;color:#92400e;">⭐ In evidenza</span>
-            </label>
-            <div style="font-size:.75rem;color:#78350f;margin-top:.3rem;padding-left:1.5rem;">L'evento apparirà nella sezione highlight del programma pubblico</div>
+          <div class="card">
+            <div class="card-title">Azioni rapide</div>
+            <div style="display:flex;flex-direction:column;gap:.5rem">
+              <a href="/agenda/events/<%= event.id %>/registrations" class="secondary"
+                 style="width:100%;justify-content:center;text-align:center">
+                👥 Visualizza iscritti
+              </a>
+              <form method="POST" action="/agenda/events/<%= event.id %>/publish">
+                <button class="secondary" style="width:100%;justify-content:center">
+                  <%= event.published ? '📥 Rimetti in bozza' : '📤 Pubblica ora' %>
+                </button>
+              </form>
+              <form method="POST" action="/agenda/events/<%= event.id %>/delete"
+                    onsubmit="return confirm('Eliminare definitivamente questo evento?')">
+                <button class="btn-danger" style="width:100%;justify-content:center">🗑 Elimina evento</button>
+              </form>
+            </div>
           </div>
-          <div style="display:flex;flex-direction:column;gap:.5rem;">
-            <a href="/agenda/events/<%= event.id %>/registrations" class="secondary" style="width:100%;justify-content:center;text-align:center;">👥 Visualizza iscritti</a>
-            <form method="POST" action="/agenda/events/<%= event.id %>/publish">
-              <button class="secondary" style="width:100%;justify-content:center;">
-                <%= event.published ? '↩ Rimetti in bozza' : '📡 Pubblica ora' %>
-              </button>
-            </form>
-            <form method="POST" action="/agenda/events/<%= event.id %>/delete" onsubmit="return confirm('Eliminare definitivamente questo evento?')">
-              <button class="btn-danger" style="width:100%;justify-content:center;">🗑 Elimina evento</button>
-            </form>
-          </div>
-        </div>
         <% } %>
-      </div>
 
+      </div><!-- /colonna destra -->
     </div>
   </form>
-
 </main>
 
 <script>
 function toggleRole(id, checked) {
   var sel = document.getElementById('role-' + id);
-  if (sel) sel.style.opacity = checked ? '1' : '.4';
+  if (sel) sel.style.opacity = checked ? 1 : .4;
 }
 </script>
+
+<script>
+(function() {
+  var chk    = document.getElementById('chk-reg-open');
+  var slider = document.getElementById('toggle-reg-slider');
+  var knob   = document.getElementById('toggle-reg-knob');
+  if (!chk) return;
+  function update() {
+    slider.style.background = chk.checked ? '#437a22' : '#cbd5e0';
+    knob.style.left          = chk.checked ? '23px'   : '3px';
+  }
+  chk.addEventListener('change', update);
+})();
+</script>
+
 <%- include('../partials/footer') %>
