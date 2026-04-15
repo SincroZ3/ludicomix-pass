@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>Programma — <%= eventName %></title>
+  <title>Programma — <%= title %></title>
   <style>
     :root {
       --brand-dark:   #1e2d4e;
@@ -124,7 +124,7 @@
 
   <div class="topbar">
     <div>
-      <h1>📅 Programma <%= eventName %></h1>
+      <h1>📅 Programma <%= title %></h1>
       <div class="brand-sub">Tutti gli eventi e le attività</div>
     </div>
     <div style="font-size:.82rem;color:#aec6e8;">Ultimo aggiornamento: <%= new Date().toLocaleDateString('it-IT') %></div>
@@ -215,7 +215,7 @@
   </div>
 
   <div class="footer">
-    <p>Programma aggiornato in tempo reale · <%= eventName %></p>
+    <p>Programma aggiornato in tempo reale · <%= title %></p>
   </div>
 
 </body>
