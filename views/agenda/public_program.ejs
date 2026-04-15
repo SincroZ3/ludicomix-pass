@@ -5,252 +5,446 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Programma <%= title %></title>
   <style>
-    :root {
-      --brand-dark: #1e2d4e; --brand-yellow: #f5c842; --brand-gold: #c9a227;
-      --brand-violet: #6b3fa0; --accent-blue: #1d6fa4;
-      --bg: #f0f2f5; --white: #ffffff; --border: #d1d9e6; --border-light: #e8ecf3;
-      --text: #1a2744; --muted: #718096;
-      --radius-sm: 4px; --radius-md: 8px; --radius-lg: 12px;
-      --shadow-sm: 0 1px 3px rgba(30,45,78,.10); --shadow-md: 0 3px 10px rgba(30,45,78,.15);
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; font-size: 15px; background: #f0ede8; color: #1a2744; line-height: 1.55; }
+    a { color: inherit; text-decoration: none; }
+
+    /* ── NAVBAR ── */
+    .navbar {
+      background: #1e2d4e;
+      padding: .6rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 3px solid #f5c842;
     }
-    *, *::before, *::after { box-sizing: border-box; }
-    body { margin:0; font-family:-apple-system,Segoe UI,Arial,sans-serif; font-size:15px; background:var(--bg); color:var(--text); line-height:1.55; }
-    a { color:var(--accent-blue); text-decoration:none; }
-    a:hover { text-decoration:underline; }
-    .topbar { background:var(--brand-dark); border-bottom:3px solid var(--brand-yellow); padding:.75rem 1.5rem; display:flex; justify-content:space-between; align-items:center; }
-    .topbar h1 { margin:0; font-size:1.2rem; color:#fff; letter-spacing:.3px; }
-    .topbar .brand-sub { font-size:.78rem; color:#aec6e8; }
-    .container { max-width:1100px; margin:0 auto; padding:1.5rem 1rem; }
-    .date-filter { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1.5rem; border-bottom:2px solid var(--border); padding-bottom:1rem; }
-    .date-btn { padding:.4rem 1.1rem; border:1px solid var(--border); border-radius:999px; background:var(--white); font-size:.8rem; font-weight:700; cursor:pointer; text-decoration:none; color:var(--text); transition:background .15s; }
-    .date-btn:hover { background:var(--border-light); text-decoration:none; }
-    .date-btn.active { background:var(--brand-dark); color:var(--brand-yellow); border-color:var(--brand-dark); }
-    .day-section { margin-bottom:2.5rem; }
-    .day-label { font-size:.75rem; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:1rem; padding-bottom:.4rem; border-bottom:1px solid var(--border-light); }
-    .event-card { background:var(--white); border-radius:var(--radius-md); border:1px solid var(--border); box-shadow:var(--shadow-sm); padding:1rem 1.25rem; margin-bottom:.75rem; display:grid; grid-template-columns:90px 1fr auto; gap:1rem; align-items:start; cursor:pointer; }
-    .event-card:hover { box-shadow:var(--shadow-md); }
-    .event-time { font-weight:700; font-size:.9rem; color:var(--brand-dark); text-align:center; padding-top:.1rem; }
-    .event-time .end-time { font-size:.75rem; font-weight:400; color:var(--muted); }
-    .event-space { display:inline-block; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.4px; padding:.1rem .5rem; border-radius:999px; background:var(--bg); border:1px solid var(--border); color:var(--muted); margin-bottom:.35rem; }
-    .event-title { font-size:1rem; font-weight:700; margin:0 0 .3rem; color:var(--brand-dark); }
-    .event-type { display:inline-block; font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.3px; padding:.1rem .4rem; border-radius:3px; background:#e8edf8; color:var(--brand-dark); margin-right:.4rem; }
-    .event-desc { font-size:.83rem; color:var(--muted); margin:.4rem 0; }
-    .event-speakers { font-size:.8rem; color:#4a5568; margin-top:.3rem; }
-    .event-speakers strong { color:var(--brand-violet); }
-    .seats-badge { text-align:right; font-size:.78rem; font-weight:700; white-space:nowrap; }
-    .seats-badge.full { color:#c0392b; }
-    .seats-badge.available { color:#1d6a39; }
-    .seats-bar { display:block; height:5px; border-radius:9999px; background:var(--border-light); overflow:hidden; margin-top:.3rem; width:80px; margin-left:auto; }
-    .seats-bar-fill { height:100%; background:var(--brand-dark); display:block; }
-    .btn-iscriviti { display:inline-block; margin-top:.6rem; padding:.4rem .9rem; background:var(--brand-yellow); color:var(--brand-dark); font-weight:700; font-size:.78rem; text-transform:uppercase; letter-spacing:.4px; border-radius:var(--radius-sm); transition:background .15s; text-decoration:none; font-family:'Arial Narrow',Arial,sans-serif; }
-    .btn-iscriviti:hover { background:#ffe066; text-decoration:none; }
-    .btn-iscriviti.full { background:var(--border); color:var(--muted); cursor:not-allowed; }
-    .footer { text-align:center; padding:2rem 1rem; color:var(--muted); font-size:.78rem; border-top:1px solid var(--border-light); margin-top:2rem; }
-    @media(max-width:600px) {
-      .event-card { grid-template-columns:1fr; gap:.5rem; }
-      .seats-badge { text-align:left; }
-      .seats-badge .seats-bar { margin-left:0; }
+    .navbar-brand { display: flex; align-items: center; gap: .75rem; }
+    .navbar-brand img { height: 44px; width: 44px; object-fit: contain; border-radius: 6px; }
+    .navbar-brand .brand-name { font-size: 1.15rem; font-weight: 800; color: #fff; letter-spacing: .2px; line-height: 1; }
+    .navbar-brand .brand-sub  { font-size: .68rem; color: #aec6e8; letter-spacing: .5px; text-transform: uppercase; margin-top: 2px; }
+    .navbar-actions { display: flex; gap: .5rem; }
+    .navbar-actions a {
+      display: inline-flex; align-items: center; gap: .35rem;
+      padding: .35rem .85rem; border-radius: 999px;
+      background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2);
+      color: #fff; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+      transition: background .15s;
     }
-    /* Modal — aggiunto solo per il fix, stile coerente con la UI esistente */
-    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:999; justify-content:center; align-items:center; padding:1rem; }
-    .modal-overlay.open { display:flex; }
-    .modal-box { background:#fff; border-radius:var(--radius-lg); box-shadow:0 8px 32px rgba(0,0,0,.2); max-width:520px; width:100%; max-height:88vh; overflow-y:auto; }
-    .modal-head { padding:1.1rem 1.4rem .8rem; border-bottom:1px solid var(--border-light); position:relative; }
-    .modal-head h3 { margin:0; font-size:1.1rem; color:var(--brand-dark); padding-right:2rem; }
-    .modal-head .mtype { font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:var(--brand-violet); margin-bottom:.3rem; }
-    .modal-close { position:absolute; top:.9rem; right:1rem; background:none; border:none; font-size:1.2rem; cursor:pointer; color:var(--muted); }
-    .modal-body { padding:1rem 1.4rem; font-size:.88rem; }
-    .modal-meta { color:var(--muted); margin-bottom:.75rem; font-size:.82rem; }
-    .modal-foot { padding:.8rem 1.4rem 1.1rem; border-top:1px solid var(--border-light); text-align:right; }
+    .navbar-actions a:hover { background: rgba(255,255,255,.2); }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(175deg, #1e2d4e 0%, #162240 100%);
+      padding: 3rem 1rem 3.5rem;
+      text-align: center;
+      color: #fff;
+    }
+    .hero-eyebrow {
+      display: flex; align-items: center; justify-content: center; gap: .75rem;
+      font-size: .72rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+      color: #aec6e8; margin-bottom: 1.1rem;
+    }
+    .hero-eyebrow::before, .hero-eyebrow::after {
+      content: ''; display: block; height: 1px; width: 60px; background: rgba(174,198,232,.4);
+    }
+    .hero h1 {
+      font-size: clamp(2.6rem, 7vw, 5rem);
+      font-style: italic;
+      font-weight: 800;
+      color: #f5f0e8;
+      letter-spacing: -.5px;
+      line-height: 1.05;
+      margin-bottom: .9rem;
+    }
+    .hero-sub {
+      font-size: .95rem; color: #aec6e8; max-width: 500px; margin: 0 auto; line-height: 1.6;
+    }
+
+    /* ── CONTAINER ── */
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 1rem; }
+
+    /* ── FILTER CARD ── */
+    .filter-wrap { padding: 1.5rem 0 .75rem; }
+    .filter-card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(30,45,78,.10);
+      padding: 1.1rem 1.4rem 1rem;
+    }
+    .filter-row {
+      display: flex; align-items: flex-end; flex-wrap: wrap; gap: .6rem;
+    }
+    .filter-group { display: flex; flex-direction: column; gap: .3rem; flex: 1; min-width: 140px; }
+    .filter-group label {
+      font-size: .63rem; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: #8896ab;
+    }
+    .filter-group select,
+    .filter-group input {
+      padding: .42rem .7rem; border: 1px solid #d1d9e6; border-radius: 6px;
+      font-size: .82rem; color: #1a2744; background: #f8f9fc;
+      appearance: none; -webkit-appearance: none;
+      outline: none; transition: border-color .15s;
+      width: 100%;
+    }
+    .filter-group select:focus, .filter-group input:focus { border-color: #1e2d4e; }
+    .filter-group.search { flex: 2; min-width: 200px; }
+    .filter-actions { display: flex; gap: .4rem; align-items: flex-end; padding-bottom: 1px; }
+    .btn-filtra {
+      padding: .44rem 1.2rem; background: #1e2d4e; color: #f5c842;
+      border: none; border-radius: 6px; font-size: .8rem; font-weight: 700;
+      cursor: pointer; text-transform: uppercase; letter-spacing: .4px; transition: background .15s;
+    }
+    .btn-filtra:hover { background: #162240; }
+    .btn-reset {
+      padding: .44rem 1rem; background: transparent; color: #8896ab;
+      border: 1px solid #d1d9e6; border-radius: 6px; font-size: .8rem; font-weight: 600;
+      cursor: pointer; text-decoration: none; display: inline-block; transition: border-color .15s;
+    }
+    .btn-reset:hover { border-color: #8896ab; color: #1a2744; }
+    .events-count {
+      margin-top: .75rem; font-size: .78rem; font-weight: 700; color: #8896ab;
+      text-transform: uppercase; letter-spacing: .4px;
+    }
+
+    /* ── DAY GROUP ── */
+    .events-wrap { padding: .75rem 0 2.5rem; }
+    .day-group { margin-bottom: 2.2rem; }
+    .day-header {
+      display: flex; align-items: center; gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .day-badge {
+      background: #1e2d4e; color: #fff; border-radius: 8px;
+      min-width: 58px; height: 58px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .day-badge .d-num { font-size: 1.7rem; font-weight: 800; line-height: 1; }
+    .day-badge .d-mon { font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #aec6e8; }
+    .day-info { flex: 1; border-bottom: 2px solid #d1d9e6; padding-bottom: .5rem; }
+    .day-info .d-label { font-size: .82rem; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: #1a2744; }
+    .day-info .d-count { font-size: .72rem; color: #8896ab; font-weight: 600; margin-left: .6rem; }
+
+    /* ── EVENT CARD ── */
+    .event-card {
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 4px rgba(30,45,78,.07);
+      padding: .9rem 1.1rem;
+      margin-bottom: .65rem;
+      display: grid;
+      grid-template-columns: 76px 1fr auto;
+      gap: .9rem;
+      align-items: start;
+      cursor: pointer;
+      transition: box-shadow .15s, transform .1s;
+    }
+    .event-card:hover { box-shadow: 0 4px 16px rgba(30,45,78,.13); transform: translateY(-1px); }
+    .event-card.hidden { display: none; }
+
+    /* Time column */
+    .ev-time { display: flex; flex-direction: column; align-items: center; padding-top: .1rem; }
+    .ev-time .t-start { font-size: 1.1rem; font-weight: 800; color: #1e2d4e; line-height: 1; }
+    .ev-time .t-end   { font-size: .75rem; font-weight: 400; color: #8896ab; margin-top: .15rem; }
+    .ev-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: auto; margin-top: .9rem; flex-shrink: 0; }
+
+    /* Body column */
+    .ev-body { min-width: 0; }
+    .ev-tags { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .45rem; }
+    .tag {
+      display: inline-block; padding: .12rem .45rem;
+      border-radius: 4px; font-size: .66rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .3px; white-space: nowrap;
+    }
+    .tag-type  { background: #dbe8f7; color: #1d6fa4; }
+    .tag-space { background: #dbe8f7; color: #1d6fa4; border: 1px solid #b8d1ed; }
+    .tag-other { background: #e8edf8; color: #2d4a7a; }
+    .tag-full  { background: #fee2e2; color: #c0392b; }
+    .ev-title { font-size: 1rem; font-weight: 700; color: #1a2744; margin-bottom: .2rem; }
+    .ev-desc  { font-size: .8rem; color: #718096; margin-top: .3rem; }
+    .ev-speakers { font-size: .78rem; color: #4a5568; margin-top: .3rem; }
+    .ev-speakers strong { color: #6b3fa0; }
+
+    /* Seats column */
+    .ev-seats { text-align: right; white-space: nowrap; padding-top: .1rem; }
+    .ev-seats .s-count { font-size: .82rem; font-weight: 700; }
+    .ev-seats .s-count.full  { color: #c0392b; }
+    .ev-seats .s-count.avail { color: #1d6a39; }
+    .ev-seats .s-bar { display: block; height: 5px; border-radius: 9999px; background: #e8ecf3; overflow: hidden; margin-top: .3rem; width: 80px; margin-left: auto; }
+    .ev-seats .s-fill { height: 100%; background: #1e2d4e; display: block; }
+    .ev-seats .free-label { color: #1d6a39; font-size: .78rem; font-weight: 700; }
+    .btn-iscriviti {
+      display: inline-block; margin-top: .5rem;
+      padding: .35rem .85rem; background: #1e2d4e; color: #f5c842;
+      font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .4px;
+      border-radius: 5px; border: none; cursor: pointer; text-decoration: none;
+      transition: background .15s;
+    }
+    .btn-iscriviti:hover { background: #162240; }
+    .btn-iscriviti.disabled { background: #e2e8f0; color: #8896ab; cursor: default; }
+
+    /* ── EMPTY STATE ── */
+    .empty-state { text-align: center; padding: 4rem 1rem; color: #8896ab; }
+    .empty-state .empty-icon { font-size: 3rem; margin-bottom: .75rem; }
+
+    /* ── FOOTER ── */
+    .footer {
+      text-align: center; padding: 1.5rem 1rem;
+      color: #8896ab; font-size: .75rem;
+      border-top: 1px solid #e2e8f0; margin-top: 1rem;
+    }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.5); z-index: 999;
+      justify-content: center; align-items: center; padding: 1rem;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.2);
+      max-width: 520px; width: 100%; max-height: 88vh; overflow-y: auto;
+    }
+    .modal-head { padding: 1.1rem 1.4rem .8rem; border-bottom: 1px solid #e8ecf3; position: relative; }
+    .modal-head .mtype { font-size: .65rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: #6b3fa0; margin-bottom: .3rem; }
+    .modal-head h3 { margin: 0; font-size: 1.1rem; color: #1a2744; padding-right: 2rem; }
+    .modal-close { position: absolute; top: .9rem; right: 1rem; background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #8896ab; }
+    .modal-body { padding: 1rem 1.4rem; font-size: .88rem; }
+    .modal-meta { color: #8896ab; margin-bottom: .75rem; font-size: .82rem; }
+    .modal-foot { padding: .8rem 1.4rem 1.1rem; border-top: 1px solid #e8ecf3; text-align: right; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 640px) {
+      .filter-row { flex-direction: column; }
+      .filter-group { min-width: 100%; }
+      .filter-actions { width: 100%; }
+      .event-card { grid-template-columns: 66px 1fr; }
+      .ev-seats { grid-column: 2; text-align: left; }
+      .ev-seats .s-bar { margin-left: 0; }
+    }
   </style>
 </head>
 <body>
 
-<div class="topbar">
-  <div>
-    <h1>📅 Programma <%= title %></h1>
-    <div class="brand-sub">Tutti gli eventi e le attività</div>
+<!-- NAVBAR -->
+<nav class="navbar">
+  <div class="navbar-brand">
+    <img src="/img/logo.png" alt="Ludicomix" onerror="this.style.display='none'">
+    <div>
+      <div class="brand-name">Ludicomix</div>
+      <div class="brand-sub">Empoli &mdash; Programma Ufficiale</div>
+    </div>
   </div>
-  <div style="font-size:.82rem;color:#aec6e8">Ultimo aggiornamento: <%= new Date().toLocaleDateString('it-IT') %></div>
+  <div class="navbar-actions">
+    <a href="/programma">📅 Programma</a>
+    <a href="/programma/qr">📱 QR</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-eyebrow">Ludicomix &mdash; Edizione 2026</div>
+  <h1>Il Programma</h1>
+  <p class="hero-sub">Panel, workshop, talk, ospiti speciali e tanto altro &mdash; tutto in un posto solo.</p>
+</section>
+
+<!-- FILTERS -->
+<div class="container">
+  <div class="filter-wrap">
+    <div class="filter-card">
+      <form class="filter-row" method="GET" action="/programma" id="filterForm">
+        <div class="filter-group">
+          <label>Tutte le date</label>
+          <select name="date">
+            <option value="">Tutte le date</option>
+            <% dates.forEach(d => { %>
+            <option value="<%= d.date %>" <%= filters.date === d.date ? 'selected' : '' %>>
+              <%= new Date(d.date + 'T12:00:00').toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'long'}) %>
+            </option>
+            <% }); %>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Tutte le sale</label>
+          <select name="space">
+            <option value="">Tutte le sale</option>
+            <% spaces.forEach(s => { %>
+            <option value="<%= s.name %>" <%= filters.space === s.name ? 'selected' : '' %>><%= s.name %></option>
+            <% }); %>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Tutti i tipi</label>
+          <select id="filterType" onchange="applyClientFilter()">
+            <option value="">Tutti i tipi</option>
+          </select>
+        </div>
+        <div class="filter-group search">
+          <label>Cerca evento o ospite&hellip;</label>
+          <input type="text" id="filterSearch" placeholder="Cerca evento o ospite..." oninput="applyClientFilter()">
+        </div>
+        <div class="filter-actions">
+          <button type="submit" class="btn-filtra">Filtra</button>
+          <a href="/programma" class="btn-reset">Reset</a>
+        </div>
+      </form>
+      <div class="events-count" id="eventsCount"><%= events.length %> eventi</div>
+    </div>
+  </div>
 </div>
 
+<!-- EVENTS -->
 <div class="container">
-
-  <% if (dates.length > 1) { %>
-  <div class="date-filter">
-    <a href="/programma" class="date-btn <%= !filters.date ? 'active' : '' %>">Tutte le date</a>
-    <% dates.forEach(d => { %>
-      <a href="/programma?date=<%= d.date %>"
-         class="date-btn <%= filters.date === d.date ? 'active' : '' %>">
-        <%/* FIX: T12:00:00 evita bug timezone UTC→locale */%>
-        <%= new Date(d.date + 'T12:00:00').toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'short'}) %>
-      </a>
-    <% }); %>
-  </div>
-  <% } %>
+  <div class="events-wrap">
 
   <% if (events.length === 0) { %>
-    <div style="text-align:center;padding:4rem 1rem;color:var(--muted)">
-      <div style="font-size:3rem;margin-bottom:.75rem">📭</div>
+    <div class="empty-state">
+      <div class="empty-icon">📭</div>
       <p>Nessun evento pubblicato per la data selezionata.</p>
     </div>
   <% } else { %>
 
     <%
-      // FIX #1 — "In evidenza": era e.is_featured (undefined), ora e.featured == 1
-      const featured = events.filter(e => e.featured == 1);
-    %>
-    <% if (featured.length > 0) { %>
-    <div style="margin:0 0 1.8rem;padding:1.2rem 1.4rem;background:linear-gradient(135deg,#fffbe6,#fff7cc);border:2px solid #f5c842;border-radius:12px">
-      <div style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#92400e;margin-bottom:.9rem">⭐ In evidenza</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:.7rem">
-        <% featured.forEach(ev => { %>
-          <div style="background:#fff;border-left:4px solid #<%- ev.space_color || '6b3fa0' %>;border-radius:8px;padding:.8rem 1rem;box-shadow:0 2px 8px rgba(30,45,78,.09);cursor:pointer"
-               onclick="openModal(<%= ev.id %>)">
-            <div style="font-size:.63rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#6b3fa0;margin-bottom:.25rem"><%= ev.event_type || 'evento' %></div>
-            <div style="font-size:.9rem;font-weight:700;color:#1a2744;margin-bottom:.45rem;line-height:1.3"><%= ev.title %></div>
-            <div style="display:flex;flex-wrap:wrap;gap:.35rem;font-size:.7rem;color:#64748b">
-              <span>📅 <%= new Date(ev.date + 'T12:00:00').toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'short'}) %></span>
-              <span>🕐 <%= ev.start_time %>–<%= ev.end_time %></span>
-              <span>📍 <%= ev.space_name %></span>
-            </div>
-          </div>
-        <% }) %>
-      </div>
-    </div>
-    <% } %>
-
-    <%
       const byDay = {};
-      events.forEach(e => { if(!byDay[e.date]) byDay[e.date]=[]; byDay[e.date].push(e); });
+      events.forEach(e => { if (!byDay[e.date]) byDay[e.date] = []; byDay[e.date].push(e); });
     %>
 
-    <% Object.entries(byDay).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([date, evs]) => { %>
-    <div class="day-section">
-      <div class="day-label">
-        <%= new Date(date + 'T12:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}) %>
+    <% Object.entries(byDay).sort((a,b) => a[0].localeCompare(b[0])).forEach(([date, dayEvs]) => {
+         const dayDate = new Date(date + 'T12:00:00');
+         const dayNum  = dayDate.getDate();
+         const dayMon  = dayDate.toLocaleDateString('it-IT',{month:'short'}).toUpperCase().replace('.','');
+         const dayFull = dayDate.toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).toUpperCase();
+    %>
+    <div class="day-group">
+      <div class="day-header">
+        <div class="day-badge">
+          <span class="d-num"><%= dayNum %></span>
+          <span class="d-mon"><%= dayMon %></span>
+        </div>
+        <div class="day-info">
+          <span class="d-label"><%= dayFull %></span>
+          <span class="d-count"><%= dayEvs.length %> EVENTO<%= dayEvs.length !== 1 ? 'I' : '' %></span>
+        </div>
       </div>
 
-      <% evs.sort((a,b)=>a.start_time.localeCompare(b.start_time)).forEach(e => {
-           // FIX #2 — is_full non esiste nella view, usare availability
-           const isFull = e.availability === 'full';
-           // FIX #3 — Iscriviti: era max_seats>0, ora registrations_open==1
+      <% dayEvs.sort((a,b) => a.start_time.localeCompare(b.start_time)).forEach(e => {
+           const isFull      = e.availability === 'full';
            const canRegister = e.registrations_open == 1;
+           const dotColor    = e.space_color ? '#' + e.space_color.replace('#','') : '#1e2d4e';
+           const pct         = (e.max_seats > 0) ? Math.min(100, Math.round((e.seats_taken||0) / e.max_seats * 100)) : 0;
       %>
-        <div class="event-card" onclick="openModal(<%= e.id %>)">
+      <div class="event-card"
+           data-type="<%= (e.event_type||'').toLowerCase() %>"
+           data-title="<%= e.title.toLowerCase() %>"
+           data-speakers="<%= (e.speakers_list||'').toLowerCase() %>"
+           onclick="openModal(<%= e.id %>)">
 
-          <div class="event-time">
-            <%= e.start_time %><br>
-            <span class="end-time">– <%= e.end_time %></span>
-          </div>
-
-          <div>
-            <div>
-              <span class="event-space" style="border-color:<%- e.space_color %>"><%= e.space_name %></span>
-              <span class="event-type"><%= e.event_type %></span>
-            </div>
-            <div class="event-title"><%= e.title %></div>
-            <% if(e.description) { %>
-              <div class="event-desc"><%= e.description.slice(0,200) %><%= e.description.length>200?'…':'' %></div>
-            <% } %>
-            <% if(e.speakers_list) { %>
-              <div class="event-speakers">con <strong><%= e.speakers_list %></strong></div>
-            <% } %>
-            <% if(canRegister && !isFull) { %>
-              <a href="/programma/iscriviti/<%= e.id %>" class="btn-iscriviti" onclick="event.stopPropagation()">Iscriviti →</a>
-            <% } else if(canRegister && isFull) { %>
-              <span class="btn-iscriviti full">Posti esauriti</span>
-            <% } %>
-          </div>
-
-          <div class="seats-badge <%= isFull ? 'full' : (e.max_seats > 0 ? 'available' : '') %>">
-            <% if(e.max_seats > 0) { %>
-              <%= e.seats_taken %> / <%= e.max_seats %>
-              <% if(isFull) { %><br><span>ESAURITO</span><% } %>
-              <span class="seats-bar"><span class="seats-bar-fill" style="width:<%= Math.min(100,Math.round(e.seats_taken/e.max_seats*100)) %>%"></span></span>
-            <% } else { %>
-              <span style="color:var(--muted);font-weight:400;font-size:.75rem">Ingresso<br>libero</span>
-            <% } %>
-          </div>
-
+        <!-- Colonna tempo -->
+        <div class="ev-time">
+          <span class="t-start"><%= e.start_time %></span>
+          <span class="t-end"><%= e.end_time %></span>
+          <span class="ev-dot" style="background:<%- dotColor %>"></span>
         </div>
+
+        <!-- Colonna body -->
+        <div class="ev-body">
+          <div class="ev-tags">
+            <span class="tag tag-type"><%= e.event_type || 'evento' %></span>
+            <span class="tag tag-space">📍 <%= e.space_name %></span>
+            <% if (e.tags) { e.tags.split(',').forEach(t => { t = t.trim(); if (t) { %><span class="tag tag-other"><%= t %></span><% } }); } %>
+            <% if (isFull) { %><span class="tag tag-full">⊗ Esaurito</span><% } %>
+          </div>
+          <div class="ev-title"><%= e.title %></div>
+          <% if (e.description) { %><div class="ev-desc"><%= e.description.slice(0,200) %><%= e.description.length > 200 ? '…' : '' %></div><% } %>
+          <% if (e.speakers_list) { %><div class="ev-speakers">con <strong><%= e.speakers_list %></strong></div><% } %>
+        </div>
+
+        <!-- Colonna posti -->
+        <div class="ev-seats">
+          <% if (e.max_seats > 0) { %>
+            <div class="s-count <%= isFull ? 'full' : 'avail' %>"><%= e.seats_taken || 0 %> / <%= e.max_seats %></div>
+            <span class="s-bar"><span class="s-fill" style="width:<%= pct %>%"></span></span>
+            <% if (canRegister && !isFull) { %>
+              <a href="/programma/iscriviti/<%= e.id %>" class="btn-iscriviti" onclick="event.stopPropagation()">Iscriviti →</a>
+            <% } else { %>
+              <button class="btn-iscriviti disabled" disabled>Esaurito</button>
+            <% } %>
+          <% } else { %>
+            <div class="free-label">✓ Ingresso<br>libero</div>
+          <% } %>
+        </div>
+
+      </div>
       <% }); %>
     </div>
     <% }); %>
 
   <% } %>
-
+  </div>
 </div>
 
-<div class="footer">
-  <p>Programma aggiornato in tempo reale · <%= title %></p>
-</div>
+<div class="footer">Programma aggiornato in tempo reale &middot; <%= title %></div>
 
-<!-- Modal (fix #3) -->
+<!-- MODAL -->
 <div class="modal-overlay" id="evModal" onclick="if(event.target===this)closeModal()">
   <div class="modal-box">
     <div class="modal-head">
       <div class="mtype" id="mType"></div>
       <h3 id="mTitle"></h3>
-      <button class="modal-close" onclick="closeModal()">✕</button>
+      <button class="modal-close" onclick="closeModal()">&#x2715;</button>
     </div>
     <div class="modal-body">
       <div class="modal-meta" id="mMeta"></div>
       <div id="mDesc"></div>
       <div id="mSpk" style="margin-top:.6rem;font-size:.85rem;color:#4a5568"></div>
-      <div id="mSeats" style="margin-top:.6rem;font-size:.82rem;color:var(--muted)"></div>
+      <div id="mSeats" style="margin-top:.6rem;font-size:.82rem;color:#8896ab"></div>
     </div>
     <div class="modal-foot" id="mFoot"></div>
   </div>
 </div>
 
-<%# Embed events data — fix: niente JSON inline negli onclick, si usa lookup by id %>
 <script>
+/* ── DATI EVENTI (embed server-side) ── */
 var EVDATA = {};
 <% events.forEach(e => { %>
 EVDATA[<%= e.id %>] = <%- JSON.stringify({
-  id: e.id,
-  title: e.title,
+  id: e.id, title: e.title,
   description: e.description || '',
   event_type: e.event_type || '',
-  date: e.date,
-  start_time: e.start_time,
-  end_time: e.end_time,
+  date: e.date, start_time: e.start_time, end_time: e.end_time,
   space_name: e.space_name,
-  max_seats: e.max_seats,
-  seats_taken: e.seats_taken,
-  availability: e.availability,
-  registrations_open: e.registrations_open,
+  max_seats: e.max_seats || 0,
+  seats_taken: e.seats_taken || 0,
+  availability: e.availability || '',
+  registrations_open: e.registrations_open || 0,
   speakers_list: e.speakers_list || ''
 }) %>;
 <% }); %>
 
+/* ── MODAL ── */
 function openModal(id) {
-  var ev = EVDATA[id];
-  if (!ev) return;
+  var ev = EVDATA[id]; if (!ev) return;
   var isFull = ev.availability === 'full';
   document.getElementById('mType').textContent = (ev.event_type || '').toUpperCase();
   document.getElementById('mTitle').textContent = ev.title;
   var dateStr = '';
-  try { dateStr = new Date(ev.date + 'T12:00:00').toLocaleDateString('it-IT', {weekday:'long',day:'2-digit',month:'long'}); } catch(x){}
+  try { dateStr = new Date(ev.date + 'T12:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'long'}); } catch(x) {}
   document.getElementById('mMeta').textContent = '📅 ' + dateStr + '   🕐 ' + ev.start_time + '–' + ev.end_time + '   📍 ' + ev.space_name;
   var desc = document.getElementById('mDesc');
-  desc.textContent = ev.description || '';
+  desc.textContent = ev.description;
   desc.style.display = ev.description ? '' : 'none';
-  var spk = document.getElementById('mSpk');
-  spk.innerHTML = ev.speakers_list ? 'con <strong style="color:#6b3fa0">' + ev.speakers_list + '</strong>' : '';
-  var seats = document.getElementById('mSeats');
-  seats.textContent = ev.max_seats > 0
-    ? (isFull ? '⚠️ Posti esauriti (' + ev.seats_taken + '/' + ev.max_seats + ')' : '🪑 ' + (ev.max_seats - ev.seats_taken) + ' posti disponibili su ' + ev.max_seats)
+  document.getElementById('mSpk').innerHTML = ev.speakers_list
+    ? 'con <strong style="color:#6b3fa0">' + ev.speakers_list + '</strong>' : '';
+  document.getElementById('mSeats').textContent = ev.max_seats > 0
+    ? (isFull ? '⚠️ Posti esauriti (' + ev.seats_taken + '/' + ev.max_seats + ')'
+              : '🪑 ' + (ev.max_seats - ev.seats_taken) + ' posti disponibili su ' + ev.max_seats)
     : '🎟 Ingresso libero';
   var foot = document.getElementById('mFoot');
-  if (ev.registrations_open == 1 && !isFull) {
+  if (ev.registrations_open && !isFull) {
     foot.innerHTML = '<a href="/programma/iscriviti/' + ev.id + '" class="btn-iscriviti">Iscriviti →</a>';
-  } else if (ev.registrations_open == 1 && isFull) {
-    foot.innerHTML = '<span class="btn-iscriviti full">Posti esauriti</span>';
-  } else {
-    foot.innerHTML = '';
-  }
+  } else if (ev.registrations_open && isFull) {
+    foot.innerHTML = '<button class="btn-iscriviti disabled" disabled>Posti esauriti</button>';
+  } else { foot.innerHTML = ''; }
   document.getElementById('evModal').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
@@ -258,7 +452,34 @@ function closeModal() {
   document.getElementById('evModal').classList.remove('open');
   document.body.style.overflow = '';
 }
-document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeModal(); });
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+
+/* ── FILTRO TIPO (client-side) ── */
+(function() {
+  var cards = document.querySelectorAll('.event-card');
+  var types = {};
+  cards.forEach(function(c) { var t = c.dataset.type; if (t && t !== '') types[t] = true; });
+  var sel = document.getElementById('filterType');
+  Object.keys(types).sort().forEach(function(t) {
+    var o = document.createElement('option');
+    o.value = t; o.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+    sel.appendChild(o);
+  });
+})();
+
+function applyClientFilter() {
+  var typeVal   = document.getElementById('filterType').value.toLowerCase();
+  var searchVal = document.getElementById('filterSearch').value.toLowerCase().trim();
+  var cards     = document.querySelectorAll('.event-card');
+  var visible   = 0;
+  cards.forEach(function(c) {
+    var matchType   = !typeVal   || c.dataset.type === typeVal;
+    var matchSearch = !searchVal || c.dataset.title.includes(searchVal) || c.dataset.speakers.includes(searchVal);
+    if (matchType && matchSearch) { c.classList.remove('hidden'); visible++; }
+    else                          { c.classList.add('hidden'); }
+  });
+  document.getElementById('eventsCount').textContent = visible + ' eventi';
+}
 </script>
 
 </body>
