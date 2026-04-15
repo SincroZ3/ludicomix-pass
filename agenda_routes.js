@@ -269,8 +269,8 @@ router.get('/agenda/events/new', requireAuth, (req, res) => {
 
 router.post('/agenda/events', requireAuth, (req, res) => {
   const { title, description, space_id, date, start_time, end_time,
-          max_seats, event_type, is_public, published, registrations_open, image_url, tags, notes,
-          speaker_ids, speaker_roles } = req.body;
+          max_seats, event_type, is_public, published, registrations_open, is_featured,
+          image_url, tags, notes, speaker_ids, speaker_roles } = req.body;
 
   if (!title || !space_id || !date || !start_time || !end_time) {
     flash(req, 'error', 'Titolo, sala, data e orari sono obbligatori.');
@@ -290,11 +290,12 @@ router.post('/agenda/events', requireAuth, (req, res) => {
 
     db.run(
       `INSERT INTO events (title, description, space_id, date, start_time, end_time,
-        max_seats, event_type, is_public, published, registrations_open, image_url, tags, notes)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        max_seats, event_type, is_public, published, registrations_open, is_featured,
+        image_url, tags, notes)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [title.trim(), description || '', parseInt(space_id), date, start_time, end_time,
        parseInt(max_seats) || 0, event_type || 'panel',
-       is_public ? 1 : 0, published ? 1 : 0, registrations_open ? 1 : 0,
+       is_public ? 1 : 0, published ? 1 : 0, registrations_open ? 1 : 0, is_featured ? 1 : 0,
        image_url || '', tags || '', notes || ''],
       function(err2) {
         if (err2) {
@@ -347,8 +348,8 @@ router.get('/agenda/events/:id/edit', requireAuth, (req, res) => {
 router.post('/agenda/events/:id', requireAuth, (req, res) => {
   const id = req.params.id;
   const { title, description, space_id, date, start_time, end_time,
-          max_seats, event_type, is_public, published, registrations_open, image_url, tags, notes,
-          speaker_ids, speaker_roles } = req.body;
+          max_seats, event_type, is_public, published, registrations_open, is_featured,
+          image_url, tags, notes, speaker_ids, speaker_roles } = req.body;
 
   if (!title || !space_id || !date || !start_time || !end_time) {
     flash(req, 'error', 'Titolo, sala, data e orari sono obbligatori.');
@@ -368,12 +369,13 @@ router.post('/agenda/events/:id', requireAuth, (req, res) => {
 
     db.run(
       `UPDATE events SET title=?, description=?, space_id=?, date=?, start_time=?, end_time=?,
-        max_seats=?, event_type=?, is_public=?, published=?, registrations_open=?, image_url=?, tags=?, notes=?,
+        max_seats=?, event_type=?, is_public=?, published=?, registrations_open=?, is_featured=?,
+        image_url=?, tags=?, notes=?,
         updated_at=datetime('now')
        WHERE id=?`,
       [title.trim(), description || '', parseInt(space_id), date, start_time, end_time,
        parseInt(max_seats) || 0, event_type || 'panel',
-       is_public ? 1 : 0, published ? 1 : 0, registrations_open ? 1 : 0,
+       is_public ? 1 : 0, published ? 1 : 0, registrations_open ? 1 : 0, is_featured ? 1 : 0,
        image_url || '', tags || '', notes || '', id],
       function(err2) {
         if (err2) {

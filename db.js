@@ -355,6 +355,7 @@ db.serialize(() => {
     is_public            INTEGER NOT NULL DEFAULT 1,
     published            INTEGER NOT NULL DEFAULT 0,
     registrations_open   INTEGER NOT NULL DEFAULT 0,
+    is_featured          INTEGER NOT NULL DEFAULT 0,
     image_url   TEXT,
     tags        TEXT,
     notes       TEXT,
@@ -401,6 +402,7 @@ db.serialize(() => {
   db.run(`CREATE INDEX IF NOT EXISTS idx_ann_pinned            ON announcements(is_pinned, created_at)`);
   // Migrazione: aggiunge la colonna se il DB esiste già (no-op se già presente)
   db.run(`ALTER TABLE events ADD COLUMN registrations_open INTEGER NOT NULL DEFAULT 0`, () => {});
+  db.run(`ALTER TABLE events ADD COLUMN is_featured INTEGER NOT NULL DEFAULT 0`, () => {});
 
   db.run(`CREATE INDEX IF NOT EXISTS idx_events_date           ON events(date)`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_events_space_date     ON events(space_id, date, start_time)`);
@@ -419,7 +421,7 @@ db.serialize(() => {
   db.run(`CREATE VIEW IF NOT EXISTS v_public_program AS
     SELECT
       e.id, e.title, e.description, e.date, e.start_time, e.end_time,
-      e.event_type, e.image_url, e.tags, e.max_seats, e.registrations_open,
+      e.event_type, e.image_url, e.tags, e.max_seats, e.registrations_open, e.is_featured,
       s.name  AS space_name,
       s.color AS space_color,
       s.capacity AS space_capacity,
