@@ -484,8 +484,8 @@
             <span class="s-bar"><span class="s-fill" style="width:<%= pct %>%"></span></span>
             <% if (canRegister && !isFull) { %>
               <a href="/programma/iscriviti/<%= e.id %>" class="btn-iscriviti" onclick="event.stopPropagation()">Iscriviti →</a>
-            <% } else { %>
-              <button class="btn-iscriviti disabled" disabled>Esaurito</button>
+            <% } else if (isFull) { %>
+              <button class="btn-iscriviti disabled" disabled>Posti esauriti</button>
             <% } %>
           <% } else { %>
             <div class="free-label">✓ Ingresso<br>libero</div>
