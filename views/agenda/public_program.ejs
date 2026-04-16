@@ -398,7 +398,7 @@
     </div>
     <div class="guest-cards-grid">
       <% featuredGuests.forEach(function(g) { %>
-      <div class="guest-fc" onclick="openGuestModal(this)" data-guest='<%- JSON.stringify({name: g.group_name, photo: g.photo_url||'', bio: g.bio||'', category: g.category||'', website: g.website||'', instagram: g.social_instagram||''}) %>'>
+      <div class="guest-fc" onclick="openGuestModal(<%= g.assignment_group_id %>)" data-gid="<%= g.assignment_group_id %>">
         <% if (g.photo_url) { %>
           <img src="<%= g.photo_url %>" alt="<%= g.group_name %>" class="guest-fc-img" loading="lazy">
         <% } else { %>
@@ -605,6 +605,20 @@
 </div>
 
 <script>
+/* ── DATI OSPITI (embed server-side) ── */
+var GUESTDATA = {};
+<% if (typeof featuredGuests !== 'undefined') { featuredGuests.forEach(function(g) { %>
+GUESTDATA[<%= g.assignment_group_id %>] = <%- JSON.stringify({
+  id: g.assignment_group_id,
+  name: g.group_name || '',
+  photo: g.photo_url || '',
+  bio: g.bio || '',
+  category: g.category || '',
+  website: g.website || '',
+  instagram: g.social_instagram || ''
+}) %>;
+<% }); } %>
+
 /* ── DATI EVENTI (embed server-side) ── */
 var EVDATA = {};
 <% events.forEach(e => { %>
@@ -641,7 +655,7 @@ function openModal(id) {
               : '🪑 ' + (ev.max_seats - ev.seats_taken) + ' posti disponibili su ' + ev.max_seats)
     : '🎟 Ingresso libero';
   var foot = document.getElementById('mFoot');
-  var shareBtn = '<button class="share-btn" onclick="shareEvent(' + ev.id + ',\'' + ev.title.replace(/\'/g, \'\\\'\'') + '\')">🔗 Condividi</button>';
+  var shareBtn = '<button class="share-btn" data-share-id="' + ev.id + '" onclick="shareEvent(this)">🔗 Condividi</button>';
   if (ev.registrations_open && !isFull) {
     foot.innerHTML = '<a href="/programma/iscriviti/' + ev.id + '" class="btn-iscriviti">Iscriviti →</a>' + shareBtn;
   } else if (ev.registrations_open && isFull) {
@@ -758,9 +772,8 @@ function applyClientFilter() {
 }
 
 /* ── MODALE OSPITI ── */
-function openGuestModal(el) {
-  var g;
-  try { g = JSON.parse(el.dataset.guest); } catch(e) { return; }
+function openGuestModal(id) {
+  var g = GUESTDATA[id]; if (!g) return;
   document.getElementById('gmType').textContent = 'OSPITE';
   document.getElementById('gmTitle').textContent = '';
   var photoEl = document.getElementById('gmPhoto');
@@ -790,7 +803,10 @@ function closeGuestModal() {
 }
 
 /* ── SHARE EVENTO ── */
-function shareEvent(id, title) {
+function shareEvent(btn) {
+  var id = btn.dataset.shareId;
+  var ev = EVDATA[parseInt(id, 10)];
+  var title = ev ? ev.title : '';
   var url = window.location.origin + '/programma#evento-' + id;
   var toast = document.getElementById('shareToast');
   if (navigator.share) {
