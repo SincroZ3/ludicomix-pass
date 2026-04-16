@@ -404,6 +404,31 @@ app.get('/home', requireAuth, (req, res) => {
     );
   });
 
+
+
+  // POST salvataggio profilo ospite
+  app.post('/assignment-groups/:id/guest-profile', requireAuth, requireNotViewer, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { bio, photo_url, category, website, social_instagram, sort_order, featured, active } = req.body;
+    db.run(
+      `INSERT INTO guest_profiles
+         (assignment_group_id, bio, photo_url, category, website, social_instagram, sort_order, featured, active)
+       VALUES (?,?,?,?,?,?,?,?,?)
+       ON CONFLICT(assignment_group_id) DO UPDATE SET
+         bio=excluded.bio, photo_url=excluded.photo_url, category=excluded.category,
+         website=excluded.website, social_instagram=excluded.social_instagram,
+         sort_order=excluded.sort_order, featured=excluded.featured, active=excluded.active`,
+      [id, bio||null, photo_url||null, category||null, website||null,
+       social_instagram||null, parseInt(sort_order)||0,
+       featured==='1'?1:0, active==='1'?1:0],
+      (err) => {
+        if (err) { console.error('[GuestProfile]', err.message); return res.status(500).send('Errore salvataggio profilo ospite'); }
+        logAction(req.session.user.id, 'edit_guest_profile', 'assignment_group', id, 'Profilo ospite aggiornato');
+        res.redirect('/assignment-groups/' + id);
+      }
+    );
+  });
+
   app.post('/assignment-groups/:id/delete', requireAuth, requireOrganizer, (req, res) => {
     const id = req.params.id;
     db.run('DELETE FROM assignment_groups WHERE id = ?', [id], function (err) {
@@ -452,13 +477,16 @@ app.get('/home', requireAuth, (req, res) => {
                 _crmQ('SELECT * FROM contacts        WHERE assignment_group_id=? ORDER BY is_primary DESC, name', [id]),
                 _crmQ('SELECT * FROM payments        WHERE assignment_group_id=? ORDER BY created_at DESC', [id]),
                 _crmQ('SELECT * FROM group_documents WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [id]),
-              ]).then(function([contacts, payments, groupDocs]) {
+                _crmQ('SELECT * FROM guest_profiles  WHERE assignment_group_id=? LIMIT 1', [id]),
+              ]).then(function([contacts, payments, groupDocs, gpRows]) {
+                const guestProfile = gpRows && gpRows[0] ? gpRows[0] : null;
                 res.render('assignment_group_detail', {
                   groupInfo, types, participants, PASS_STATUSES,
                   dupSkipped, dupTotal, zones: zones || [],
                   importOk, importSkip, importErrs, replaceOk,
                   autoPasses: autoPasses || [],
-                  contacts, payments, groupDocs
+                  contacts, payments, groupDocs,
+                  guestProfile
                 });
               }).catch(function() {
                 res.render('assignment_group_detail', {
@@ -466,7 +494,8 @@ app.get('/home', requireAuth, (req, res) => {
                   dupSkipped, dupTotal, zones: zones || [],
                   importOk, importSkip, importErrs, replaceOk,
                   autoPasses: autoPasses || [],
-                  contacts: [], payments: [], groupDocs: []
+                  contacts: [], payments: [], groupDocs: [],
+                  guestProfile: null
                 });
               });
             });

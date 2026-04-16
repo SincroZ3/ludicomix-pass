@@ -131,7 +131,7 @@
 <div class="modal-overlay" id="modal-group" style="display:none">
   <div class="modal">
     <div class="modal-header">
-      <h2>Nuovo gruppo / stand / associazione</h2>
+      <h2 id="modal-group-title">Nuovo gruppo</h2>
       <button type="button" class="modal-close" onclick="closeModal('modal-group')">×</button>
     </div>
     <form method="post" action="/assignment-groups" class="modal-body">
@@ -139,18 +139,19 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem 1rem;">
         <label>Categoria<br><input type="text" id="modal-group-category" disabled></label>
         <label>Nome gruppo <span style="color:#c0392b">*</span><br><input type="text" name="name" required></label>
-        <label>Nome stand / riferimento<br><input type="text" name="stand_name"></label>
-        <label>Zona / Padiglione<br>
-        <select name="zone">
-          <option value="">&#8212; Nessuna &#8212;</option>
-          <% (typeof zones !== 'undefined' ? zones : []).forEach(function(z){ %>
-            <option value="<%= z.name %>"><%= z.name %></option>
-          <% }); %>
-        </select>
-      </label>
-        <label>Codice stand<br><input type="text" name="stand_code"></label>
+        <!-- Campi CRM: visibili solo per espositore / associazione -->
+        <label class="crm-only-field">Nome stand / riferimento<br><input type="text" name="stand_name"></label>
+        <label class="crm-only-field">Zona / Padiglione<br>
+          <select name="zone">
+            <option value="">&#8212; Nessuna &#8212;</option>
+            <% (typeof zones !== 'undefined' ? zones : []).forEach(function(z){ %>
+              <option value="<%= z.name %>"><%= z.name %></option>
+            <% }); %>
+          </select>
+        </label>
+        <label class="crm-only-field">Codice stand<br><input type="text" name="stand_code"></label>
         <label>Max pass (0 = illimitati)<br><input type="number" name="max_passes" min="0"></label>
-        <label style="grid-column:1/-1;">Email di riferimento gruppo<br><input type="email" name="email" placeholder="email@esempio.it"></label>
+        <label style="grid-column:1/-1;">Email di riferimento<br><input type="email" name="email" placeholder="email@esempio.it"></label>
       </div>
       <label>Note<br><textarea name="notes" rows="2"></textarea></label>
       <div class="modal-actions">
@@ -258,9 +259,21 @@ function openDeleteGroupModal(groupId, groupName, cnt) {
   document.getElementById('delete-group-form').action = '/assignment-groups/' + groupId + '/delete';
   document.getElementById('modal-delete-group').style.display = 'flex';
 }
+const CRM_CATEGORIES = ['espositore', 'associazione'];
 function openGroupModal(groupId, categoryName){
   document.getElementById('modal-group-id').value = groupId;
   document.getElementById('modal-group-category').value = categoryName;
+  const cat = (categoryName || '').toLowerCase().trim();
+  const isCrm = CRM_CATEGORIES.includes(cat);
+  document.querySelectorAll('.crm-only-field').forEach(function(el){
+    el.style.display = isCrm ? '' : 'none';
+  });
+  const titles = {
+    'ospiti': '🎤 Nuovo gruppo ospiti',
+    'espositore': '🏪 Nuovo espositore / stand',
+    'associazione': '🤝 Nuova associazione'
+  };
+  document.getElementById('modal-group-title').textContent = titles[cat] || 'Nuovo gruppo';
   document.getElementById('modal-group').style.display = 'flex';
 }
 function closeModal(id){ document.getElementById(id).style.display = 'none'; }

@@ -1,4 +1,9 @@
 <%-include('partials/header') %>
+<%
+  const _cat = (groupInfo.category_name || '').toLowerCase().trim();
+  const isCrmGroup    = ['espositore', 'associazione'].includes(_cat);
+  const isOspitiGroup = _cat === 'ospiti';
+%>
 <nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <a href="/participants">Assegnatari Pass</a> <span class="sep">›</span> <%= groupInfo.category_name %> <span class="sep">›</span> <strong><%= groupInfo.name %></strong></nav>
 <h1 class="page-title"><%= groupInfo.name %></h1>
 
@@ -18,6 +23,7 @@
 </style>
 <div class="crm-tab-nav" id="crm-tab-nav">
   <button type="button" class="crm-tab active" data-tab="pass" onclick="crmTab('pass',this)">📋 Pass & Nominativi</button>
+<% if(isCrmGroup){ %>
   <button type="button" class="crm-tab" data-tab="portale" onclick="crmTab('portale',this)">🌐 Portale</button>
 <% if(!isViewer){ %>
   <button type="button" class="crm-tab" id="tab-btn-inbox" data-tab="inbox-docs" onclick="crmTab('inbox-docs',this)">📄 Docs Espositore<span id="badge-inbox-docs" class="crm-badge" style="display:none"></span></button>
@@ -25,6 +31,7 @@
   <button type="button" class="crm-tab" data-tab="referenti" onclick="crmTab('referenti',this)">👤 Referenti<% if(typeof contacts!=='undefined'&&contacts.length){ %> <span class="crm-badge"><%= contacts.length %></span><% } %></button>
   <button type="button" class="crm-tab" data-tab="pagamenti" onclick="crmTab('pagamenti',this)">💳 Pagamenti<% if(typeof payments!=='undefined'&&payments.length){ %><% var _scad=payments.filter(function(p){return p.status==='scaduto';}).length; %><% if(_scad){ %> <span class="crm-badge crm-badge-danger"><%= _scad %> ⚠</span><% }else{ %> <span class="crm-badge"><%= payments.length %></span><% } %><% } %></button>
   <button type="button" class="crm-tab" data-tab="documenti" onclick="crmTab('documenti',this)">📁 Documenti<% if(typeof groupDocs!=='undefined'&&groupDocs.length){ %> <span class="crm-badge"><%= groupDocs.length %></span><% } %></button>
+<% } %>
 <% } %>
 </div>
 <div id="tab-pass" class="crm-panel active">
@@ -61,12 +68,14 @@
 <!-- INFO RIEPILOGO -->
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:0.75rem;margin-bottom:1.25rem;">
   <div class="card" style="margin:0;"><div class="card-title">Categoria</div><strong><%= groupInfo.category_name %></strong></div>
+<% if(isCrmGroup){ %>
   <div class="card" style="margin:0;"><div class="card-title">Stand / Riferimento</div><strong><%= groupInfo.stand_name || groupInfo.name %></strong></div>
   <div class="card" style="margin:0;">
     <div class="card-title">Zona / Padiglione</div>
     <strong><%= groupInfo.zone || '&mdash;' %></strong>
     <% if (groupInfo.stand_code) { %>&nbsp;&middot;&nbsp;Codice: <strong><%= groupInfo.stand_code %></strong><% } %>
   </div>
+<% } %>
   <div class="card" style="margin:0;">
     <div class="card-title">Pass</div>
     <strong><%= participants.length %></strong> assegnatari&nbsp;&middot;&nbsp;
@@ -81,6 +90,7 @@
 </div>
 
 <% if (!isViewer) { %>
+<% if(isCrmGroup){ %>
 <details style="margin-bottom:1rem;">
   <summary style="cursor:pointer;font-weight:700;font-size:0.85rem;color:var(--accent-blue);padding:0.4rem 0;">&#9999;&#65039; Modifica dati gruppo / stand</summary>
   <div class="card" style="margin-top:0.5rem;">
@@ -111,6 +121,21 @@
     </form>
   </div>
 </details>
+<% } else { %>
+<details style="margin-bottom:1rem;">
+  <summary style="cursor:pointer;font-weight:700;font-size:0.85rem;color:var(--accent-blue);padding:0.4rem 0;">&#9999;&#65039; Rinomina gruppo</summary>
+  <div class="card" style="margin-top:0.5rem;">
+    <form method="post" action="/assignment-groups/<%= groupInfo.id %>/edit" style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem 1rem;">
+      <label style="grid-column:1/-1;">Nome gruppo <span style="color:#c0392b">*</span><br>
+        <input type="text" name="name" value="<%= groupInfo.name %>" required>
+      </label>
+      <div style="grid-column:1/-1;">
+        <button type="submit" class="primary">Salva modifiche</button>
+      </div>
+    </form>
+  </div>
+</details>
+<% } %>
 
 <details style="margin-bottom:1rem;">
   <summary style="cursor:pointer;font-weight:700;font-size:0.85rem;color:var(--accent-blue);padding:0.4rem 0;">&#128221; Note ed Email gruppo <% if (groupInfo.notes || groupInfo.email) { %><span class="chip" style="background:#e8f5e9;color:#1b5e20;margin-left:0.4rem;">compilate</span><% } %></summary>
@@ -846,6 +871,51 @@ function maronnoForza() {
 }
 </script>
 </div><!-- /tab-pass -->
+<% if (isOspitiGroup) { %>
+<div id="tab-guest-profile" style="margin-top:1.2rem;">
+  <div class="card">
+    <div class="card-title">🎤 Profilo pubblico ospite</div>
+    <form method="post" action="/assignment-groups/<%= groupInfo.id %>/guest-profile"
+          style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem 1.2rem;margin-top:.8rem;">
+      <label style="grid-column:1/-1;">Bio
+        <textarea name="bio" rows="4" style="width:100%;margin-top:.3rem;"><%= (guestProfile && guestProfile.bio) || '' %></textarea>
+      </label>
+      <label>URL Foto
+        <input type="url" name="photo_url" value="<%= (guestProfile && guestProfile.photo_url) || '' %>" placeholder="https://...">
+      </label>
+      <label>Categoria ospite
+        <input type="text" name="category" value="<%= (guestProfile && guestProfile.category) || '' %>" placeholder="es. Autore, Artista, Cosplayer…">
+      </label>
+      <label>Sito web
+        <input type="url" name="website" value="<%= (guestProfile && guestProfile.website) || '' %>">
+      </label>
+      <label>Instagram (handle)
+        <input type="text" name="social_instagram" value="<%= (guestProfile && guestProfile.social_instagram) || '' %>" placeholder="@username">
+      </label>
+      <label>Ordine visualizzazione
+        <input type="number" name="sort_order" value="<%= (guestProfile && guestProfile.sort_order != null ? guestProfile.sort_order : 0) %>" min="0">
+      </label>
+      <label style="display:flex;align-items:center;gap:.4rem;margin-top:.4rem;">
+        <input type="checkbox" name="featured" value="1" <%= (guestProfile && guestProfile.featured) ? 'checked' : '' %>>
+        ⭐ In evidenza
+      </label>
+      <label style="display:flex;align-items:center;gap:.4rem;margin-top:.4rem;">
+        <input type="checkbox" name="active" value="1" <%= (!guestProfile || guestProfile.active) ? 'checked' : '' %>>
+        ✅ Profilo attivo
+      </label>
+      <% if (guestProfile && guestProfile.photo_url) { %>
+      <div style="grid-column:1/-1;">
+        <img src="<%= guestProfile.photo_url %>" alt="Foto ospite" style="height:90px;border-radius:8px;object-fit:cover;border:1px solid #e2e8f0;">
+      </div>
+      <% } %>
+      <div style="grid-column:1/-1;margin-top:.4rem;">
+        <button type="submit" class="primary">💾 Salva profilo</button>
+      </div>
+    </form>
+  </div>
+</div>
+<% } %>
+
 
 <div id="tab-portale" class="crm-panel">
 <% if(!isViewer){ %>
