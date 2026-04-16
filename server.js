@@ -1338,6 +1338,67 @@ async function triggerBatchPassOnClose(groupId) {
     }
   });
 
+
+  // -------- Finestra globale Portali Espositori --------
+
+  app.get('/admin/settings/portal-window', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const [apRows, groups] = await Promise.all([
+        dbAll("SELECT key,value FROM app_settings WHERE key IN ('portal_window_from','portal_window_until')"),
+        dbAll(`SELECT ag.id, ag.name, ag.portal_open_from, ag.portal_open_until,
+               (SELECT COUNT(*) FROM participants WHERE assignment_group_id=ag.id) AS n_participants
+               FROM assignment_groups ag WHERE ag.portal_enabled=1 ${edFilter()} ORDER BY ag.name`)
+      ]);
+      const pw = Object.fromEntries((apRows||[]).map(r => [r.key, r.value]));
+      res.render('portal_window', {
+        currentUser: req.session.user,
+        pw,
+        groups: groups || [],
+        saved: req.query.saved === '1'
+      });
+    } catch (err) {
+      console.error('[PortalWindow GET]', err.message);
+      res.status(500).send('Errore interno del server');
+    }
+  });
+
+  app.post('/admin/settings/portal-window', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { portal_window_from, portal_window_until, apply_to_all } = req.body;
+      const groupIds = [].concat(req.body.group_ids || []).map(Number).filter(Boolean);
+      const fromVal  = portal_window_from  || '';
+      const untilVal = portal_window_until || '';
+
+      await dbRun("INSERT OR REPLACE INTO app_settings(key,value) VALUES('portal_window_from',?)",  [fromVal]);
+      await dbRun("INSERT OR REPLACE INTO app_settings(key,value) VALUES('portal_window_until',?)", [untilVal]);
+
+      if (apply_to_all === '1') {
+        await dbRun(
+          `UPDATE assignment_groups SET portal_open_from=?, portal_open_until=? WHERE portal_enabled=1 ${edFilter()}`,
+          [fromVal || null, untilVal || null]
+        );
+        logAction(req.session.user.id, 'portal_window_all', 'settings', null,
+          `Finestra portali impostata globalmente: ${fromVal||'—'} → ${untilVal||'—'}`);
+      } else if (groupIds.length > 0) {
+        const placeholders = groupIds.map(() => '?').join(',');
+        await dbRun(
+          `UPDATE assignment_groups SET portal_open_from=?, portal_open_until=? WHERE id IN (${placeholders})`,
+          [fromVal || null, untilVal || null, ...groupIds]
+        );
+        logAction(req.session.user.id, 'portal_window_select', 'settings', null,
+          `Finestra portali aggiornata per ${groupIds.length} stand: ${fromVal||'—'} → ${untilVal||'—'}`);
+      } else {
+        logAction(req.session.user.id, 'portal_window_global', 'settings', null,
+          `Finestra globale aggiornata: ${fromVal||'—'} → ${untilVal||'—'}`);
+      }
+
+      res.redirect('/admin/settings/portal-window?saved=1');
+    } catch (err) {
+      console.error('[PortalWindow POST]', err.message);
+      res.status(500).send('Errore salvataggio finestra portali');
+    }
+  });
+
   app.post('/admin/zones', requireAuth, requireOrganizer, (req, res) => {
     const { name, sort_order } = req.body;
     if (!name || !name.trim()) return res.status(400).send('Nome zona obbligatorio');
