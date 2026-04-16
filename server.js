@@ -495,6 +495,156 @@ app.get('/home', requireAuth, (req, res) => {
     }
   });
 
+  // ══════════════════════════════════════════════
+  // VOLONTARI — V1
+  // ══════════════════════════════════════════════
+
+  app.get('/volunteers', requireAuth, async (req, res) => {
+    try {
+      const [volunteers, shifts, zones] = await Promise.all([
+        dbAll(`SELECT v.*, 
+               (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
+               (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
+               FROM volunteers v ORDER BY v.active DESC, v.last_name ASC, v.first_name ASC`),
+        dbAll(`SELECT s.*, z.name AS zone_name,
+               (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
+               FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
+               ORDER BY s.start_at ASC, s.name ASC`),
+        dbAll('SELECT * FROM zones ORDER BY sort_order, name')
+      ]);
+      res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[] });
+    } catch (err) {
+      console.error('[Volunteers]', err.message);
+      res.status(500).send('Errore interno del server');
+    }
+  });
+
+  app.post('/volunteers', requireAuth, requireNotViewer, (req, res) => {
+    const { first_name, last_name, email, phone, notes, availability, skills, active } = req.body;
+    if (!String(first_name||'').trim() || !String(last_name||'').trim()) return res.status(400).send('Nome e cognome obbligatori');
+    db.run(
+      `INSERT INTO volunteers (first_name,last_name,email,phone,notes,availability,skills,active) VALUES (?,?,?,?,?,?,?,?)`,
+      [String(first_name).trim(), String(last_name).trim(), email||null, phone||null, notes||null, availability||'[]', skills||'[]', active ? 1 : 0],
+      function(err) {
+        if (err) return res.status(500).send('Errore salvataggio volontario');
+        logAction(req.session.user.id, 'create_volunteer', 'volunteer', this.lastID, `Volontario ${first_name} ${last_name} creato`);
+        res.redirect('/volunteers');
+      }
+    );
+  });
+
+  app.post('/volunteers/:id/edit', requireAuth, requireNotViewer, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { first_name, last_name, email, phone, notes, availability, skills, active } = req.body;
+    db.run(
+      `UPDATE volunteers SET first_name=?, last_name=?, email=?, phone=?, notes=?, availability=?, skills=?, active=? WHERE id=?`,
+      [String(first_name||'').trim(), String(last_name||'').trim(), email||null, phone||null, notes||null, availability||'[]', skills||'[]', active ? 1 : 0, id],
+      function(err) {
+        if (err) return res.status(500).send('Errore aggiornamento volontario');
+        logAction(req.session.user.id, 'edit_volunteer', 'volunteer', id, `Volontario #${id} aggiornato`);
+        res.redirect('/volunteers');
+      }
+    );
+  });
+
+  app.post('/volunteers/:id/delete', requireAuth, requireOrganizer, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    db.run('DELETE FROM shift_assignments WHERE volunteer_id=?', [id], function() {
+      db.run('DELETE FROM volunteers WHERE id=?', [id], function(err) {
+        if (err) return res.status(500).send('Errore eliminazione volontario');
+        logAction(req.session.user.id, 'delete_volunteer', 'volunteer', id, `Volontario #${id} eliminato`);
+        res.redirect('/volunteers');
+      });
+    });
+  });
+
+  app.post('/volunteer-shifts', requireAuth, requireNotViewer, (req, res) => {
+    const { name, zone_id, role_label, start_at, end_at, max_volunteers, notes, active } = req.body;
+    if (!String(name||'').trim() || !start_at || !end_at) return res.status(400).send('Nome turno e orari obbligatori');
+    db.run(
+      `INSERT INTO shifts (name,zone_id,role_label,start_at,end_at,max_volunteers,notes,active) VALUES (?,?,?,?,?,?,?,?)`,
+      [String(name).trim(), parseInt(zone_id)||null, role_label||null, start_at, end_at, parseInt(max_volunteers)||1, notes||null, active ? 1 : 0],
+      function(err) {
+        if (err) return res.status(500).send('Errore salvataggio turno');
+        logAction(req.session.user.id, 'create_shift', 'shift', this.lastID, `Turno ${name} creato`);
+        res.redirect('/volunteers');
+      }
+    );
+  });
+
+  app.post('/volunteer-shifts/:id/edit', requireAuth, requireNotViewer, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { name, zone_id, role_label, start_at, end_at, max_volunteers, notes, active } = req.body;
+    db.run(
+      `UPDATE shifts SET name=?, zone_id=?, role_label=?, start_at=?, end_at=?, max_volunteers=?, notes=?, active=? WHERE id=?`,
+      [String(name||'').trim(), parseInt(zone_id)||null, role_label||null, start_at, end_at, parseInt(max_volunteers)||1, notes||null, active ? 1 : 0, id],
+      function(err) {
+        if (err) return res.status(500).send('Errore aggiornamento turno');
+        logAction(req.session.user.id, 'edit_shift', 'shift', id, `Turno #${id} aggiornato`);
+        res.redirect('/volunteers');
+      }
+    );
+  });
+
+  app.post('/volunteer-shifts/:id/delete', requireAuth, requireOrganizer, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    db.run('DELETE FROM shift_assignments WHERE shift_id=?', [id], function() {
+      db.run('DELETE FROM shifts WHERE id=?', [id], function(err) {
+        if (err) return res.status(500).send('Errore eliminazione turno');
+        logAction(req.session.user.id, 'delete_shift', 'shift', id, `Turno #${id} eliminato`);
+        res.redirect('/volunteers');
+      });
+    });
+  });
+
+  app.post('/volunteer-assignments', requireAuth, requireNotViewer, (req, res) => {
+    const shiftId = parseInt(req.body.shift_id, 10);
+    const volunteerId = parseInt(req.body.volunteer_id, 10);
+    if (!shiftId || !volunteerId) return res.status(400).send('Turno e volontario obbligatori');
+    const code = 'VOLSHIFT-' + shiftId + '-' + volunteerId;
+    db.run(
+      `INSERT INTO shift_assignments (shift_id, volunteer_id, checkin_code) VALUES (?,?,?)`,
+      [shiftId, volunteerId, code],
+      function(err) {
+        if (err) {
+          if (String(err.message||'').includes('UNIQUE')) return res.status(400).send('Volontario già assegnato a questo turno');
+          return res.status(500).send('Errore assegnazione volontario');
+        }
+        logAction(req.session.user.id, 'assign_volunteer', 'shift_assignment', this.lastID, `Volontario #${volunteerId} assegnato al turno #${shiftId}`);
+        res.redirect('/volunteers');
+      }
+    );
+  });
+
+  app.post('/volunteer-assignments/:id/delete', requireAuth, requireNotViewer, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    db.run('DELETE FROM shift_assignments WHERE id=?', [id], function(err) {
+      if (err) return res.status(500).send('Errore rimozione assegnazione');
+      logAction(req.session.user.id, 'delete_shift_assignment', 'shift_assignment', id, `Assegnazione volontario #${id} rimossa`);
+      res.redirect('/volunteers');
+    });
+  });
+
+  app.get('/volunteer-assignments/:shiftId', requireAuth, async (req, res) => {
+    try {
+      const shiftId = parseInt(req.params.shiftId, 10);
+      const [shift, assignments, volunteers] = await Promise.all([
+        dbGet(`SELECT s.*, z.name AS zone_name FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id WHERE s.id=?`, [shiftId]),
+        dbAll(`SELECT sa.*, v.first_name, v.last_name, v.email, v.phone
+               FROM shift_assignments sa
+               JOIN volunteers v ON v.id=sa.volunteer_id
+               WHERE sa.shift_id=?
+               ORDER BY v.last_name, v.first_name`, [shiftId]),
+        dbAll(`SELECT * FROM volunteers WHERE active=1 ORDER BY last_name, first_name`)
+      ]);
+      if (!shift) return res.status(404).send('Turno non trovato');
+      res.render('volunteer_assignments', { shift, assignments: assignments||[], volunteers: volunteers||[] });
+    } catch (err) {
+      console.error('[VolunteerAssignments]', err.message);
+      res.status(500).send('Errore interno del server');
+    }
+  });
+
   app.get('/participants', requireAuth, (req, res) => {
     db.all('SELECT * FROM groups ORDER BY priority, name', [], (err, categories) => {
       if (err) return res.status(500).send('Errore DB gruppi');

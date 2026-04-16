@@ -51,11 +51,11 @@
           <textarea name="notes" rows="2" style="grid-column:1/-1;" placeholder="Note"><%= v.notes||'' %></textarea>
           <div style="grid-column:1/-1;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
             <button class="primary" type="submit">Salva</button>
-            <form method="post" action="/volunteers/<%= v.id %>/delete" onsubmit="return confirm('Eliminare il volontario?')" style="display:inline;">
-              <button class="danger" type="submit">Elimina</button>
-            </form>
             <span style="font-size:.78rem;color:var(--text-muted)">Assegnazioni: <strong><%= v.assignments_count||0 %></strong> · Check-in: <strong><%= v.checkins_count||0 %></strong></span>
           </div>
+        </form>
+        <form method="post" action="/volunteers/<%= v.id %>/delete" onsubmit="return confirm('Eliminare il volontario?')" style="margin-top:.45rem;">
+          <button class="danger" type="submit">Elimina volontario</button>
         </form>
       </div>
     <% }) %>
@@ -86,4 +86,5 @@
     <% }) %>
   </div>
 </div>
+
 <%- include('partials/footer') %>
