@@ -641,23 +641,34 @@ router.get('/programma', (req, res) => {
         WHERE e.published=1 AND e.is_public=1
         ORDER BY s.name`, [], (err3, spaces) => {
 
-        const grouped = {};
-        (events || []).forEach(ev => {
-          if (!grouped[ev.date]) grouped[ev.date] = {};
-          if (!grouped[ev.date][ev.space_name]) grouped[ev.date][ev.space_name] = [];
-          grouped[ev.date][ev.space_name].push(ev);
-        });
+        // Ospiti in evidenza: guest_profiles.featured=1 + active=1 join assignment_groups
+        db.all(
+          `SELECT gp.*, ag.name AS group_name
+           FROM guest_profiles gp
+           JOIN assignment_groups ag ON ag.id = gp.assignment_group_id
+           WHERE gp.featured = 1 AND gp.active = 1
+           ORDER BY gp.sort_order ASC, ag.name ASC`,
+          [], (err4, featuredGuests) => {
 
-        res.render('agenda/public_program', {
-          currentUser: null,
-          grouped,
-          events: events || [],
-          dates: dates || [],
-          spaces: spaces || [],
-          filters: { date: selectedDate, space: selectedSpace },
-          selectedDate,
-          selectedSpace,
-          title: 'Programma Ludicomix'
+          const grouped = {};
+          (events || []).forEach(ev => {
+            if (!grouped[ev.date]) grouped[ev.date] = {};
+            if (!grouped[ev.date][ev.space_name]) grouped[ev.date][ev.space_name] = [];
+            grouped[ev.date][ev.space_name].push(ev);
+          });
+
+          res.render('agenda/public_program', {
+            currentUser: null,
+            grouped,
+            events: events || [],
+            dates: dates || [],
+            spaces: spaces || [],
+            filters: { date: selectedDate, space: selectedSpace },
+            selectedDate,
+            selectedSpace,
+            featuredGuests: featuredGuests || [],
+            title: 'Programma Ludicomix'
+          });
         });
       });
     });
