@@ -215,6 +215,26 @@
     .guest-fc-bio  { font-size:.8rem; color:#4b5563; line-height:1.45; margin-top:.25rem; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
     @media(max-width:900px) { .guest-fc { flex: 0 0 calc(50% - .5rem); } }
     @media(max-width:600px) { .guest-fc { flex: 0 0 100%; } }
+
+    /* ── MODALE OSPITI ── */
+    #guestModal .modal-box { max-width: 420px; }
+    .guest-modal-photo { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; display: block; margin: 0 auto 1rem; border: 3px solid #e8ecf3; }
+    .guest-modal-photo-placeholder { width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg,#e8eaf6,#c5cae9); display: flex; align-items: center; justify-content: center; font-size: 2.8rem; margin: 0 auto 1rem; }
+    .guest-modal-name { text-align: center; font-size: 1.2rem; font-weight: 700; color: #1a2744; margin-bottom: .3rem; }
+    .guest-modal-cat  { text-align: center; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #6b3fa0; margin-bottom: .8rem; }
+    .guest-modal-bio  { font-size: .87rem; color: #4a5568; line-height: 1.6; }
+    .guest-modal-links { display: flex; gap: .6rem; justify-content: center; flex-wrap: wrap; margin-top: .9rem; }
+    .guest-modal-link { display: inline-flex; align-items: center; gap: .3rem; font-size: .8rem; color: #6b3fa0; text-decoration: none; background: #f3eeff; border-radius: 99px; padding: .3rem .8rem; }
+    .guest-modal-link:hover { background: #e4d5ff; }
+
+    /* ── SHARE BUTTON ── */
+    .share-btn { display:inline-flex; align-items:center; gap:.35rem; background:none; border:1px solid #d1d9e8; border-radius:99px; padding:.32rem .85rem; font-size:.78rem; color:#6b7280; cursor:pointer; transition:background .15s,color .15s; }
+    .share-btn:hover { background:#f0f4ff; color:#1a2744; }
+    .share-toast { position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%) translateY(80px); background:#1a2744; color:#fff; padding:.6rem 1.2rem; border-radius:99px; font-size:.85rem; opacity:0; transition:opacity .25s,transform .25s; z-index:9999; pointer-events:none; }
+    .share-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+    /* card ospiti cliccabile */
+    .guest-fc { cursor: pointer; }
     /* ── IN EVIDENZA CAROUSEL ── */
     .featured-wrap { padding: 1.2rem 0 .5rem; }
     .featured-header { display:flex; align-items:center; gap:.5rem; margin-bottom:.9rem; }
@@ -378,7 +398,7 @@
     </div>
     <div class="guest-cards-grid">
       <% featuredGuests.forEach(function(g) { %>
-      <div class="guest-fc">
+      <div class="guest-fc" onclick="openGuestModal(this)" data-guest='<%- JSON.stringify({name: g.group_name, photo: g.photo_url||'', bio: g.bio||'', category: g.category||'', website: g.website||'', instagram: g.social_instagram||''}) %>'>
         <% if (g.photo_url) { %>
           <img src="<%= g.photo_url %>" alt="<%= g.group_name %>" class="guest-fc-img" loading="lazy">
         <% } else { %>
@@ -545,6 +565,27 @@
 
 <div class="footer">Programma aggiornato in tempo reale &middot; <%= title %></div>
 
+<!-- MODALE OSPITI -->
+<div class="modal-overlay" id="guestModal" onclick="if(event.target===this)closeGuestModal()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="mtype" id="gmType"></div>
+      <h3 id="gmTitle"></h3>
+      <button class="modal-close" onclick="closeGuestModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div id="gmPhoto"></div>
+      <div class="guest-modal-name" id="gmName"></div>
+      <div class="guest-modal-cat"  id="gmCat"></div>
+      <div class="guest-modal-bio"  id="gmBio"></div>
+      <div class="guest-modal-links" id="gmLinks"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SHARE TOAST -->
+<div class="share-toast" id="shareToast">🔗 Link copiato!</div>
+
 <!-- MODAL -->
 <div class="modal-overlay" id="evModal" onclick="if(event.target===this)closeModal()">
   <div class="modal-box">
@@ -559,7 +600,7 @@
       <div id="mSpk" style="margin-top:.6rem;font-size:.85rem;color:#4a5568"></div>
       <div id="mSeats" style="margin-top:.6rem;font-size:.82rem;color:#8896ab"></div>
     </div>
-    <div class="modal-foot" id="mFoot"></div>
+    <div class="modal-foot" id="mFoot" style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;"></div>
   </div>
 </div>
 
@@ -600,11 +641,12 @@ function openModal(id) {
               : '🪑 ' + (ev.max_seats - ev.seats_taken) + ' posti disponibili su ' + ev.max_seats)
     : '🎟 Ingresso libero';
   var foot = document.getElementById('mFoot');
+  var shareBtn = '<button class="share-btn" onclick="shareEvent(' + ev.id + ',\'' + ev.title.replace(/\'/g, \'\\\'\'') + '\')">🔗 Condividi</button>';
   if (ev.registrations_open && !isFull) {
-    foot.innerHTML = '<a href="/programma/iscriviti/' + ev.id + '" class="btn-iscriviti">Iscriviti →</a>';
+    foot.innerHTML = '<a href="/programma/iscriviti/' + ev.id + '" class="btn-iscriviti">Iscriviti →</a>' + shareBtn;
   } else if (ev.registrations_open && isFull) {
-    foot.innerHTML = '<button class="btn-iscriviti disabled" disabled>Posti esauriti</button>';
-  } else { foot.innerHTML = ''; }
+    foot.innerHTML = '<button class="btn-iscriviti disabled" disabled>Posti esauriti</button>' + shareBtn;
+  } else { foot.innerHTML = shareBtn; }
   document.getElementById('evModal').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
@@ -612,7 +654,7 @@ function closeModal() {
   document.getElementById('evModal').classList.remove('open');
   document.body.style.overflow = '';
 }
-document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeModal(); closeGuestModal(); } });
 
 /* ── FEATURED CAROUSEL ── */
 (function() {
@@ -714,6 +756,58 @@ function applyClientFilter() {
   });
   document.getElementById('eventsCount').textContent = visible + ' eventi';
 }
+
+/* ── MODALE OSPITI ── */
+function openGuestModal(el) {
+  var g;
+  try { g = JSON.parse(el.dataset.guest); } catch(e) { return; }
+  document.getElementById('gmType').textContent = 'OSPITE';
+  document.getElementById('gmTitle').textContent = '';
+  var photoEl = document.getElementById('gmPhoto');
+  if (g.photo) {
+    photoEl.innerHTML = '<img src="' + g.photo + '" alt="' + g.name + '" class="guest-modal-photo" loading="lazy">';
+  } else {
+    photoEl.innerHTML = '<div class="guest-modal-photo-placeholder">🎤</div>';
+  }
+  document.getElementById('gmName').textContent = g.name;
+  document.getElementById('gmCat').textContent  = g.category || '';
+  document.getElementById('gmBio').textContent  = g.bio || '';
+  var links = document.getElementById('gmLinks');
+  links.innerHTML = '';
+  if (g.website) {
+    links.innerHTML += '<a href="' + g.website + '" target="_blank" rel="noopener" class="guest-modal-link">🌐 Sito web</a>';
+  }
+  if (g.instagram) {
+    var ig = g.instagram.replace(/^@/, '');
+    links.innerHTML += '<a href="https://instagram.com/' + ig + '" target="_blank" rel="noopener" class="guest-modal-link">📷 @' + ig + '</a>';
+  }
+  document.getElementById('guestModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeGuestModal() {
+  document.getElementById('guestModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+/* ── SHARE EVENTO ── */
+function shareEvent(id, title) {
+  var url = window.location.origin + '/programma#evento-' + id;
+  var toast = document.getElementById('shareToast');
+  if (navigator.share) {
+    navigator.share({ title: title, url: url }).catch(function(){});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(function() {
+      toast.classList.add('show');
+      setTimeout(function(){ toast.classList.remove('show'); }, 2200);
+    });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = url; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    toast.classList.add('show');
+    setTimeout(function(){ toast.classList.remove('show'); }, 2200);
+  }
+}
+
 </script>
 
 </body>
