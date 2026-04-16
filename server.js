@@ -2760,9 +2760,26 @@ async function triggerBatchPassOnClose(groupId) {
 
   // ── ROUTE TEMPORANEA DI DIAGNOSTICA — da rimuovere dopo il fix ──
   app.get('/admin/debug-schema', requireAuth, async (req, res) => {
-    db.all("SELECT sql FROM sqlite_master WHERE type='table' AND name='announcements'", [], function(err, rows) {
-      db.all("PRAGMA table_info(announcements)", [], function(err2, cols) {
-        res.json({ schema: rows, columns: cols });
+    db.all("SELECT sql FROM sqlite_master WHERE type='trigger' AND tbl_name='announcements'", [], function(err, triggers) {
+      db.all("PRAGMA foreign_keys", [], function(err2, fk) {
+        db.all("PRAGMA foreign_key_list(announcements)", [], function(err3, fklist) {
+          // Prova INSERT diretto per vedere l'errore esatto
+          db.run(
+            "INSERT INTO announcements (title, message, emoji, type, is_pinned, expires_at, created_by) VALUES (?,?,?,?,?,?,?)",
+            ['__debug_test__', '__debug_msg__', '📣', 'info', 0, null, null],
+            function(err4) {
+              if (!err4) {
+                db.run("DELETE FROM announcements WHERE title='__debug_test__'", () => {});
+              }
+              res.json({
+                triggers: triggers,
+                foreign_keys_pragma: fk,
+                foreign_key_list: fklist,
+                insert_test_error: err4 ? { message: err4.message, code: err4.code, errno: err4.errno } : 'OK — insert riuscito'
+              });
+            }
+          );
+        });
       });
     });
   });
