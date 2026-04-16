@@ -406,27 +406,41 @@ app.get('/home', requireAuth, (req, res) => {
 
 
 
-  // POST salvataggio profilo ospite
+  // POST salvataggio profilo ospite — SELECT + INSERT/UPDATE per compatibilità SQLite
   app.post('/assignment-groups/:id/guest-profile', requireAuth, requireNotViewer, (req, res) => {
     const id = parseInt(req.params.id, 10);
     const { bio, photo_url, category, website, social_instagram, sort_order, featured, active } = req.body;
-    db.run(
-      `INSERT INTO guest_profiles
-         (assignment_group_id, bio, photo_url, category, website, social_instagram, sort_order, featured, active)
-       VALUES (?,?,?,?,?,?,?,?,?)
-       ON CONFLICT(assignment_group_id) DO UPDATE SET
-         bio=excluded.bio, photo_url=excluded.photo_url, category=excluded.category,
-         website=excluded.website, social_instagram=excluded.social_instagram,
-         sort_order=excluded.sort_order, featured=excluded.featured, active=excluded.active`,
-      [id, bio||null, photo_url||null, category||null, website||null,
-       social_instagram||null, parseInt(sort_order)||0,
-       featured==='1'?1:0, active==='1'?1:0],
-      (err) => {
-        if (err) { console.error('[GuestProfile]', err.message); return res.status(500).send('Errore salvataggio profilo ospite'); }
-        logAction(req.session.user.id, 'edit_guest_profile', 'assignment_group', id, 'Profilo ospite aggiornato');
-        res.redirect('/assignment-groups/' + id);
+    const vals = [
+      bio||null, photo_url||null, category||null, website||null,
+      social_instagram||null, parseInt(sort_order)||0,
+      featured==='1'?1:0, active==='1'?1:0
+    ];
+    db.get('SELECT id FROM guest_profiles WHERE assignment_group_id = ?', [id], (err, row) => {
+      if (err) { console.error('[GuestProfile] SELECT:', err.message); return res.status(500).send('Errore lettura profilo ospite'); }
+      if (row) {
+        // UPDATE
+        db.run(
+          `UPDATE guest_profiles SET bio=?,photo_url=?,category=?,website=?,social_instagram=?,sort_order=?,featured=?,active=? WHERE assignment_group_id=?`,
+          [...vals, id],
+          (err2) => {
+            if (err2) { console.error('[GuestProfile] UPDATE:', err2.message); return res.status(500).send('Errore aggiornamento profilo ospite'); }
+            logAction(req.session.user.id, 'edit_guest_profile', 'assignment_group', id, 'Profilo ospite aggiornato');
+            res.redirect('/assignment-groups/' + id);
+          }
+        );
+      } else {
+        // INSERT
+        db.run(
+          `INSERT INTO guest_profiles (assignment_group_id,bio,photo_url,category,website,social_instagram,sort_order,featured,active) VALUES (?,?,?,?,?,?,?,?,?)`,
+          [id, ...vals],
+          (err2) => {
+            if (err2) { console.error('[GuestProfile] INSERT:', err2.message); return res.status(500).send('Errore creazione profilo ospite'); }
+            logAction(req.session.user.id, 'edit_guest_profile', 'assignment_group', id, 'Profilo ospite creato');
+            res.redirect('/assignment-groups/' + id);
+          }
+        );
       }
-    );
+    });
   });
 
   app.post('/assignment-groups/:id/delete', requireAuth, requireOrganizer, (req, res) => {
