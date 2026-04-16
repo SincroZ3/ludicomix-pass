@@ -2781,6 +2781,7 @@ async function triggerBatchPassOnClose(groupId) {
 
   // POST /admin/bacheca — crea nuovo annuncio
   app.post('/admin/bacheca', requireAuth, requireOrganizer, async (req, res) => {
+    console.log('[DEBUG bacheca] req.body:', JSON.stringify(req.body));
     // ✅ FIX: trim prima di validare — evita SQLITE_CONSTRAINT NOT NULL su stringhe di soli spazi
     const title   = (req.body.title   || '').trim();
     const message = (req.body.message || '').trim();
