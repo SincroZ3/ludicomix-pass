@@ -355,7 +355,7 @@ app.get('/home', requireAuth, (req, res) => {
         dbAll(`SELECT v.*, 
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
-               FROM volunteers v ORDER BY v.active DESC, v.last_name ASC, v.first_name ASC`),
+               FROM volunteers v ORDER BY COALESCE(v.active,1) DESC, v.last_name ASC, v.first_name ASC`),
         dbAll(`SELECT s.*, z.name AS zone_name,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
@@ -485,7 +485,7 @@ app.get('/home', requireAuth, (req, res) => {
                JOIN volunteers v ON v.id=sa.volunteer_id
                WHERE sa.shift_id=?
                ORDER BY v.last_name, v.first_name`, [shiftId]),
-        dbAll(`SELECT * FROM volunteers WHERE active=1 ORDER BY last_name, first_name`)
+        dbAll(`SELECT * FROM volunteers WHERE COALESCE(active,1)=1 ORDER BY last_name, first_name`)
       ]);
       if (!shift) return res.status(404).send('Turno non trovato');
       res.render('volunteer_assignments', { shift, assignments: assignments||[], volunteers: volunteers||[] });
@@ -505,7 +505,7 @@ app.get('/home', requireAuth, (req, res) => {
         dbAll(`SELECT v.*, 
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
-               FROM volunteers v ORDER BY v.active DESC, v.last_name ASC, v.first_name ASC`),
+               FROM volunteers v ORDER BY COALESCE(v.active,1) DESC, v.last_name ASC, v.first_name ASC`),
         dbAll(`SELECT s.*, z.name AS zone_name,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
@@ -635,7 +635,7 @@ app.get('/home', requireAuth, (req, res) => {
                JOIN volunteers v ON v.id=sa.volunteer_id
                WHERE sa.shift_id=?
                ORDER BY v.last_name, v.first_name`, [shiftId]),
-        dbAll(`SELECT * FROM volunteers WHERE active=1 ORDER BY last_name, first_name`)
+        dbAll(`SELECT * FROM volunteers WHERE COALESCE(active,1)=1 ORDER BY last_name, first_name`)
       ]);
       if (!shift) return res.status(404).send('Turno non trovato');
       res.render('volunteer_assignments', { shift, assignments: assignments||[], volunteers: volunteers||[] });

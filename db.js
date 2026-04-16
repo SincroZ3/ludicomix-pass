@@ -639,4 +639,74 @@ db.dbPath = dbPath;
     if (err && !err.message.includes('already exists')) console.warn('[DB] idx_shifts_start:', err.message);
   });
 
+
+// ── Modulo Volontari ───────────────────────────────────────
+db.serialize(() => {
+  db.run(`CREATE TABLE IF NOT EXISTS volunteers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    notes TEXT,
+    availability TEXT,
+    skills TEXT
+  )`, function(err) {
+    if (err) console.warn('[DB] volunteers create:', err.message);
+  });
+
+  db.run(`CREATE TABLE IF NOT EXISTS shifts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    zone_id INTEGER,
+    role_label TEXT,
+    start_at TEXT NOT NULL,
+    end_at TEXT NOT NULL,
+    max_volunteers INTEGER NOT NULL DEFAULT 1,
+    notes TEXT,
+    FOREIGN KEY(zone_id) REFERENCES zones(id)
+  )`, function(err) {
+    if (err) console.warn('[DB] shifts create:', err.message);
+  });
+
+  db.run(`CREATE TABLE IF NOT EXISTS shift_assignments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shift_id INTEGER NOT NULL,
+    volunteer_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'assigned',
+    checkin_at TEXT,
+    checkin_code TEXT,
+    notes TEXT,
+    FOREIGN KEY(shift_id) REFERENCES shifts(id),
+    FOREIGN KEY(volunteer_id) REFERENCES volunteers(id)
+  )`, function(err) {
+    if (err) console.warn('[DB] shift_assignments create:', err.message);
+  });
+
+  [
+    'ALTER TABLE volunteers ADD COLUMN active INTEGER NOT NULL DEFAULT 1',
+    'ALTER TABLE volunteers ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP',
+    'ALTER TABLE shifts ADD COLUMN active INTEGER NOT NULL DEFAULT 1'
+  ].forEach(sql => {
+    db.run(sql, function(err) {
+      if (err && !String(err.message || '').includes('duplicate column name')) {
+        console.warn('[DB] volunteer alter:', err.message);
+      }
+    });
+  });
+
+  db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_shift_assignments_unique ON shift_assignments(shift_id, volunteer_id)', function(err) {
+    if (err && !err.message.includes('already exists')) console.warn('[DB] idx_shift_assignments_unique:', err.message);
+  });
+  db.run('CREATE INDEX IF NOT EXISTS idx_shift_assignments_shift ON shift_assignments(shift_id)', function(err) {
+    if (err && !err.message.includes('already exists')) console.warn('[DB] idx_shift_assignments_shift:', err.message);
+  });
+  db.run('CREATE INDEX IF NOT EXISTS idx_shift_assignments_volunteer ON shift_assignments(volunteer_id)', function(err) {
+    if (err && !err.message.includes('already exists')) console.warn('[DB] idx_shift_assignments_volunteer:', err.message);
+  });
+  db.run('CREATE INDEX IF NOT EXISTS idx_shifts_start ON shifts(start_at)', function(err) {
+    if (err && !err.message.includes('already exists')) console.warn('[DB] idx_shifts_start:', err.message);
+  });
+});
+
 module.exports = db;
