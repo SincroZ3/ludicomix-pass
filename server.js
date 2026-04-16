@@ -1310,6 +1310,87 @@ app.get('/home', requireAuth, (req, res) => {
     }
   });
 
+
+  // ══════════════════════════════════════════════
+  // VOLONTARI — debug facile via browser
+  // ══════════════════════════════════════════════
+  app.get('/volunteers-debug', requireAuth, async (req, res) => {
+    try {
+      const columns = await dbAll('PRAGMA table_info(volunteers)');
+      const editions = await dbAll('SELECT id, name, year, is_current FROM editions ORDER BY is_current DESC, id DESC');
+      const current = _currentEdition || null;
+      const count = await dbGet('SELECT COUNT(*) AS n FROM volunteers');
+      res.json({
+        ok: true,
+        dbPath: db.dbPath || null,
+        hasTable: true,
+        currentEdition: current,
+        editions,
+        volunteersCount: count ? count.n : 0,
+        columns
+      });
+    } catch (err) {
+      res.status(500).type('text/plain').send('VOL DEBUG error: ' + (err.message || err));
+    }
+  });
+
+  app.get('/volunteers-test-insert', requireAuth, requireNotViewer, async (req, res) => {
+    try {
+      let edId = (_currentEdition && _currentEdition.id) ? _currentEdition.id : null;
+      if (!edId) {
+        const cur = await dbGet('SELECT id FROM editions WHERE is_current=1 LIMIT 1');
+        if (cur && cur.id) edId = cur.id;
+      }
+      if (!edId) {
+        const anyEd = await dbGet('SELECT id FROM editions ORDER BY id DESC LIMIT 1');
+        if (anyEd && anyEd.id) edId = anyEd.id;
+      }
+      if (!edId) return res.status(500).type('text/plain').send('VOL TEST INSERT error: nessuna edizione disponibile');
+
+      db.run(
+        `INSERT INTO volunteers (edition_id, first_name, last_name, email, phone, availability, skills, tshirt_size, status, notes, import_batch_id, active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [edId, 'TEST', 'VOLONTARIO', 'test@example.com', null, '', '', null, 'pending', 'debug insert', null, 1],
+        function(err) {
+          if (err) return res.status(500).type('text/plain').send('VOL TEST INSERT error: ' + err.message);
+          res.type('text/plain').send('OK INSERT id=' + this.lastID + ' edition_id=' + edId);
+        }
+      );
+    } catch (err) {
+      res.status(500).type('text/plain').send('VOL TEST INSERT catch: ' + (err.message || err));
+    }
+  });
+
+  app.post('/volunteers', requireAuth, requireNotViewer, async (req, res) => {
+    try {
+      const { first_name, last_name, email, phone, notes, availability, skills } = req.body;
+      if (!String(first_name||'').trim() || !String(last_name||'').trim()) return res.status(400).send('Nome e cognome obbligatori');
+
+      let edId = (_currentEdition && _currentEdition.id) ? _currentEdition.id : null;
+      if (!edId) {
+        const cur = await dbGet('SELECT id FROM editions WHERE is_current=1 LIMIT 1');
+        if (cur && cur.id) edId = cur.id;
+      }
+      if (!edId) {
+        const anyEd = await dbGet('SELECT id FROM editions ORDER BY id DESC LIMIT 1');
+        if (anyEd && anyEd.id) edId = anyEd.id;
+      }
+      if (!edId) return res.status(500).type('text/plain').send('Errore salvataggio volontario: nessuna edizione disponibile');
+
+      db.run(
+        `INSERT INTO volunteers (edition_id, first_name, last_name, email, phone, availability, skills, tshirt_size, status, notes, import_batch_id, active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [edId, String(first_name).trim(), String(last_name).trim(), email||null, phone||null, availability||'', skills||'', null, 'pending', notes||null, null, 1],
+        function(err) {
+          if (err) return res.status(500).type('text/plain').send('Errore salvataggio volontario: ' + err.message);
+          res.redirect('/volunteers');
+        }
+      );
+    } catch (err) {
+      res.status(500).type('text/plain').send('Errore salvataggio volontario: ' + (err.message || err));
+    }
+  });
+
   app.get('/participants', requireAuth, (req, res) => {
     db.all('SELECT * FROM groups ORDER BY priority, name', [], (err, categories) => {
       if (err) return res.status(500).send('Errore DB gruppi');
