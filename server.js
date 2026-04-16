@@ -2781,15 +2781,18 @@ async function triggerBatchPassOnClose(groupId) {
 
   // POST /admin/bacheca — crea nuovo annuncio
   app.post('/admin/bacheca', requireAuth, requireOrganizer, async (req, res) => {
-    const { title, message, emoji, type, is_pinned, expires_at } = req.body;
+    // ✅ FIX: trim prima di validare — evita SQLITE_CONSTRAINT NOT NULL su stringhe di soli spazi
+    const title   = (req.body.title   || '').trim();
+    const message = (req.body.message || '').trim();
+    const { emoji, type, is_pinned, expires_at } = req.body;
     if (!title || !message) return res.redirect('/admin/bacheca?saved=err');
     try {
       await dbRun(
         `INSERT INTO announcements (title, message, emoji, type, is_pinned, expires_at, created_by)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
-          title.trim(),
-          message.trim(),
+          title,
+          message,
           emoji || '📣',
           type || 'info',
           is_pinned ? 1 : 0,
@@ -2797,7 +2800,7 @@ async function triggerBatchPassOnClose(groupId) {
           req.session.user.id
         ]
       );
-      logAction(req.session.user.id, 'create_announcement', 'announcement', null, `"${title.trim()}"`);
+      logAction(req.session.user.id, 'create_announcement', 'announcement', null, `"${title}"`);
       res.redirect('/admin/bacheca?saved=1');
     } catch(err) {
       console.error('Errore POST /admin/bacheca:', err);
