@@ -1,8 +1,8 @@
 <%-include('partials/header') %>
 <%
   const _cat = (groupInfo.category_name || '').toLowerCase().trim();
-  const isCrmGroup    = ['espositore', 'associazione'].includes(_cat);
-  const isOspitiGroup = _cat === 'ospiti';
+  const isCrmGroup    = _cat.includes('espositore') || _cat.includes('associazion');
+  const isOspitiGroup = _cat.includes('ospiti') || _cat === 'ospite';
 %>
 <nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <a href="/participants">Assegnatari Pass</a> <span class="sep">›</span> <%= groupInfo.category_name %> <span class="sep">›</span> <strong><%= groupInfo.name %></strong></nav>
 <h1 class="page-title"><%= groupInfo.name %></h1>

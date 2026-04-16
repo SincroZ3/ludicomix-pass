@@ -259,12 +259,11 @@ function openDeleteGroupModal(groupId, groupName, cnt) {
   document.getElementById('delete-group-form').action = '/assignment-groups/' + groupId + '/delete';
   document.getElementById('modal-delete-group').style.display = 'flex';
 }
-const CRM_CATEGORIES = ['espositore', 'associazione'];
 function openGroupModal(groupId, categoryName){
   document.getElementById('modal-group-id').value = groupId;
   document.getElementById('modal-group-category').value = categoryName;
   const cat = (categoryName || '').toLowerCase().trim();
-  const isCrm = CRM_CATEGORIES.includes(cat);
+  const isCrm = cat.includes('espositore') || cat.includes('associazion');
   document.querySelectorAll('.crm-only-field').forEach(function(el){
     el.style.display = isCrm ? '' : 'none';
   });
