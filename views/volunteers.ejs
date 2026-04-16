@@ -1,0 +1,89 @@
+<%- include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">&rsaquo;</span> <strong>Volontari</strong></nav>
+<h1 class="page-title">🙋 Volontari e Turni</h1>
+
+<div class="dash-box" style="margin-bottom:1rem;">
+  <h3>Nuovo volontario</h3>
+  <form method="post" action="/volunteers" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.8rem;align-items:end;">
+    <label>Nome<br><input type="text" name="first_name" required></label>
+    <label>Cognome<br><input type="text" name="last_name" required></label>
+    <label>Email<br><input type="email" name="email"></label>
+    <label>Telefono<br><input type="text" name="phone"></label>
+    <label>Competenze JSON<br><input type="text" name="skills" value='[]' placeholder='["accoglienza","logistica"]'></label>
+    <label>Disponibilità JSON<br><input type="text" name="availability" value='[]' placeholder='["sabato_mattina"]'></label>
+    <label style="display:flex;align-items:center;gap:.5rem;"><input type="checkbox" name="active" value="1" checked> Attivo</label>
+    <label style="grid-column:1/-1;">Note<br><textarea name="notes" rows="2"></textarea></label>
+    <div><button class="primary" type="submit">+ Salva volontario</button></div>
+  </form>
+</div>
+
+<div class="dash-box" style="margin-bottom:1rem;">
+  <h3>Nuovo turno</h3>
+  <form method="post" action="/volunteer-shifts" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.8rem;align-items:end;">
+    <label>Nome turno<br><input type="text" name="name" required></label>
+    <label>Zona<br>
+      <select name="zone_id"><option value="">-- Nessuna --</option><% zones.forEach(function(z){ %><option value="<%= z.id %>"><%= z.name %></option><% }) %></select>
+    </label>
+    <label>Ruolo<br><input type="text" name="role_label" placeholder="Es. accoglienza"></label>
+    <label>Inizio<br><input type="datetime-local" name="start_at" required></label>
+    <label>Fine<br><input type="datetime-local" name="end_at" required></label>
+    <label>Max volontari<br><input type="number" name="max_volunteers" min="1" value="1"></label>
+    <label style="display:flex;align-items:center;gap:.5rem;"><input type="checkbox" name="active" value="1" checked> Attivo</label>
+    <label style="grid-column:1/-1;">Note<br><textarea name="notes" rows="2"></textarea></label>
+    <div><button class="primary" type="submit">+ Salva turno</button></div>
+  </form>
+</div>
+
+<div class="dash-row" style="grid-template-columns:1.1fr .9fr;align-items:start;">
+  <div class="dash-box">
+    <h3>Volontari</h3>
+    <% if(!volunteers.length){ %><p style="color:var(--text-muted)">Nessun volontario inserito.</p><% } %>
+    <% volunteers.forEach(function(v){ %>
+      <div style="border-top:1px solid var(--border-light);padding:.8rem 0;">
+        <form method="post" action="/volunteers/<%= v.id %>/edit" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.55rem;align-items:end;">
+          <input type="text" name="first_name" value="<%= v.first_name %>" required>
+          <input type="text" name="last_name" value="<%= v.last_name %>" required>
+          <input type="email" name="email" value="<%= v.email||'' %>" placeholder="Email">
+          <input type="text" name="phone" value="<%= v.phone||'' %>" placeholder="Telefono">
+          <input type="text" name="skills" value="<%= v.skills||'[]' %>" placeholder='Competenze JSON'>
+          <input type="text" name="availability" value="<%= v.availability||'[]' %>" placeholder='Disponibilità JSON'>
+          <label style="display:flex;align-items:center;gap:.45rem;"><input type="checkbox" name="active" value="1" <%= v.active ? 'checked' : '' %>> Attivo</label>
+          <textarea name="notes" rows="2" style="grid-column:1/-1;" placeholder="Note"><%= v.notes||'' %></textarea>
+          <div style="grid-column:1/-1;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+            <button class="primary" type="submit">Salva</button>
+            <form method="post" action="/volunteers/<%= v.id %>/delete" onsubmit="return confirm('Eliminare il volontario?')" style="display:inline;">
+              <button class="danger" type="submit">Elimina</button>
+            </form>
+            <span style="font-size:.78rem;color:var(--text-muted)">Assegnazioni: <strong><%= v.assignments_count||0 %></strong> · Check-in: <strong><%= v.checkins_count||0 %></strong></span>
+          </div>
+        </form>
+      </div>
+    <% }) %>
+  </div>
+
+  <div class="dash-box">
+    <h3>Turni</h3>
+    <% if(!shifts.length){ %><p style="color:var(--text-muted)">Nessun turno inserito.</p><% } %>
+    <% shifts.forEach(function(s){ %>
+      <div style="border-top:1px solid var(--border-light);padding:.8rem 0;">
+        <form method="post" action="/volunteer-shifts/<%= s.id %>/edit" style="display:grid;gap:.55rem;">
+          <input type="text" name="name" value="<%= s.name %>" required>
+          <select name="zone_id"><option value="">-- Nessuna zona --</option><% zones.forEach(function(z){ %><option value="<%= z.id %>" <%= s.zone_id===z.id ? 'selected' : '' %>><%= z.name %></option><% }) %></select>
+          <input type="text" name="role_label" value="<%= s.role_label||'' %>" placeholder="Ruolo">
+          <input type="datetime-local" name="start_at" value="<%= (s.start_at||'').slice(0,16) %>" required>
+          <input type="datetime-local" name="end_at" value="<%= (s.end_at||'').slice(0,16) %>" required>
+          <input type="number" name="max_volunteers" min="1" value="<%= s.max_volunteers||1 %>">
+          <label style="display:flex;align-items:center;gap:.45rem;"><input type="checkbox" name="active" value="1" <%= s.active ? 'checked' : '' %>> Attivo</label>
+          <textarea name="notes" rows="2" placeholder="Note"><%= s.notes||'' %></textarea>
+          <div style="display:flex;gap:.45rem;flex-wrap:wrap;align-items:center;">
+            <button class="primary" type="submit">Salva</button>
+            <a href="/volunteer-assignments/<%= s.id %>" class="primary" style="text-decoration:none;background:#1d6fa4">Assegnazioni</a>
+            <button formaction="/volunteer-shifts/<%= s.id %>/delete" formmethod="post" onclick="return confirm('Eliminare il turno?')" class="danger" type="submit">Elimina</button>
+            <span style="font-size:.78rem;color:var(--text-muted)">Zona: <strong><%= s.zone_name||'—' %></strong> · Assegnati: <strong><%= s.assigned_count||0 %>/<%= s.max_volunteers||1 %></strong></span>
+          </div>
+        </form>
+      </div>
+    <% }) %>
+  </div>
+</div>
+<%- include('partials/footer') %>

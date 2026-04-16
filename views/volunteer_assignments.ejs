@@ -1,0 +1,43 @@
+<%- include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">&rsaquo;</span> <a href="/volunteers">Volontari</a> <span class="sep">&rsaquo;</span> <strong>Assegnazioni turno</strong></nav>
+<h1 class="page-title">👥 Assegnazioni — <%= shift.name %></h1>
+
+<div class="dash-box" style="margin-bottom:1rem;">
+  <h3>Dettagli turno</h3>
+  <p><strong>Zona:</strong> <%= shift.zone_name || '—' %> · <strong>Ruolo:</strong> <%= shift.role_label || '—' %></p>
+  <p><strong>Orario:</strong> <%= shift.start_at %> → <%= shift.end_at %> · <strong>Capienza:</strong> <%= shift.max_volunteers || 1 %></p>
+</div>
+
+<div class="dash-box" style="margin-bottom:1rem;">
+  <h3>Assegna volontario</h3>
+  <form method="post" action="/volunteer-assignments" style="display:flex;gap:.7rem;flex-wrap:wrap;align-items:end;">
+    <input type="hidden" name="shift_id" value="<%= shift.id %>">
+    <label>Volontario<br>
+      <select name="volunteer_id" required>
+        <option value="">-- Seleziona --</option>
+        <% volunteers.forEach(function(v){ %>
+          <option value="<%= v.id %>"><%= v.last_name %> <%= v.first_name %></option>
+        <% }) %>
+      </select>
+    </label>
+    <div><button class="primary" type="submit">+ Assegna</button></div>
+  </form>
+</div>
+
+<div class="dash-box">
+  <h3>Volontari assegnati</h3>
+  <% if(!assignments.length){ %><p style="color:var(--text-muted)">Nessuna assegnazione presente.</p><% } %>
+  <% assignments.forEach(function(a){ %>
+    <div style="display:flex;justify-content:space-between;gap:1rem;border-top:1px solid var(--border-light);padding:.8rem 0;align-items:center;flex-wrap:wrap;">
+      <div>
+        <strong><%= a.last_name %> <%= a.first_name %></strong><br>
+        <span style="font-size:.8rem;color:var(--text-muted)"><%= a.email||'—' %> · <%= a.phone||'—' %></span><br>
+        <span style="font-size:.76rem;color:var(--text-muted)">QR code: <code><%= a.checkin_code||'' %></code> · Stato: <strong><%= a.status %></strong></span>
+      </div>
+      <form method="post" action="/volunteer-assignments/<%= a.id %>/delete" onsubmit="return confirm('Rimuovere questa assegnazione?')">
+        <button class="danger" type="submit">Rimuovi</button>
+      </form>
+    </div>
+  <% }) %>
+</div>
+<%- include('partials/footer') %>
