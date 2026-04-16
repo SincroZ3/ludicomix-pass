@@ -17,7 +17,7 @@ const db          = require('./db');
 const { promisify } = require('util');
 const dbAll = promisify(db.all.bind(db));
 const dbGet = promisify(db.get.bind(db));
-function dbRun(sql,...p){return new Promise((resolve,reject)=>{db.run(sql,p,function(err){if(err)return reject(err);resolve({lastID:this.lastID,changes:this.changes});});});}
+function dbRun(sql,...p){return new Promise((resolve,reject)=>{const params=p.length===1&&Array.isArray(p[0])?p[0]:p;db.run(sql,params,function(err){if(err)return reject(err);resolve({lastID:this.lastID,changes:this.changes});});});}
 
 // ── Cache edizione corrente (multi-edizione) ──────────────────────────────
 let _currentEdition = null;
@@ -2757,33 +2757,6 @@ async function triggerBatchPassOnClose(groupId) {
   // ═══════════════════════════════════════════════════════════════
 
   // GET  /admin/bacheca — pagina di gestione comunicazioni (admin only)
-
-  // ── ROUTE TEMPORANEA DI DIAGNOSTICA — da rimuovere dopo il fix ──
-  app.get('/admin/debug-schema', requireAuth, async (req, res) => {
-    db.all("SELECT sql FROM sqlite_master WHERE type='trigger' AND tbl_name='announcements'", [], function(err, triggers) {
-      db.all("PRAGMA foreign_keys", [], function(err2, fk) {
-        db.all("PRAGMA foreign_key_list(announcements)", [], function(err3, fklist) {
-          // Prova INSERT diretto per vedere l'errore esatto
-          db.run(
-            "INSERT INTO announcements (title, message, emoji, type, is_pinned, expires_at, created_by) VALUES (?,?,?,?,?,?,?)",
-            ['__debug_test__', '__debug_msg__', '📣', 'info', 0, null, null],
-            function(err4) {
-              if (!err4) {
-                db.run("DELETE FROM announcements WHERE title='__debug_test__'", () => {});
-              }
-              res.json({
-                triggers: triggers,
-                foreign_keys_pragma: fk,
-                foreign_key_list: fklist,
-                insert_test_error: err4 ? { message: err4.message, code: err4.code, errno: err4.errno } : 'OK — insert riuscito'
-              });
-            }
-          );
-        });
-      });
-    });
-  });
-
   app.get('/admin/bacheca', requireAuth, requireOrganizer, async (req, res) => {
     try {
       const announcements = await dbAll(`
