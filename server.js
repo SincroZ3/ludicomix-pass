@@ -415,13 +415,15 @@ app.get('/home', requireAuth, (req, res) => {
       social_instagram||null, parseInt(sort_order)||0,
       featured==='1'?1:0, active==='1'?1:0
     ];
-    db.get('SELECT id FROM guest_profiles WHERE assignment_group_id = ?', [id], (err, row) => {
+    // Recupera il nome del gruppo (necessario per compatibilità con vecchi DB che hanno name NOT NULL)
+    db.get('SELECT ag.name, gp.id AS gp_id FROM assignment_groups ag LEFT JOIN guest_profiles gp ON gp.assignment_group_id = ag.id WHERE ag.id = ?', [id], (err, row) => {
       if (err) { console.error('[GuestProfile] SELECT:', err.message); return res.status(500).send('Errore lettura profilo ospite'); }
-      if (row) {
+      const groupName = (row && row.name) || '';
+      if (row && row.gp_id) {
         // UPDATE
         db.run(
-          `UPDATE guest_profiles SET bio=?,photo_url=?,category=?,website=?,social_instagram=?,sort_order=?,featured=?,active=? WHERE assignment_group_id=?`,
-          [...vals, id],
+          `UPDATE guest_profiles SET name=?,bio=?,photo_url=?,category=?,website=?,social_instagram=?,sort_order=?,featured=?,active=? WHERE assignment_group_id=?`,
+          [groupName, ...vals, id],
           (err2) => {
             if (err2) { console.error('[GuestProfile] UPDATE:', err2.message); return res.status(500).send('Errore aggiornamento profilo ospite'); }
             logAction(req.session.user.id, 'edit_guest_profile', 'assignment_group', id, 'Profilo ospite aggiornato');
@@ -429,10 +431,10 @@ app.get('/home', requireAuth, (req, res) => {
           }
         );
       } else {
-        // INSERT
+        // INSERT — include name per compatibilità con tabelle che hanno name NOT NULL
         db.run(
-          `INSERT INTO guest_profiles (assignment_group_id,bio,photo_url,category,website,social_instagram,sort_order,featured,active) VALUES (?,?,?,?,?,?,?,?,?)`,
-          [id, ...vals],
+          `INSERT INTO guest_profiles (assignment_group_id,name,bio,photo_url,category,website,social_instagram,sort_order,featured,active) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+          [id, groupName, ...vals],
           (err2) => {
             if (err2) { console.error('[GuestProfile] INSERT:', err2.message); return res.status(500).send('Errore creazione profilo ospite'); }
             logAction(req.session.user.id, 'edit_guest_profile', 'assignment_group', id, 'Profilo ospite creato');
