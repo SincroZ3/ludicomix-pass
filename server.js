@@ -369,18 +369,42 @@ app.get('/home', requireAuth, (req, res) => {
     }
   });
 
-  app.post('/volunteers', requireAuth, requireNotViewer, (req, res) => {
-    const { first_name, last_name, email, phone, notes, availability, skills, active } = req.body;
-    if (!first_name || !last_name) return res.status(400).send('Nome e cognome obbligatori');
-    db.run(
-      `INSERT INTO volunteers (first_name,last_name,email,phone,notes,availability,skills,active) VALUES (?,?,?,?,?,?,?,?)`,
-      [first_name.trim(), last_name.trim(), email||null, phone||null, notes||null, availability||'[]', skills||'[]', active ? 1 : 0],
-      function(err) {
-        if (err) return res.status(500).send('Errore salvataggio volontario');
-        logAction(req.session.user.id, 'create_volunteer', 'volunteer', this.lastID, `Volontario ${first_name} ${last_name} creato`);
-        res.redirect('/volunteers');
+
+  app.post('/volunteers', requireAuth, requireNotViewer, async (req, res) => {
+    try {
+      const { first_name, last_name, email, phone, notes, availability, skills, tshirt_size, status } = req.body;
+      const fn = String(first_name || '').trim();
+      const ln = String(last_name || '').trim();
+      if (!fn || !ln) return res.status(400).send('Nome e cognome obbligatori');
+
+      let edId = null;
+      if (_currentEdition && _currentEdition.id) edId = _currentEdition.id;
+      if (!edId) {
+        const cur = await dbGet('SELECT id FROM editions WHERE is_current=1 LIMIT 1');
+        if (cur && cur.id) edId = cur.id;
       }
-    );
+      if (!edId) {
+        const anyEd = await dbGet('SELECT id FROM editions ORDER BY id DESC LIMIT 1');
+        if (anyEd && anyEd.id) edId = anyEd.id;
+      }
+      if (!edId) edId = 1;
+
+      db.run(
+        `INSERT INTO volunteers (edition_id, first_name, last_name, email, phone, availability, skills, tshirt_size, status, notes, import_batch_id, active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [edId, fn, ln, email || null, phone || null, availability || '', skills || '', tshirt_size || null, status || 'pending', notes || null, null, 1],
+        function(err) {
+          if (err) {
+            console.error('[Volunteers POST]', err && err.stack ? err.stack : err.message);
+            return res.status(500).type('text/plain').send('Errore salvataggio volontario: ' + err.message);
+          }
+          res.redirect('/volunteers');
+        }
+      );
+    } catch (err) {
+      console.error('[Volunteers POST catch]', err && err.stack ? err.stack : err);
+      res.status(500).type('text/plain').send('Errore salvataggio volontario: ' + (err.message || err));
+    }
   });
 
   app.post('/volunteers/:id/edit', requireAuth, requireNotViewer, (req, res) => {
@@ -1375,7 +1399,7 @@ app.get('/home', requireAuth, (req, res) => {
         const anyEd = await dbGet('SELECT id FROM editions ORDER BY id DESC LIMIT 1');
         if (anyEd && anyEd.id) edId = anyEd.id;
       }
-      if (!edId) return res.status(500).type('text/plain').send('Errore salvataggio volontario: nessuna edizione disponibile');
+      if (!edId) edId = 1;
 
       db.run(
         `INSERT INTO volunteers (edition_id, first_name, last_name, email, phone, availability, skills, tshirt_size, status, notes, import_batch_id, active)
