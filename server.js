@@ -1223,6 +1223,93 @@ app.get('/home', requireAuth, (req, res) => {
     }
   });
 
+
+  // ══════════════════════════════════════════════
+  // VOLONTARI — debug insert reale
+  // ══════════════════════════════════════════════
+  app.get('/volunteers-debug', requireAuth, async (req, res) => {
+    try {
+      const editions = await dbAll('SELECT id, name, year, is_current FROM editions ORDER BY is_current DESC, id DESC');
+      const current = _currentEdition || null;
+      const count = await dbGet('SELECT COUNT(*) AS n FROM volunteers');
+      res.json({
+        ok: true,
+        dbPath: db.dbPath || null,
+        currentEdition: current,
+        editions,
+        volunteersCount: count ? count.n : 0,
+        requiredInsertExample: {
+          edition_id: current ? current.id : null,
+          first_name: 'Mario',
+          last_name: 'Rossi',
+          email: 'mario@example.com',
+          phone: null,
+          availability: '',
+          skills: '',
+          notes: null,
+          status: 'pending',
+          active: 1
+        }
+      });
+    } catch (err) {
+      console.error('[VOL DEBUG]', err && err.stack ? err.stack : err);
+      res.status(500).type('text/plain').send('VOL DEBUG error: ' + (err.message || err));
+    }
+  });
+
+  app.post('/volunteers-test-insert', requireAuth, requireNotViewer, async (req, res) => {
+    try {
+      const edId = (_currentEdition && _currentEdition.id) ? _currentEdition.id : null;
+      if (!edId) return res.status(500).send('TEST INSERT error: edizione corrente mancante');
+      const payload = [edId, 'TEST', 'VOLONTARIO', 'test@example.com', null, '', '', 'debug insert'];
+      db.run(
+        `INSERT INTO volunteers (edition_id, first_name, last_name, email, phone, availability, skills, notes, status, active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 1)`,
+        payload,
+        function(err) {
+          if (err) {
+            console.error('[VOL TEST INSERT]', err && err.stack ? err.stack : err.message);
+            return res.status(500).type('text/plain').send('VOL TEST INSERT error: ' + err.message);
+          }
+          res.type('text/plain').send('OK INSERT id=' + this.lastID);
+        }
+      );
+    } catch (err) {
+      console.error('[VOL TEST INSERT catch]', err && err.stack ? err.stack : err);
+      res.status(500).type('text/plain').send('VOL TEST INSERT catch: ' + (err.message || err));
+    }
+  });
+
+  app.post('/volunteers', requireAuth, requireNotViewer, async (req, res) => {
+    try {
+      const { first_name, last_name, email, phone, notes, availability, skills } = req.body;
+      if (!String(first_name||'').trim() || !String(last_name||'').trim()) return res.status(400).send('Nome e cognome obbligatori');
+
+      const edId = (_currentEdition && _currentEdition.id) ? _currentEdition.id : null;
+      if (!edId) {
+        console.error('[Volunteers POST] edizione corrente mancante');
+        return res.status(500).send('Volunteers POST error: edizione corrente mancante');
+      }
+
+      const sql = `INSERT INTO volunteers (edition_id, first_name, last_name, email, phone, availability, skills, notes, status, active)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 1)`;
+      const params = [edId, String(first_name).trim(), String(last_name).trim(), email||null, phone||null, availability||'', skills||'', notes||null];
+      console.log('[Volunteers POST SQL]', sql);
+      console.log('[Volunteers POST params]', JSON.stringify(params));
+
+      db.run(sql, params, function(err) {
+        if (err) {
+          console.error('[Volunteers POST]', err && err.stack ? err.stack : err.message);
+          return res.status(500).type('text/plain').send('Volunteers POST error: ' + err.message);
+        }
+        res.redirect('/volunteers');
+      });
+    } catch (err) {
+      console.error('[Volunteers POST catch]', err && err.stack ? err.stack : err);
+      res.status(500).type('text/plain').send('Volunteers POST catch: ' + (err.message || err));
+    }
+  });
+
   app.get('/participants', requireAuth, (req, res) => {
     db.all('SELECT * FROM groups ORDER BY priority, name', [], (err, categories) => {
       if (err) return res.status(500).send('Errore DB gruppi');
