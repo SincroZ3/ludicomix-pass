@@ -1048,6 +1048,112 @@ app.get('/home', requireAuth, (req, res) => {
     }
   });
 
+
+  // ══════════════════════════════════════════════
+  // VOLONTARI — diagnostica forte
+  // ══════════════════════════════════════════════
+  function ensureVolunteerTables(cb) {
+    db.serialize(() => {
+      db.run(`CREATE TABLE IF NOT EXISTS volunteers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
+        email TEXT,
+        phone TEXT,
+        notes TEXT,
+        availability TEXT,
+        skills TEXT
+      )`);
+      db.run(`CREATE TABLE IF NOT EXISTS shifts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        zone_id INTEGER,
+        role_label TEXT,
+        start_at TEXT NOT NULL,
+        end_at TEXT NOT NULL,
+        max_volunteers INTEGER NOT NULL DEFAULT 1,
+        notes TEXT,
+        FOREIGN KEY(zone_id) REFERENCES zones(id)
+      )`);
+      db.run(`CREATE TABLE IF NOT EXISTS shift_assignments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        shift_id INTEGER NOT NULL,
+        volunteer_id INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'assigned',
+        checkin_at TEXT,
+        checkin_code TEXT,
+        notes TEXT,
+        FOREIGN KEY(shift_id) REFERENCES shifts(id),
+        FOREIGN KEY(volunteer_id) REFERENCES volunteers(id)
+      )`, function(err){
+        if (err) console.error('[VOL] ensure create error:', err.message);
+        cb(err);
+      });
+    });
+  }
+
+  app.get('/volunteers-debug', requireAuth, (req, res) => {
+    ensureVolunteerTables((err) => {
+      if (err) return res.status(500).type('text/plain').send('ensure error: ' + err.message);
+      db.all("PRAGMA table_info(volunteers)", [], (e1, cols) => {
+        db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='volunteers'", [], (e2, row) => {
+          res.type('application/json').send({
+            ok: true,
+            dbPath: db.dbPath || null,
+            hasTable: !!row,
+            pragmaError: e1 ? e1.message : null,
+            masterError: e2 ? e2.message : null,
+            columns: cols || []
+          });
+        });
+      });
+    });
+  });
+
+  app.get('/volunteers', requireAuth, async (req, res) => {
+    try {
+      await new Promise((resolve, reject) => ensureVolunteerTables(err => err ? reject(err) : resolve()));
+      const [volunteers, shifts, zones] = await Promise.all([
+        dbAll(`SELECT v.*, 
+               (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
+               (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
+               FROM volunteers v ORDER BY v.last_name ASC, v.first_name ASC`),
+        dbAll(`SELECT s.*, z.name AS zone_name,
+               (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
+               FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
+               ORDER BY s.start_at ASC, s.name ASC`),
+        dbAll('SELECT * FROM zones ORDER BY sort_order, name')
+      ]);
+      res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[] });
+    } catch (err) {
+      console.error('[Volunteers GET]', err && err.stack ? err.stack : err);
+      res.status(500).type('text/plain').send('Volunteers GET error: ' + (err.message || err));
+    }
+  });
+
+  app.post('/volunteers', requireAuth, requireNotViewer, async (req, res) => {
+    try {
+      await new Promise((resolve, reject) => ensureVolunteerTables(err => err ? reject(err) : resolve()));
+      const { first_name, last_name, email, phone, notes, availability, skills } = req.body;
+      if (!String(first_name||'').trim() || !String(last_name||'').trim()) return res.status(400).send('Nome e cognome obbligatori');
+      console.log('[VOL POST body]', JSON.stringify({ first_name, last_name, email, phone, notes, availability, skills }));
+      db.run(
+        `INSERT INTO volunteers (first_name,last_name,email,phone,notes,availability,skills) VALUES (?,?,?,?,?,?,?)`,
+        [String(first_name).trim(), String(last_name).trim(), email||null, phone||null, notes||null, availability||'', skills||''],
+        function(err) {
+          if (err) {
+            console.error('[Volunteers POST]', err && err.stack ? err.stack : err.message);
+            return res.status(500).type('text/plain').send('Volunteers POST error: ' + err.message);
+          }
+          res.redirect('/volunteers');
+        }
+      );
+    } catch (err) {
+      console.error('[Volunteers POST ensure]', err && err.stack ? err.stack : err);
+      res.status(500).type('text/plain').send('Volunteers POST ensure error: ' + (err.message || err));
+    }
+  });
+
   app.get('/participants', requireAuth, (req, res) => {
     db.all('SELECT * FROM groups ORDER BY priority, name', [], (err, categories) => {
       if (err) return res.status(500).send('Errore DB gruppi');
