@@ -431,6 +431,36 @@ db.run(`CREATE INDEX IF NOT EXISTS idx_registrations_event ON registrations(even
 db.run(`CREATE INDEX IF NOT EXISTS idx_registrations_email ON registrations(email)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_guests_featured ON guests(featured)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_guests_active ON guests(active, sort_order)`);
+db.run(`CREATE TABLE IF NOT EXISTS guest_profiles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  assignment_group_id INTEGER NOT NULL UNIQUE,
+  bio TEXT,
+  photo_url TEXT,
+  category TEXT,
+  website TEXT,
+  social_instagram TEXT,
+  sort_order INTEGER DEFAULT 0,
+  featured INTEGER DEFAULT 0,
+  active INTEGER DEFAULT 1,
+  FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
+)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_guest_profiles_featured ON guest_profiles(featured, active)`);
+
+// Migrazioni: aggiunge colonne mancanti se la tabella esiste già in versione incompleta
+[
+  'ADD COLUMN assignment_group_id INTEGER',
+  'ADD COLUMN bio TEXT',
+  'ADD COLUMN photo_url TEXT',
+  'ADD COLUMN category TEXT',
+  'ADD COLUMN website TEXT',
+  'ADD COLUMN social_instagram TEXT',
+  'ADD COLUMN sort_order INTEGER DEFAULT 0',
+  'ADD COLUMN featured INTEGER DEFAULT 0',
+  'ADD COLUMN active INTEGER DEFAULT 1',
+].forEach(function(col) {
+  db.run('ALTER TABLE guest_profiles ' + col, function() {});
+});
+
 
 // ═══════════════════════════════════════════════════════
 // VIEWS — agenda
