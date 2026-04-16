@@ -429,9 +429,26 @@ db.run(`CREATE INDEX IF NOT EXISTS idx_event_speakers_event ON event_speakers(ev
 db.run(`CREATE INDEX IF NOT EXISTS idx_event_speakers_speaker ON event_speakers(speaker_id)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_registrations_event ON registrations(event_id, status)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_registrations_email ON registrations(email)`);
-db.run(`CREATE INDEX IF NOT EXISTS idx_guests_featured ON guests(featured)`);
-db.run(`CREATE INDEX IF NOT EXISTS idx_guests_active ON guests(active, sort_order)`);
-db.run(`CREATE TABLE IF NOT EXISTS guest_profiles (
+// ── Migrazioni tabella guests (aggiunge colonne se mancano in DB precedenti) ──
+db.serialize(function() {
+  ['ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0',
+   'ADD COLUMN featured INTEGER NOT NULL DEFAULT 0',
+   'ADD COLUMN active INTEGER NOT NULL DEFAULT 1',
+  ].forEach(function(col) {
+    db.run('ALTER TABLE guests ' + col, function(err) {
+      // silenzioso: errore atteso se la colonna esiste già
+    });
+  });
+  // Indici guests: creati DOPO le migrazioni grazie a db.serialize()
+  db.run('CREATE INDEX IF NOT EXISTS idx_guests_featured ON guests(featured)', function(err) {
+    if (err && !err.message.includes('already exists')) console.warn('[DB] idx_guests_featured:', err.message);
+  });
+  db.run('CREATE INDEX IF NOT EXISTS idx_guests_active ON guests(active, sort_order)', function(err) {
+    if (err && !err.message.includes('already exists')) console.warn('[DB] idx_guests_active:', err.message);
+  });
+
+  // ── Tabella guest_profiles ──
+  db.run(`CREATE TABLE IF NOT EXISTS guest_profiles (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   assignment_group_id INTEGER NOT NULL UNIQUE,
   bio TEXT,
@@ -443,22 +460,29 @@ db.run(`CREATE TABLE IF NOT EXISTS guest_profiles (
   featured INTEGER DEFAULT 0,
   active INTEGER DEFAULT 1,
   FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
-)`);
-db.run(`CREATE INDEX IF NOT EXISTS idx_guest_profiles_featured ON guest_profiles(featured, active)`);
+)`, function(err) {
+    if (err) console.warn('[DB] guest_profiles create:', err.message);
+  });
 
-// Migrazioni: aggiunge colonne mancanti se la tabella esiste già in versione incompleta
-[
-  'ADD COLUMN assignment_group_id INTEGER',
-  'ADD COLUMN bio TEXT',
-  'ADD COLUMN photo_url TEXT',
-  'ADD COLUMN category TEXT',
-  'ADD COLUMN website TEXT',
-  'ADD COLUMN social_instagram TEXT',
-  'ADD COLUMN sort_order INTEGER DEFAULT 0',
-  'ADD COLUMN featured INTEGER DEFAULT 0',
-  'ADD COLUMN active INTEGER DEFAULT 1',
-].forEach(function(col) {
-  db.run('ALTER TABLE guest_profiles ' + col, function() {});
+  // Migrazioni guest_profiles (per DB già esistenti con schema incompleto)
+  ['ADD COLUMN assignment_group_id INTEGER',
+   'ADD COLUMN bio TEXT',
+   'ADD COLUMN photo_url TEXT',
+   'ADD COLUMN category TEXT',
+   'ADD COLUMN website TEXT',
+   'ADD COLUMN social_instagram TEXT',
+   'ADD COLUMN sort_order INTEGER DEFAULT 0',
+   'ADD COLUMN featured INTEGER DEFAULT 0',
+   'ADD COLUMN active INTEGER DEFAULT 1',
+  ].forEach(function(col) {
+    db.run('ALTER TABLE guest_profiles ' + col, function(err) {
+      // silenzioso: errore atteso se la colonna esiste già
+    });
+  });
+
+  db.run('CREATE INDEX IF NOT EXISTS idx_guest_profiles_featured ON guest_profiles(featured, active)', function(err) {
+    if (err && !err.message.includes('already exists')) console.warn('[DB] idx_guest_profiles_featured:', err.message);
+  });
 });
 
 
