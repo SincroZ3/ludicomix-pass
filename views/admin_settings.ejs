@@ -792,6 +792,50 @@ function apriModificaGruppo(id, name, priority, passTypeId) {
   if(s)s.addEventListener('input',update);if(f)f.addEventListener('change',update);
   if(rows.length)update();
 })();
+
+// ── Test SMTP ────────────────────────────────────────────────────────────────
+(function() {
+  var btn    = document.getElementById('btn-smtp-test');
+  var result = document.getElementById('smtp-result');
+  if (!btn || !result) return;
+
+  btn.addEventListener('click', function() {
+    var form = document.getElementById('smtp-form');
+    var data = new FormData(form);
+    btn.disabled = true;
+    btn.textContent = '⏳ Invio in corso…';
+    result.style.display = 'none';
+
+    fetch('/admin/settings/smtp-test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(data).toString()
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(json) {
+      result.style.display = '';
+      if (json.ok) {
+        result.style.background = '#dcfce7';
+        result.style.color      = '#166534';
+        result.textContent      = '✅ Email di test inviata correttamente!';
+      } else {
+        result.style.background = '#fee2e2';
+        result.style.color      = '#991b1b';
+        result.textContent      = '❌ Errore: ' + json.error;
+      }
+    })
+    .catch(function(e) {
+      result.style.display    = '';
+      result.style.background = '#fee2e2';
+      result.style.color      = '#991b1b';
+      result.textContent      = '❌ Errore di rete: ' + e.message;
+    })
+    .finally(function() {
+      btn.disabled    = false;
+      btn.textContent = '📧 Test email';
+    });
+  });
+})();
 </script>
 
 <%- include('partials/footer') %>
