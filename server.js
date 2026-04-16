@@ -2757,6 +2757,16 @@ async function triggerBatchPassOnClose(groupId) {
   // ═══════════════════════════════════════════════════════════════
 
   // GET  /admin/bacheca — pagina di gestione comunicazioni (admin only)
+
+  // ── ROUTE TEMPORANEA DI DIAGNOSTICA — da rimuovere dopo il fix ──
+  app.get('/admin/debug-schema', requireAuth, async (req, res) => {
+    db.all("SELECT sql FROM sqlite_master WHERE type='table' AND name='announcements'", [], function(err, rows) {
+      db.all("PRAGMA table_info(announcements)", [], function(err2, cols) {
+        res.json({ schema: rows, columns: cols });
+      });
+    });
+  });
+
   app.get('/admin/bacheca', requireAuth, requireOrganizer, async (req, res) => {
     try {
       const announcements = await dbAll(`
