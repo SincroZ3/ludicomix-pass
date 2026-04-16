@@ -1154,6 +1154,75 @@ app.get('/home', requireAuth, (req, res) => {
     }
   });
 
+
+  // ══════════════════════════════════════════════
+  // VOLONTARI — schema reale Railway
+  // ══════════════════════════════════════════════
+  app.post('/volunteers', requireAuth, requireNotViewer, async (req, res) => {
+    try {
+      const { first_name, last_name, email, phone, notes, availability, skills } = req.body;
+      if (!String(first_name||'').trim() || !String(last_name||'').trim()) return res.status(400).send('Nome e cognome obbligatori');
+
+      const edId = (_currentEdition && _currentEdition.id) ? _currentEdition.id : null;
+      if (!edId) {
+        console.error('[Volunteers POST] edizione corrente mancante');
+        return res.status(500).send('Volunteers POST error: edizione corrente mancante');
+      }
+
+      db.run(
+        `INSERT INTO volunteers (edition_id, first_name, last_name, email, phone, availability, skills, notes, status, active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 1)`,
+        [edId, String(first_name).trim(), String(last_name).trim(), email||null, phone||null, availability||'', skills||'', notes||null],
+        function(err) {
+          if (err) {
+            console.error('[Volunteers POST]', err && err.stack ? err.stack : err.message);
+            return res.status(500).type('text/plain').send('Volunteers POST error: ' + err.message);
+          }
+          logAction(req.session.user.id, 'create_volunteer', 'volunteer', this.lastID, `Volontario ${first_name} ${last_name} creato`);
+          res.redirect('/volunteers');
+        }
+      );
+    } catch (err) {
+      console.error('[Volunteers POST catch]', err && err.stack ? err.stack : err);
+      res.status(500).type('text/plain').send('Volunteers POST catch: ' + (err.message || err));
+    }
+  });
+
+  app.post('/volunteers/:id/edit', requireAuth, requireNotViewer, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const { first_name, last_name, email, phone, notes, availability, skills, active, status } = req.body;
+      db.run(
+        `UPDATE volunteers
+            SET first_name=?, last_name=?, email=?, phone=?, availability=?, skills=?, notes=?,
+                active=?, status=?
+          WHERE id=?`,
+        [
+          String(first_name||'').trim(),
+          String(last_name||'').trim(),
+          email||null,
+          phone||null,
+          availability||'',
+          skills||'',
+          notes||null,
+          active ? 1 : 0,
+          status || 'pending',
+          id
+        ],
+        function(err) {
+          if (err) {
+            console.error('[Volunteers EDIT]', err && err.stack ? err.stack : err.message);
+            return res.status(500).send('Errore aggiornamento volontario: ' + err.message);
+          }
+          res.redirect('/volunteers');
+        }
+      );
+    } catch (err) {
+      console.error('[Volunteers EDIT catch]', err && err.stack ? err.stack : err);
+      res.status(500).send('Errore aggiornamento volontario: ' + (err.message || err));
+    }
+  });
+
   app.get('/participants', requireAuth, (req, res) => {
     db.all('SELECT * FROM groups ORDER BY priority, name', [], (err, categories) => {
       if (err) return res.status(500).send('Errore DB gruppi');
