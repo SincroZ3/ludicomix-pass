@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Catering Staff — Ludicomix</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .log-tabs{display:flex;gap:.4rem;margin-bottom:1.5rem;flex-wrap:wrap}
+    .log-tab{background:#f1f5f9;border:1.5px solid #d1d9e6;border-radius:20px;padding:.38rem 1.05rem;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .15s;color:#475569}
+    .log-tab.active,.log-tab:hover{background:#1e2d4e;color:#fff;border-color:#1e2d4e}
+    .log-panel{display:none}.log-panel.active{display:block}
+    .log-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 1px 4px rgba(30,45,78,.06);margin-bottom:1.25rem;overflow:hidden}
+    .log-card-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.75rem 1.2rem;border-bottom:1px solid #f1f5f9;background:#fafbfc}
+    .log-card-title{font-size:.8rem;font-weight:800;text-transform:uppercase;letter-spacing:.55px;color:#1e2d4e}
+    .log-card-body{padding:1.1rem 1.2rem}
+    .form-row{display:flex;gap:.65rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem}
+    .form-row .field{display:flex;flex-direction:column;gap:.3rem}
+    .form-row label{font-size:.73rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
+    .form-row input,.form-row select{border:1.5px solid #d1d9e6;border-radius:8px;padding:.45rem .7rem;font-size:.87rem;font-family:inherit;color:#1e2d4e;background:#fff}
+    .form-row input:focus,.form-row select:focus{outline:none;border-color:#1e2d4e}
+    .btn-sm{background:#1e2d4e;color:#f5c842;border:none;border-radius:8px;padding:.44rem 1.1rem;font-size:.83rem;font-weight:700;cursor:pointer;font-family:inherit}
+    .btn-sm:hover{opacity:.88}
+    .btn-del{background:#fee2e2;color:#991b1b;border:none;border-radius:7px;padding:.28rem .55rem;font-size:.78rem;cursor:pointer;font-family:inherit}
+    .section-title{font-size:.8rem;font-weight:800;color:#1e2d4e;text-transform:uppercase;letter-spacing:.07em;margin:1.5rem 0 .75rem;padding-bottom:.35rem;border-bottom:2px solid #e2e8f0}
+    .empty{text-align:center;padding:2rem;color:#94a3b8;font-size:.88rem}
+    .alert-ok{background:#d1fae5;color:#065f46;border-radius:10px;padding:.55rem 1rem;font-size:.83rem;font-weight:600}
+    .alert-err{background:#fee2e2;color:#991b1b;border-radius:10px;padding:.55rem 1rem;font-size:.83rem;font-weight:600}
+    .meal-badge{display:inline-block;font-size:.68rem;font-weight:700;padding:.12rem .45rem;border-radius:9999px;text-transform:uppercase}
+    .meal-pranzo{background:#fef3c7;color:#92400e}
+    .meal-cena{background:#f3e8ff;color:#6b21a8}
+    .meal-colazione{background:#dbeafe;color:#1e40af}
+    .meal-buffet{background:#d1fae5;color:#065f46}
+    .shift-card{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;margin-bottom:1.25rem;overflow:hidden}
+    .shift-head{background:#fff;padding:.8rem 1.1rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+    .shift-name{font-weight:800;color:#1e2d4e;font-size:.95rem}
+    .shift-body{padding:.85rem 1.1rem}
+    .sr-table{width:100%;border-collapse:collapse;font-size:.86rem}
+    .sr-table th{background:#f8fafc;padding:.55rem .75rem;text-align:left;font-size:.73rem;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:700;border-bottom:2px solid #e2e8f0}
+    .sr-table td{padding:.55rem .75rem;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+    .sr-table tr:last-child td{border-bottom:none}
+    .sr-table tr:hover td{background:#fafbfc}
+    .dietary-badge{display:inline-block;font-size:.68rem;font-weight:700;padding:.1rem .4rem;border-radius:9999px;background:#fee2e2;color:#991b1b}
+  </style>
+</head>
+<body>
+<nav class="breadcrumb-bar">Sei in: <a href="/">Home</a> › <strong>Catering Staff</strong></nav>
+<div class="container" style="max-width:1050px;margin:1.5rem auto;padding:0 1.25rem">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:.75rem">
+    <div>
+      <h1 style="font-size:1.35rem;font-weight:800;color:#1e2d4e">🍽️ Catering Staff</h1>
+      <p style="font-size:.78rem;color:#64748b;margin-top:.15rem">Gestione pasti e ordinazioni per lo staff (solo interno)</p>
+    </div>
+    <div style="display:flex;gap:.5rem">
+      <% if(saved==='ok'){%><span class="alert-ok">✅ Salvato</span><%}%>
+      <% if(saved==='err'){%><span class="alert-err">❌ Errore</span><%}%>
+    </div>
+  </div>
+
+  <div class="log-tabs">
+    <button class="log-tab active" onclick="showTab('turni',this)">🍴 Turni pasto</button>
+    <button class="log-tab" onclick="showTab('riepilogo',this)">📊 Riepilogo</button>
+  </div>
+
+  <!-- TURNI PASTO -->
+  <div class="log-panel active" id="panel-turni">
+    <div class="log-card">
+      <div class="log-card-head"><span class="log-card-title">➕ Nuovo turno</span></div>
+      <div class="log-card-body">
+        <form method="POST" action="/admin/catering/shift">
+          <div class="form-row">
+            <div class="field" style="flex:2;min-width:160px"><label>Etichetta *</label><input type="text" name="label" placeholder="Es. Pranzo Sabato 12 Aprile" required></div>
+            <div class="field" style="min-width:140px"><label>Data</label><input type="date" name="date"></div>
+            <div class="field" style="min-width:130px">
+              <label>Tipo pasto</label>
+              <select name="meal_type">
+                <option value="pranzo">🍛 Pranzo</option>
+                <option value="cena">🍝 Cena</option>
+                <option value="colazione">☕ Colazione</option>
+                <option value="buffet">🥗 Buffet</option>
+              </select>
+            </div>
+            <div class="field" style="min-width:130px">
+              <label>Edizione</label>
+              <select name="edition_id">
+                <option value="">— nessuna —</option>
+                <% editions.forEach(function(e){ %><option value="<%= e.id %>"><%= e.name||e.year %></option><% }); %>
+              </select>
+            </div>
+            <div class="field" style="flex:2;min-width:140px"><label>Note</label><input type="text" name="notes" placeholder="Facoltativo"></div>
+            <button type="submit" class="btn-sm">+ Crea</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <% if(!shifts.length){ %>
+      <div class="empty">Nessun turno creato ancora.</div>
+    <% } else { shifts.forEach(function(sh){ var shOrders=orders.filter(function(o){return o.shift_id===sh.id;}); %>
+      <div class="shift-card" id="shift-<%= sh.id %>">
+        <div class="shift-head">
+          <span class="meal-badge meal-<%= sh.meal_type||'pranzo' %>"><%= sh.meal_type||'pranzo' %></span>
+          <span class="shift-name"><%= sh.label %></span>
+          <% if(sh.date){ %><span style="font-size:.75rem;color:#64748b">📅 <%= sh.date %></span><% } %>
+          <span style="font-size:.72rem;color:#94a3b8"><%= shOrders.length %> ordinazioni</span>
+          <button onclick="toggleOrderForm(<%= sh.id %>)" style="margin-left:auto;background:#1e2d4e;color:#f5c842;border:none;border-radius:7px;padding:.25rem .65rem;font-size:.78rem;cursor:pointer;font-weight:700;font-family:inherit">+ Aggiungi</button>
+          <button class="btn-del" onclick="deleteShift(<%= sh.id %>)">🗑</button>
+        </div>
+        <div class="shift-body">
+          <!-- form aggiunta ordinazione -->
+          <div id="ord-form-<%= sh.id %>" style="display:none;border-bottom:1px solid #e2e8f0;padding-bottom:.85rem;margin-bottom:.85rem">
+            <form method="POST" action="/admin/catering/shift/<%= sh.id %>/order">
+              <div class="form-row">
+                <div class="field" style="flex:2;min-width:160px"><label>Nome staff *</label><input type="text" name="staff_name" placeholder="Nome e cognome" required></div>
+                <div class="field" style="min-width:130px"><label>Ruolo</label><input type="text" name="role" placeholder="Es. Steward, Tecnico"></div>
+                <div class="field" style="min-width:150px"><label>Scelta menu</label><input type="text" name="menu_choice" placeholder="Es. Primo+secondo, Panino"></div>
+                <div class="field" style="min-width:130px"><label>Dieta / allergie</label><input type="text" name="dietary" placeholder="Es. Vegetariano, Gluten-free"></div>
+                <div class="field" style="min-width:120px"><label>Note</label><input type="text" name="notes" placeholder="Facoltativo"></div>
+                <button type="submit" class="btn-sm">+ Salva</button>
+              </div>
+            </form>
+          </div>
+          <% if(!shOrders.length){ %>
+            <div style="font-size:.82rem;color:#94a3b8;text-align:center;padding:.5rem">Nessuna ordinazione — clicca + Aggiungi</div>
+          <% } else { %>
+            <div style="overflow-x:auto">
+              <table class="sr-table">
+                <thead><tr><th>Nome</th><th>Ruolo</th><th>Menu</th><th>Dieta</th><th>Note</th><th></th></tr></thead>
+                <tbody>
+                <% shOrders.forEach(function(o){ %>
+                  <tr id="ord-<%= o.id %>">
+                    <td><strong style="color:#1e2d4e"><%= o.staff_name %></strong></td>
+                    <td style="font-size:.78rem;color:#64748b"><%= o.role||'—' %></td>
+                    <td style="font-size:.84rem"><%= o.menu_choice||'—' %></td>
+                    <td><% if(o.dietary){ %><span class="dietary-badge"><%= o.dietary %></span><% } else { %>—<% } %></td>
+                    <td style="font-size:.78rem;color:#64748b"><%= o.notes||'—' %></td>
+                    <td><button class="btn-del" onclick="deleteOrder(<%= o.id %>)">🗑</button></td>
+                  </tr>
+                <% }); %>
+                </tbody>
+              </table>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    <% }); } %>
+  </div>
+
+  <!-- RIEPILOGO -->
+  <div class="log-panel" id="panel-riepilogo">
+    <% if(!shifts.length){ %>
+      <div class="empty">Nessun turno creato ancora.</div>
+    <% } else { %>
+      <% shifts.forEach(function(sh){ var shOrders=orders.filter(function(o){return o.shift_id===sh.id;}); if(!shOrders.length) return; %>
+        <div class="log-card">
+          <div class="log-card-head">
+            <span class="meal-badge meal-<%= sh.meal_type||'pranzo' %>"><%= sh.meal_type %></span>
+            <span class="log-card-title"><%= sh.label %></span>
+            <% if(sh.date){ %><span style="font-size:.75rem;color:#64748b"><%= sh.date %></span><% } %>
+            <span style="font-size:.75rem;color:#065f46;font-weight:700"><%= shOrders.length %> persone</span>
+          </div>
+          <div class="log-card-body" style="padding:0">
+            <table class="sr-table">
+              <thead><tr><th>Nome</th><th>Ruolo</th><th>Menu</th><th>Dieta</th></tr></thead>
+              <tbody>
+              <% shOrders.forEach(function(o){ %>
+                <tr>
+                  <td><strong><%= o.staff_name %></strong></td>
+                  <td style="font-size:.78rem;color:#64748b"><%= o.role||'—' %></td>
+                  <td><%= o.menu_choice||'—' %></td>
+                  <td><% if(o.dietary){ %><span class="dietary-badge"><%= o.dietary %></span><% } else { %>—<% } %></td>
+                </tr>
+              <% }); %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      <% }); } %>
+  </div>
+
+</div>
+<script>
+function showTab(id,btn){
+  document.querySelectorAll('.log-panel').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.log-tab').forEach(function(b){b.classList.remove('active');});
+  document.getElementById('panel-'+id).classList.add('active'); btn.classList.add('active');
+}
+function toggleOrderForm(id){
+  var f=document.getElementById('ord-form-'+id); f.style.display=f.style.display==='none'?'block':'none';
+}
+function deleteShift(id){
+  if(!confirm('Eliminare questo turno e tutte le ordinazioni?')) return;
+  fetch('/admin/catering/shift/'+id,{method:'DELETE'}).then(function(){var el=document.getElementById('shift-'+id);if(el)el.remove();});
+}
+function deleteOrder(id){
+  fetch('/admin/catering/order/'+id,{method:'DELETE'}).then(function(){var el=document.getElementById('ord-'+id);if(el)el.remove();});
+}
+(function(){
+  var p=new URLSearchParams(window.location.search); var sid=p.get('shift');
+  if(sid){ var f=document.getElementById('ord-form-'+sid); if(f) f.style.display='block'; }
+})();
+</script>
+</body>
+</html>

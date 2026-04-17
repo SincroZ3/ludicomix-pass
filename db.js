@@ -853,4 +853,68 @@ db.run(`INSERT OR IGNORE INTO logistic_locations (key_name, label, icon, sort_or
   ('altro',                 'Altro',                 '📍', 999)
 `);
 
+
+// ── Impostazioni logistica ────────────────────────────────────
+db.run(`CREATE TABLE IF NOT EXISTS logistic_categories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, key_name TEXT UNIQUE NOT NULL,
+  label TEXT NOT NULL, icon TEXT, sort_order INTEGER DEFAULT 0)`);
+db.run(`CREATE TABLE IF NOT EXISTS logistic_locations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, key_name TEXT UNIQUE NOT NULL,
+  label TEXT NOT NULL, icon TEXT, sort_order INTEGER DEFAULT 0)`);
+db.run(`INSERT OR IGNORE INTO logistic_categories (key_name,label,icon,sort_order) VALUES
+  ('tavolo','Tavolo','🪑',10),('sedia','Sedia','🪑',20),
+  ('prolunga','Prolunga','⚡',30),('gazebo','Gazebo','⛺',40),('altro','Altro','📦',999)`);
+db.run(`INSERT OR IGNORE INTO logistic_locations (key_name,label,icon,sort_order) VALUES
+  ('segreteria_palazzetto','Segreteria Palazzetto','🏛️',10),
+  ('segreteria_mariambini','Segreteria Mariambini','⛪',20),
+  ('vanvere','Vanvere','🏚️',30),('uffici_ludicomix','Uffici Ludicomix','🏢',40),
+  ('altro','Altro','📍',999)`);
+
+// ── Checklist ─────────────────────────────────────────────────
+db.run(`CREATE TABLE IF NOT EXISTS checklist_templates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, area TEXT,
+  phase TEXT NOT NULL DEFAULT 'montaggio', sort_order INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')))`);
+db.run(`CREATE TABLE IF NOT EXISTS checklist_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  template_id INTEGER NOT NULL REFERENCES checklist_templates(id) ON DELETE CASCADE,
+  text TEXT NOT NULL, sort_order INTEGER DEFAULT 0)`);
+db.run(`CREATE TABLE IF NOT EXISTS checklist_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  template_id INTEGER NOT NULL REFERENCES checklist_templates(id),
+  edition_id INTEGER, started_at TEXT DEFAULT (datetime('now')),
+  completed_at TEXT, notes TEXT)`);
+db.run(`CREATE TABLE IF NOT EXISTS checklist_run_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  run_id INTEGER NOT NULL REFERENCES checklist_runs(id) ON DELETE CASCADE,
+  item_id INTEGER NOT NULL REFERENCES checklist_items(id),
+  done INTEGER DEFAULT 0, done_at TEXT, done_by TEXT)`);
+
+// ── Catering staff ─────────────────────────────────────────────
+db.run(`CREATE TABLE IF NOT EXISTS catering_shifts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, label TEXT NOT NULL, date TEXT,
+  meal_type TEXT NOT NULL DEFAULT 'pranzo', edition_id INTEGER,
+  notes TEXT, created_at TEXT DEFAULT (datetime('now')))`);
+db.run(`CREATE TABLE IF NOT EXISTS catering_orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  shift_id INTEGER NOT NULL REFERENCES catering_shifts(id) ON DELETE CASCADE,
+  staff_name TEXT NOT NULL, role TEXT, menu_choice TEXT,
+  dietary TEXT, notes TEXT, created_at TEXT DEFAULT (datetime('now')))`);
+
+// ── Fornitori ──────────────────────────────────────────────────
+db.run(`CREATE TABLE IF NOT EXISTS suppliers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, category TEXT,
+  contact_name TEXT, phone TEXT, email TEXT, website TEXT, notes TEXT,
+  created_at TEXT DEFAULT (datetime('now')))`);
+db.run(`CREATE TABLE IF NOT EXISTS supplier_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  supplier_id INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+  description TEXT NOT NULL, item_type TEXT DEFAULT 'noleggio',
+  quantity INTEGER DEFAULT 1, unit_cost REAL, total_cost REAL,
+  edition_id INTEGER, notes TEXT, created_at TEXT DEFAULT (datetime('now')))`);
+
+// ── Migrazioni equipment ───────────────────────────────────────
+db.run(`ALTER TABLE equipment ADD COLUMN location TEXT`,        () => {});
+db.run(`ALTER TABLE equipment ADD COLUMN location_custom TEXT`, () => {});
+
 module.exports = db;

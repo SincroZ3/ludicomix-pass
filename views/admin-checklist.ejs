@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Checklist — Ludicomix</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .log-tabs{display:flex;gap:.4rem;margin-bottom:1.5rem;flex-wrap:wrap}
+    .log-tab{background:#f1f5f9;border:1.5px solid #d1d9e6;border-radius:20px;padding:.38rem 1.05rem;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .15s;color:#475569}
+    .log-tab.active,.log-tab:hover{background:#1e2d4e;color:#fff;border-color:#1e2d4e}
+    .log-panel{display:none}.log-panel.active{display:block}
+    .log-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 1px 4px rgba(30,45,78,.06);margin-bottom:1.25rem;overflow:hidden}
+    .log-card-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.75rem 1.2rem;border-bottom:1px solid #f1f5f9;background:#fafbfc}
+    .log-card-title{font-size:.8rem;font-weight:800;text-transform:uppercase;letter-spacing:.55px;color:#1e2d4e}
+    .log-card-body{padding:1.1rem 1.2rem}
+    .form-row{display:flex;gap:.65rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem}
+    .form-row .field{display:flex;flex-direction:column;gap:.3rem}
+    .form-row label{font-size:.73rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
+    .form-row input,.form-row select{border:1.5px solid #d1d9e6;border-radius:8px;padding:.45rem .7rem;font-size:.87rem;font-family:inherit;color:#1e2d4e;background:#fff}
+    .form-row input:focus,.form-row select:focus{outline:none;border-color:#1e2d4e}
+    .btn-sm{background:#1e2d4e;color:#f5c842;border:none;border-radius:8px;padding:.44rem 1.1rem;font-size:.83rem;font-weight:700;cursor:pointer;font-family:inherit}
+    .btn-sm:hover{opacity:.88}
+    .btn-del{background:#fee2e2;color:#991b1b;border:none;border-radius:7px;padding:.28rem .55rem;font-size:.78rem;cursor:pointer;font-family:inherit}
+    .btn-run{background:#d1fae5;color:#065f46;border:none;border-radius:7px;padding:.28rem .7rem;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit}
+    .section-title{font-size:.8rem;font-weight:800;color:#1e2d4e;text-transform:uppercase;letter-spacing:.07em;margin:1.5rem 0 .75rem;padding-bottom:.35rem;border-bottom:2px solid #e2e8f0}
+    .empty{text-align:center;padding:2rem;color:#94a3b8;font-size:.88rem}
+    .alert-ok{background:#d1fae5;color:#065f46;border-radius:10px;padding:.55rem 1rem;font-size:.83rem;font-weight:600}
+    .alert-err{background:#fee2e2;color:#991b1b;border-radius:10px;padding:.55rem 1rem;font-size:.83rem;font-weight:600}
+    .phase-badge{display:inline-block;font-size:.68rem;font-weight:800;padding:.15rem .5rem;border-radius:9999px;text-transform:uppercase;letter-spacing:.04em}
+    .ph-montaggio{background:#dbeafe;color:#1e40af}
+    .ph-smontaggio{background:#fef3c7;color:#92400e}
+    .ph-allestimento{background:#f3e8ff;color:#6b21a8}
+    .ph-altro{background:#f1f5f9;color:#475569}
+    .tpl-card{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:1rem 1.1rem;margin-bottom:.75rem}
+    .tpl-head{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.65rem}
+    .items-list{list-style:none;padding:0;margin:.5rem 0}
+    .items-list li{display:flex;align-items:center;gap:.5rem;padding:.28rem 0;font-size:.84rem;border-bottom:1px solid #f1f5f9}
+    .items-list li:last-child{border-bottom:none}
+    .add-item-row{display:flex;gap:.4rem;margin-top:.5rem}
+    .add-item-row input{flex:1;border:1.5px solid #d1d9e6;border-radius:7px;padding:.38rem .6rem;font-size:.84rem;font-family:inherit}
+    .run-row{display:flex;align-items:center;gap:.6rem;padding:.55rem 0;border-bottom:1px solid #f1f5f9;font-size:.84rem;flex-wrap:wrap}
+    .run-row:last-child{border-bottom:none}
+    .run-done{background:#d1fae5;color:#065f46;font-size:.68rem;font-weight:700;padding:.12rem .45rem;border-radius:9999px}
+    .run-open{background:#fef3c7;color:#92400e;font-size:.68rem;font-weight:700;padding:.12rem .45rem;border-radius:9999px}
+  </style>
+</head>
+<body>
+<nav class="breadcrumb-bar">Sei in: <a href="/">Home</a> › <a href="/admin/logistica">Logistica</a> › <strong>Checklist</strong></nav>
+<div class="container" style="max-width:1050px;margin:1.5rem auto;padding:0 1.25rem">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:.75rem">
+    <div>
+      <h1 style="font-size:1.35rem;font-weight:800;color:#1e2d4e">☑️ Checklist</h1>
+      <p style="font-size:.78rem;color:#64748b;margin-top:.15rem">Montaggio, smontaggio e allestimenti fiera</p>
+    </div>
+    <div style="display:flex;gap:.5rem">
+      <% if(saved==='ok'){%><span class="alert-ok">✅ Salvato</span><%}%>
+      <% if(saved==='err'){%><span class="alert-err">❌ Errore</span><%}%>
+    </div>
+  </div>
+
+  <div class="log-tabs">
+    <button class="log-tab active" onclick="showTab('template',this)">📋 Template</button>
+    <button class="log-tab" onclick="showTab('runs',this)">▶️ Esecuzioni</button>
+  </div>
+
+  <!-- TEMPLATE -->
+  <div class="log-panel active" id="panel-template">
+    <div class="log-card">
+      <div class="log-card-head"><span class="log-card-title">➕ Nuovo template</span></div>
+      <div class="log-card-body">
+        <form method="POST" action="/admin/checklist/template">
+          <div class="form-row">
+            <div class="field" style="flex:3;min-width:180px"><label>Titolo *</label><input type="text" name="title" placeholder="Es. Montaggio stand principale" required></div>
+            <div class="field" style="flex:2;min-width:140px"><label>Area / Zona</label><input type="text" name="area" placeholder="Es. Padiglione A, Area comune"></div>
+            <div class="field" style="min-width:140px">
+              <label>Fase</label>
+              <select name="phase">
+                <option value="montaggio">🔧 Montaggio</option>
+                <option value="smontaggio">📦 Smontaggio</option>
+                <option value="allestimento">🎨 Allestimento</option>
+                <option value="altro">📋 Altro</option>
+              </select>
+            </div>
+            <button type="submit" class="btn-sm">+ Crea</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <% var phaseOrder=['montaggio','smontaggio','allestimento','altro']; %>
+    <% var phLbl={montaggio:'🔧 Montaggio',smontaggio:'📦 Smontaggio',allestimento:'🎨 Allestimento',altro:'📋 Altro'}; %>
+    <% var phCls={montaggio:'ph-montaggio',smontaggio:'ph-smontaggio',allestimento:'ph-allestimento',altro:'ph-altro'}; %>
+
+    <% if(!templates.length){ %>
+      <div class="empty">Nessun template ancora. Creane uno qui sopra.</div>
+    <% } else { phaseOrder.forEach(function(phase){ var grp=templates.filter(function(t){return t.phase===phase;}); if(!grp.length) return; %>
+      <div class="section-title"><%= phLbl[phase] %></div>
+      <% grp.forEach(function(tpl){ var its=items.filter(function(i){return i.template_id===tpl.id;}); %>
+        <div class="tpl-card" id="tpl-<%= tpl.id %>">
+          <div class="tpl-head">
+            <span class="phase-badge <%= phCls[tpl.phase]||'ph-altro' %>"><%= phLbl[tpl.phase] %></span>
+            <strong style="color:#1e2d4e"><%= tpl.title %></strong>
+            <% if(tpl.area){ %><span style="font-size:.75rem;color:#64748b">— <%= tpl.area %></span><% } %>
+            <span style="font-size:.72rem;color:#94a3b8;margin-left:auto"><%= its.length %> voci</span>
+            <button class="btn-run" onclick="openRunModal(<%= tpl.id %>,'<%= tpl.title.replace(/\'/g,"\\'") %>')">▶️ Avvia</button>
+            <button class="btn-del" onclick="delTpl(<%= tpl.id %>)">🗑</button>
+          </div>
+          <ul class="items-list" id="items-<%= tpl.id %>">
+            <% its.forEach(function(it){ %>
+              <li id="item-<%= it.id %>">
+                <span style="color:#94a3b8;font-size:.75rem">☐</span>
+                <span style="flex:1"><%= it.text %></span>
+                <button class="btn-del" onclick="delItem(<%= it.id %>)" style="padding:.2rem .4rem;font-size:.72rem">✕</button>
+              </li>
+            <% }); %>
+          </ul>
+          <div class="add-item-row">
+            <input id="ni-<%= tpl.id %>" placeholder="+ Aggiungi voce…" onkeydown="if(event.key==='Enter'){addItem(<%= tpl.id %>);event.preventDefault();}">
+            <button class="btn-sm" style="padding:.35rem .75rem;font-size:.8rem" onclick="addItem(<%= tpl.id %>)">+</button>
+          </div>
+        </div>
+      <% }); %>
+    <% }); } %>
+  </div>
+
+  <!-- ESECUZIONI -->
+  <div class="log-panel" id="panel-runs">
+    <div class="log-card">
+      <div class="log-card-head"><span class="log-card-title">▶️ Esecuzioni recenti</span></div>
+      <div class="log-card-body">
+        <% if(!runs.length){ %>
+          <div class="empty">Nessuna esecuzione avviata ancora.</div>
+        <% } else { runs.forEach(function(r){ %>
+          <div class="run-row">
+            <span class="<%= r.completed_at?'run-done':'run-open' %>"><%= r.completed_at?'✅ Completata':'⏳ In corso' %></span>
+            <span class="phase-badge <%= phCls[r.phase]||'ph-altro' %>"><%= r.phase %></span>
+            <strong style="color:#1e2d4e"><%= r.template_title %></strong>
+            <% if(r.area){ %><span style="font-size:.75rem;color:#64748b">— <%= r.area %></span><% } %>
+            <span style="font-size:.72rem;color:#94a3b8;margin-left:auto"><%= (r.started_at||'').substring(0,16).replace('T',' ') %></span>
+            <a href="/admin/checklist/run/<%= r.id %>" class="btn-run" style="text-decoration:none">👁️ Apri</a>
+          </div>
+        <% }); } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal avvio run -->
+<div id="run-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;padding:1.5rem;max-width:420px;width:90%;box-shadow:0 8px 30px rgba(0,0,0,.2)">
+    <h3 style="font-size:1rem;color:#1e2d4e;margin-bottom:.5rem">▶️ Avvia checklist</h3>
+    <p id="modal-title" style="font-size:.88rem;color:#64748b;margin-bottom:1rem"></p>
+    <form id="modal-form" method="POST">
+      <div class="form-row">
+        <div class="field" style="width:100%">
+          <label>Edizione</label>
+          <select name="edition_id" style="width:100%">
+            <option value="">— nessuna —</option>
+            <% editions.forEach(function(e){ %><option value="<%= e.id %>"><%= e.name||e.year %></option><% }); %>
+          </select>
+        </div>
+        <div class="field" style="width:100%">
+          <label>Note</label>
+          <input type="text" name="notes" placeholder="Facoltativo" style="width:100%">
+        </div>
+      </div>
+      <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.75rem">
+        <button type="button" onclick="closeModal()" style="background:#f1f5f9;border:none;border-radius:8px;padding:.44rem 1rem;cursor:pointer;font-family:inherit">Annulla</button>
+        <button type="submit" class="btn-sm">▶️ Avvia</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function showTab(id,btn){
+  document.querySelectorAll('.log-panel').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.log-tab').forEach(function(b){b.classList.remove('active');});
+  document.getElementById('panel-'+id).classList.add('active'); btn.classList.add('active');
+}
+function openRunModal(id,title){
+  document.getElementById('modal-title').textContent=title;
+  document.getElementById('modal-form').action='/admin/checklist/template/'+id+'/run';
+  var m=document.getElementById('run-modal'); m.style.display='flex';
+}
+function closeModal(){ document.getElementById('run-modal').style.display='none'; }
+function addItem(tid){
+  var inp=document.getElementById('ni-'+tid); var text=inp.value.trim(); if(!text) return;
+  fetch('/admin/checklist/template/'+tid+'/item',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(d.ok){
+        var li=document.createElement('li'); li.id='item-'+d.id;
+        li.innerHTML='<span style="color:#94a3b8;font-size:.75rem">☐</span><span style="flex:1">'+d.text+'</span><button class="btn-del" onclick="delItem('+d.id+')" style="padding:.2rem .4rem;font-size:.72rem">✕</button>';
+        document.getElementById('items-'+tid).appendChild(li); inp.value='';
+      }
+    });
+}
+function delItem(id){
+  fetch('/admin/checklist/item/'+id,{method:'DELETE'}).then(function(){var el=document.getElementById('item-'+id);if(el)el.remove();});
+}
+function delTpl(id){
+  if(!confirm('Eliminare questo template e tutte le sue voci?')) return;
+  fetch('/admin/checklist/template/'+id,{method:'DELETE'}).then(function(){var el=document.getElementById('tpl-'+id);if(el)el.remove();});
+}
+</script>
+</body>
+</html>

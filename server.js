@@ -2960,6 +2960,186 @@ async function triggerBatchPassOnClose(groupId) {
     } catch(err) { res.status(500).json({ error: err.message }); }
   });
 
+
+  // ─── Impostazioni logistica ────────────────────────────────────
+  app.post('/admin/logistica/settings/category', requireAuth, requireOrganizer, async (req, res) => {
+    const { label, icon } = req.body;
+    const cl = (label||'').trim();
+    if (!cl) return res.redirect('/admin/logistica?tab=impostazioni&saved=err');
+    const key = cl.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+    try {
+      const r = await dbGet(`SELECT COALESCE(MAX(sort_order),0)+10 AS n FROM logistic_categories`);
+      await dbRun(`INSERT INTO logistic_categories (key_name,label,icon,sort_order) VALUES (?,?,?,?)`,
+        [key,cl,(icon||'📦').trim()||'📦',r.n||10]);
+      res.redirect('/admin/logistica?tab=impostazioni&saved=category');
+    } catch(e){ res.redirect('/admin/logistica?tab=impostazioni&saved=err'); }
+  });
+  app.delete('/admin/logistica/settings/category/:id', requireAuth, requireOrganizer, async (req,res) => {
+    try { await dbRun(`DELETE FROM logistic_categories WHERE id=?`,[+req.params.id]); res.json({ok:true}); }
+    catch(e){ res.status(500).json({error:e.message}); }
+  });
+  app.post('/admin/logistica/settings/location', requireAuth, requireOrganizer, async (req, res) => {
+    const { label, icon } = req.body;
+    const cl = (label||'').trim();
+    if (!cl) return res.redirect('/admin/logistica?tab=impostazioni&saved=err');
+    const key = cl.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+    try {
+      const r = await dbGet(`SELECT COALESCE(MAX(sort_order),0)+10 AS n FROM logistic_locations`);
+      await dbRun(`INSERT INTO logistic_locations (key_name,label,icon,sort_order) VALUES (?,?,?,?)`,
+        [key,cl,(icon||'📍').trim()||'📍',r.n||10]);
+      res.redirect('/admin/logistica?tab=impostazioni&saved=location');
+    } catch(e){ res.redirect('/admin/logistica?tab=impostazioni&saved=err'); }
+  });
+  app.delete('/admin/logistica/settings/location/:id', requireAuth, requireOrganizer, async (req,res) => {
+    try { await dbRun(`DELETE FROM logistic_locations WHERE id=?`,[+req.params.id]); res.json({ok:true}); }
+    catch(e){ res.status(500).json({error:e.message}); }
+  });
+
+  // ─── Checklist ──────────────────────────────────────────────────
+  app.get('/admin/checklist', requireAuth, requireOrganizer, async (req, res) => {
+    try {
+      const templates = await dbAll(`SELECT * FROM checklist_templates ORDER BY phase,sort_order,title`);
+      const items     = await dbAll(`SELECT * FROM checklist_items ORDER BY template_id,sort_order`);
+      const runs      = await dbAll(`SELECT cr.*,ct.title AS template_title,ct.phase,ct.area FROM checklist_runs cr JOIN checklist_templates ct ON ct.id=cr.template_id ORDER BY cr.started_at DESC LIMIT 50`);
+      const editions  = await dbAll(`SELECT * FROM editions ORDER BY year DESC`);
+      res.render('admin-checklist',{templates,items,runs,editions,saved:req.query.saved||null});
+    } catch(e){ res.status(500).send('Errore: '+e.message); }
+  });
+  app.post('/admin/checklist/template', requireAuth, requireOrganizer, async (req, res) => {
+    const {title,area,phase}=req.body;
+    if(!title) return res.redirect('/admin/checklist?saved=err');
+    try {
+      const r=await dbGet(`SELECT COALESCE(MAX(sort_order),0)+10 AS n FROM checklist_templates WHERE phase=?`,[phase||'montaggio']);
+      await dbRun(`INSERT INTO checklist_templates (title,area,phase,sort_order) VALUES (?,?,?,?)`,[title.trim(),area||null,phase||'montaggio',r.n||10]);
+      res.redirect('/admin/checklist?saved=ok');
+    } catch(e){ res.redirect('/admin/checklist?saved=err'); }
+  });
+  app.delete('/admin/checklist/template/:id', requireAuth, requireOrganizer, async (req,res) => {
+    try {
+      await dbRun(`DELETE FROM checklist_items WHERE template_id=?`,[+req.params.id]);
+      await dbRun(`DELETE FROM checklist_templates WHERE id=?`,[+req.params.id]);
+      res.json({ok:true});
+    } catch(e){ res.status(500).json({error:e.message}); }
+  });
+  app.post('/admin/checklist/template/:id/item', requireAuth, requireOrganizer, async (req,res) => {
+    const text=(req.body.text||'').trim(); const tid=+req.params.id;
+    if(!text) return res.json({ok:false});
+    try {
+      const r=await dbGet(`SELECT COALESCE(MAX(sort_order),0)+10 AS n FROM checklist_items WHERE template_id=?`,[tid]);
+      const ins=await dbRun(`INSERT INTO checklist_items (template_id,text,sort_order) VALUES (?,?,?)`,[tid,text,r.n||10]);
+      res.json({ok:true,id:ins.lastID,text});
+    } catch(e){ res.status(500).json({error:e.message}); }
+  });
+  app.delete('/admin/checklist/item/:id', requireAuth, requireOrganizer, async (req,res) => {
+    try { await dbRun(`DELETE FROM checklist_items WHERE id=?`,[+req.params.id]); res.json({ok:true}); }
+    catch(e){ res.status(500).json({error:e.message}); }
+  });
+  app.post('/admin/checklist/template/:id/run', requireAuth, requireOrganizer, async (req,res) => {
+    const tid=+req.params.id; const {edition_id,notes}=req.body;
+    try {
+      const ins=await dbRun(`INSERT INTO checklist_runs (template_id,edition_id,notes) VALUES (?,?,?)`,[tid,edition_id||null,notes||null]);
+      const its=await dbAll(`SELECT * FROM checklist_items WHERE template_id=?`,[tid]);
+      for(const it of its) await dbRun(`INSERT INTO checklist_run_items (run_id,item_id) VALUES (?,?)`,[ins.lastID,it.id]);
+      res.redirect('/admin/checklist/run/'+ins.lastID);
+    } catch(e){ res.status(500).send('Errore: '+e.message); }
+  });
+  app.get('/admin/checklist/run/:id', requireAuth, requireOrganizer, async (req,res) => {
+    try {
+      const run=await dbGet(`SELECT cr.*,ct.title,ct.phase,ct.area FROM checklist_runs cr JOIN checklist_templates ct ON ct.id=cr.template_id WHERE cr.id=?`,[+req.params.id]);
+      if(!run) return res.status(404).send('Run non trovata');
+      const runItems=await dbAll(`SELECT cri.*,ci.text,ci.sort_order FROM checklist_run_items cri JOIN checklist_items ci ON ci.id=cri.item_id WHERE cri.run_id=? ORDER BY ci.sort_order`,[+req.params.id]);
+      res.render('admin-checklist-run',{run,runItems});
+    } catch(e){ res.status(500).send('Errore: '+e.message); }
+  });
+  app.post('/admin/checklist/run/:runId/item/:itemId/toggle', requireAuth, requireOrganizer, async (req,res) => {
+    const isDone=req.body.done?1:0;
+    try {
+      await dbRun(`UPDATE checklist_run_items SET done=?,done_at=?,done_by=? WHERE id=?`,
+        [isDone,isDone?new Date().toISOString().slice(0,19).replace('T',' '):null,
+         isDone?req.session.user.username:null,+req.params.itemId]);
+      const pending=await dbGet(`SELECT COUNT(*) AS c FROM checklist_run_items WHERE run_id=? AND done=0`,[+req.params.runId]);
+      if(pending.c===0) await dbRun(`UPDATE checklist_runs SET completed_at=datetime('now') WHERE id=? AND completed_at IS NULL`,[+req.params.runId]);
+      else await dbRun(`UPDATE checklist_runs SET completed_at=NULL WHERE id=?`,[+req.params.runId]);
+      res.json({ok:true});
+    } catch(e){ res.status(500).json({error:e.message}); }
+  });
+
+  // ─── Catering staff ─────────────────────────────────────────────
+  app.get('/admin/catering', requireAuth, requireOrganizer, async (req,res) => {
+    try {
+      const shifts   = await dbAll(`SELECT * FROM catering_shifts ORDER BY date DESC,meal_type`);
+      const orders   = await dbAll(`SELECT * FROM catering_orders ORDER BY shift_id,staff_name`);
+      const editions = await dbAll(`SELECT * FROM editions ORDER BY year DESC`);
+      res.render('admin-catering',{shifts,orders,editions,req,saved:req.query.saved||null});
+    } catch(e){ res.status(500).send('Errore: '+e.message); }
+  });
+  app.post('/admin/catering/shift', requireAuth, requireOrganizer, async (req,res) => {
+    const {label,date,meal_type,edition_id,notes}=req.body;
+    if(!label) return res.redirect('/admin/catering?saved=err');
+    try {
+      await dbRun(`INSERT INTO catering_shifts (label,date,meal_type,edition_id,notes) VALUES (?,?,?,?,?)`,[label.trim(),date||null,meal_type||'pranzo',edition_id||null,notes||null]);
+      res.redirect('/admin/catering?saved=ok');
+    } catch(e){ res.redirect('/admin/catering?saved=err'); }
+  });
+  app.delete('/admin/catering/shift/:id', requireAuth, requireOrganizer, async (req,res) => {
+    try {
+      await dbRun(`DELETE FROM catering_orders WHERE shift_id=?`,[+req.params.id]);
+      await dbRun(`DELETE FROM catering_shifts WHERE id=?`,[+req.params.id]);
+      res.json({ok:true});
+    } catch(e){ res.status(500).json({error:e.message}); }
+  });
+  app.post('/admin/catering/shift/:id/order', requireAuth, requireOrganizer, async (req,res) => {
+    const {staff_name,role,menu_choice,dietary,notes}=req.body;
+    if(!staff_name) return res.redirect('/admin/catering?saved=err');
+    try {
+      await dbRun(`INSERT INTO catering_orders (shift_id,staff_name,role,menu_choice,dietary,notes) VALUES (?,?,?,?,?,?)`,[+req.params.id,staff_name.trim(),role||null,menu_choice||null,dietary||null,notes||null]);
+      res.redirect('/admin/catering?saved=ok&shift='+req.params.id);
+    } catch(e){ res.redirect('/admin/catering?saved=err'); }
+  });
+  app.delete('/admin/catering/order/:id', requireAuth, requireOrganizer, async (req,res) => {
+    try { await dbRun(`DELETE FROM catering_orders WHERE id=?`,[+req.params.id]); res.json({ok:true}); }
+    catch(e){ res.status(500).json({error:e.message}); }
+  });
+
+  // ─── Fornitori ───────────────────────────────────────────────────
+  app.get('/admin/fornitori', requireAuth, requireOrganizer, async (req,res) => {
+    try {
+      const suppliers = await dbAll(`SELECT * FROM suppliers ORDER BY category,name`);
+      const items     = await dbAll(`SELECT * FROM supplier_items ORDER BY supplier_id,created_at DESC`);
+      const editions  = await dbAll(`SELECT * FROM editions ORDER BY year DESC`);
+      res.render('admin-fornitori',{suppliers,items,editions,saved:req.query.saved||null});
+    } catch(e){ res.status(500).send('Errore: '+e.message); }
+  });
+  app.post('/admin/fornitori', requireAuth, requireOrganizer, async (req,res) => {
+    const {name,category,contact_name,phone,email,website,notes}=req.body;
+    if(!name) return res.redirect('/admin/fornitori?saved=err');
+    try {
+      await dbRun(`INSERT INTO suppliers (name,category,contact_name,phone,email,website,notes) VALUES (?,?,?,?,?,?,?)`,[name.trim(),category||null,contact_name||null,phone||null,email||null,website||null,notes||null]);
+      res.redirect('/admin/fornitori?saved=ok');
+    } catch(e){ res.redirect('/admin/fornitori?saved=err'); }
+  });
+  app.delete('/admin/fornitori/:id', requireAuth, requireOrganizer, async (req,res) => {
+    try {
+      await dbRun(`DELETE FROM supplier_items WHERE supplier_id=?`,[+req.params.id]);
+      await dbRun(`DELETE FROM suppliers WHERE id=?`,[+req.params.id]);
+      res.json({ok:true});
+    } catch(e){ res.status(500).json({error:e.message}); }
+  });
+  app.post('/admin/fornitori/:id/item', requireAuth, requireOrganizer, async (req,res) => {
+    const {description,item_type,quantity,unit_cost,edition_id,notes}=req.body;
+    const sid=+req.params.id;
+    if(!description) return res.redirect('/admin/fornitori?saved=err');
+    const qty=parseInt(quantity,10)||1; const uc=parseFloat(unit_cost)||0;
+    try {
+      await dbRun(`INSERT INTO supplier_items (supplier_id,description,item_type,quantity,unit_cost,total_cost,edition_id,notes) VALUES (?,?,?,?,?,?,?,?)`,[sid,description.trim(),item_type||'noleggio',qty,uc,qty*uc,edition_id||null,notes||null]);
+      res.redirect('/admin/fornitori?saved=ok&sup='+sid);
+    } catch(e){ res.redirect('/admin/fornitori?saved=err'); }
+  });
+  app.delete('/admin/fornitori/item/:id', requireAuth, requireOrganizer, async (req,res) => {
+    try { await dbRun(`DELETE FROM supplier_items WHERE id=?`,[+req.params.id]); res.json({ok:true}); }
+    catch(e){ res.status(500).json({error:e.message}); }
+  });
+
   // ── Portale espositore: invia richiesta servizio ─────────────
   app.post('/api/portale/:token/service-request', async (req, res) => {
     const token = req.params.token;

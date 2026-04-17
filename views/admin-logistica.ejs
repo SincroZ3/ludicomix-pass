@@ -107,6 +107,8 @@
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
       <% if(saved==='equipment'){%><span class="alert-banner alert-ok">✅ Attrezzatura salvata</span><%}%>
+      <% if(saved==='category'){%><span class="alert-banner alert-ok">✅ Tipologia aggiunta</span><%}%>
+      <% if(saved==='location'){%><span class="alert-banner alert-ok">✅ Posizione aggiunta</span><%}%>
       <% if(saved==='loan'){%><span class="alert-banner alert-ok">✅ Prestito registrato</span><%}%>
       <% if(saved==='category'){%><span class="alert-banner alert-ok">✅ Tipologia aggiunta</span><%}%>
       <% if(saved==='location'){%><span class="alert-banner alert-ok">✅ Posizione aggiunta</span><%}%>
@@ -121,6 +123,7 @@
       <span class="cnt-pill<%= requests.filter(r=>r.status==='in_attesa').length>0?' alert':'' %>" id="badge-req"><%= requests.filter(r=>r.status==='in_attesa').length %></span>
     </button>
     <button class="log-tab" onclick="showTab('attrezzature',this)">🔧 Catalogo attrezzature</button>
+    <button class="log-tab" onclick="showTab('impostazioni',this)">⚙️ Impostazioni</button>
     <button class="log-tab" onclick="showTab('prestiti',this)">
       🔄 Prestiti
       <span class="cnt-pill<%= loans.filter(l=>!l.returned_at).length>0?' alert':'' %>" id="badge-loans"><%= loans.filter(l=>!l.returned_at).length %></span>
@@ -446,6 +449,63 @@
 
 </div>
 
+  <!-- ══ TAB IMPOSTAZIONI ══ -->
+  <div class="log-panel" id="panel-impostazioni">
+    <div class="log-card">
+      <div class="log-card-head">
+        <span class="log-card-title">🔧 Tipologie materiale</span>
+        <span style="font-size:.75rem;color:#64748b">Appaiono nel menu Tipologia quando aggiungi attrezzatura</span>
+      </div>
+      <div class="log-card-body">
+        <form method="POST" action="/admin/logistica/settings/category">
+          <div class="form-row">
+            <div class="field" style="flex:3;min-width:180px"><label>Nome tipologia *</label><input type="text" name="label" placeholder="Es. Banner, Cavo, Monitor" required></div>
+            <div class="field" style="width:110px"><label>Icona (emoji)</label><input type="text" name="icon" placeholder="📦" maxlength="4"></div>
+            <button type="submit" class="btn-sm">+ Aggiungi</button>
+          </div>
+        </form>
+        <div class="section-title">Tipologie configurate</div>
+        <% if(!(materialTypes||[]).length){ %><div class="empty" style="padding:1rem">Nessuna tipologia ancora.</div><% } else { %>
+          <div style="display:flex;flex-wrap:wrap;gap:.5rem">
+            <% materialTypes.forEach(function(c){ %>
+              <span style="display:inline-flex;align-items:center;gap:.4rem;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:20px;padding:.28rem .75rem;font-size:.82rem;font-weight:600;color:#1e2d4e">
+                <%= c.icon||'📦' %> <%= c.label %>
+                <button onclick="delCfg('category',<%= c.id %>)" style="background:none;border:none;cursor:pointer;font-size:.75rem;color:#94a3b8;padding:0 0 0 .2rem">✕</button>
+              </span>
+            <% }); %>
+          </div>
+        <% } %>
+      </div>
+    </div>
+    <div class="log-card">
+      <div class="log-card-head">
+        <span class="log-card-title">📍 Posizioni inventario</span>
+        <span style="font-size:.75rem;color:#64748b">Usate per raggruppare l'inventario e come opzioni nella scelta posizione</span>
+      </div>
+      <div class="log-card-body">
+        <form method="POST" action="/admin/logistica/settings/location">
+          <div class="form-row">
+            <div class="field" style="flex:3;min-width:180px"><label>Nome posizione *</label><input type="text" name="label" placeholder="Es. Magazzino palco, Corridoio nord" required></div>
+            <div class="field" style="width:110px"><label>Icona (emoji)</label><input type="text" name="icon" placeholder="📍" maxlength="4"></div>
+            <button type="submit" class="btn-sm">+ Aggiungi</button>
+          </div>
+        </form>
+        <div class="section-title">Posizioni configurate</div>
+        <% if(!(storageLocations||[]).length){ %><div class="empty" style="padding:1rem">Nessuna posizione ancora.</div><% } else { %>
+          <div style="display:flex;flex-wrap:wrap;gap:.5rem">
+            <% storageLocations.forEach(function(loc){ %>
+              <span style="display:inline-flex;align-items:center;gap:.4rem;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:20px;padding:.28rem .75rem;font-size:.82rem;font-weight:600;color:#1e2d4e">
+                <%= loc.icon||'📍' %> <%= loc.label %>
+                <button onclick="delCfg('location',<%= loc.id %>)" style="background:none;border:none;cursor:pointer;font-size:.75rem;color:#94a3b8;padding:0 0 0 .2rem">✕</button>
+              </span>
+            <% }); %>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+
 <script>
 (function(){
   var params = new URLSearchParams(window.location.search);
@@ -461,6 +521,22 @@
   panel.classList.add('active');
 })();
 
+
+(function(){
+  var p=new URLSearchParams(window.location.search);
+  var tab=p.get('tab');
+  if(!tab) return;
+  var panel=document.getElementById('panel-'+tab);
+  if(!panel) return;
+  document.querySelectorAll('.log-panel').forEach(function(x){x.classList.remove('active');});
+  document.querySelectorAll('.log-tab').forEach(function(b){b.classList.remove('active');if((b.getAttribute('onclick')||'').indexOf("'"+tab+"'")>-1)b.classList.add('active');});
+  panel.classList.add('active');
+})();
+function delCfg(type,id){
+  if(!confirm('Eliminare questa voce?')) return;
+  fetch('/admin/logistica/settings/'+type+'/'+id,{method:'DELETE'})
+    .then(function(r){return r.json();}).then(function(d){if(d.ok)location.reload();});
+}
 function showTab(id,btn){
   document.querySelectorAll('.log-panel').forEach(function(p){p.classList.remove('active');});
   document.querySelectorAll('.log-tab').forEach(function(b){b.classList.remove('active');});

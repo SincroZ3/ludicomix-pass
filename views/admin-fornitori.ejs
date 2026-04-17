@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Fornitori — Ludicomix</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .log-tabs{display:flex;gap:.4rem;margin-bottom:1.5rem;flex-wrap:wrap}
+    .log-tab{background:#f1f5f9;border:1.5px solid #d1d9e6;border-radius:20px;padding:.38rem 1.05rem;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .15s;color:#475569}
+    .log-tab.active,.log-tab:hover{background:#1e2d4e;color:#fff;border-color:#1e2d4e}
+    .log-panel{display:none}.log-panel.active{display:block}
+    .log-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 1px 4px rgba(30,45,78,.06);margin-bottom:1.25rem;overflow:hidden}
+    .log-card-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.75rem 1.2rem;border-bottom:1px solid #f1f5f9;background:#fafbfc}
+    .log-card-title{font-size:.8rem;font-weight:800;text-transform:uppercase;letter-spacing:.55px;color:#1e2d4e}
+    .log-card-body{padding:1.1rem 1.2rem}
+    .form-row{display:flex;gap:.65rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem}
+    .form-row .field{display:flex;flex-direction:column;gap:.3rem}
+    .form-row label{font-size:.73rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
+    .form-row input,.form-row select{border:1.5px solid #d1d9e6;border-radius:8px;padding:.45rem .7rem;font-size:.87rem;font-family:inherit;color:#1e2d4e;background:#fff}
+    .form-row input:focus,.form-row select:focus{outline:none;border-color:#1e2d4e}
+    .btn-sm{background:#1e2d4e;color:#f5c842;border:none;border-radius:8px;padding:.44rem 1.1rem;font-size:.83rem;font-weight:700;cursor:pointer;font-family:inherit}
+    .btn-sm:hover{opacity:.88}
+    .btn-del{background:#fee2e2;color:#991b1b;border:none;border-radius:7px;padding:.28rem .55rem;font-size:.78rem;cursor:pointer;font-family:inherit}
+    .section-title{font-size:.8rem;font-weight:800;color:#1e2d4e;text-transform:uppercase;letter-spacing:.07em;margin:1.5rem 0 .75rem;padding-bottom:.35rem;border-bottom:2px solid #e2e8f0}
+    .empty{text-align:center;padding:2rem;color:#94a3b8;font-size:.88rem}
+    .alert-ok{background:#d1fae5;color:#065f46;border-radius:10px;padding:.55rem 1rem;font-size:.83rem;font-weight:600}
+    .alert-err{background:#fee2e2;color:#991b1b;border-radius:10px;padding:.55rem 1rem;font-size:.83rem;font-weight:600}
+    .sup-card{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;margin-bottom:1.25rem;overflow:hidden}
+    .sup-head{background:#fff;padding:.8rem 1.1rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+    .sup-name{font-weight:800;color:#1e2d4e;font-size:.95rem}
+    .sup-cat{font-size:.72rem;font-weight:700;padding:.12rem .45rem;background:#dbeafe;color:#1e40af;border-radius:9999px;text-transform:uppercase}
+    .sup-contact{font-size:.78rem;color:#64748b}
+    .sup-body{padding:.85rem 1.1rem}
+    .sr-table{width:100%;border-collapse:collapse;font-size:.86rem}
+    .sr-table th{background:#f8fafc;padding:.55rem .75rem;text-align:left;font-size:.73rem;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:700;border-bottom:2px solid #e2e8f0}
+    .sr-table td{padding:.55rem .75rem;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+    .sr-table tr:last-child td{border-bottom:none}
+    .sr-table tr:hover td{background:#fafbfc}
+    .type-badge{display:inline-block;font-size:.68rem;font-weight:700;padding:.12rem .45rem;border-radius:9999px;text-transform:uppercase}
+    .item-type-noleggio{background:#dbeafe;color:#1e40af}
+    .item-type-acquisto{background:#d1fae5;color:#065f46}
+    .item-type-servizio{background:#f3e8ff;color:#6b21a8}
+    .item-type-altro{background:#f1f5f9;color:#475569}
+    .total-row{background:#f0fdf4;font-weight:700}
+    .total-all{background:#fafbfc;border:1.5px solid #e2e8f0;border-radius:10px;padding:.65rem 1rem;display:flex;gap:1.5rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap}
+    @media(max-width:640px){.form-row{flex-direction:column}.form-row .field{width:100%}}
+  </style>
+</head>
+<body>
+<nav class="breadcrumb-bar">Sei in: <a href="/">Home</a> › <strong>Fornitori</strong></nav>
+<div class="container" style="max-width:1100px;margin:1.5rem auto;padding:0 1.25rem">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:.75rem">
+    <div>
+      <h1 style="font-size:1.35rem;font-weight:800;color:#1e2d4e">🏭 Fornitori</h1>
+      <p style="font-size:.78rem;color:#64748b;margin-top:.15rem">Rubrica interna — contatti, noleggi e acquisti</p>
+    </div>
+    <div style="display:flex;gap:.5rem">
+      <% if(saved==='ok'){%><span class="alert-ok">✅ Salvato</span><%}%>
+      <% if(saved==='err'){%><span class="alert-err">❌ Errore</span><%}%>
+    </div>
+  </div>
+
+  <div class="log-tabs">
+    <button class="log-tab active" onclick="showTab('rubrica',this)">📒 Rubrica</button>
+    <button class="log-tab" onclick="showTab('riepilogo',this)">💰 Riepilogo costi</button>
+  </div>
+
+  <!-- RUBRICA -->
+  <div class="log-panel active" id="panel-rubrica">
+    <div class="log-card">
+      <div class="log-card-head"><span class="log-card-title">➕ Nuovo fornitore</span></div>
+      <div class="log-card-body">
+        <form method="POST" action="/admin/fornitori">
+          <div class="form-row">
+            <div class="field" style="flex:3;min-width:180px"><label>Nome azienda *</label><input type="text" name="name" placeholder="Es. Noleggi Sud Srl" required></div>
+            <div class="field" style="min-width:130px"><label>Categoria</label><input type="text" name="category" placeholder="Es. Noleggio, Stampa"></div>
+            <div class="field" style="min-width:140px"><label>Referente</label><input type="text" name="contact_name" placeholder="Nome referente"></div>
+            <div class="field" style="min-width:120px"><label>Telefono</label><input type="tel" name="phone" placeholder="+39 …"></div>
+            <div class="field" style="min-width:160px"><label>Email</label><input type="email" name="email" placeholder="email@fornitore.it"></div>
+            <div class="field" style="min-width:140px"><label>Sito web</label><input type="url" name="website" placeholder="https://…"></div>
+            <div class="field" style="flex:2;min-width:130px"><label>Note</label><input type="text" name="notes" placeholder="Note interne"></div>
+            <button type="submit" class="btn-sm">+ Aggiungi</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <% if(!suppliers.length){ %>
+      <div class="empty">Nessun fornitore inserito ancora.</div>
+    <% } else {
+      var typeCls = {noleggio:'item-type-noleggio',acquisto:'item-type-acquisto',servizio:'item-type-servizio',altro:'item-type-altro'};
+      var typeLabel = {noleggio:'Noleggio',acquisto:'Acquisto',servizio:'Servizio',altro:'Altro'};
+      var catMap = {};
+      suppliers.forEach(function(s){ var c=s.category||'Senza categoria'; if(!catMap[c])catMap[c]=[]; catMap[c].push(s); });
+      var cats = Object.keys(catMap).sort();
+    %>
+      <% cats.forEach(function(cat){ %>
+        <div class="section-title">🏷️ <%= cat %></div>
+        <% catMap[cat].forEach(function(sup){ var supItems=items.filter(function(i){return i.supplier_id===sup.id;}); var supTotal=supItems.reduce(function(a,i){return a+(i.total_cost||0);},0); %>
+          <div class="sup-card" id="sup-<%= sup.id %>">
+            <div class="sup-head">
+              <% if(sup.category){%><span class="sup-cat"><%= sup.category %></span><%}%>
+              <span class="sup-name"><%= sup.name %></span>
+              <% if(sup.contact_name){%><span class="sup-contact">👤 <%= sup.contact_name %></span><%}%>
+              <% if(sup.phone){%><a href="tel:<%= sup.phone %>" class="sup-contact" style="color:#1d6fa4">📞 <%= sup.phone %></a><%}%>
+              <% if(sup.email){%><a href="mailto:<%= sup.email %>" class="sup-contact" style="color:#1d6fa4">✉️ <%= sup.email %></a><%}%>
+              <% if(sup.website){%><a href="<%= sup.website %>" target="_blank" rel="noopener" class="sup-contact" style="color:#1d6fa4">🌐 Sito</a><%}%>
+              <span style="margin-left:auto;font-size:.78rem;font-weight:700;color:#065f46"><%= supTotal>0?'€ '+supTotal.toFixed(2):'' %></span>
+              <button onclick="toggleSupForm(<%= sup.id %>)" style="background:#1e2d4e;color:#f5c842;border:none;border-radius:7px;padding:.25rem .65rem;font-size:.78rem;cursor:pointer;font-weight:700;font-family:inherit">+ Voce</button>
+              <button class="btn-del" onclick="deleteSup(<%= sup.id %>)">🗑</button>
+            </div>
+            <div class="sup-body">
+              <div id="sup-form-<%= sup.id %>" style="display:none;border-bottom:1px solid #e2e8f0;padding-bottom:.85rem;margin-bottom:.85rem">
+                <form method="POST" action="/admin/fornitori/<%= sup.id %>/item">
+                  <div class="form-row">
+                    <div class="field" style="flex:3;min-width:180px"><label>Descrizione *</label><input type="text" name="description" placeholder="Es. 10 tavoli 180cm" required></div>
+                    <div class="field" style="min-width:110px">
+                      <label>Tipo</label>
+                      <select name="item_type">
+                        <option value="noleggio">Noleggio</option>
+                        <option value="acquisto">Acquisto</option>
+                        <option value="servizio">Servizio</option>
+                        <option value="altro">Altro</option>
+                      </select>
+                    </div>
+                    <div class="field" style="width:75px"><label>Qtà</label><input type="number" name="quantity" value="1" min="1"></div>
+                    <div class="field" style="width:110px"><label>Costo unit. €</label><input type="number" name="unit_cost" value="0" step="0.01" min="0"></div>
+                    <div class="field" style="min-width:130px">
+                      <label>Edizione</label>
+                      <select name="edition_id">
+                        <option value="">— nessuna —</option>
+                        <% editions.forEach(function(e){ %><option value="<%= e.id %>"><%= e.name||e.year %></option><% }); %>
+                      </select>
+                    </div>
+                    <div class="field" style="min-width:120px"><label>Note</label><input type="text" name="notes" placeholder="Facoltativo"></div>
+                    <button type="submit" class="btn-sm">+ Salva</button>
+                  </div>
+                </form>
+              </div>
+              <% if(!supItems.length){ %>
+                <div style="font-size:.82rem;color:#94a3b8;text-align:center;padding:.5rem">Nessuna voce — clicca + Voce</div>
+              <% } else { %>
+                <div style="overflow-x:auto">
+                  <table class="sr-table">
+                    <thead><tr><th>Descrizione</th><th>Tipo</th><th>Qtà</th><th>Costo unit.</th><th>Totale</th><th>Edizione</th><th>Note</th><th></th></tr></thead>
+                    <tbody>
+                    <% supItems.forEach(function(it){ %>
+                      <tr id="sitem-<%= it.id %>">
+                        <td><strong style="color:#1e2d4e"><%= it.description %></strong></td>
+                        <td><span class="type-badge <%= typeCls[it.item_type]||'item-type-altro' %>"><%= typeLabel[it.item_type]||it.item_type %></span></td>
+                        <td style="text-align:center"><%= it.quantity %></td>
+                        <td style="text-align:right;font-family:monospace"><%= it.unit_cost>0?'€ '+Number(it.unit_cost).toFixed(2):'—' %></td>
+                        <td style="text-align:right;font-family:monospace;font-weight:700;color:#065f46"><%= it.total_cost>0?'€ '+Number(it.total_cost).toFixed(2):'—' %></td>
+                        <td style="font-size:.78rem;color:#64748b"><%= it.edition_id||'—' %></td>
+                        <td style="font-size:.78rem;color:#64748b"><%= it.notes||'—' %></td>
+                        <td><button class="btn-del" onclick="deleteItem(<%= it.id %>)">🗑</button></td>
+                      </tr>
+                    <% }); %>
+                    <tr class="total-row">
+                      <td colspan="4" style="text-align:right;font-size:.78rem">Totale fornitore</td>
+                      <td style="text-align:right;font-family:monospace;color:#065f46">€ <%= supTotal.toFixed(2) %></td>
+                      <td colspan="3"></td>
+                    </tr>
+                    </tbody>
+                  </table>
+                </div>
+              <% } %>
+            </div>
+          </div>
+        <% }); %>
+      <% }); %>
+    <% } %>
+  </div>
+
+  <!-- RIEPILOGO COSTI -->
+  <div class="log-panel" id="panel-riepilogo">
+    <%
+      var grandTotal=items.reduce(function(a,i){return a+(i.total_cost||0);},0);
+    %>
+    <div class="total-all">
+      <span>💰 Totale complessivo</span>
+      <strong style="font-size:1.1rem;color:#1e2d4e">€ <%= grandTotal.toFixed(2) %></strong>
+      <span style="margin-left:auto;font-size:.78rem;color:#64748b"><%= suppliers.length %> fornitori · <%= items.length %> voci</span>
+    </div>
+    <% if(!suppliers.length){ %>
+      <div class="empty">Nessun dato.</div>
+    <% } else { %>
+      <div class="log-card">
+        <div class="log-card-head"><span class="log-card-title">📊 Per fornitore</span></div>
+        <div class="log-card-body" style="padding:0">
+          <div style="overflow-x:auto">
+            <table class="sr-table">
+              <thead><tr><th>Fornitore</th><th>Categoria</th><th>Voci</th><th>Noleggi</th><th>Acquisti</th><th>Servizi</th><th>Totale</th></tr></thead>
+              <tbody>
+              <% suppliers.forEach(function(sup){
+                var si=items.filter(function(i){return i.supplier_id===sup.id;});
+                if(!si.length) return;
+                var tot=si.reduce(function(a,i){return a+(i.total_cost||0);},0);
+                var noleggio=si.filter(function(i){return i.item_type==='noleggio';}).reduce(function(a,i){return a+(i.total_cost||0);},0);
+                var acquisto=si.filter(function(i){return i.item_type==='acquisto';}).reduce(function(a,i){return a+(i.total_cost||0);},0);
+                var servizio=si.filter(function(i){return i.item_type==='servizio';}).reduce(function(a,i){return a+(i.total_cost||0);},0);
+              %>
+                <tr>
+                  <td><strong style="color:#1e2d4e"><%= sup.name %></strong></td>
+                  <td style="font-size:.78rem;color:#64748b"><%= sup.category||'—' %></td>
+                  <td style="text-align:center"><%= si.length %></td>
+                  <td style="text-align:right;font-family:monospace"><%= noleggio>0?'€ '+noleggio.toFixed(2):'—' %></td>
+                  <td style="text-align:right;font-family:monospace"><%= acquisto>0?'€ '+acquisto.toFixed(2):'—' %></td>
+                  <td style="text-align:right;font-family:monospace"><%= servizio>0?'€ '+servizio.toFixed(2):'—' %></td>
+                  <td style="text-align:right;font-family:monospace;font-weight:700;color:#065f46">€ <%= tot.toFixed(2) %></td>
+                </tr>
+              <% }); %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    <% } %>
+  </div>
+
+</div>
+<script>
+function showTab(id,btn){
+  document.querySelectorAll('.log-panel').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.log-tab').forEach(function(b){b.classList.remove('active');});
+  document.getElementById('panel-'+id).classList.add('active'); btn.classList.add('active');
+}
+function toggleSupForm(id){ var f=document.getElementById('sup-form-'+id); f.style.display=f.style.display==='none'?'block':'none'; }
+function deleteSup(id){
+  if(!confirm('Eliminare questo fornitore e tutte le sue voci?')) return;
+  fetch('/admin/fornitori/'+id,{method:'DELETE'}).then(function(){var el=document.getElementById('sup-'+id);if(el)el.remove();});
+}
+function deleteItem(id){
+  if(!confirm('Eliminare questa voce?')) return;
+  fetch('/admin/fornitori/item/'+id,{method:'DELETE'}).then(function(){var el=document.getElementById('sitem-'+id);if(el)el.remove();});
+}
+(function(){
+  var p=new URLSearchParams(window.location.search); var sid=p.get('sup');
+  if(sid){ var f=document.getElementById('sup-form-'+sid); if(f) f.style.display='block'; }
+})();
+</script>
+</body>
+</html>

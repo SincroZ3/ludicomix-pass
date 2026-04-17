@@ -584,6 +584,10 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
         <a href="/account/security">&#128274; Password di Sicurezza</a>
       <% } %>
       <% if(currentUser&&(currentUser.role==='admin'||currentUser.role==='organizer')){ %>
+        <a href="/admin/logistica">📦 Logistica</a>
+        <a href="/admin/checklist">☑️ Checklist</a>
+        <a href="/admin/catering">🍽️ Catering</a>
+        <a href="/admin/fornitori">🏭 Fornitori</a>
         <a href="/admin/bacheca">&#128226; Bacheca</a>
       <% } %>
       <% if(currentUser&&currentUser.role==='admin'){ %>
