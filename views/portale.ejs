@@ -329,6 +329,30 @@ details.sec-details summary:hover{background:rgba(107,63,160,.04)}
   .form-grid-2{grid-template-columns:1fr}
   .sec-card-hd{flex-wrap:wrap;gap:.5rem}
 }
+
+/* ── Servizi ─────────────────────────────────────────── */
+.srv-type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin:.5rem 0 .75rem}
+@media(max-width:480px){.srv-type-grid{grid-template-columns:repeat(2,1fr)}}
+.srv-type-btn{
+  display:flex;flex-direction:column;align-items:center;gap:.25rem;
+  padding:.65rem .4rem;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+  cursor:pointer;background:var(--bg);font-family:inherit;
+  transition:border-color .15s,background .15s;
+  font-size:.78rem;font-weight:700;color:var(--muted);
+}
+.srv-type-btn:hover{border-color:var(--navy);background:var(--surface);color:var(--text)}
+.srv-type-btn.sel{border-color:var(--navy);background:var(--navy);color:var(--yellow)}
+.srv-type-btn .ico{font-size:1.35rem;line-height:1}
+.srv-extra{display:none;border-top:1px solid var(--border-light);padding-top:.75rem;margin-top:.5rem}
+.srv-list{list-style:none;padding:0;margin:0}
+.srv-list li{display:flex;align-items:center;gap:.6rem;padding:.5rem 0;border-bottom:1px solid var(--border-light);font-size:.83rem}
+.srv-list li:last-child{border-bottom:none}
+.srv-pill{display:inline-block;font-size:.65rem;font-weight:800;padding:.15rem .5rem;border-radius:9999px;white-space:nowrap}
+.srv-pill-wait{background:rgba(201,162,39,.15);color:var(--gold)}
+.srv-pill-ok{background:rgba(45,106,79,.13);color:var(--green)}
+.srv-pill-done{background:rgba(29,111,164,.13);color:var(--blue)}
+.srv-pill-cancel{background:rgba(192,57,43,.12);color:var(--red)}
+
 </style>
 </head>
 <body>
@@ -914,7 +938,56 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
     </div>
   </div><!-- /ticket -->
 
-  <div class="footer">
+  
+  <!-- ── RICHIEDI SERVIZI ─────────────────────────────────────── -->
+  <div class="sec-card">
+    <div class="sec-card-hd">
+      <span class="sec-card-title">⚙️ Richiedi un servizio</span>
+    </div>
+    <div class="sec-card-body">
+      <p style="font-size:.82rem;color:var(--muted);margin:.0 0 .75rem">Seleziona il servizio di cui hai bisogno. La richiesta verrà inviata all'organizzazione.</p>
+      <div class="srv-type-grid" id="srv-type-grid">
+        <button class="srv-type-btn" data-type="corrente"     onclick="selectSrvType(this)"><span class="ico">⚡</span>Corrente</button>
+        <button class="srv-type-btn" data-type="gazebo"       onclick="selectSrvType(this)"><span class="ico">⛺</span>Gazebo</button>
+        <button class="srv-type-btn" data-type="tavoli_extra" onclick="selectSrvType(this)"><span class="ico">🪑</span>Tavoli</button>
+        <button class="srv-type-btn" data-type="sedie_extra"  onclick="selectSrvType(this)"><span class="ico">🪑</span>Sedie</button>
+        <button class="srv-type-btn" data-type="transenne"    onclick="selectSrvType(this)"><span class="ico">🚧</span>Transenne</button>
+        <button class="srv-type-btn" data-type="altro"        onclick="selectSrvType(this)"><span class="ico">📦</span>Altro</button>
+      </div>
+      <div class="srv-extra" id="srv-form-extra">
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end">
+          <div style="display:flex;flex-direction:column;gap:.3rem">
+            <span class="fld-label">Quantità</span>
+            <input type="number" id="srv-qty" value="1" min="1" max="99"
+              class="fld-input" style="width:72px">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:.3rem;flex:1;min-width:140px">
+            <span class="fld-label">Note (facoltativo)</span>
+            <input type="text" id="srv-notes" placeholder="Specifiche, posizione, ecc." class="fld-input">
+          </div>
+        </div>
+        <div id="srv-msg" class="form-msg" style="display:none;margin-top:.4rem"></div>
+        <button onclick="submitSrvRequest()" id="srv-submit-btn"
+          class="btn btn-primary" style="width:100%;margin-top:.65rem;justify-content:center">
+          📨 Invia richiesta
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LE TUE RICHIESTE ───────────────────────────────────────── -->
+  <div class="sec-card">
+    <div class="sec-card-hd">
+      <span class="sec-card-title">📋 Le tue richieste</span>
+    </div>
+    <div class="sec-card-body">
+      <ul class="srv-list" id="srv-list">
+        <li class="empty-msg" style="padding:.5rem 0">Caricamento…</li>
+      </ul>
+    </div>
+  </div>
+
+<div class="footer">
     <strong>Ludicomix</strong> &mdash; Portale Espositore &middot; Per assistenza contatta l&rsquo;organizzazione
   </div>
 </div>
@@ -1235,105 +1308,8 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
     });
   })();
 
-</script>
-<style>
-@keyframes pulse-badge {
-  0%,100% { transform:scale(1); }
-  50%      { transform:scale(1.2); }
-}
-</style>
 
 
-
-<!-- ══════════════════════════════════════════════════════════
-     SEZIONE: RICHIEDI SERVIZI
-     ══════════════════════════════════════════════════════════ -->
-<style>
-  .srv-type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin:.75rem 0}
-  @media(max-width:480px){.srv-type-grid{grid-template-columns:repeat(2,1fr)}}
-  .srv-type-btn{
-    display:flex;flex-direction:column;align-items:center;gap:.25rem;
-    padding:.65rem .4rem;border:1.5px solid var(--border);border-radius:var(--radius-sm);
-    cursor:pointer;background:var(--bg);font-family:inherit;
-    transition:border-color .15s,background .15s;
-    font-size:.78rem;font-weight:700;color:var(--muted);
-  }
-  .srv-type-btn:hover{border-color:var(--navy);background:var(--surface);color:var(--text)}
-  .srv-type-btn.sel{border-color:var(--navy);background:var(--navy);color:var(--yellow)}
-  .srv-type-btn .ico{font-size:1.35rem;line-height:1}
-  .srv-extra{display:none;margin-top:.75rem;border-top:1px solid var(--border-light);padding-top:.75rem}
-  .srv-submit-btn{
-    width:100%;margin-top:.65rem;
-    background:var(--navy);color:var(--yellow);border:none;
-    border-radius:var(--radius-xs);padding:.55rem 1.25rem;
-    font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit;
-    transition:opacity .15s;
-  }
-  .srv-submit-btn:hover{opacity:.88}
-  .srv-submit-btn:disabled{opacity:.5;cursor:default}
-  .srv-list{list-style:none;padding:0;margin:0}
-  .srv-list li{display:flex;align-items:center;gap:.6rem;padding:.5rem 0;border-bottom:1px solid var(--border-light);font-size:.83rem}
-  .srv-list li:last-child{border-bottom:none}
-  .srv-pill{display:inline-block;font-size:.65rem;font-weight:800;padding:.15rem .5rem;border-radius:9999px;white-space:nowrap}
-  .srv-pill-wait{background:rgba(201,162,39,.15);color:var(--gold)}
-  .srv-pill-ok{background:rgba(45,106,79,.13);color:var(--green)}
-  .srv-pill-done{background:rgba(29,111,164,.13);color:var(--blue)}
-  .srv-pill-cancel{background:rgba(192,57,43,.12);color:var(--red)}
-</style>
-
-<div class="main-wrap" style="margin-top:1rem">
-
-  <!-- Richiedi servizio -->
-  <div class="sec-card">
-    <div class="sec-card-head">
-      <span class="sec-card-title">⚙️ Richiedi un servizio</span>
-    </div>
-    <div class="sec-card-body">
-      <p style="font-size:.82rem;color:var(--muted);margin-bottom:.1rem">Seleziona il servizio di cui hai bisogno. La richiesta verrà inviata all'organizzazione.</p>
-
-      <div class="srv-type-grid" id="srv-type-grid">
-        <button class="srv-type-btn" data-type="corrente"     onclick="selectSrvType(this)"><span class="ico">⚡</span>Corrente</button>
-        <button class="srv-type-btn" data-type="gazebo"       onclick="selectSrvType(this)"><span class="ico">⛺</span>Gazebo</button>
-        <button class="srv-type-btn" data-type="tavoli_extra" onclick="selectSrvType(this)"><span class="ico">🪑</span>Tavoli</button>
-        <button class="srv-type-btn" data-type="sedie_extra"  onclick="selectSrvType(this)"><span class="ico">🪑</span>Sedie</button>
-        <button class="srv-type-btn" data-type="transenne"    onclick="selectSrvType(this)"><span class="ico">🚧</span>Transenne</button>
-        <button class="srv-type-btn" data-type="altro"        onclick="selectSrvType(this)"><span class="ico">📦</span>Altro</button>
-      </div>
-
-      <div class="srv-extra" id="srv-form-extra">
-        <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end">
-          <div style="display:flex;flex-direction:column;gap:.3rem">
-            <span class="fld-label">Quantità</span>
-            <input type="number" id="srv-qty" value="1" min="1" max="99"
-              style="width:72px;border:1.5px solid var(--border);border-radius:var(--radius-xs);padding:.42rem .6rem;font-size:.88rem;font-family:inherit;color:var(--text);background:var(--surface)">
-          </div>
-          <div style="display:flex;flex-direction:column;gap:.3rem;flex:1;min-width:140px">
-            <span class="fld-label">Note (facoltativo)</span>
-            <input type="text" id="srv-notes" placeholder="Specifiche, posizione, ecc."
-              style="border:1.5px solid var(--border);border-radius:var(--radius-xs);padding:.42rem .7rem;font-size:.83rem;font-family:inherit;color:var(--text);background:var(--surface);width:100%">
-          </div>
-        </div>
-        <div id="srv-msg" class="form-msg" style="display:none;margin-top:.4rem"></div>
-        <button onclick="submitSrvRequest()" id="srv-submit-btn" class="srv-submit-btn">📨 Invia richiesta</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Le tue richieste -->
-  <div class="sec-card" style="margin-top:.75rem">
-    <div class="sec-card-head">
-      <span class="sec-card-title">📋 Le tue richieste</span>
-    </div>
-    <div class="sec-card-body">
-      <ul class="srv-list" id="srv-list">
-        <li style="color:var(--faint);font-size:.82rem;justify-content:center">Caricamento…</li>
-      </ul>
-    </div>
-  </div>
-
-</div>
-
-<script>
 // ── Servizi ──────────────────────────────────────────────────────────────────
 var __SRV_TYPE = null;
 var __SRV_LABELS = {
@@ -1347,76 +1323,60 @@ var __SRV_STATUS = {
   consegnato:{label:'Consegnato',cls:'srv-pill-done'},
   annullato:{label:'Annullato', cls:'srv-pill-cancel'}
 };
-
 function selectSrvType(btn) {
-  document.querySelectorAll('.srv-type-btn').forEach(function(b){ b.classList.remove('sel'); });
+  document.querySelectorAll('.srv-type-btn').forEach(function(b){b.classList.remove('sel');});
   btn.classList.add('sel');
   __SRV_TYPE = btn.getAttribute('data-type');
-  var ex = document.getElementById('srv-form-extra');
-  ex.style.display = 'block';
-  document.getElementById('srv-msg').style.display = 'none';
+  document.getElementById('srv-form-extra').style.display='block';
+  document.getElementById('srv-msg').style.display='none';
 }
-
 function submitSrvRequest() {
-  if (!__SRV_TYPE) return;
-  var qty   = parseInt(document.getElementById('srv-qty').value, 10) || 1;
-  var notes = document.getElementById('srv-notes').value.trim();
-  var btn   = document.getElementById('srv-submit-btn');
-  var msg   = document.getElementById('srv-msg');
-  btn.disabled = true; btn.textContent = '⏳ Invio…';
-  fetch('/api/portale/' + __TOKEN + '/service-request', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({type: __SRV_TYPE, quantity: qty, notes: notes})
+  if(!__SRV_TYPE) return;
+  var qty=parseInt(document.getElementById('srv-qty').value,10)||1;
+  var notes=document.getElementById('srv-notes').value.trim();
+  var btn=document.getElementById('srv-submit-btn');
+  var msg=document.getElementById('srv-msg');
+  btn.disabled=true; btn.textContent='⏳ Invio…';
+  fetch('/api/portale/'+__TOKEN+'/service-request',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({type:__SRV_TYPE,quantity:qty,notes:notes})
   })
-  .then(function(r){ return r.json(); })
+  .then(function(r){return r.json();})
   .then(function(d){
-    btn.disabled = false; btn.textContent = '📨 Invia richiesta';
-    msg.style.display = 'block';
-    if (d.ok) {
-      msg.className = 'form-msg ok'; msg.textContent = '✅ Richiesta inviata con successo!';
-      document.querySelectorAll('.srv-type-btn').forEach(function(b){ b.classList.remove('sel'); });
-      document.getElementById('srv-form-extra').style.display = 'none';
-      document.getElementById('srv-notes').value = '';
-      document.getElementById('srv-qty').value = '1';
-      __SRV_TYPE = null;
-      loadSrvHistory();
+    btn.disabled=false; btn.textContent='📨 Invia richiesta';
+    msg.style.display='block';
+    if(d.ok){
+      msg.className='form-msg ok'; msg.textContent='✅ Richiesta inviata!';
+      document.querySelectorAll('.srv-type-btn').forEach(function(b){b.classList.remove('sel');});
+      document.getElementById('srv-form-extra').style.display='none';
+      document.getElementById('srv-notes').value='';
+      document.getElementById('srv-qty').value='1';
+      __SRV_TYPE=null; loadSrvHistory();
     } else {
-      msg.className = 'form-msg err'; msg.textContent = '❌ ' + (d.error || 'Errore imprevisto');
+      msg.className='form-msg err'; msg.textContent='❌ '+(d.error||'Errore imprevisto');
     }
   })
   .catch(function(){
-    btn.disabled = false; btn.textContent = '📨 Invia richiesta';
-    msg.style.display = 'block'; msg.className = 'form-msg err'; msg.textContent = 'Errore di rete.';
+    btn.disabled=false; btn.textContent='📨 Invia richiesta';
+    msg.style.display='block'; msg.className='form-msg err'; msg.textContent='Errore di rete.';
   });
 }
-
-function loadSrvHistory() {
-  var list = document.getElementById('srv-list');
-  if (!list) return;
-  fetch('/api/portale/' + __TOKEN + '/service-requests')
-  .then(function(r){ return r.json(); })
+function loadSrvHistory(){
+  var list=document.getElementById('srv-list');
+  if(!list) return;
+  fetch('/api/portale/'+__TOKEN+'/service-requests')
+  .then(function(r){return r.json();})
   .then(function(rows){
-    if (!rows.length) {
-      list.innerHTML = '<li style="color:var(--faint);font-size:.82rem;justify-content:center">Nessuna richiesta ancora inviata.</li>';
-      return;
-    }
-    list.innerHTML = rows.map(function(r){
-      var sc = __SRV_STATUS[r.status] || __SRV_STATUS.in_attesa;
-      return '<li>' +
-        '<span class="srv-pill ' + sc.cls + '">' + sc.label + '</span>' +
-        '<strong>' + (r.quantity > 1 ? r.quantity + '× ' : '') + (__SRV_LABELS[r.type] || r.type) + '</strong>' +
-        (r.notes ? ' <span style="color:var(--muted)">— ' + r.notes + '</span>' : '') +
-        '<span style="font-size:.72rem;color:var(--faint);margin-left:auto;white-space:nowrap">' + ((r.requested_at||'').substring(0,16).replace('T',' ')) + '</span>' +
-        '</li>';
+    if(!rows.length){list.innerHTML='<li class="empty-msg" style="padding:.5rem 0">Nessuna richiesta ancora inviata.</li>';return;}
+    list.innerHTML=rows.map(function(r){
+      var sc=__SRV_STATUS[r.status]||__SRV_STATUS.in_attesa;
+      return '<li><span class="srv-pill '+sc.cls+'">'+sc.label+'</span> <strong>'+(r.quantity>1?r.quantity+'× ':'')+(__SRV_LABELS[r.type]||r.type)+'</strong>'+(r.notes?' <span style="color:var(--muted)">— '+r.notes+'</span>':'')+' <span style="font-size:.72rem;color:var(--faint);margin-left:auto;white-space:nowrap">'+((r.requested_at||'').substring(0,16).replace('T',' '))+'</span></li>';
     }).join('');
   })
-  .catch(function(){
-    list.innerHTML = '<li style="color:var(--faint);font-size:.82rem">Impossibile caricare le richieste.</li>';
-  });
+  .catch(function(){list.innerHTML='<li class="empty-msg" style="padding:.5rem 0">Impossibile caricare le richieste.</li>';});
 }
+if(typeof __TOKEN!=='undefined'){loadSrvHistory();}
 
-if (typeof __TOKEN !== 'undefined') { loadSrvHistory(); }
 </script>
 </body>
 </html>
