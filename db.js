@@ -802,4 +802,14 @@ db.run(`CREATE TABLE IF NOT EXISTS equipment_loans (
   notes               TEXT
 )`);
 
+// ── Migrazioni Modulo 7: colonne mancanti su DB esistenti ────────────────────
+db.run(`ALTER TABLE service_requests ADD COLUMN requested_at TEXT DEFAULT (datetime('now'))`, () => {});
+db.run(`ALTER TABLE service_requests ADD COLUMN updated_at   TEXT DEFAULT (datetime('now'))`, () => {});
+db.run(`ALTER TABLE equipment        ADD COLUMN category     TEXT`,                           () => {});
+db.run(`ALTER TABLE equipment        ADD COLUMN total_qty    INTEGER DEFAULT 1`,              () => {});
+db.run(`ALTER TABLE equipment        ADD COLUMN notes        TEXT`,                           () => {});
+db.run(`ALTER TABLE equipment_loans  ADD COLUMN loaned_at    TEXT DEFAULT (datetime('now'))`, () => {});
+db.run(`ALTER TABLE equipment_loans  ADD COLUMN returned_at  TEXT`,                          () => {});
+db.run(`ALTER TABLE equipment_loans  ADD COLUMN notes        TEXT`,                          () => {});
+
 module.exports = db;
