@@ -4001,6 +4001,20 @@ app.get('/search', requireAuth, (req, res) => {
     });
   });
 
+  app.get('/richiesta-accreditamento/espositori', (req, res) => {
+    res.render('accreditation-request-espositori', {
+      sent:  req.query.sent  || null,
+      error: req.query.error || null
+    });
+  });
+
+  app.get('/richiesta-accreditamento/media', (req, res) => {
+    res.render('accreditation-request-media', {
+      sent:  req.query.sent  || null,
+      error: req.query.error || null
+    });
+  });
+
   // POST — invio richiesta
   app.post('/richiesta-accreditamento', async (req, res) => {
     const { company_name, contact_name, email, phone,
@@ -4044,6 +4058,80 @@ app.get('/search', requireAuth, (req, res) => {
     } catch (e) {
       console.error('Errore invio accreditamento:', e.message);
       res.redirect('/richiesta-accreditamento?error=db');
+    }
+  });
+
+  app.post('/richiesta-accreditamento/espositori', async (req, res) => {
+    const { company_name, contact_name, email, phone,
+            stand_type, stand_size, accreditation_type, notes } = req.body;
+    if (!company_name || !contact_name || !email) {
+      return res.redirect('/richiesta-accreditamento/espositori?error=campi_obbligatori');
+    }
+    try {
+      await dbRun(
+        `INSERT INTO accreditation_requests
+          (company_name, contact_name, email, phone, stand_type, stand_size,
+           accreditation_type, media_outlet, press_role, publisher, genre,
+           channel_url, platform, subscribers, notes)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [company_name.trim(), contact_name.trim(), email.trim().toLowerCase(),
+        phone||null, stand_type||null, stand_size||null,
+        accreditation_type||'espositore',
+        null, null, null, null, null, null, null,
+        notes||null]
+      );
+      const accTypeLabel = {espositore:'🏪 Espositore',stampa:'📰 Stampa/Media',autore:'✍️ Autore',content_creator:'🎥 Content Creator'};
+      createNotification('accreditation','Nuova richiesta accreditamento',`<strong>${company_name}</strong> (${contact_name}) ha inviato una richiesta di accreditamento.`,null,null);
+      trySendEmail(
+        'Nuova richiesta — '+(accTypeLabel[accreditation_type||'espositore']||accreditation_type),
+        '<p>'+(accTypeLabel[accreditation_type||'espositore']||'')+' <strong>'+company_name+'</strong> — '+contact_name+' ('+email+')</p>'+
+        (stand_type?'<p>Stand: '+stand_type+' — '+(stand_size||'n/d')+'</p>':'')+
+        (notes?'<p>Note: '+notes+'</p>':'')+
+        '<p><a href="'+(process.env.BASE_URL||'')+'/admin/accreditamento">→ Gestisci richieste</a></p>'
+      );
+      res.redirect('/richiesta-accreditamento/espositori?sent=1');
+    } catch (e) {
+      console.error('Errore invio accreditamento espositori:', e.message);
+      res.redirect('/richiesta-accreditamento/espositori?error=db');
+    }
+  });
+
+  app.post('/richiesta-accreditamento/media', async (req, res) => {
+    const { company_name, contact_name, email, phone,
+            accreditation_type, media_outlet, press_role,
+            publisher, genre, channel_url, platform, subscribers, notes } = req.body;
+    if (!company_name || !contact_name || !email) {
+      return res.redirect('/richiesta-accreditamento/media?error=campi_obbligatori');
+    }
+    try {
+      await dbRun(
+        `INSERT INTO accreditation_requests
+          (company_name, contact_name, email, phone, stand_type, stand_size,
+           accreditation_type, media_outlet, press_role, publisher, genre,
+           channel_url, platform, subscribers, notes)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [company_name.trim(), contact_name.trim(), email.trim().toLowerCase(),
+        phone||null, null, null,
+        accreditation_type||'stampa',
+        media_outlet||null, press_role||null, publisher||null, genre||null,
+        channel_url||null, platform||null, subscribers||null,
+        notes||null]
+      );
+      const accTypeLabel = {espositore:'🏪 Espositore',stampa:'📰 Stampa/Media',autore:'✍️ Autore',content_creator:'🎥 Content Creator'};
+      createNotification('accreditation','Nuova richiesta accreditamento',`<strong>${company_name}</strong> (${contact_name}) ha inviato una richiesta di accreditamento.`,null,null);
+      trySendEmail(
+        'Nuova richiesta — '+(accTypeLabel[accreditation_type||'stampa']||accreditation_type),
+        '<p>'+(accTypeLabel[accreditation_type||'stampa']||'')+' <strong>'+company_name+'</strong> — '+contact_name+' ('+email+')</p>'+
+        (media_outlet?'<p>Testata: '+media_outlet+(press_role?' ('+press_role+')':'')+' </p>':'')+
+        (channel_url?'<p>Canale: <a href="'+channel_url+'">'+channel_url+'</a> ('+(platform||'?')+', '+(subscribers||'?')+' follower)</p>':'')+
+        (publisher?'<p>Editore: '+publisher+(genre?' — '+genre:'')+' </p>':'')+
+        (notes?'<p>Note: '+notes+'</p>':'')+
+        '<p><a href="'+(process.env.BASE_URL||'')+'/admin/accreditamento">→ Gestisci richieste</a></p>'
+      );
+      res.redirect('/richiesta-accreditamento/media?sent=1');
+    } catch (e) {
+      console.error('Errore invio accreditamento media:', e.message);
+      res.redirect('/richiesta-accreditamento/media?error=db');
     }
   });
 

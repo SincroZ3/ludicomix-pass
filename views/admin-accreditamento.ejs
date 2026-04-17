@@ -61,10 +61,16 @@
 
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:.5rem">
       <h1 style="font-size:1.4rem;color:#1e2d4e">Richieste di Accreditamento</h1>
-      <a href="/richiesta-accreditamento" target="_blank"
-         style="font-size:.82rem;color:#1e2d4e;border:1.5px solid #1e2d4e;border-radius:20px;padding:.3rem .85rem;text-decoration:none">
-        🔗 Form pubblica
-      </a>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <a href="/richiesta-accreditamento/espositori" target="_blank"
+           style="font-size:.82rem;color:#1e2d4e;border:1.5px solid #1e2d4e;border-radius:20px;padding:.3rem .85rem;text-decoration:none;white-space:nowrap">
+          🏪 Form Espositori
+        </a>
+        <a href="/richiesta-accreditamento/media" target="_blank"
+           style="font-size:.82rem;color:#1e2d4e;border:1.5px solid #1e2d4e;border-radius:20px;padding:.3rem .85rem;text-decoration:none;white-space:nowrap">
+          📰 Form Stampa & Autori
+        </a>
+      </div>
     </div>
 
     <% if (saved) { %>
