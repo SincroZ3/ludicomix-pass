@@ -2799,6 +2799,7 @@ async function triggerBatchPassOnClose(groupId) {
         `UPDATE service_requests SET status=?, updated_at=datetime('now') WHERE id=?`,
         [status, id]
       );
+      logAction(req.session.user.id,'update_logistica_request','service_request',id,`Stato richiesta #${id} → ${status}`);
       res.json({ ok: true });
     } catch(err) {
       res.status(500).json({ error: err.message });
@@ -2809,6 +2810,7 @@ async function triggerBatchPassOnClose(groupId) {
   app.delete('/admin/logistica/requests/:id', requireAuth, requireOrganizer, async (req, res) => {
     try {
       await dbRun(`DELETE FROM service_requests WHERE id=?`, [parseInt(req.params.id, 10)]);
+      logAction(req.session.user.id,'delete_logistica_request','service_request',parseInt(req.params.id,10),'Richiesta servizio eliminata');
       res.json({ ok: true });
     } catch(err) {
       res.status(500).json({ error: err.message });
@@ -2826,6 +2828,7 @@ async function triggerBatchPassOnClose(groupId) {
         `INSERT INTO equipment (name, category, total_qty, notes, location, location_custom) VALUES (?,?,?,?,?,?)`,
         [name.trim(), category || null, parseInt(total_qty, 10) || 1, notes || null, loc, locCustom]
       );
+      logAction(req.session.user.id,'create_equipment','equipment',null,`Attrezzatura aggiunta: ${name.trim()}`);
       res.redirect('/admin/logistica?saved=equipment');
     } catch(err) {
       console.error(err);
@@ -2845,6 +2848,7 @@ async function triggerBatchPassOnClose(groupId) {
         [name.trim(), category || null, parseInt(total_qty, 10) || 1, notes || null, loc, locCustom, id]
       );
       res.json({ ok: true });
+      logAction(req.session.user.id,'edit_equipment','equipment',id,`Attrezzatura #${id} aggiornata`);
     } catch(err) {
       res.status(500).json({ error: err.message });
     }
@@ -2854,6 +2858,7 @@ async function triggerBatchPassOnClose(groupId) {
   app.delete('/admin/logistica/equipment/:id', requireAuth, requireOrganizer, async (req, res) => {
     try {
       await dbRun(`DELETE FROM equipment WHERE id=?`, [parseInt(req.params.id, 10)]);
+      logAction(req.session.user.id,'delete_equipment','equipment',parseInt(req.params.id,10),'Attrezzatura eliminata dal catalogo');
       res.json({ ok: true });
     } catch(err) {
       res.status(500).json({ error: err.message });
@@ -2888,6 +2893,7 @@ async function triggerBatchPassOnClose(groupId) {
         [parseInt(req.params.id, 10)]
       );
       res.json({ ok: true });
+      logAction(req.session.user.id,'return_loan','loan',parseInt(req.params.id,10),'Prestito #'+req.params.id+' riconsegnato');
     } catch(err) {
       res.status(500).json({ error: err.message });
     }
@@ -2898,6 +2904,7 @@ async function triggerBatchPassOnClose(groupId) {
     try {
       await dbRun(`DELETE FROM equipment_loans WHERE id=?`, [parseInt(req.params.id, 10)]);
       res.json({ ok: true });
+      logAction(req.session.user.id,'delete_loan','loan',parseInt(req.params.id,10),'Prestito #'+req.params.id+' eliminato');
     } catch(err) {
       res.status(500).json({ error: err.message });
     }
@@ -2919,6 +2926,7 @@ async function triggerBatchPassOnClose(groupId) {
         [key, cleanLabel, (icon || '📦').trim() || '📦', row.next || 10]
       );
       res.redirect('/admin/logistica?tab=impostazioni&saved=category');
+      logAction(req.session.user.id,'create_logistica_category','logistica_category',null,`Tipologia creata: ${cl}`);
     } catch(err) {
       console.error(err);
       res.redirect('/admin/logistica?tab=impostazioni&saved=err');
@@ -2928,6 +2936,7 @@ async function triggerBatchPassOnClose(groupId) {
   app.delete('/admin/logistica/settings/category/:id', requireAuth, requireOrganizer, async (req, res) => {
     try {
       await dbRun(`DELETE FROM logistic_categories WHERE id=?`, [parseInt(req.params.id, 10)]);
+      logAction(req.session.user.id,'delete_logistica_category','logistica_category',+req.params.id,'Tipologia materiale eliminata');
       res.json({ ok: true });
     } catch(err) { res.status(500).json({ error: err.message }); }
   });
@@ -2947,6 +2956,7 @@ async function triggerBatchPassOnClose(groupId) {
         [key, cleanLabel, (icon || '📍').trim() || '📍', row.next || 10]
       );
       res.redirect('/admin/logistica?tab=impostazioni&saved=location');
+      logAction(req.session.user.id,'create_logistica_location','logistica_location',null,`Posizione creata: ${cl}`);
     } catch(err) {
       console.error(err);
       res.redirect('/admin/logistica?tab=impostazioni&saved=err');
@@ -2956,6 +2966,7 @@ async function triggerBatchPassOnClose(groupId) {
   app.delete('/admin/logistica/settings/location/:id', requireAuth, requireOrganizer, async (req, res) => {
     try {
       await dbRun(`DELETE FROM logistic_locations WHERE id=?`, [parseInt(req.params.id, 10)]);
+      logAction(req.session.user.id,'delete_logistica_location','logistica_location',+req.params.id,'Posizione inventario eliminata');
       res.json({ ok: true });
     } catch(err) { res.status(500).json({ error: err.message }); }
   });
@@ -3012,12 +3023,14 @@ async function triggerBatchPassOnClose(groupId) {
       const r=await dbGet(`SELECT COALESCE(MAX(sort_order),0)+10 AS n FROM checklist_templates WHERE phase=?`,[phase||'montaggio']);
       await dbRun(`INSERT INTO checklist_templates (title,area,phase,sort_order) VALUES (?,?,?,?)`,[title.trim(),area||null,phase||'montaggio',r.n||10]);
       res.redirect('/admin/checklist?saved=ok');
+      logAction(req.session.user.id,'create_checklist_template','checklist',null,`Template checklist creato: ${title.trim()}`);
     } catch(e){ res.redirect('/admin/checklist?saved=err'); }
   });
   app.delete('/admin/checklist/template/:id', requireAuth, requireOrganizer, async (req,res) => {
     try {
       await dbRun(`DELETE FROM checklist_items WHERE template_id=?`,[+req.params.id]);
       await dbRun(`DELETE FROM checklist_templates WHERE id=?`,[+req.params.id]);
+      logAction(req.session.user.id,'delete_checklist_template','checklist',+req.params.id,'Template checklist eliminato');
       res.json({ok:true});
     } catch(e){ res.status(500).json({error:e.message}); }
   });
@@ -3041,6 +3054,7 @@ async function triggerBatchPassOnClose(groupId) {
       const its=await dbAll(`SELECT * FROM checklist_items WHERE template_id=?`,[tid]);
       for(const it of its) await dbRun(`INSERT INTO checklist_run_items (run_id,item_id) VALUES (?,?)`,[ins.lastID,it.id]);
       res.redirect('/admin/checklist/run/'+ins.lastID);
+      logAction(req.session.user.id,'start_checklist_run','checklist',ins.lastID,`Esecuzione avviata per template #${tid}`);
     } catch(e){ res.status(500).send('Errore: '+e.message); }
   });
   app.get('/admin/checklist/run/:id', requireAuth, requireOrganizer, async (req,res) => {
@@ -3060,6 +3074,7 @@ async function triggerBatchPassOnClose(groupId) {
       const pending=await dbGet(`SELECT COUNT(*) AS c FROM checklist_run_items WHERE run_id=? AND done=0`,[+req.params.runId]);
       if(pending.c===0) await dbRun(`UPDATE checklist_runs SET completed_at=datetime('now') WHERE id=? AND completed_at IS NULL`,[+req.params.runId]);
       else await dbRun(`UPDATE checklist_runs SET completed_at=NULL WHERE id=?`,[+req.params.runId]);
+      logAction(req.session.user.id,'toggle_checklist_item','checklist',+req.params.itemId,(isDone?'✅ Completata':'↩️ Deselezionata')+' voce checklist run #'+req.params.runId);
       res.json({ok:true});
     } catch(e){ res.status(500).json({error:e.message}); }
   });
@@ -3079,12 +3094,14 @@ async function triggerBatchPassOnClose(groupId) {
     try {
       await dbRun(`INSERT INTO catering_shifts (label,date,meal_type,edition_id,notes) VALUES (?,?,?,?,?)`,[label.trim(),date||null,meal_type||'pranzo',edition_id||null,notes||null]);
       res.redirect('/admin/catering?saved=ok');
+      logAction(req.session.user.id,'create_catering_shift','catering',null,`Turno catering creato: ${label.trim()}`);
     } catch(e){ res.redirect('/admin/catering?saved=err'); }
   });
   app.delete('/admin/catering/shift/:id', requireAuth, requireOrganizer, async (req,res) => {
     try {
       await dbRun(`DELETE FROM catering_orders WHERE shift_id=?`,[+req.params.id]);
       await dbRun(`DELETE FROM catering_shifts WHERE id=?`,[+req.params.id]);
+      logAction(req.session.user.id,'delete_catering_shift','catering',+req.params.id,'Turno catering eliminato');
       res.json({ok:true});
     } catch(e){ res.status(500).json({error:e.message}); }
   });
@@ -3094,10 +3111,12 @@ async function triggerBatchPassOnClose(groupId) {
     try {
       await dbRun(`INSERT INTO catering_orders (shift_id,staff_name,role,menu_choice,dietary,notes) VALUES (?,?,?,?,?,?)`,[+req.params.id,staff_name.trim(),role||null,menu_choice||null,dietary||null,notes||null]);
       res.redirect('/admin/catering?saved=ok&shift='+req.params.id);
+      logAction(req.session.user.id,'create_catering_order','catering',null,`Ordinazione catering: ${staff_name} nel turno #${req.params.id}`);
     } catch(e){ res.redirect('/admin/catering?saved=err'); }
   });
   app.delete('/admin/catering/order/:id', requireAuth, requireOrganizer, async (req,res) => {
     try { await dbRun(`DELETE FROM catering_orders WHERE id=?`,[+req.params.id]); res.json({ok:true}); }
+      logAction(req.session.user.id,'delete_catering_order','catering',+req.params.id,'Ordinazione catering eliminata');
     catch(e){ res.status(500).json({error:e.message}); }
   });
 
@@ -3116,12 +3135,14 @@ async function triggerBatchPassOnClose(groupId) {
     try {
       await dbRun(`INSERT INTO suppliers (name,category,contact_name,phone,email,website,notes) VALUES (?,?,?,?,?,?,?)`,[name.trim(),category||null,contact_name||null,phone||null,email||null,website||null,notes||null]);
       res.redirect('/admin/fornitori?saved=ok');
+      logAction(req.session.user.id,'create_fornitore','fornitore',null,`Fornitore aggiunto: ${name.trim()}`);
     } catch(e){ res.redirect('/admin/fornitori?saved=err'); }
   });
   app.delete('/admin/fornitori/:id', requireAuth, requireOrganizer, async (req,res) => {
     try {
       await dbRun(`DELETE FROM supplier_items WHERE supplier_id=?`,[+req.params.id]);
       await dbRun(`DELETE FROM suppliers WHERE id=?`,[+req.params.id]);
+      logAction(req.session.user.id,'delete_fornitore','fornitore',+req.params.id,'Fornitore eliminato');
       res.json({ok:true});
     } catch(e){ res.status(500).json({error:e.message}); }
   });
@@ -3133,10 +3154,12 @@ async function triggerBatchPassOnClose(groupId) {
     try {
       await dbRun(`INSERT INTO supplier_items (supplier_id,description,item_type,quantity,unit_cost,total_cost,edition_id,notes) VALUES (?,?,?,?,?,?,?,?)`,[sid,description.trim(),item_type||'noleggio',qty,uc,qty*uc,edition_id||null,notes||null]);
       res.redirect('/admin/fornitori?saved=ok&sup='+sid);
+      logAction(req.session.user.id,'create_fornitore_item','fornitore',sid,`Voce aggiunta al fornitore #${sid}: ${description.trim()}`);
     } catch(e){ res.redirect('/admin/fornitori?saved=err'); }
   });
   app.delete('/admin/fornitori/item/:id', requireAuth, requireOrganizer, async (req,res) => {
     try { await dbRun(`DELETE FROM supplier_items WHERE id=?`,[+req.params.id]); res.json({ok:true}); }
+      logAction(req.session.user.id,'delete_fornitore_item','fornitore',+req.params.id,'Voce fornitore eliminata');
     catch(e){ res.status(500).json({error:e.message}); }
   });
 
