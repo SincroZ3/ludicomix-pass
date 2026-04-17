@@ -12,7 +12,7 @@
     .log-tab.active,.log-tab:hover{background:#1e2d4e;color:#fff;border-color:#1e2d4e}
     .log-panel{display:none}.log-panel.active{display:block}
 
-    /* ── CARD CONTAINER ── */
+    /* ── CARD ── */
     .log-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 1px 4px rgba(30,45,78,.06);margin-bottom:1.25rem;overflow:hidden}
     .log-card-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.75rem 1.2rem;border-bottom:1px solid #f1f5f9;background:#fafbfc}
     .log-card-title{font-size:.8rem;font-weight:800;text-transform:uppercase;letter-spacing:.55px;color:#1e2d4e}
@@ -50,7 +50,7 @@
     .form-row{display:flex;gap:.65rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem}
     .form-row .field{display:flex;flex-direction:column;gap:.3rem;min-width:0}
     .form-row label{font-size:.73rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
-    .form-row input,.form-row select,.form-row textarea{border:1.5px solid #d1d9e6;border-radius:8px;padding:.45rem .7rem;font-size:.87rem;font-family:inherit;color:#1e2d4e;background:#fff;transition:border-color .15s}
+    .form-row input,.form-row select{border:1.5px solid #d1d9e6;border-radius:8px;padding:.45rem .7rem;font-size:.87rem;font-family:inherit;color:#1e2d4e;background:#fff;transition:border-color .15s}
     .form-row input:focus,.form-row select:focus{outline:none;border-color:#1e2d4e}
 
     /* ── BUTTONS ── */
@@ -63,20 +63,29 @@
 
     /* ── SECTION TITLE ── */
     .section-title{font-size:.8rem;font-weight:800;color:#1e2d4e;text-transform:uppercase;letter-spacing:.07em;margin:1.5rem 0 .75rem;padding-bottom:.35rem;border-bottom:2px solid #e2e8f0;display:flex;align-items:center;gap:.4rem}
-    .empty{text-align:center;padding:2rem;color:#94a3b8;font-size:.88rem}
 
-    /* ── ALERT BANNER ── */
+    /* ── LOCATION GROUPS ── */
+    .loc-section{margin-bottom:1.75rem}
+    .loc-header{display:flex;align-items:center;gap:.5rem;padding:.45rem .85rem;border-radius:8px;background:#f1f5f9;border-left:4px solid #1e2d4e;margin-bottom:.75rem;font-weight:700;font-size:.82rem;color:#1e2d4e}
+    .loc-header .loc-count{margin-left:auto;font-size:.73rem;font-weight:600;color:#64748b}
+
+    /* ── SETTINGS CONFIG ITEMS ── */
+    .cfg-list{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.5rem}
+    .cfg-item{display:inline-flex;align-items:center;gap:.4rem;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:20px;padding:.28rem .75rem;font-size:.82rem;font-weight:600;color:#1e2d4e}
+    .cfg-item .del-cfg{background:none;border:none;cursor:pointer;font-size:.75rem;color:#94a3b8;padding:0 0 0 .2rem;line-height:1;transition:color .15s}
+    .cfg-item .del-cfg:hover{color:#991b1b}
+
+    /* ── ALERT ── */
     .alert-banner{border-radius:10px;padding:.55rem 1rem;font-size:.83rem;font-weight:600;display:inline-flex;align-items:center;gap:.4rem}
     .alert-ok{background:#d1fae5;color:#065f46}
     .alert-err{background:#fee2e2;color:#991b1b}
 
+    /* ── EMPTY ── */
+    .empty{text-align:center;padding:2rem;color:#94a3b8;font-size:.88rem}
 
-    /* ── Location ── */
-    .loc-section{margin-bottom:1.75rem}
-    .loc-header{display:flex;align-items:center;gap:.5rem;padding:.45rem .85rem;border-radius:8px;background:#f1f5f9;border-left:4px solid #1e2d4e;margin-bottom:.75rem;font-weight:700;font-size:.82rem;color:#1e2d4e}
-    .loc-header .loc-count{margin-left:auto;font-size:.73rem;font-weight:600;color:#64748b}
-    .loc-field{display:none;margin-top:.45rem}
-    .loc-field.visible{display:block}
+    /* ── LOCATION CUSTOM FIELD ── */
+    .loc-extra{display:none;margin-top:.3rem}
+    .loc-extra.visible{display:block}
 
     @media(max-width:640px){.form-row{flex-direction:column}.form-row .field{width:100%}}
   </style>
@@ -99,6 +108,8 @@
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
       <% if(saved==='equipment'){%><span class="alert-banner alert-ok">✅ Attrezzatura salvata</span><%}%>
       <% if(saved==='loan'){%><span class="alert-banner alert-ok">✅ Prestito registrato</span><%}%>
+      <% if(saved==='category'){%><span class="alert-banner alert-ok">✅ Tipologia aggiunta</span><%}%>
+      <% if(saved==='location'){%><span class="alert-banner alert-ok">✅ Posizione aggiunta</span><%}%>
       <% if(saved==='err'){%><span class="alert-banner alert-err">❌ Errore — riprova</span><%}%>
     </div>
   </div>
@@ -114,22 +125,13 @@
       🔄 Prestiti
       <span class="cnt-pill<%= loans.filter(l=>!l.returned_at).length>0?' alert':'' %>" id="badge-loans"><%= loans.filter(l=>!l.returned_at).length %></span>
     </button>
+    <button class="log-tab" onclick="showTab('impostazioni',this)">⚙️ Impostazioni</button>
   </div>
 
   <!-- ══ TAB 1: RICHIESTE SERVIZI ══ -->
   <div class="log-panel active" id="panel-richieste">
-    <% var typeLabels = {
-      corrente:'⚡ Corrente', acqua:'💧 Acqua', wifi:'📶 Wi-Fi',
-      gazebo:'⛺ Gazebo', tavoli_extra:'🪑 Tavoli extra',
-      sedie_extra:'🪑 Sedie extra', transenne:'🚧 Transenne', altro:'📦 Altro'
-    }; %>
-    <% var statusCfg = {
-      in_attesa:{label:'In attesa',cls:'badge-wait'},
-      approvato:{label:'Approvato',cls:'badge-ok'},
-      consegnato:{label:'Consegnato',cls:'badge-done'},
-      annullato:{label:'Annullato',cls:'badge-cancel'}
-    }; %>
-
+    <% var typeLabels = {corrente:'⚡ Corrente',acqua:'💧 Acqua',wifi:'📶 Wi-Fi',gazebo:'⛺ Gazebo',tavoli_extra:'🪑 Tavoli extra',sedie_extra:'🪑 Sedie extra',transenne:'🚧 Transenne',altro:'📦 Altro'}; %>
+    <% var statusCfg = {in_attesa:{label:'In attesa',cls:'badge-wait'},approvato:{label:'Approvato',cls:'badge-ok'},consegnato:{label:'Consegnato',cls:'badge-done'},annullato:{label:'Annullato',cls:'badge-cancel'}}; %>
     <div class="log-card">
       <div class="log-card-head">
         <span class="log-card-title">Richieste ricevute</span>
@@ -141,11 +143,9 @@
         <% } else { %>
         <div style="overflow-x:auto">
           <table class="sr-table">
-            <thead>
-              <tr><th>#</th><th>Gruppo</th><th>Tipo</th><th>Qtà</th><th>Note</th><th>Data</th><th>Stato</th><th></th></tr>
-            </thead>
+            <thead><tr><th>#</th><th>Gruppo</th><th>Tipo</th><th>Qtà</th><th>Note</th><th>Data</th><th>Stato</th><th></th></tr></thead>
             <tbody>
-            <% requests.forEach(function(r){ var sc = statusCfg[r.status]||statusCfg.in_attesa; %>
+            <% requests.forEach(function(r){ var sc=statusCfg[r.status]||statusCfg.in_attesa; %>
               <tr id="sr-row-<%= r.id %>">
                 <td style="color:#94a3b8;font-size:.75rem">#<%= r.id %></td>
                 <td><strong style="color:#1e2d4e"><%= r.group_name||'—' %></strong></td>
@@ -160,9 +160,7 @@
                     <% }); %>
                   </select>
                 </td>
-                <td>
-                  <button class="btn-del" onclick="deleteReq(<%= r.id %>)" title="Elimina">🗑</button>
-                </td>
+                <td><button class="btn-del" onclick="deleteReq(<%= r.id %>)" title="Elimina">🗑</button></td>
               </tr>
             <% }); %>
             </tbody>
@@ -175,48 +173,43 @@
 
   <!-- ══ TAB 2: CATALOGO ATTREZZATURE ══ -->
   <div class="log-panel" id="panel-attrezzature">
-
     <div class="log-card">
       <div class="log-card-head"><span class="log-card-title">➕ Aggiungi attrezzatura</span></div>
       <div class="log-card-body">
         <form method="POST" action="/admin/logistica/equipment">
           <div class="form-row">
-            <div class="field" style="flex:2;min-width:160px">
+            <div class="field" style="flex:2;min-width:150px">
               <label>Nome *</label>
               <input type="text" name="name" placeholder="Es. Tavolo pieghevole" required>
             </div>
-            <div class="field" style="flex:1;min-width:130px">
-              <label>Categoria</label>
+            <div class="field" style="min-width:140px">
+              <label>Tipologia</label>
               <select name="category">
                 <option value="">— nessuna —</option>
-                <option value="tavolo">🪑 Tavolo</option>
-                <option value="sedia">🪑 Sedia</option>
-                <option value="prolunga">⚡ Prolunga</option>
-                <option value="gazebo">⛺ Gazebo</option>
-                <option value="altro">📦 Altro</option>
+                <% (materialTypes||[]).forEach(function(c){ %>
+                  <option value="<%= c.key_name %>"><%= c.icon||'📦' %> <%= c.label %></option>
+                <% }); %>
               </select>
             </div>
             <div class="field" style="width:90px">
               <label>Quantità</label>
               <input type="number" name="total_qty" value="1" min="1" style="width:100%">
             </div>
-            <div class="field" style="flex:2;min-width:140px">
-              <label>Note</label>
-              <input type="text" name="notes" placeholder="Facoltativo">
-            </div>
-            <div class="field" style="min-width:180px">
+            <div class="field" style="min-width:150px">
               <label>Posizione</label>
               <select name="location" id="add-loc-sel" onchange="toggleLocCustom('add')">
                 <option value="">— non specificata —</option>
-                <option value="segreteria_palazzetto">🏛️ Segreteria Palazzetto</option>
-                <option value="segreteria_mariambini">⛪ Segreteria Mariambini</option>
-                <option value="vanvere">🏚️ Vanvere</option>
-                <option value="uffici_ludicomix">🏢 Uffici Ludicomix</option>
-                <option value="altro">📍 Altro</option>
+                <% (storageLocations||[]).forEach(function(loc){ %>
+                  <option value="<%= loc.key_name %>"><%= loc.icon||'📍' %> <%= loc.label %></option>
+                <% }); %>
               </select>
-              <div class="loc-field" id="add-loc-custom">
+              <div class="loc-extra" id="add-loc-custom">
                 <input type="text" name="location_custom" placeholder="Specificare posizione…" style="width:100%;margin-top:.3rem">
               </div>
+            </div>
+            <div class="field" style="flex:2;min-width:130px">
+              <label>Note</label>
+              <input type="text" name="notes" placeholder="Facoltativo">
             </div>
             <button type="submit" class="btn-sm">+ Aggiungi</button>
           </div>
@@ -229,34 +222,32 @@
       <div class="empty">Nessuna attrezzatura in catalogo.</div>
     <% } else { %>
       <%
-        var catIcons = {tavolo:'🪑',sedia:'🪑',prolunga:'⚡',gazebo:'⛺',altro:'📦'};
-        var loaned = {};
+        var catIcons = {};
+        (materialTypes||[]).forEach(function(c){ catIcons[c.key_name]=c.icon||'📦'; });
+        var loaned={};
         loans.forEach(function(l){ if(!l.returned_at){ loaned[l.equipment_id]=(loaned[l.equipment_id]||0)+l.qty; } });
 
-        var locLabels = {
-          segreteria_palazzetto: '🏛️ Segreteria Palazzetto',
-          segreteria_mariambini: '⛪ Segreteria Mariambini',
-          vanvere:               '🏚️ Vanvere',
-          uffici_ludicomix:      '🏢 Uffici Ludicomix',
-          altro:                 '📍 Altro',
-          '':                    '📦 Posizione non specificata'
-        };
-        var locOrder = ['segreteria_palazzetto','segreteria_mariambini','vanvere','uffici_ludicomix','altro',''];
+        var locMap = {};
+        (storageLocations||[]).forEach(function(loc){ locMap[loc.key_name]=loc; });
+        var locOrder = (storageLocations||[]).map(function(l){return l.key_name;});
+        locOrder.push('');
 
-        // Raggruppa per location
         var byLoc = {};
-        locOrder.forEach(function(k){ byLoc[k] = []; });
+        locOrder.forEach(function(k){ byLoc[k]=[]; });
         equipment.forEach(function(e){
-          var k = e.location || '';
-          if(!byLoc[k]) byLoc[k] = [];
+          var k = e.location||'';
+          if(!byLoc[k]) byLoc[k]=[];
           byLoc[k].push(e);
         });
       %>
       <% locOrder.forEach(function(locKey){ %>
-        <% if(!byLoc[locKey] || !byLoc[locKey].length){ return; } %>
+        <% if(!byLoc[locKey]||!byLoc[locKey].length) return; %>
         <div class="loc-section">
           <div class="loc-header">
-            <%= locLabels[locKey] %>
+            <% if(locKey===''){ %>📦 Posizione non specificata
+            <% } else { var lInfo=locMap[locKey]; %>
+              <%= lInfo ? (lInfo.icon||'📍')+' '+lInfo.label : '📍 '+locKey %>
+            <% } %>
             <span class="loc-count"><%= byLoc[locKey].length %> articol<%= byLoc[locKey].length===1?'o':'i' %></span>
           </div>
           <div class="eq-grid">
@@ -264,13 +255,13 @@
               <div class="eq-card" id="eq-<%= e.id %>">
                 <div class="eq-icon"><%= catIcons[e.category]||'📦' %></div>
                 <div style="flex:1;min-width:0">
-                  <div style="font-weight:700;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#1e2d4e"><%= e.name %></div>
+                  <div style="font-weight:700;font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#1e2d4e"><%= e.name %></div>
                   <div class="eq-qty">
                     Totale: <strong><%= e.total_qty %></strong> &nbsp;·&nbsp;
                     In prestito: <strong style="color:<%=usedQty>0?'#c0392b':'#065f46'%>"><%= usedQty %></strong> &nbsp;·&nbsp;
                     Disponibili: <strong class="eq-available"><%= avail %></strong>
                   </div>
-                  <% if(e.location==='altro' && e.location_custom){ %>
+                  <% if(e.location==='altro'&&e.location_custom){ %>
                     <div style="font-size:.71rem;color:#1e2d4e;font-weight:600;margin-top:.15rem">📍 <%= e.location_custom %></div>
                   <% } %>
                   <% if(e.notes){ %><div style="font-size:.72rem;color:#94a3b8;margin-top:.1rem"><%= e.notes %></div><% } %>
@@ -286,7 +277,6 @@
 
   <!-- ══ TAB 3: PRESTITI ══ -->
   <div class="log-panel" id="panel-prestiti">
-
     <div class="log-card">
       <div class="log-card-head"><span class="log-card-title">🔄 Registra nuovo prestito</span></div>
       <div class="log-card-body">
@@ -328,78 +318,160 @@
       var activeLoans = loans.filter(function(l){ return !l.returned_at; });
       var pastLoans   = loans.filter(function(l){ return !!l.returned_at; });
     %>
-
     <div class="section-title">🔄 Prestiti attivi</div>
     <% if(!activeLoans.length){ %>
       <div class="empty">Nessun prestito attivo.</div>
     <% } else { %>
-      <div class="log-card">
-        <div class="log-card-body" style="padding:0">
-          <div style="overflow-x:auto">
-          <table class="sr-table">
-            <thead><tr><th>#</th><th>Attrezzatura</th><th>Gruppo</th><th>Qtà</th><th>Prestato il</th><th>Note</th><th></th></tr></thead>
-            <tbody>
-            <% activeLoans.forEach(function(l){ %>
-              <tr id="loan-row-<%= l.id %>">
-                <td style="color:#94a3b8;font-size:.75rem">#<%= l.id %></td>
-                <td><strong style="color:#1e2d4e"><%= l.equipment_name %></strong> <span style="font-size:.75rem;color:#94a3b8">(<%= l.category||'—' %>)</span></td>
-                <td><%= l.group_name||'—' %></td>
-                <td style="text-align:center;font-weight:700"><%= l.qty %></td>
-                <td style="font-size:.75rem;white-space:nowrap;color:#94a3b8"><%= (l.loaned_at||'').substring(0,16).replace('T',' ') %></td>
-                <td style="font-size:.82rem;color:#64748b"><%= l.notes||'—' %></td>
-                <td style="display:flex;gap:.35rem;padding:.45rem .75rem">
-                  <button class="btn-return" onclick="returnLoan(<%= l.id %>)">✅ Riconsegnato</button>
-                  <button class="btn-del"    onclick="deleteLoan(<%= l.id %>)">🗑</button>
-                </td>
-              </tr>
-            <% }); %>
-            </tbody>
-          </table>
-          </div>
-        </div>
-      </div>
-    <% } %>
-
-    <% if(pastLoans.length){ %>
-    <div class="section-title">📁 Storico riconsegne</div>
-    <div class="log-card">
-      <div class="log-card-body" style="padding:0">
-        <div style="overflow-x:auto">
+      <div class="log-card"><div class="log-card-body" style="padding:0"><div style="overflow-x:auto">
         <table class="sr-table">
-          <thead><tr><th>#</th><th>Attrezzatura</th><th>Gruppo</th><th>Qtà</th><th>Prestato</th><th>Riconsegnato</th></tr></thead>
+          <thead><tr><th>#</th><th>Attrezzatura</th><th>Gruppo</th><th>Qtà</th><th>Prestato il</th><th>Note</th><th></th></tr></thead>
           <tbody>
-          <% pastLoans.slice(0,30).forEach(function(l){ %>
-            <tr>
+          <% activeLoans.forEach(function(l){ %>
+            <tr id="loan-row-<%= l.id %>">
               <td style="color:#94a3b8;font-size:.75rem">#<%= l.id %></td>
-              <td><%= l.equipment_name %></td>
+              <td><strong style="color:#1e2d4e"><%= l.equipment_name %></strong> <span style="font-size:.75rem;color:#94a3b8">(<%= l.category||'—' %>)</span></td>
               <td><%= l.group_name||'—' %></td>
-              <td style="text-align:center"><%= l.qty %></td>
+              <td style="text-align:center;font-weight:700"><%= l.qty %></td>
               <td style="font-size:.75rem;white-space:nowrap;color:#94a3b8"><%= (l.loaned_at||'').substring(0,16).replace('T',' ') %></td>
-              <td style="font-size:.75rem;white-space:nowrap;color:#065f46;font-weight:700"><%= (l.returned_at||'').substring(0,16).replace('T',' ') %></td>
+              <td style="font-size:.82rem;color:#64748b"><%= l.notes||'—' %></td>
+              <td style="display:flex;gap:.35rem;padding:.45rem .75rem">
+                <button class="btn-return" onclick="returnLoan(<%= l.id %>)">✅ Riconsegnato</button>
+                <button class="btn-del" onclick="deleteLoan(<%= l.id %>)">🗑</button>
+              </td>
             </tr>
           <% }); %>
           </tbody>
         </table>
-        </div>
+      </div></div></div>
+    <% } %>
+
+    <% if(pastLoans.length){ %>
+    <div class="section-title">📁 Storico riconsegne</div>
+    <div class="log-card"><div class="log-card-body" style="padding:0"><div style="overflow-x:auto">
+      <table class="sr-table">
+        <thead><tr><th>#</th><th>Attrezzatura</th><th>Gruppo</th><th>Qtà</th><th>Prestato</th><th>Riconsegnato</th></tr></thead>
+        <tbody>
+        <% pastLoans.slice(0,30).forEach(function(l){ %>
+          <tr>
+            <td style="color:#94a3b8;font-size:.75rem">#<%= l.id %></td>
+            <td><%= l.equipment_name %></td>
+            <td><%= l.group_name||'—' %></td>
+            <td style="text-align:center"><%= l.qty %></td>
+            <td style="font-size:.75rem;white-space:nowrap;color:#94a3b8"><%= (l.loaned_at||'').substring(0,16).replace('T',' ') %></td>
+            <td style="font-size:.75rem;white-space:nowrap;color:#065f46;font-weight:700"><%= (l.returned_at||'').substring(0,16).replace('T',' ') %></td>
+          </tr>
+        <% }); %>
+        </tbody>
+      </table>
+    </div></div></div>
+    <% } %>
+  </div>
+
+  <!-- ══ TAB 4: IMPOSTAZIONI ══ -->
+  <div class="log-panel" id="panel-impostazioni">
+
+    <!-- Tipologie materiale -->
+    <div class="log-card">
+      <div class="log-card-head">
+        <span class="log-card-title">🔧 Tipologie materiale</span>
+        <span style="font-size:.75rem;color:#64748b">Appaiono nel menu "Tipologia" quando aggiungi attrezzatura</span>
+      </div>
+      <div class="log-card-body">
+        <form method="POST" action="/admin/logistica/settings/category">
+          <div class="form-row">
+            <div class="field" style="flex:3;min-width:180px">
+              <label>Nome tipologia *</label>
+              <input type="text" name="label" placeholder="Es. Banner, Cavo audio, Monitor" required>
+            </div>
+            <div class="field" style="width:110px">
+              <label>Icona (emoji)</label>
+              <input type="text" name="icon" placeholder="📦" maxlength="4">
+            </div>
+            <button type="submit" class="btn-sm">+ Aggiungi</button>
+          </div>
+        </form>
+        <div class="section-title" style="margin-top:.25rem">Tipologie configurate</div>
+        <% if(!(materialTypes||[]).length){ %>
+          <div class="empty" style="padding:1rem">Nessuna tipologia ancora configurata.</div>
+        <% } else { %>
+          <div class="cfg-list">
+            <% materialTypes.forEach(function(c){ %>
+              <span class="cfg-item">
+                <%= c.icon||'📦' %> <%= c.label %>
+                <button class="del-cfg" onclick="deleteCfgItem('category',<%= c.id %>,'<%= c.label %>')" title="Elimina">✕</button>
+              </span>
+            <% }); %>
+          </div>
+        <% } %>
       </div>
     </div>
-    <% } %>
+
+    <!-- Posizioni inventario -->
+    <div class="log-card">
+      <div class="log-card-head">
+        <span class="log-card-title">📍 Posizioni inventario</span>
+        <span style="font-size:.75rem;color:#64748b">Usate per raggruppare l'inventario e come opzioni nella scelta posizione</span>
+      </div>
+      <div class="log-card-body">
+        <form method="POST" action="/admin/logistica/settings/location">
+          <div class="form-row">
+            <div class="field" style="flex:3;min-width:180px">
+              <label>Nome posizione *</label>
+              <input type="text" name="label" placeholder="Es. Magazzino palco, Corridoio nord" required>
+            </div>
+            <div class="field" style="width:110px">
+              <label>Icona (emoji)</label>
+              <input type="text" name="icon" placeholder="📍" maxlength="4">
+            </div>
+            <button type="submit" class="btn-sm">+ Aggiungi</button>
+          </div>
+        </form>
+        <div class="section-title" style="margin-top:.25rem">Posizioni configurate</div>
+        <% if(!(storageLocations||[]).length){ %>
+          <div class="empty" style="padding:1rem">Nessuna posizione ancora configurata.</div>
+        <% } else { %>
+          <div class="cfg-list">
+            <% storageLocations.forEach(function(loc){ %>
+              <span class="cfg-item">
+                <%= loc.icon||'📍' %> <%= loc.label %>
+                <button class="del-cfg" onclick="deleteCfgItem('location',<%= loc.id %>,'<%= loc.label %>')" title="Elimina">✕</button>
+              </span>
+            <% }); %>
+          </div>
+        <% } %>
+      </div>
+    </div>
+
   </div>
 
 </div>
 
 <script>
-function toggleLocCustom(prefix) {
-  var sel = document.getElementById(prefix+'-loc-sel');
-  var div = document.getElementById(prefix+'-loc-custom');
-  if(!sel||!div) return;
-  div.classList.toggle('visible', sel.value==='altro');
-}
+(function(){
+  var params = new URLSearchParams(window.location.search);
+  var tab = params.get('tab');
+  if(!tab) return;
+  var panel = document.getElementById('panel-'+tab);
+  if(!panel) return;
+  document.querySelectorAll('.log-panel').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.log-tab').forEach(function(b){
+    b.classList.remove('active');
+    if((b.getAttribute('onclick')||'').indexOf("'"+tab+"'")>-1) b.classList.add('active');
+  });
+  panel.classList.add('active');
+})();
+
 function showTab(id,btn){
   document.querySelectorAll('.log-panel').forEach(function(p){p.classList.remove('active');});
   document.querySelectorAll('.log-tab').forEach(function(b){b.classList.remove('active');});
   document.getElementById('panel-'+id).classList.add('active');
   btn.classList.add('active');
+}
+function toggleLocCustom(prefix){
+  var sel=document.getElementById(prefix+'-loc-sel');
+  var div=document.getElementById(prefix+'-loc-custom');
+  if(!sel||!div) return;
+  div.classList.toggle('visible', sel.value==='altro');
 }
 function updateStatus(id,status){
   fetch('/admin/logistica/requests/'+id+'/status',{
@@ -424,6 +496,12 @@ function deleteLoan(id){
   if(!confirm('Eliminare questo prestito?'))return;
   fetch('/admin/logistica/loans/'+id,{method:'DELETE'})
     .then(function(){var r=document.getElementById('loan-row-'+id);if(r)r.remove();});
+}
+function deleteCfgItem(type, id, label){
+  if(!confirm('Eliminare "'+label+'"?')) return;
+  fetch('/admin/logistica/settings/'+type+'/'+id,{method:'DELETE'})
+    .then(function(r){return r.json();})
+    .then(function(d){ if(d.ok) location.reload(); else alert('Errore eliminazione'); });
 }
 </script>
 </body>

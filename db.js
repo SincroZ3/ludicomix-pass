@@ -810,11 +810,47 @@ db.run(`ALTER TABLE equipment        ADD COLUMN total_qty    INTEGER DEFAULT 1`,
 db.run(`ALTER TABLE equipment        ADD COLUMN notes        TEXT`,                           () => {});
 db.run(`ALTER TABLE equipment        ADD COLUMN location       TEXT`,                           () => {});
 db.run(`ALTER TABLE equipment        ADD COLUMN location_custom TEXT`,                          () => {});
+
+db.run(`ALTER TABLE equipment        ADD COLUMN location       TEXT`,                           () => {});
+db.run(`ALTER TABLE equipment        ADD COLUMN location_custom TEXT`,                          () => {});
 db.run(`ALTER TABLE equipment_loans  ADD COLUMN loaned_at    TEXT DEFAULT (datetime('now'))`, () => {});
 db.run(`ALTER TABLE equipment_loans  ADD COLUMN returned_at  TEXT`,                          () => {});
 db.run(`ALTER TABLE equipment_loans  ADD COLUMN notes        TEXT`,                          () => {});
 
 db.run(`ALTER TABLE service_requests ADD COLUMN edition_id    INTEGER`, () => {});
 db.run(`ALTER TABLE service_requests ADD COLUMN service_type  TEXT`,    () => {});
+
+
+db.run(`CREATE TABLE IF NOT EXISTS logistic_categories (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  key_name   TEXT UNIQUE NOT NULL,
+  label      TEXT NOT NULL,
+  icon       TEXT,
+  sort_order INTEGER DEFAULT 0
+)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS logistic_locations (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  key_name   TEXT UNIQUE NOT NULL,
+  label      TEXT NOT NULL,
+  icon       TEXT,
+  sort_order INTEGER DEFAULT 0
+)`);
+
+db.run(`INSERT OR IGNORE INTO logistic_categories (key_name, label, icon, sort_order) VALUES
+  ('tavolo',   'Tavolo',   '🪑', 10),
+  ('sedia',    'Sedia',    '🪑', 20),
+  ('prolunga', 'Prolunga', '⚡', 30),
+  ('gazebo',   'Gazebo',   '⛺', 40),
+  ('altro',    'Altro',    '📦', 999)
+`);
+
+db.run(`INSERT OR IGNORE INTO logistic_locations (key_name, label, icon, sort_order) VALUES
+  ('segreteria_palazzetto', 'Segreteria Palazzetto', '🏛️', 10),
+  ('segreteria_mariambini', 'Segreteria Mariambini', '⛪', 20),
+  ('vanvere',               'Vanvere',               '🏚️', 30),
+  ('uffici_ludicomix',      'Uffici Ludicomix',      '🏢', 40),
+  ('altro',                 'Altro',                 '📍', 999)
+`);
 
 module.exports = db;

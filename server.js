@@ -2781,7 +2781,9 @@ async function triggerBatchPassOnClose(groupId) {
         ORDER BY el.loaned_at DESC
       `);
       const groups = await dbAll(`SELECT id, name FROM assignment_groups ORDER BY name`);
-      res.render('admin-logistica', { requests, equipment, loans, groups, saved: req.query.saved || null });
+      const materialTypes = await dbAll(`SELECT * FROM logistic_categories ORDER BY sort_order, label`);
+      const storageLocations = await dbAll(`SELECT * FROM logistic_locations ORDER BY sort_order, label`);
+      res.render('admin-logistica', { requests, equipment, loans, groups, materialTypes, storageLocations, saved: req.query.saved || null });
     } catch(err) {
       console.error('Errore /admin/logistica:', err);
       res.status(500).send('Errore interno');
@@ -2899,6 +2901,63 @@ async function triggerBatchPassOnClose(groupId) {
     } catch(err) {
       res.status(500).json({ error: err.message });
     }
+  });
+
+
+  // ── Admin: impostazioni logistica — tipologie ────────────────
+  app.post('/admin/logistica/settings/category', requireAuth, requireOrganizer, async (req, res) => {
+    const { label, icon } = req.body;
+    const cleanLabel = (label || '').trim();
+    if (!cleanLabel) return res.redirect('/admin/logistica?tab=impostazioni&saved=err');
+    const key = cleanLabel.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    try {
+      const row = await dbGet(`SELECT COALESCE(MAX(sort_order),0)+10 AS next FROM logistic_categories`);
+      await dbRun(
+        `INSERT INTO logistic_categories (key_name, label, icon, sort_order) VALUES (?,?,?,?)`,
+        [key, cleanLabel, (icon || '📦').trim() || '📦', row.next || 10]
+      );
+      res.redirect('/admin/logistica?tab=impostazioni&saved=category');
+    } catch(err) {
+      console.error(err);
+      res.redirect('/admin/logistica?tab=impostazioni&saved=err');
+    }
+  });
+
+  app.delete('/admin/logistica/settings/category/:id', requireAuth, requireOrganizer, async (req, res) => {
+    try {
+      await dbRun(`DELETE FROM logistic_categories WHERE id=?`, [parseInt(req.params.id, 10)]);
+      res.json({ ok: true });
+    } catch(err) { res.status(500).json({ error: err.message }); }
+  });
+
+  // ── Admin: impostazioni logistica — posizioni ─────────────────
+  app.post('/admin/logistica/settings/location', requireAuth, requireOrganizer, async (req, res) => {
+    const { label, icon } = req.body;
+    const cleanLabel = (label || '').trim();
+    if (!cleanLabel) return res.redirect('/admin/logistica?tab=impostazioni&saved=err');
+    const key = cleanLabel.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    try {
+      const row = await dbGet(`SELECT COALESCE(MAX(sort_order),0)+10 AS next FROM logistic_locations`);
+      await dbRun(
+        `INSERT INTO logistic_locations (key_name, label, icon, sort_order) VALUES (?,?,?,?)`,
+        [key, cleanLabel, (icon || '📍').trim() || '📍', row.next || 10]
+      );
+      res.redirect('/admin/logistica?tab=impostazioni&saved=location');
+    } catch(err) {
+      console.error(err);
+      res.redirect('/admin/logistica?tab=impostazioni&saved=err');
+    }
+  });
+
+  app.delete('/admin/logistica/settings/location/:id', requireAuth, requireOrganizer, async (req, res) => {
+    try {
+      await dbRun(`DELETE FROM logistic_locations WHERE id=?`, [parseInt(req.params.id, 10)]);
+      res.json({ ok: true });
+    } catch(err) { res.status(500).json({ error: err.message }); }
   });
 
   // ── Portale espositore: invia richiesta servizio ─────────────
