@@ -69,6 +69,7 @@
                 👤 <%= a.author || 'admin' %> &nbsp;·&nbsp;
                 🕐 <%= (a.created_at||'').substring(0,16).replace('T',' ') %>
                 <% if(a.expires_at){ %> &nbsp;·&nbsp; ⏳ scade <%= a.expires_at.substring(0,10) %><% } %>
+              <% if(a.target_group_name){ %> &nbsp;·&nbsp; <span style="background:#fef3c7;color:#92400e;font-size:.7rem;font-weight:700;padding:.1rem .45rem;border-radius:9999px;">🏷️ Solo: <%= a.target_group_name %></span><% } %>
               </span>
               <!-- read progress -->
               <div style="display:flex;align-items:center;gap:.4rem;">
@@ -122,6 +123,15 @@
             <option value="info">ℹ️ Info (blu)</option>
             <option value="warning">⚠️ Avviso (giallo)</option>
             <option value="urgent">🚨 Urgente (rosso)</option>
+          </select>
+        </label>
+
+        <label style="margin-top:.75rem;">Destinatari
+          <select name="target_group_id" style="margin-top:.2rem;">
+            <option value="">📢 Tutti gli espositori</option>
+            <% allGroups.forEach(function(g){ %>
+              <option value="<%= g.id %>">🏷️ <%= g.name %></option>
+            <% }); %>
           </select>
         </label>
 

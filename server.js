@@ -2760,9 +2760,11 @@ async function triggerBatchPassOnClose(groupId) {
   app.get('/admin/bacheca', requireAuth, requireOrganizer, async (req, res) => {
     try {
       const announcements = await dbAll(`
-        SELECT a.*, u.username AS author
+        SELECT a.*, u.username AS author,
+               ag.name AS target_group_name
         FROM announcements a
         LEFT JOIN users u ON u.id = a.created_by
+        LEFT JOIN assignment_groups ag ON ag.id = a.target_group_id
         ORDER BY a.is_pinned DESC, a.created_at DESC
       `);
       const readCounts = await dbAll(`
@@ -2772,7 +2774,8 @@ async function triggerBatchPassOnClose(groupId) {
       `);
       const readMap = Object.fromEntries(readCounts.map(r => [r.announcement_id, r.cnt]));
       const totalStands = (await dbGet(`SELECT COUNT(*) AS n FROM assignment_groups WHERE portal_enabled=1`)).n || 0;
-      res.render('admin_bacheca', { announcements, readMap, totalStands, saved: req.query.saved });
+      const allGroups = await dbAll(`SELECT id, name FROM assignment_groups ORDER BY name ASC`);
+      res.render('admin_bacheca', { announcements, readMap, totalStands, allGroups, saved: req.query.saved });
     } catch(err) {
       console.error('Errore /admin/bacheca:', err);
       res.status(500).send('Errore interno');
@@ -2781,16 +2784,16 @@ async function triggerBatchPassOnClose(groupId) {
 
   // POST /admin/bacheca — crea nuovo annuncio
   app.post('/admin/bacheca', requireAuth, requireOrganizer, async (req, res) => {
-    console.log('[DEBUG bacheca] req.body:', JSON.stringify(req.body));
     // ✅ FIX: trim prima di validare — evita SQLITE_CONSTRAINT NOT NULL su stringhe di soli spazi
     const title   = (req.body.title   || '').trim();
     const message = (req.body.message || '').trim();
     const { emoji, type, is_pinned, expires_at } = req.body;
+    const target_group_id = req.body.target_group_id ? parseInt(req.body.target_group_id, 10) : null;
     if (!title || !message) return res.redirect('/admin/bacheca?saved=err');
     try {
       await dbRun(
-        `INSERT INTO announcements (title, message, emoji, type, is_pinned, expires_at, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO announcements (title, message, emoji, type, is_pinned, expires_at, created_by, target_group_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           title,
           message,
@@ -2798,10 +2801,11 @@ async function triggerBatchPassOnClose(groupId) {
           type || 'info',
           is_pinned ? 1 : 0,
           expires_at || null,
-          req.session.user.id
+          req.session.user.id,
+          target_group_id
         ]
       );
-      logAction(req.session.user.id, 'create_announcement', 'announcement', null, `"${title}"`);
+      logAction(req.session.user.id, 'create_announcement', 'announcement', null, `"${title}"${target_group_id ? ' → gruppo '+target_group_id : ''}`);
       res.redirect('/admin/bacheca?saved=1');
     } catch(err) {
       console.error('Errore POST /admin/bacheca:', err);
@@ -2890,11 +2894,14 @@ async function triggerBatchPassOnClose(groupId) {
         SELECT COUNT(*) AS cnt
         FROM announcements a
         WHERE (a.expires_at IS NULL OR a.expires_at > datetime('now'))
+          AND (a.target_group_id IS NULL OR a.target_group_id = (
+            SELECT id FROM assignment_groups WHERE portal_token=? LIMIT 1
+          ))
           AND NOT EXISTS (
             SELECT 1 FROM announcement_reads ar
             WHERE ar.announcement_id = a.id AND ar.portal_token = ?
           )
-      `, [token]);
+      `, [token, token, token]);
       res.json({ unread: row ? row.cnt : 0 });
     } catch(err) {
       res.json({ unread: 0 });
@@ -2932,8 +2939,11 @@ async function triggerBatchPassOnClose(groupId) {
            FROM announcements a
            LEFT JOIN announcement_reads ar ON ar.announcement_id=a.id AND ar.portal_token=?
            WHERE (a.expires_at IS NULL OR a.expires_at > datetime('now'))
+             AND (a.target_group_id IS NULL OR a.target_group_id = (
+               SELECT id FROM assignment_groups WHERE portal_token=? LIMIT 1
+             ))
            ORDER BY a.is_pinned DESC, a.created_at DESC`,
-          [token]
+          [token, token]
         ),
         dbGet(
           `SELECT COUNT(*) AS cnt FROM announcements a

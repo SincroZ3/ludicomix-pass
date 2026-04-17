@@ -769,4 +769,7 @@ db.serialize(() => {
   });
 });
 
+// ── Migrazione bacheca: target per gruppo specifico ──────────────────────────
+db.run(`ALTER TABLE announcements ADD COLUMN target_group_id INTEGER REFERENCES assignment_groups(id)`, () => {});
+
 module.exports = db;
