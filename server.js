@@ -122,7 +122,7 @@ const app = express();
   const uploadMemory = multer({ storage: multer.memoryStorage(), limits:{ fileSize:2*1024*1024 } });
 
 crmRoutes(app, db, { requireAuth, requireNotViewer, requireOrganizer, logAction, uploadMemory });
-app.use('/', agendaRoutes);
+app.use('/', agendaRoutes(logAction));
 
 
   // ══════════════════════════════════════════════════════
@@ -941,6 +941,7 @@ app.get('/home', requireAuth, (req, res) => {
             console.error('[Volunteers EDIT]', err.message);
             return res.status(500).send('Errore aggiornamento volontario');
           }
+          logAction(req.session.user.id,'edit_volunteer','volunteer',id,`Volontario #${id} aggiornato`);
           res.redirect('/volunteers');
         }
       );
@@ -957,6 +958,7 @@ app.get('/home', requireAuth, (req, res) => {
       db.run('DELETE FROM shift_assignments WHERE volunteer_id=?', [id], function() {
         db.run('DELETE FROM volunteers WHERE id=?', [id], function(err) {
           if (err) return res.status(500).send('Errore eliminazione volontario');
+          logAction(req.session.user.id,'delete_volunteer','volunteer',id,'Volontario eliminato');
           res.redirect('/volunteers');
         });
       });
@@ -979,6 +981,7 @@ app.get('/home', requireAuth, (req, res) => {
             console.error('[Shifts POST]', err.message);
             return res.status(500).send('Errore salvataggio turno');
           }
+          logAction(req.session.user.id,'create_shift','shift',this.lastID,`Turno creato: ${String(name).trim()}`);
           res.redirect('/volunteers');
         }
       );
@@ -1001,6 +1004,7 @@ app.get('/home', requireAuth, (req, res) => {
             console.error('[Shifts EDIT]', err.message);
             return res.status(500).send('Errore aggiornamento turno');
           }
+          logAction(req.session.user.id,'edit_shift','shift',id,`Turno #${id} aggiornato`);
           res.redirect('/volunteers');
         }
       );
@@ -1017,6 +1021,7 @@ app.get('/home', requireAuth, (req, res) => {
       db.run('DELETE FROM shift_assignments WHERE shift_id=?', [id], function() {
         db.run('DELETE FROM shifts WHERE id=?', [id], function(err) {
           if (err) return res.status(500).send('Errore eliminazione turno');
+          logAction(req.session.user.id,'delete_shift','shift',id,'Turno eliminato');
           res.redirect('/volunteers');
         });
       });
@@ -1042,6 +1047,7 @@ app.get('/home', requireAuth, (req, res) => {
             if (String(err.message||'').includes('UNIQUE')) return res.status(400).send('Volontario già assegnato a questo turno');
             return res.status(500).send('Errore assegnazione volontario');
           }
+          logAction(req.session.user.id,'assign_volunteer','shift_assignment',this.lastID,`Volontario #${volunteerId} assegnato al turno #${shiftId}`);
           res.redirect('/volunteers');
         }
       );
@@ -1057,6 +1063,7 @@ app.get('/home', requireAuth, (req, res) => {
       const id = parseInt(req.params.id, 10);
       db.run('DELETE FROM shift_assignments WHERE id=?', [id], function(err) {
         if (err) return res.status(500).send('Errore rimozione assegnazione');
+        logAction(req.session.user.id,'delete_shift_assignment','shift_assignment',id,'Assegnazione turno rimossa');
         res.redirect('/volunteers');
       });
     } catch (err) {

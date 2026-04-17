@@ -17,6 +17,9 @@ const router  = express.Router();
 const db      = require('./db');
 const bwipjs  = require('bwip-js');
 
+module.exports = function agendaRoutes(logActionFn) {
+const logAction = logActionFn || function(){};
+
 // ─────────────────────────────────────────────
 // MIDDLEWARE AUTH — protegge tutte le rotte /agenda/*
 // ─────────────────────────────────────────────
@@ -124,6 +127,7 @@ router.post('/agenda/spaces', requireAuth, (req, res) => {
         flash(req, 'error', err.message.includes('UNIQUE') ? 'Nome sala già esistente.' : 'Errore salvataggio.');
       } else {
         flash(req, 'success', `Sala "${name}" creata.`);
+        logAction(req.session.user?.id,'create_agenda_space','space',this.lastID,`Sala creata: ${name.trim()}`);
       }
       res.redirect('/agenda/spaces');
     }
@@ -136,6 +140,7 @@ router.post('/agenda/spaces/:id', requireAuth, (req, res) => {
     `UPDATE spaces SET name=?, description=?, capacity=?, location=?, color=?, active=? WHERE id=?`,
     [name.trim(), description || '', parseInt(capacity) || 0, location || '', color || '#4f98a3', active ? 1 : 0, req.params.id],
     function(err) {
+      if(!err) logAction(req.session.user?.id,'edit_agenda_space','space',req.params.id,`Sala #${req.params.id} aggiornata`);
       flash(req, err ? 'error' : 'success', err ? 'Errore aggiornamento sala.' : 'Sala aggiornata.');
       res.redirect('/agenda/spaces');
     }
@@ -150,6 +155,7 @@ router.post('/agenda/spaces/:id/delete', requireAuth, (req, res) => {
       return res.redirect('/agenda/spaces');
     }
     db.run(`DELETE FROM spaces WHERE id = ?`, [req.params.id], (err2) => {
+      if(!err2) logAction(req.session.user?.id,'delete_agenda_space','space',req.params.id,'Sala eliminata');
       flash(req, err2 ? 'error' : 'success', err2 ? 'Errore eliminazione.' : 'Sala eliminata.');
       res.redirect('/agenda/spaces');
     });
@@ -185,6 +191,7 @@ router.post('/agenda/speakers', requireAuth, (req, res) => {
     `INSERT INTO speakers (name, bio, email, phone, social_url, notes) VALUES (?,?,?,?,?,?)`,
     [name.trim(), bio || '', email || '', phone || '', social_url || '', notes || ''],
     function(err) {
+      if(!err) logAction(req.session.user?.id,'create_speaker','speaker',this.lastID,`Speaker aggiunto: ${name.trim()}`);
       flash(req, err ? 'error' : 'success', err ? 'Errore salvataggio.' : `Speaker "${name}" aggiunto.`);
       res.redirect('/agenda/speakers');
     }
@@ -197,6 +204,7 @@ router.post('/agenda/speakers/:id', requireAuth, (req, res) => {
     `UPDATE speakers SET name=?, bio=?, email=?, phone=?, social_url=?, notes=?, active=? WHERE id=?`,
     [name.trim(), bio || '', email || '', phone || '', social_url || '', notes || '', active ? 1 : 0, req.params.id],
     function(err) {
+      if(!err) logAction(req.session.user?.id,'edit_speaker','speaker',req.params.id,`Speaker #${req.params.id} aggiornato`);
       flash(req, err ? 'error' : 'success', err ? 'Errore aggiornamento.' : 'Speaker aggiornato.');
       res.redirect('/agenda/speakers');
     }
@@ -206,6 +214,7 @@ router.post('/agenda/speakers/:id', requireAuth, (req, res) => {
 router.post('/agenda/speakers/:id/delete', requireAuth, (req, res) => {
   db.run(`DELETE FROM event_speakers WHERE speaker_id = ?`, [req.params.id], () => {
     db.run(`DELETE FROM speakers WHERE id = ?`, [req.params.id], (err) => {
+      if(!err) logAction(req.session.user?.id,'delete_speaker','speaker',req.params.id,'Speaker eliminato');
       flash(req, err ? 'error' : 'success', err ? 'Errore eliminazione.' : 'Speaker eliminato.');
       res.redirect('/agenda/speakers');
     });
@@ -275,6 +284,7 @@ router.post('/agenda/guests', requireAuth, (req, res) => {
         flash(req, 'error', 'Errore salvataggio ospite.');
         return res.redirect('/agenda/guests/new');
       }
+      logAction(req.session.user?.id,'create_guest','guest',this.lastID,`Ospite aggiunto: ${name.trim()}`);
       flash(req, 'success', `Ospite "${name}" aggiunto.`);
       res.redirect('/agenda/guests');
     }
@@ -317,6 +327,7 @@ router.post('/agenda/guests/:id', requireAuth, (req, res) => {
       req.params.id
     ],
     function(err) {
+      if(!err) logAction(req.session.user?.id,'edit_guest','guest',req.params.id,`Ospite aggiornato: ${name.trim()}`);
       flash(req, err ? 'error' : 'success', err ? 'Errore aggiornamento ospite.' : `Ospite "${name}" aggiornato.`);
       res.redirect('/agenda/guests');
     }
@@ -326,6 +337,7 @@ router.post('/agenda/guests/:id', requireAuth, (req, res) => {
 router.post('/agenda/guests/:id/delete', requireAuth, (req, res) => {
   db.get(`SELECT name FROM guests WHERE id=?`, [req.params.id], (err, g) => {
     db.run(`DELETE FROM guests WHERE id=?`, [req.params.id], (err2) => {
+      if(!err2) logAction(req.session.user?.id,'delete_guest','guest',req.params.id,`Ospite eliminato: ${g?g.name:''}`);
       flash(req, err2 ? 'error' : 'success', err2 ? 'Errore eliminazione.' : `Ospite "${g ? g.name : ''}" eliminato.`);
       res.redirect('/agenda/guests');
     });
@@ -337,6 +349,7 @@ router.post('/agenda/guests/:id/toggle-featured', requireAuth, (req, res) => {
     if (err || !g) return res.redirect('/agenda/guests');
     const newVal = g.featured === 1 ? 0 : 1;
     db.run(`UPDATE guests SET featured=? WHERE id=?`, [newVal, req.params.id], (err2) => {
+      if(!err2) logAction(req.session.user?.id,'toggle_guest_featured','guest',req.params.id,(newVal?'In evidenza':'Evidenza rimossa')+' ospite #'+req.params.id);
       flash(req, err2 ? 'error' : 'success', err2 ? 'Errore.' : (newVal ? 'Ospite messo in evidenza.' : 'Evidenza rimossa.'));
       res.redirect(req.get('Referer') || '/agenda/guests');
     });
@@ -445,6 +458,7 @@ router.post('/agenda/events', requireAuth, (req, res) => {
           )
         );
         Promise.all(stmts).then(() => {
+          logAction(req.session.user?.id,'create_event','event',eventId,`Evento creato: ${title.trim()}`);
           flash(req, 'success', `Evento "${title}" creato.`);
           res.redirect('/agenda/events');
         });
@@ -525,6 +539,7 @@ router.post('/agenda/events/:id', requireAuth, (req, res) => {
             )
           );
           Promise.all(stmts).then(() => {
+            logAction(req.session.user?.id,'edit_event','event',id,`Evento aggiornato: ${title.trim()}`);
             flash(req, 'success', `Evento "${title}" aggiornato.`);
             res.redirect('/agenda/events');
           });
@@ -538,6 +553,7 @@ router.post('/agenda/events/:id/delete', requireAuth, (req, res) => {
   db.get(`SELECT title FROM events WHERE id=?`, [req.params.id], (err, ev) => {
     if (err) { console.error('[Agenda]', err.message); return res.status(500).send('Errore interno'); }
     db.run(`DELETE FROM events WHERE id=?`, [req.params.id], (err2) => {
+      if(!err2) logAction(req.session.user?.id,'delete_event','event',req.params.id,`Evento eliminato: ${ev?ev.title:''}`);
       flash(req, err2 ? 'error' : 'success',
         err2 ? 'Errore eliminazione.' : `Evento "${ev ? ev.title : ''}" eliminato.`);
       res.redirect('/agenda/events');
@@ -553,6 +569,7 @@ router.post('/agenda/events/:id/publish', requireAuth, (req, res) => {
       [newStatus, req.params.id], (err2) => {
       flash(req, err2 ? 'error' : 'success',
         err2 ? 'Errore.' : (newStatus ? 'Evento pubblicato nel programma.' : 'Evento rimesso in bozza.'));
+      if(!err2) logAction(req.session.user?.id,'publish_event','event',req.params.id,(newStatus?'Pubblicato':'Messo in bozza')+' evento #'+req.params.id);
       res.redirect(req.get('Referer') || '/agenda/events');
     });
   });
@@ -591,6 +608,7 @@ router.post('/agenda/events/:id/registrations/:rid/cancel', requireAuth, (req, r
   db.run(
     `UPDATE registrations SET status='cancelled', cancelled_at=datetime('now') WHERE id=?`,
     [req.params.rid], (err) => {
+    if(!err) logAction(req.session.user?.id,'cancel_registration','registration',req.params.rid,`Iscrizione #${req.params.rid} annullata per evento #${req.params.id}`);
     flash(req, err ? 'error' : 'success', err ? 'Errore.' : 'Iscrizione annullata.');
     res.redirect(`/agenda/events/${req.params.id}/registrations`);
   });
@@ -781,4 +799,5 @@ router.get('/api/agenda/search-participants', requireAuth, (req, res) => {
   });
 });
 
-module.exports = router;
+return router;
+};

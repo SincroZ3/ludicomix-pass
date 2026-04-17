@@ -187,6 +187,7 @@ module.exports = function(app, db, deps) {
         'INSERT INTO portal_documents (assignment_group_id, doc_type, filename, original_name) VALUES (?,?,?,?)',
         [group.id, req.body.doc_type || 'altro', safeName, req.file.originalname]
       );
+      logAction(null,'portal_upload_doc','portal_document',group.id,`Documento caricato dal portale del gruppo #${group.id}: ${req.file.originalname}`);
       res.json({ ok: true });
     } catch(e) { res.status(500).json({ error: e.message }); }
   });
@@ -235,6 +236,7 @@ module.exports = function(app, db, deps) {
         'INSERT INTO support_tickets (assignment_group_id, portal_token, subject, message) VALUES (?,?,?,?)',
         [group.id, token, subject.trim(), message.trim()]
       );
+      logAction(null,'portal_open_ticket','support_ticket',group.id,`Ticket aperto dal portale del gruppo #${group.id}: "${subject.trim()}"`);
       res.json({ ok: true });
     } catch(e) { res.status(500).json({ error: e.message }); }
   });
@@ -253,6 +255,7 @@ module.exports = function(app, db, deps) {
         'INSERT INTO ticket_replies (ticket_id, message, is_admin, author_name) VALUES (?,?,0,?)',
         [tid, message.trim(), group.name]
       );
+      logAction(null,'portal_reply_ticket','support_ticket',tid,`Risposta ticket #${tid} dal portale del gruppo #${group.id}`);
       res.json({ ok: true });
     } catch(e) { res.status(500).json({ error: e.message }); }
   });
