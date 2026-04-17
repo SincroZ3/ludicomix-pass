@@ -1418,6 +1418,137 @@ function removeNominativo(pid, btnEl) {
     if (msg) { msg.style.display='block'; msg.style.color='#c0392b'; msg.textContent='Errore di rete.'; }
   });
 }
+
+// ── Servizi ──────────────────────────────────────────────────────────────────
+var __SRV_TYPE = null;
+var __SRV_LABELS = {corrente:'⚡ Corrente',acqua:'💧 Acqua',wifi:'📶 Wi-Fi',gazebo:'⛺ Gazebo',tavoli_extra:'🪑 Tavoli extra',altro:'📦 Altro'};
+var __SRV_STATUS = {in_attesa:{label:'In attesa',cls:'srv-s-wait'},approvato:{label:'Approvato',cls:'srv-s-ok'},consegnato:{label:'Consegnato',cls:'srv-s-done'},annullato:{label:'Annullato',cls:'srv-s-cancel'}};
+
+function selectSrvType(btn) {
+  document.querySelectorAll('.srv-type-btn').forEach(function(b){ b.classList.remove('sel'); });
+  btn.classList.add('sel');
+  __SRV_TYPE = btn.getAttribute('data-type');
+  document.getElementById('srv-form-extra').style.display = 'block';
+  document.getElementById('srv-msg').style.display = 'none';
+}
+
+function submitSrvRequest() {
+  if (!__SRV_TYPE) return;
+  var qty    = parseInt(document.getElementById('srv-qty').value, 10) || 1;
+  var notes  = document.getElementById('srv-notes').value.trim();
+  var btn    = document.getElementById('srv-submit-btn');
+  var msg    = document.getElementById('srv-msg');
+  btn.disabled = true; btn.textContent = '⏳ Invio…';
+  fetch('/api/portale/' + __TOKEN + '/service-request', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({type: __SRV_TYPE, quantity: qty, notes: notes})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    btn.disabled = false; btn.textContent = '📨 Invia richiesta';
+    msg.style.display = 'block';
+    if (d.ok) {
+      msg.style.color = '#065f46'; msg.textContent = '✅ Richiesta inviata con successo!';
+      document.querySelectorAll('.srv-type-btn').forEach(function(b){ b.classList.remove('sel'); });
+      document.getElementById('srv-form-extra').style.display = 'none';
+      document.getElementById('srv-notes').value = '';
+      document.getElementById('srv-qty').value = '1';
+      __SRV_TYPE = null;
+      loadSrvHistory();
+    } else {
+      msg.style.color = '#991b1b'; msg.textContent = '❌ ' + (d.error||'Errore imprevisto');
+    }
+  })
+  .catch(function(){
+    btn.disabled = false; btn.textContent = '📨 Invia richiesta';
+    msg.style.display='block'; msg.style.color='#991b1b'; msg.textContent='Errore di rete.';
+  });
+}
+
+function loadSrvHistory() {
+  var list = document.getElementById('srv-list');
+  if (!list) return;
+  fetch('/api/portale/' + __TOKEN + '/service-requests')
+  .then(function(r){ return r.json(); })
+  .then(function(rows){
+    if (!rows.length) {
+      list.innerHTML = '<li style="color:#94a3b8;font-size:.82rem;justify-content:center">Nessuna richiesta ancora inviata.</li>';
+      return;
+    }
+    list.innerHTML = rows.map(function(r){
+      var sc = __SRV_STATUS[r.status] || __SRV_STATUS.in_attesa;
+      return '<li><span class="srv-status '+sc.cls+'">'+sc.label+'</span> <strong>'+(r.quantity>1?r.quantity+'× ':'')+(__SRV_LABELS[r.type]||r.type)+'</strong>'+(r.notes?' — <span style="color:#64748b">'+r.notes+'</span>':'')+' <span style="font-size:.72rem;color:#94a3b8;margin-left:auto">'+((r.requested_at||'').substring(0,16).replace('T',' '))+'</span></li>';
+    }).join('');
+  })
+  .catch(function(){ list.innerHTML = '<li style="color:#94a3b8;font-size:.82rem">Impossibile caricare le richieste.</li>'; });
+}
+
+// Carica storico al boot
+if (typeof __TOKEN !== 'undefined') { loadSrvHistory(); }
+
+
+
+<!-- ══════════════════════════════════════════════════════════
+     SEZIONE: RICHIEDI SERVIZI
+     ══════════════════════════════════════════════════════════ -->
+<style>
+  .srv-card{background:var(--card-bg,#fff);border:1.5px solid var(--border-light,#e2e8f0);border-radius:12px;padding:1.25rem 1.5rem;margin-bottom:1.25rem}
+  .srv-type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-bottom:.75rem}
+  @media(max-width:480px){.srv-type-grid{grid-template-columns:repeat(2,1fr)}}
+  .srv-type-btn{display:flex;flex-direction:column;align-items:center;gap:.2rem;padding:.55rem .4rem;border:2px solid #e2e8f0;border-radius:8px;cursor:pointer;background:#fff;font-family:inherit;transition:all .15s;font-size:.78rem;font-weight:600;color:#374151}
+  .srv-type-btn:hover,.srv-type-btn.sel{border-color:#1e2d4e;background:#eff6ff;color:#1e2d4e}
+  .srv-type-btn .ico{font-size:1.4rem;line-height:1}
+  .srv-list{list-style:none;padding:0;margin:0}
+  .srv-list li{display:flex;align-items:center;gap:.6rem;padding:.45rem 0;border-bottom:1px solid #f1f5f9;font-size:.88rem}
+  .srv-list li:last-child{border-bottom:none}
+  .srv-status{display:inline-block;font-size:.68rem;font-weight:700;padding:.1rem .45rem;border-radius:9999px}
+  .srv-s-wait{background:#fef3c7;color:#92400e}
+  .srv-s-ok{background:#d1fae5;color:#065f46}
+  .srv-s-done{background:#dbeafe;color:#1e40af}
+  .srv-s-cancel{background:#fee2e2;color:#991b1b}
+</style>
+
+<div class="srv-card" id="srv-section">
+  <h3 style="font-size:1rem;color:#1e2d4e;margin-bottom:.2rem">⚙️ Richiedi un servizio</h3>
+  <p style="font-size:.82rem;color:#64748b;margin-bottom:.9rem">Seleziona il servizio di cui hai bisogno. La richiesta verrà inviata all'organizzazione.</p>
+
+  <div class="srv-type-grid" id="srv-type-grid">
+    <button class="srv-type-btn" data-type="corrente" onclick="selectSrvType(this)"><span class="ico">⚡</span>Corrente</button>
+    <button class="srv-type-btn" data-type="acqua"    onclick="selectSrvType(this)"><span class="ico">💧</span>Acqua</button>
+    <button class="srv-type-btn" data-type="wifi"     onclick="selectSrvType(this)"><span class="ico">📶</span>Wi-Fi</button>
+    <button class="srv-type-btn" data-type="gazebo"   onclick="selectSrvType(this)"><span class="ico">⛺</span>Gazebo</button>
+    <button class="srv-type-btn" data-type="tavoli_extra" onclick="selectSrvType(this)"><span class="ico">🪑</span>Tavoli extra</button>
+    <button class="srv-type-btn" data-type="altro"    onclick="selectSrvType(this)"><span class="ico">📦</span>Altro</button>
+  </div>
+
+  <div id="srv-form-extra" style="display:none;margin-bottom:.75rem">
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end">
+      <div style="display:flex;flex-direction:column;gap:.25rem">
+        <label style="font-size:.72rem;font-weight:600;text-transform:uppercase;color:#64748b">Quantità</label>
+        <input type="number" id="srv-qty" value="1" min="1" max="99" style="width:70px;border:1.5px solid #d1d5db;border-radius:7px;padding:.4rem .6rem;font-size:.9rem">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.25rem;flex:1;min-width:140px">
+        <label style="font-size:.72rem;font-weight:600;text-transform:uppercase;color:#64748b">Note (facoltativo)</label>
+        <input type="text" id="srv-notes" placeholder="Specifiche, posizione, ecc." style="border:1.5px solid #d1d5db;border-radius:7px;padding:.4rem .7rem;font-size:.88rem;width:100%">
+      </div>
+    </div>
+    <div id="srv-msg" style="margin-top:.5rem;font-size:.82rem;display:none"></div>
+    <button onclick="submitSrvRequest()" id="srv-submit-btn"
+      style="margin-top:.65rem;background:#1e2d4e;color:#f5c842;border:none;border-radius:8px;padding:.5rem 1.25rem;font-size:.88rem;font-weight:700;cursor:pointer;width:100%">
+      📨 Invia richiesta
+    </button>
+  </div>
+</div>
+
+<!-- Lista richieste inviate -->
+<div class="srv-card" id="srv-history-card">
+  <h3 style="font-size:.92rem;color:#1e2d4e;margin-bottom:.75rem">📋 Le tue richieste</h3>
+  <ul class="srv-list" id="srv-list">
+    <li style="color:#94a3b8;font-size:.82rem;justify-content:center">Caricamento…</li>
+  </ul>
+</div>
+
 </script>
 </body>
 </html>

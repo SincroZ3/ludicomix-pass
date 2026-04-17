@@ -772,4 +772,34 @@ db.serialize(() => {
 // ── Migrazione bacheca: target per gruppo specifico ──────────────────────────
 db.run(`ALTER TABLE announcements ADD COLUMN target_group_id INTEGER REFERENCES assignment_groups(id)`, () => {});
 
+// ── Modulo 7: Servizi & Logistica ────────────────────────────────────────────
+db.run(`CREATE TABLE IF NOT EXISTS service_requests (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  assignment_group_id INTEGER REFERENCES assignment_groups(id),
+  type                TEXT NOT NULL,
+  quantity            INTEGER DEFAULT 1,
+  notes               TEXT,
+  status              TEXT DEFAULT 'in_attesa',
+  requested_at        TEXT DEFAULT (datetime('now')),
+  updated_at          TEXT DEFAULT (datetime('now'))
+)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS equipment (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  name      TEXT NOT NULL,
+  category  TEXT,
+  total_qty INTEGER DEFAULT 1,
+  notes     TEXT
+)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS equipment_loans (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  equipment_id        INTEGER NOT NULL REFERENCES equipment(id),
+  assignment_group_id INTEGER REFERENCES assignment_groups(id),
+  qty                 INTEGER DEFAULT 1,
+  loaned_at           TEXT DEFAULT (datetime('now')),
+  returned_at         TEXT,
+  notes               TEXT
+)`);
+
 module.exports = db;

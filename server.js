@@ -2757,6 +2757,186 @@ async function triggerBatchPassOnClose(groupId) {
   // ═══════════════════════════════════════════════════════════════
 
   // GET  /admin/bacheca — pagina di gestione comunicazioni (admin only)
+
+  // ══════════════════════════════════════════════════════════════
+  // MODULO 7 — SERVIZI & LOGISTICA
+  // ══════════════════════════════════════════════════════════════
+
+  // ── Admin: lista richieste servizi ──────────────────────────
+  app.get('/admin/logistica', requireAuth, requireOrganizer, async (req, res) => {
+    try {
+      const requests   = await dbAll(`
+        SELECT sr.*, ag.name AS group_name
+        FROM service_requests sr
+        LEFT JOIN assignment_groups ag ON ag.id = sr.assignment_group_id
+        ORDER BY sr.requested_at DESC
+      `);
+      const equipment  = await dbAll(`SELECT * FROM equipment ORDER BY category, name`);
+      const loans      = await dbAll(`
+        SELECT el.*, e.name AS equipment_name, e.category,
+               ag.name AS group_name
+        FROM equipment_loans el
+        JOIN equipment e ON e.id = el.equipment_id
+        LEFT JOIN assignment_groups ag ON ag.id = el.assignment_group_id
+        ORDER BY el.loaned_at DESC
+      `);
+      const groups = await dbAll(`SELECT id, name FROM assignment_groups ORDER BY name`);
+      res.render('admin-logistica', { requests, equipment, loans, groups, saved: req.query.saved || null });
+    } catch(err) {
+      console.error('Errore /admin/logistica:', err);
+      res.status(500).send('Errore interno');
+    }
+  });
+
+  // ── Admin: aggiorna status richiesta servizio ────────────────
+  app.post('/admin/logistica/requests/:id/status', requireAuth, requireOrganizer, async (req, res) => {
+    const { status } = req.body;
+    const id = parseInt(req.params.id, 10);
+    try {
+      await dbRun(
+        `UPDATE service_requests SET status=?, updated_at=datetime('now') WHERE id=?`,
+        [status, id]
+      );
+      res.json({ ok: true });
+    } catch(err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin: elimina richiesta servizio ───────────────────────
+  app.delete('/admin/logistica/requests/:id', requireAuth, requireOrganizer, async (req, res) => {
+    try {
+      await dbRun(`DELETE FROM service_requests WHERE id=?`, [parseInt(req.params.id, 10)]);
+      res.json({ ok: true });
+    } catch(err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin: aggiungi attrezzatura al catalogo ─────────────────
+  app.post('/admin/logistica/equipment', requireAuth, requireOrganizer, async (req, res) => {
+    const { name, category, total_qty, notes } = req.body;
+    if (!name) return res.redirect('/admin/logistica?saved=err');
+    try {
+      await dbRun(
+        `INSERT INTO equipment (name, category, total_qty, notes) VALUES (?,?,?,?)`,
+        [name.trim(), category || null, parseInt(total_qty, 10) || 1, notes || null]
+      );
+      res.redirect('/admin/logistica?saved=equipment');
+    } catch(err) {
+      console.error(err);
+      res.redirect('/admin/logistica?saved=err');
+    }
+  });
+
+  // ── Admin: modifica attrezzatura ─────────────────────────────
+  app.post('/admin/logistica/equipment/:id/edit', requireAuth, requireOrganizer, async (req, res) => {
+    const { name, category, total_qty, notes } = req.body;
+    const id = parseInt(req.params.id, 10);
+    try {
+      await dbRun(
+        `UPDATE equipment SET name=?, category=?, total_qty=?, notes=? WHERE id=?`,
+        [name.trim(), category || null, parseInt(total_qty, 10) || 1, notes || null, id]
+      );
+      res.json({ ok: true });
+    } catch(err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin: elimina attrezzatura ──────────────────────────────
+  app.delete('/admin/logistica/equipment/:id', requireAuth, requireOrganizer, async (req, res) => {
+    try {
+      await dbRun(`DELETE FROM equipment WHERE id=?`, [parseInt(req.params.id, 10)]);
+      res.json({ ok: true });
+    } catch(err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin: registra prestito ─────────────────────────────────
+  app.post('/admin/logistica/loans', requireAuth, requireOrganizer, async (req, res) => {
+    const { equipment_id, assignment_group_id, qty, notes } = req.body;
+    if (!equipment_id) return res.redirect('/admin/logistica?saved=err');
+    try {
+      await dbRun(
+        `INSERT INTO equipment_loans (equipment_id, assignment_group_id, qty, loaned_at, notes)
+         VALUES (?,?,?,datetime('now'),?)`,
+        [parseInt(equipment_id, 10),
+         assignment_group_id ? parseInt(assignment_group_id, 10) : null,
+         parseInt(qty, 10) || 1,
+         notes || null]
+      );
+      res.redirect('/admin/logistica?saved=loan');
+    } catch(err) {
+      console.error(err);
+      res.redirect('/admin/logistica?saved=err');
+    }
+  });
+
+  // ── Admin: segna riconsegna ──────────────────────────────────
+  app.post('/admin/logistica/loans/:id/return', requireAuth, requireOrganizer, async (req, res) => {
+    try {
+      await dbRun(
+        `UPDATE equipment_loans SET returned_at=datetime('now') WHERE id=?`,
+        [parseInt(req.params.id, 10)]
+      );
+      res.json({ ok: true });
+    } catch(err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin: elimina prestito ──────────────────────────────────
+  app.delete('/admin/logistica/loans/:id', requireAuth, requireOrganizer, async (req, res) => {
+    try {
+      await dbRun(`DELETE FROM equipment_loans WHERE id=?`, [parseInt(req.params.id, 10)]);
+      res.json({ ok: true });
+    } catch(err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Portale espositore: invia richiesta servizio ─────────────
+  app.post('/api/portale/:token/service-request', async (req, res) => {
+    const token = req.params.token;
+    try {
+      const group = await dbGet(`SELECT id FROM assignment_groups WHERE portal_token=?`, [token]);
+      if (!group) return res.status(404).json({ error: 'Token non valido' });
+      const { type, quantity, notes } = req.body;
+      if (!type) return res.status(400).json({ error: 'Tipo obbligatorio' });
+      await dbRun(
+        `INSERT INTO service_requests (assignment_group_id, type, quantity, notes)
+         VALUES (?,?,?,?)`,
+        [group.id, type, parseInt(quantity, 10) || 1, notes || null]
+      );
+      createNotification('service', 'Nuova richiesta servizio',
+        `Richiesta <strong>${type}</strong> (x${quantity||1}) da gruppo ID ${group.id}.`, null, null);
+      res.json({ ok: true });
+    } catch(err) {
+      console.error('Errore richiesta servizio portale:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Portale: lista richieste del gruppo ──────────────────────
+  app.get('/api/portale/:token/service-requests', async (req, res) => {
+    const token = req.params.token;
+    try {
+      const group = await dbGet(`SELECT id FROM assignment_groups WHERE portal_token=?`, [token]);
+      if (!group) return res.status(404).json({ error: 'Token non valido' });
+      const rows = await dbAll(
+        `SELECT id, type, quantity, notes, status, requested_at
+         FROM service_requests WHERE assignment_group_id=?
+         ORDER BY requested_at DESC`,
+        [group.id]
+      );
+      res.json(rows);
+    } catch(err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.get('/admin/bacheca', requireAuth, requireOrganizer, async (req, res) => {
     try {
       const announcements = await dbAll(`
