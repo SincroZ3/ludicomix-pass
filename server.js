@@ -3115,9 +3115,11 @@ async function triggerBatchPassOnClose(groupId) {
     } catch(e){ res.redirect('/admin/catering?saved=err'); }
   });
   app.delete('/admin/catering/order/:id', requireAuth, requireOrganizer, async (req,res) => {
-    try { await dbRun(`DELETE FROM catering_orders WHERE id=?`,[+req.params.id]); res.json({ok:true}); }
+    try {
+      await dbRun(`DELETE FROM catering_orders WHERE id=?`,[+req.params.id]);
       logAction(req.session.user.id,'delete_catering_order','catering',+req.params.id,'Ordinazione catering eliminata');
-    catch(e){ res.status(500).json({error:e.message}); }
+      res.json({ok:true});
+    } catch(e){ res.status(500).json({error:e.message}); }
   });
 
   // ─── Fornitori ───────────────────────────────────────────────────
@@ -3158,9 +3160,11 @@ async function triggerBatchPassOnClose(groupId) {
     } catch(e){ res.redirect('/admin/fornitori?saved=err'); }
   });
   app.delete('/admin/fornitori/item/:id', requireAuth, requireOrganizer, async (req,res) => {
-    try { await dbRun(`DELETE FROM supplier_items WHERE id=?`,[+req.params.id]); res.json({ok:true}); }
+    try {
+      await dbRun(`DELETE FROM supplier_items WHERE id=?`,[+req.params.id]);
       logAction(req.session.user.id,'delete_fornitore_item','fornitore',+req.params.id,'Voce fornitore eliminata');
-    catch(e){ res.status(500).json({error:e.message}); }
+      res.json({ok:true});
+    } catch(e){ res.status(500).json({error:e.message}); }
   });
 
   // ── Portale espositore: invia richiesta servizio ─────────────
