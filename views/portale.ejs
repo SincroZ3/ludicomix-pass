@@ -995,6 +995,7 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
 <script>
 (function(){
   var token = '<%= token %>';
+  window.__SRV_TOKEN = token; // esposto globalmente per il modulo servizi
   var marked = false;
 
   // Segna come letti al caricamento se la bacheca è visibile
@@ -1337,7 +1338,7 @@ function submitSrvRequest() {
   var btn=document.getElementById('srv-submit-btn');
   var msg=document.getElementById('srv-msg');
   btn.disabled=true; btn.textContent='⏳ Invio…';
-  fetch('/api/portale/'+token+'/service-request',{
+  fetch('/api/portale/'+__SRV_TOKEN+'/service-request',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({type:__SRV_TYPE,quantity:qty,notes:notes})
   })
@@ -1364,7 +1365,7 @@ function submitSrvRequest() {
 function loadSrvHistory(){
   var list=document.getElementById('srv-list');
   if(!list) return;
-  fetch('/api/portale/'+token+'/service-requests')
+  fetch('/api/portale/'+__SRV_TOKEN+'/service-requests')
   .then(function(r){return r.json();})
   .then(function(rows){
     if(!rows.length){list.innerHTML='<li class="empty-msg" style="padding:.5rem 0">Nessuna richiesta ancora inviata.</li>';return;}
@@ -1375,7 +1376,7 @@ function loadSrvHistory(){
   })
   .catch(function(){list.innerHTML='<li class="empty-msg" style="padding:.5rem 0">Impossibile caricare le richieste.</li>';});
 }
-if(typeof token!=='undefined'){loadSrvHistory();}
+if(typeof __SRV_TOKEN!=='undefined'&&__SRV_TOKEN){loadSrvHistory();}
 
 </script>
 </body>
