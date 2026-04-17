@@ -123,12 +123,14 @@
       <span class="cnt-pill<%= requests.filter(r=>r.status==='in_attesa').length>0?' alert':'' %>" id="badge-req"><%= requests.filter(r=>r.status==='in_attesa').length %></span>
     </button>
     <button class="log-tab" onclick="showTab('attrezzature',this)">🔧 Catalogo attrezzature</button>
+    <button class="log-tab" onclick="showTab('checklist',this)">☑️ Checklist</button>
+    <button class="log-tab" onclick="showTab('catering',this)">🍽️ Catering</button>
+    <button class="log-tab" onclick="showTab('fornitori',this)">🏭 Fornitori</button>
     <button class="log-tab" onclick="showTab('impostazioni',this)">⚙️ Impostazioni</button>
     <button class="log-tab" onclick="showTab('prestiti',this)">
       🔄 Prestiti
       <span class="cnt-pill<%= loans.filter(l=>!l.returned_at).length>0?' alert':'' %>" id="badge-loans"><%= loans.filter(l=>!l.returned_at).length %></span>
     </button>
-    <button class="log-tab" onclick="showTab('impostazioni',this)">⚙️ Impostazioni</button>
   </div>
 
   <!-- ══ TAB 1: RICHIESTE SERVIZI ══ -->
@@ -370,6 +372,112 @@
     <% } %>
   </div>
 
+  <!-- ══ HUB: CHECKLIST ══ -->
+  <div class="log-panel" id="panel-checklist">
+    <div class="log-card">
+      <div class="log-card-head">
+        <span class="log-card-title">☑️ Checklist montaggio / smontaggio</span>
+        <a href="/admin/checklist" style="background:#1e2d4e;color:#f5c842;border-radius:8px;padding:.38rem 1rem;font-size:.82rem;font-weight:700;text-decoration:none">Apri modulo →</a>
+      </div>
+      <div class="log-card-body">
+        <p style="font-size:.88rem;color:#475569;max-width:60ch;margin-bottom:1.25rem">
+          Crea template di checklist per <strong>montaggio</strong>, <strong>smontaggio</strong> e <strong>allestimenti</strong> della fiera (aree comuni, allestimenti specifici, stand interni). Avvia un'esecuzione live e spunta ogni voce in tempo reale con tracciatura di chi e quando ha completato.
+        </p>
+        <div style="display:flex;gap:1rem;flex-wrap:wrap">
+          <div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:10px;padding:.85rem 1.1rem;flex:1;min-width:180px">
+            <div style="font-size:.75rem;font-weight:700;color:#0369a1;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem">Come si usa</div>
+            <ol style="margin:0;padding-left:1.2rem;font-size:.83rem;color:#334155;line-height:1.7">
+              <li>Crea un <strong>template</strong> con titolo, zona e fase</li>
+              <li>Aggiungi le <strong>voci</strong> da completare</li>
+              <li>Clicca <strong>Avvia</strong> il giorno dell'evento</li>
+              <li>Lo staff spunta le voci man mano</li>
+            </ol>
+          </div>
+          <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:.85rem 1.1rem;flex:1;min-width:180px">
+            <div style="font-size:.75rem;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem">Fasi disponibili</div>
+            <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.35rem">
+              <span style="background:#dbeafe;color:#1e40af;font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:9999px">🔧 Montaggio</span>
+              <span style="background:#fef3c7;color:#92400e;font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:9999px">📦 Smontaggio</span>
+              <span style="background:#f3e8ff;color:#6b21a8;font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:9999px">🎨 Allestimento</span>
+              <span style="background:#f1f5f9;color:#475569;font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:9999px">📋 Altro</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ HUB: CATERING ══ -->
+  <div class="log-panel" id="panel-catering">
+    <div class="log-card">
+      <div class="log-card-head">
+        <span class="log-card-title">🍽️ Catering staff</span>
+        <a href="/admin/catering" style="background:#1e2d4e;color:#f5c842;border-radius:8px;padding:.38rem 1rem;font-size:.82rem;font-weight:700;text-decoration:none">Apri modulo →</a>
+      </div>
+      <div class="log-card-body">
+        <p style="font-size:.88rem;color:#475569;max-width:60ch;margin-bottom:1.25rem">
+          Gestione <strong>pasti e ordinazioni</strong> per lo staff interno. Modulo riservato esclusivamente agli organizzatori — gli espositori non vedono questa sezione. Crea turni (pranzo, cena, colazione, buffet) e registra le preferenze alimentari di ogni membro dello staff.
+        </p>
+        <div style="display:flex;gap:1rem;flex-wrap:wrap">
+          <div style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:10px;padding:.85rem 1.1rem;flex:1;min-width:180px">
+            <div style="font-size:.75rem;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem">Come si usa</div>
+            <ol style="margin:0;padding-left:1.2rem;font-size:.83rem;color:#334155;line-height:1.7">
+              <li>Crea un <strong>turno pasto</strong> con data e tipo</li>
+              <li>Aggiungi le <strong>ordinazioni</strong> per ogni membro</li>
+              <li>Indica eventuali <strong>allergie / diete</strong></li>
+              <li>Usa il <strong>riepilogo</strong> da inviare al fornitore</li>
+            </ol>
+          </div>
+          <div style="background:#fdf4ff;border:1.5px solid #d8b4fe;border-radius:10px;padding:.85rem 1.1rem;flex:1;min-width:180px">
+            <div style="font-size:.75rem;font-weight:700;color:#6b21a8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem">Tipi pasto</div>
+            <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.35rem">
+              <span style="background:#fef3c7;color:#92400e;font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:9999px">🍛 Pranzo</span>
+              <span style="background:#f3e8ff;color:#6b21a8;font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:9999px">🍝 Cena</span>
+              <span style="background:#dbeafe;color:#1e40af;font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:9999px">☕ Colazione</span>
+              <span style="background:#d1fae5;color:#065f46;font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:9999px">🥗 Buffet</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ HUB: FORNITORI ══ -->
+  <div class="log-panel" id="panel-fornitori">
+    <div class="log-card">
+      <div class="log-card-head">
+        <span class="log-card-title">🏭 Rubrica fornitori</span>
+        <a href="/admin/fornitori" style="background:#1e2d4e;color:#f5c842;border-radius:8px;padding:.38rem 1rem;font-size:.82rem;font-weight:700;text-decoration:none">Apri modulo →</a>
+      </div>
+      <div class="log-card-body">
+        <p style="font-size:.88rem;color:#475569;max-width:60ch;margin-bottom:1.25rem">
+          Rubrica interna dei fornitori con <strong>contatti</strong>, elenco dettagliato di tutto il materiale <strong>noleggiato o acquistato</strong> da ciascuno, con costi unitari e totali per categoria. Il riepilogo economico è disponibile nella vista dedicata.
+        </p>
+        <div style="display:flex;gap:1rem;flex-wrap:wrap">
+          <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:.85rem 1.1rem;flex:1;min-width:180px">
+            <div style="font-size:.75rem;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem">Cosa si gestisce</div>
+            <ul style="margin:0;padding-left:1.2rem;font-size:.83rem;color:#334155;line-height:1.7">
+              <li>Anagrafica fornitore (tel, email, sito)</li>
+              <li>Voci per tipo: <strong>Noleggio</strong>, <strong>Acquisto</strong>, <strong>Servizio</strong></li>
+              <li>Quantità × costo unitario = totale automatico</li>
+              <li>Riepilogo costi per fornitore e per tipo</li>
+            </ul>
+          </div>
+          <div style="background:#fafbfc;border:1.5px solid #e2e8f0;border-radius:10px;padding:.85rem 1.1rem;flex:1;min-width:180px">
+            <div style="font-size:.75rem;font-weight:700;color:#1e2d4e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem">Tipi voce</div>
+            <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.35rem">
+              <span style="background:#dbeafe;color:#1e40af;font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:9999px">📋 Noleggio</span>
+              <span style="background:#d1fae5;color:#065f46;font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:9999px">🛒 Acquisto</span>
+              <span style="background:#f3e8ff;color:#6b21a8;font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:9999px">🔧 Servizio</span>
+              <span style="background:#f1f5f9;color:#475569;font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:9999px">📦 Altro</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
   <!-- ══ TAB 4: IMPOSTAZIONI ══ -->
   <div class="log-panel" id="panel-impostazioni">
 
@@ -448,62 +556,6 @@
   </div>
 
 </div>
-
-  <!-- ══ TAB IMPOSTAZIONI ══ -->
-  <div class="log-panel" id="panel-impostazioni">
-    <div class="log-card">
-      <div class="log-card-head">
-        <span class="log-card-title">🔧 Tipologie materiale</span>
-        <span style="font-size:.75rem;color:#64748b">Appaiono nel menu Tipologia quando aggiungi attrezzatura</span>
-      </div>
-      <div class="log-card-body">
-        <form method="POST" action="/admin/logistica/settings/category">
-          <div class="form-row">
-            <div class="field" style="flex:3;min-width:180px"><label>Nome tipologia *</label><input type="text" name="label" placeholder="Es. Banner, Cavo, Monitor" required></div>
-            <div class="field" style="width:110px"><label>Icona (emoji)</label><input type="text" name="icon" placeholder="📦" maxlength="4"></div>
-            <button type="submit" class="btn-sm">+ Aggiungi</button>
-          </div>
-        </form>
-        <div class="section-title">Tipologie configurate</div>
-        <% if(!(materialTypes||[]).length){ %><div class="empty" style="padding:1rem">Nessuna tipologia ancora.</div><% } else { %>
-          <div style="display:flex;flex-wrap:wrap;gap:.5rem">
-            <% materialTypes.forEach(function(c){ %>
-              <span style="display:inline-flex;align-items:center;gap:.4rem;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:20px;padding:.28rem .75rem;font-size:.82rem;font-weight:600;color:#1e2d4e">
-                <%= c.icon||'📦' %> <%= c.label %>
-                <button onclick="delCfg('category',<%= c.id %>)" style="background:none;border:none;cursor:pointer;font-size:.75rem;color:#94a3b8;padding:0 0 0 .2rem">✕</button>
-              </span>
-            <% }); %>
-          </div>
-        <% } %>
-      </div>
-    </div>
-    <div class="log-card">
-      <div class="log-card-head">
-        <span class="log-card-title">📍 Posizioni inventario</span>
-        <span style="font-size:.75rem;color:#64748b">Usate per raggruppare l'inventario e come opzioni nella scelta posizione</span>
-      </div>
-      <div class="log-card-body">
-        <form method="POST" action="/admin/logistica/settings/location">
-          <div class="form-row">
-            <div class="field" style="flex:3;min-width:180px"><label>Nome posizione *</label><input type="text" name="label" placeholder="Es. Magazzino palco, Corridoio nord" required></div>
-            <div class="field" style="width:110px"><label>Icona (emoji)</label><input type="text" name="icon" placeholder="📍" maxlength="4"></div>
-            <button type="submit" class="btn-sm">+ Aggiungi</button>
-          </div>
-        </form>
-        <div class="section-title">Posizioni configurate</div>
-        <% if(!(storageLocations||[]).length){ %><div class="empty" style="padding:1rem">Nessuna posizione ancora.</div><% } else { %>
-          <div style="display:flex;flex-wrap:wrap;gap:.5rem">
-            <% storageLocations.forEach(function(loc){ %>
-              <span style="display:inline-flex;align-items:center;gap:.4rem;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:20px;padding:.28rem .75rem;font-size:.82rem;font-weight:600;color:#1e2d4e">
-                <%= loc.icon||'📍' %> <%= loc.label %>
-                <button onclick="delCfg('location',<%= loc.id %>)" style="background:none;border:none;cursor:pointer;font-size:.75rem;color:#94a3b8;padding:0 0 0 .2rem">✕</button>
-              </span>
-            <% }); %>
-          </div>
-        <% } %>
-      </div>
-    </div>
-  </div>
 
 
 <script>
