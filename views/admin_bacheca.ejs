@@ -39,7 +39,8 @@
           var tc = typeColor[a.type] || typeColor.info;
           var tb = typeBg[a.type]    || typeBg.info;
           var tl = typeLabel[a.type] || 'INFO';
-          var readPct = totalStands > 0 ? Math.round((readMap[a.id]||0)/totalStands*100) : 0;
+          var annTotal = a.target_group_id ? 1 : totalStands;
+          var readPct  = annTotal > 0 ? Math.round((readMap[a.id]||0)/annTotal*100) : 0;
           var isExpired = a.expires_at && new Date(a.expires_at) < new Date();
         %>
         <div class="ann-row<%= a.is_pinned ? ' ann-pinned' : '' %><%= isExpired ? ' ann-expired' : '' %>"
@@ -77,7 +78,7 @@
                   <div style="height:5px;width:<%= readPct %>%;background:#2d6a4f;border-radius:9999px;transition:width .4s;"></div>
                 </div>
                 <span style="font-size:.68rem;color:var(--text-muted);">
-                  <strong style="color:#2d6a4f;"><%= readMap[a.id]||0 %></strong>/<%= totalStands %> letti
+                  <strong style="color:#2d6a4f;"><%= readMap[a.id]||0 %></strong>/<%= a.target_group_id ? 1 : totalStands %> letti
                 </span>
               </div>
             </div>
@@ -170,7 +171,7 @@
           </div>
         </div>
 
-        <button type="submit" class="primary" style="width:100%;margin-top:1rem;justify-content:center;">
+        <button type="submit" id="btn-pubblica" class="primary" style="width:100%;margin-top:1rem;justify-content:center;">
           📢 Pubblica su tutti i portali
         </button>
       </form>
@@ -214,6 +215,21 @@ function updatePreview() {
     badge.style.background = c[0]; badge.style.color = c[1]; badge.textContent = c[2];
   } else { box.style.display = 'none'; }
 }
+// ── Testo bottone dinamico in base al destinatario ─────────────────────────
+(function() {
+  var sel = document.querySelector('[name=target_group_id]');
+  var btn = document.getElementById('btn-pubblica');
+  if (!sel || !btn) return;
+  function updateBtn() {
+    var opt = sel.options[sel.selectedIndex];
+    btn.textContent = sel.value
+      ? '📨 Pubblica solo per: ' + opt.textContent.replace('🏷️ ', '')
+      : '📢 Pubblica su tutti i portali';
+  }
+  sel.addEventListener('change', updateBtn);
+  updateBtn();
+})();
+
 document.querySelector('[name=title]').addEventListener('input', updatePreview);
 document.querySelector('[name=message]').addEventListener('input', function(){
   updatePreview();
