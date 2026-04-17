@@ -812,10 +812,6 @@ db.run(`ALTER TABLE equipment_loans  ADD COLUMN loaned_at    TEXT DEFAULT (datet
 db.run(`ALTER TABLE equipment_loans  ADD COLUMN returned_at  TEXT`,                          () => {});
 db.run(`ALTER TABLE equipment_loans  ADD COLUMN notes        TEXT`,                          () => {});
 
-db.run(`ALTER TABLE service_requests ADD COLUMN type                TEXT`,                                  () => {});
-db.run(`ALTER TABLE service_requests ADD COLUMN quantity            INTEGER DEFAULT 1`,                     () => {});
-db.run(`ALTER TABLE service_requests ADD COLUMN notes               TEXT`,                                  () => {});
-db.run(`ALTER TABLE service_requests ADD COLUMN status              TEXT DEFAULT 'in_attesa'`,              () => {});
-db.run(`ALTER TABLE service_requests ADD COLUMN assignment_group_id INTEGER`,                               () => {});
+db.run(`ALTER TABLE service_requests ADD COLUMN edition_id INTEGER`, () => {});
 
 module.exports = db;

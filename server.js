@@ -2905,10 +2905,11 @@ async function triggerBatchPassOnClose(groupId) {
       if (!group) return res.status(404).json({ error: 'Token non valido' });
       const { type, quantity, notes } = req.body;
       if (!type) return res.status(400).json({ error: 'Tipo obbligatorio' });
+      const edId = _currentEdition ? _currentEdition.id : null;
       await dbRun(
-        `INSERT INTO service_requests (assignment_group_id, type, quantity, notes)
-         VALUES (?,?,?,?)`,
-        [group.id, type, parseInt(quantity, 10) || 1, notes || null]
+        `INSERT INTO service_requests (assignment_group_id, type, quantity, notes, edition_id)
+         VALUES (?,?,?,?,?)`,
+        [group.id, type, parseInt(quantity, 10) || 1, notes || null, edId]
       );
       createNotification('service', 'Nuova richiesta servizio',
         `Richiesta <strong>${type}</strong> (x${quantity||1}) da gruppo ID ${group.id}.`, null, null);
