@@ -70,6 +70,14 @@
     .alert-ok{background:#d1fae5;color:#065f46}
     .alert-err{background:#fee2e2;color:#991b1b}
 
+
+    /* ── Location ── */
+    .loc-section{margin-bottom:1.75rem}
+    .loc-header{display:flex;align-items:center;gap:.5rem;padding:.45rem .85rem;border-radius:8px;background:#f1f5f9;border-left:4px solid #1e2d4e;margin-bottom:.75rem;font-weight:700;font-size:.82rem;color:#1e2d4e}
+    .loc-header .loc-count{margin-left:auto;font-size:.73rem;font-weight:600;color:#64748b}
+    .loc-field{display:none;margin-top:.45rem}
+    .loc-field.visible{display:block}
+
     @media(max-width:640px){.form-row{flex-direction:column}.form-row .field{width:100%}}
   </style>
 </head>
@@ -196,6 +204,20 @@
               <label>Note</label>
               <input type="text" name="notes" placeholder="Facoltativo">
             </div>
+            <div class="field" style="min-width:180px">
+              <label>Posizione</label>
+              <select name="location" id="add-loc-sel" onchange="toggleLocCustom('add')">
+                <option value="">— non specificata —</option>
+                <option value="segreteria_palazzetto">🏛️ Segreteria Palazzetto</option>
+                <option value="segreteria_mariambini">⛪ Segreteria Mariambini</option>
+                <option value="vanvere">🏚️ Vanvere</option>
+                <option value="uffici_ludicomix">🏢 Uffici Ludicomix</option>
+                <option value="altro">📍 Altro</option>
+              </select>
+              <div class="loc-field" id="add-loc-custom">
+                <input type="text" name="location_custom" placeholder="Specificare posizione…" style="width:100%;margin-top:.3rem">
+              </div>
+            </div>
             <button type="submit" class="btn-sm">+ Aggiungi</button>
           </div>
         </form>
@@ -210,24 +232,55 @@
         var catIcons = {tavolo:'🪑',sedia:'🪑',prolunga:'⚡',gazebo:'⛺',altro:'📦'};
         var loaned = {};
         loans.forEach(function(l){ if(!l.returned_at){ loaned[l.equipment_id]=(loaned[l.equipment_id]||0)+l.qty; } });
+
+        var locLabels = {
+          segreteria_palazzetto: '🏛️ Segreteria Palazzetto',
+          segreteria_mariambini: '⛪ Segreteria Mariambini',
+          vanvere:               '🏚️ Vanvere',
+          uffici_ludicomix:      '🏢 Uffici Ludicomix',
+          altro:                 '📍 Altro',
+          '':                    '📦 Posizione non specificata'
+        };
+        var locOrder = ['segreteria_palazzetto','segreteria_mariambini','vanvere','uffici_ludicomix','altro',''];
+
+        // Raggruppa per location
+        var byLoc = {};
+        locOrder.forEach(function(k){ byLoc[k] = []; });
+        equipment.forEach(function(e){
+          var k = e.location || '';
+          if(!byLoc[k]) byLoc[k] = [];
+          byLoc[k].push(e);
+        });
       %>
-      <div class="eq-grid">
-        <% equipment.forEach(function(e){ var usedQty=loaned[e.id]||0; var avail=e.total_qty-usedQty; %>
-          <div class="eq-card" id="eq-<%= e.id %>">
-            <div class="eq-icon"><%= catIcons[e.category]||'📦' %></div>
-            <div style="flex:1;min-width:0">
-              <div style="font-weight:700;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#1e2d4e"><%= e.name %></div>
-              <div class="eq-qty">
-                Totale: <strong><%= e.total_qty %></strong> &nbsp;·&nbsp;
-                In prestito: <strong style="color:<%=usedQty>0?'#c0392b':'#065f46'%>"><%= usedQty %></strong> &nbsp;·&nbsp;
-                Disponibili: <strong class="eq-available"><%= avail %></strong>
-              </div>
-              <% if(e.notes){ %><div style="font-size:.72rem;color:#94a3b8;margin-top:.2rem"><%= e.notes %></div><% } %>
-            </div>
-            <button class="btn-del" onclick="deleteEq(<%= e.id %>)" title="Rimuovi">🗑</button>
+      <% locOrder.forEach(function(locKey){ %>
+        <% if(!byLoc[locKey] || !byLoc[locKey].length){ return; } %>
+        <div class="loc-section">
+          <div class="loc-header">
+            <%= locLabels[locKey] %>
+            <span class="loc-count"><%= byLoc[locKey].length %> articol<%= byLoc[locKey].length===1?'o':'i' %></span>
           </div>
-        <% }); %>
-      </div>
+          <div class="eq-grid">
+            <% byLoc[locKey].forEach(function(e){ var usedQty=loaned[e.id]||0; var avail=e.total_qty-usedQty; %>
+              <div class="eq-card" id="eq-<%= e.id %>">
+                <div class="eq-icon"><%= catIcons[e.category]||'📦' %></div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:700;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#1e2d4e"><%= e.name %></div>
+                  <div class="eq-qty">
+                    Totale: <strong><%= e.total_qty %></strong> &nbsp;·&nbsp;
+                    In prestito: <strong style="color:<%=usedQty>0?'#c0392b':'#065f46'%>"><%= usedQty %></strong> &nbsp;·&nbsp;
+                    Disponibili: <strong class="eq-available"><%= avail %></strong>
+                  </div>
+                  <% if(e.location==='altro' && e.location_custom){ %>
+                    <div style="font-size:.71rem;color:#1e2d4e;font-weight:600;margin-top:.15rem">📍 <%= e.location_custom %></div>
+                  <% } %>
+                  <% if(e.notes){ %><div style="font-size:.72rem;color:#94a3b8;margin-top:.1rem"><%= e.notes %></div><% } %>
+                </div>
+                <button class="btn-del" onclick="deleteEq(<%= e.id %>)" title="Rimuovi">🗑</button>
+              </div>
+            <% }); %>
+          </div>
+        </div>
+      <% }); %>
     <% } %>
   </div>
 
@@ -336,6 +389,12 @@
 </div>
 
 <script>
+function toggleLocCustom(prefix) {
+  var sel = document.getElementById(prefix+'-loc-sel');
+  var div = document.getElementById(prefix+'-loc-custom');
+  if(!sel||!div) return;
+  div.classList.toggle('visible', sel.value==='altro');
+}
 function showTab(id,btn){
   document.querySelectorAll('.log-panel').forEach(function(p){p.classList.remove('active');});
   document.querySelectorAll('.log-tab').forEach(function(b){b.classList.remove('active');});

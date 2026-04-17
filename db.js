@@ -808,6 +808,8 @@ db.run(`ALTER TABLE service_requests ADD COLUMN updated_at   TEXT DEFAULT (datet
 db.run(`ALTER TABLE equipment        ADD COLUMN category     TEXT`,                           () => {});
 db.run(`ALTER TABLE equipment        ADD COLUMN total_qty    INTEGER DEFAULT 1`,              () => {});
 db.run(`ALTER TABLE equipment        ADD COLUMN notes        TEXT`,                           () => {});
+db.run(`ALTER TABLE equipment        ADD COLUMN location       TEXT`,                           () => {});
+db.run(`ALTER TABLE equipment        ADD COLUMN location_custom TEXT`,                          () => {});
 db.run(`ALTER TABLE equipment_loans  ADD COLUMN loaned_at    TEXT DEFAULT (datetime('now'))`, () => {});
 db.run(`ALTER TABLE equipment_loans  ADD COLUMN returned_at  TEXT`,                          () => {});
 db.run(`ALTER TABLE equipment_loans  ADD COLUMN notes        TEXT`,                          () => {});

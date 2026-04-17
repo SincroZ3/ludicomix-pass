@@ -2815,12 +2815,14 @@ async function triggerBatchPassOnClose(groupId) {
 
   // ── Admin: aggiungi attrezzatura al catalogo ─────────────────
   app.post('/admin/logistica/equipment', requireAuth, requireOrganizer, async (req, res) => {
-    const { name, category, total_qty, notes } = req.body;
+    const { name, category, total_qty, notes, location, location_custom } = req.body;
     if (!name) return res.redirect('/admin/logistica?saved=err');
+    const loc = location || null;
+    const locCustom = (location === 'altro' && location_custom) ? location_custom.trim() : null;
     try {
       await dbRun(
-        `INSERT INTO equipment (name, category, total_qty, notes) VALUES (?,?,?,?)`,
-        [name.trim(), category || null, parseInt(total_qty, 10) || 1, notes || null]
+        `INSERT INTO equipment (name, category, total_qty, notes, location, location_custom) VALUES (?,?,?,?,?,?)`,
+        [name.trim(), category || null, parseInt(total_qty, 10) || 1, notes || null, loc, locCustom]
       );
       res.redirect('/admin/logistica?saved=equipment');
     } catch(err) {
@@ -2831,12 +2833,14 @@ async function triggerBatchPassOnClose(groupId) {
 
   // ── Admin: modifica attrezzatura ─────────────────────────────
   app.post('/admin/logistica/equipment/:id/edit', requireAuth, requireOrganizer, async (req, res) => {
-    const { name, category, total_qty, notes } = req.body;
+    const { name, category, total_qty, notes, location, location_custom } = req.body;
     const id = parseInt(req.params.id, 10);
+    const loc = location || null;
+    const locCustom = (location === 'altro' && location_custom) ? location_custom.trim() : null;
     try {
       await dbRun(
-        `UPDATE equipment SET name=?, category=?, total_qty=?, notes=? WHERE id=?`,
-        [name.trim(), category || null, parseInt(total_qty, 10) || 1, notes || null, id]
+        `UPDATE equipment SET name=?, category=?, total_qty=?, notes=?, location=?, location_custom=? WHERE id=?`,
+        [name.trim(), category || null, parseInt(total_qty, 10) || 1, notes || null, loc, locCustom, id]
       );
       res.json({ ok: true });
     } catch(err) {
