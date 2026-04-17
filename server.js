@@ -2766,7 +2766,7 @@ async function triggerBatchPassOnClose(groupId) {
   app.get('/admin/logistica', requireAuth, requireOrganizer, async (req, res) => {
     try {
       const requests   = await dbAll(`
-        SELECT sr.*, ag.name AS group_name
+        SELECT sr.*, sr.service_type AS type, ag.name AS group_name
         FROM service_requests sr
         LEFT JOIN assignment_groups ag ON ag.id = sr.assignment_group_id
         ORDER BY sr.requested_at DESC
@@ -2907,7 +2907,7 @@ async function triggerBatchPassOnClose(groupId) {
       if (!type) return res.status(400).json({ error: 'Tipo obbligatorio' });
       const edId = _currentEdition ? _currentEdition.id : null;
       await dbRun(
-        `INSERT INTO service_requests (assignment_group_id, type, quantity, notes, edition_id)
+        `INSERT INTO service_requests (assignment_group_id, service_type, quantity, notes, edition_id)
          VALUES (?,?,?,?,?)`,
         [group.id, type, parseInt(quantity, 10) || 1, notes || null, edId]
       );
@@ -2927,7 +2927,7 @@ async function triggerBatchPassOnClose(groupId) {
       const group = await dbGet(`SELECT id FROM assignment_groups WHERE portal_token=?`, [token]);
       if (!group) return res.status(404).json({ error: 'Token non valido' });
       const rows = await dbAll(
-        `SELECT id, type, quantity, notes, status, requested_at
+        `SELECT id, service_type AS type, quantity, notes, status, requested_at
          FROM service_requests WHERE assignment_group_id=?
          ORDER BY requested_at DESC`,
         [group.id]
