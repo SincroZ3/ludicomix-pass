@@ -315,7 +315,7 @@
               <span style="width:8px;height:8px;border-radius:2px;display:inline-block" class="sl-<%= shiftColors[s.id] %>"></span>
               <%= s.name %>
               <% var pct = s.max_volunteers>0 ? Math.round((s.assigned_count||0)/s.max_volunteers*100) : 0; %>
-              <span class="cnt-pill <%= pct>=100?'alert':'' %>"><%= s.assigned_count||0 %>/<%= s.max_volunteers %></span>
+              <% var pctCls = pct>=100?'alert':''; %><span class="cnt-pill <%= pctCls %>"><%= s.assigned_count||0 %>/<%= s.max_volunteers %></span>
             </span>
           </a>
           <% }) %>
@@ -458,12 +458,16 @@
               <td><span style="font-size:.8rem;color:#475569"><%= v.skills||'—' %></span></td>
               <td><span style="font-size:.8rem;color:#475569"><%= v.availability||'—' %></span></td>
               <td style="text-align:center">
-                <span class="badge <%= (v.assignments_count||0)>0?'badge-ok':''" style="<%= (v.assignments_count||0)===0?'background:#f1f5f9;color:#94a3b8':'' %>">
+                <% var asnBadge = (v.assignments_count||0) > 0 ? 'badge-ok' : ''; %>
+                <% var asnStyle = (v.assignments_count||0) === 0 ? 'background:#f1f5f9;color:#94a3b8' : ''; %>
+                <span class="badge <%= asnBadge %>" style="<%= asnStyle %>">
                   <%= v.assignments_count||0 %>
                 </span>
               </td>
               <td style="text-align:center">
-                <span class="badge <%= (v.checkins_count||0)>0?'badge-ok':'' %>" style="<%= (v.checkins_count||0)===0?'background:#f1f5f9;color:#94a3b8':'' %>">
+                <% var chkBadge = (v.checkins_count||0) > 0 ? 'badge-ok' : ''; %>
+                <% var chkStyle = (v.checkins_count||0) === 0 ? 'background:#f1f5f9;color:#94a3b8' : ''; %>
+                <span class="badge <%= chkBadge %>" style="<%= chkStyle %>">
                   <%= v.checkins_count||0 %>
                 </span>
               </td>
