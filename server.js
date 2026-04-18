@@ -493,7 +493,7 @@ app.get('/home', requireAuth, (req, res) => {
 
   app.post('/volunteers', requireAuth, requireNotViewer, async (req, res) => {
     try {
-      const { first_name, last_name, email, phone, notes, availability, skills, tshirt_size, status } = req.body;
+      const { first_name, last_name, email, phone, notes, availability, skills, tshirt_size, status, birth_date, birth_place, fiscal_code, residence } = req.body;
       const fn = String(first_name || '').trim();
       const ln = String(last_name || '').trim();
       if (!fn || !ln) return res.status(400).send('Nome e cognome obbligatori');
@@ -511,9 +511,9 @@ app.get('/home', requireAuth, (req, res) => {
       if (!edId) edId = 1;
 
       db.run(
-        `INSERT INTO volunteers (edition_id, first_name, last_name, email, phone, availability, skills, tshirt_size, status, notes, import_batch_id, active)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [edId, fn, ln, email || null, phone || null, availability || '', skills || '', tshirt_size || null, status || 'pending', notes || null, null, 1],
+        `INSERT INTO volunteers (edition_id, first_name, last_name, email, phone, availability, skills, tshirt_size, status, notes, import_batch_id, active, birth_date, birth_place, fiscal_code, residence)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [edId, fn, ln, email || null, phone || null, availability || '', skills || '', tshirt_size || null, status || 'pending', notes || null, null, 1, birth_date||null, birth_place||null, fiscal_code ? String(fiscal_code).toUpperCase().trim() : null, residence||null],
         function(err) {
           if (err) {
             console.error('[Volunteers POST]', err && err.stack ? err.stack : err.message);
@@ -530,10 +530,10 @@ app.get('/home', requireAuth, (req, res) => {
 
   app.post('/volunteers/:id/edit', requireAuth, requireNotViewer, (req, res) => {
     const id = parseInt(req.params.id, 10);
-    const { first_name, last_name, email, phone, notes, availability, skills, active } = req.body;
+    const { first_name, last_name, email, phone, notes, availability, skills, active, birth_date, birth_place, fiscal_code, residence } = req.body;
     db.run(
-      `UPDATE volunteers SET first_name=?, last_name=?, email=?, phone=?, notes=?, availability=?, skills=?, active=? WHERE id=?`,
-      [first_name.trim(), last_name.trim(), email||null, phone||null, notes||null, availability||'[]', skills||'[]', active ? 1 : 0, id],
+      `UPDATE volunteers SET first_name=?, last_name=?, email=?, phone=?, notes=?, availability=?, skills=?, active=?, birth_date=?, birth_place=?, fiscal_code=?, residence=? WHERE id=?`,
+      [first_name.trim(), last_name.trim(), email||null, phone||null, notes||null, availability||'[]', skills||'[]', active ? 1 : 0, birth_date||null, birth_place||null, fiscal_code ? String(fiscal_code).toUpperCase().trim() : null, residence||null, id],
       function(err) {
         if (err) return res.status(500).send('Errore aggiornamento volontario');
         logAction(req.session.user.id, 'edit_volunteer', 'volunteer', id, `Volontario #${id} aggiornato`);
