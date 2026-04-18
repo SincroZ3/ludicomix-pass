@@ -1,86 +1,551 @@
 <%- include('partials/header') %>
 <nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">&rsaquo;</span> <strong>Volontari</strong></nav>
-<h1 class="page-title">🙋 Volontari e Turni</h1>
 
-<div class="dash-box" style="margin-bottom:1rem;">
-  <h3>Nuovo volontario</h3>
-  <form method="post" action="/volunteers" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.8rem;align-items:end;">
-    <label>Nome<br><input type="text" name="first_name" required></label>
-    <label>Cognome<br><input type="text" name="last_name" required></label>
-    <label>Email<br><input type="email" name="email"></label>
-    <label>Telefono<br><input type="text" name="phone"></label>
-    <label>Competenze<br><input type="text" name="skills" value="" placeholder="Es. accoglienza, logistica"></label>
-    <label>Disponibilità<br><input type="text" name="availability" value="" placeholder="Es. sabato mattina, domenica"></label>
-    <label style="grid-column:1/-1;">Note<br><textarea name="notes" rows="2"></textarea></label>
-    <div><button class="primary" type="submit">+ Salva volontario</button></div>
-  </form>
-</div>
+<style>
+  /* ── TABS ── */
+  .vol-tabs{display:flex;gap:.4rem;margin-bottom:1.5rem;flex-wrap:wrap}
+  .vol-tab{background:#f1f5f9;border:1.5px solid #d1d9e6;border-radius:20px;padding:.38rem 1.05rem;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .15s;color:#475569;border:none}
+  .vol-tab.active,.vol-tab:hover{background:#1e2d4e;color:#fff}
+  .vol-panel{display:none}.vol-panel.active{display:block}
 
-<div class="dash-box" style="margin-bottom:1rem;">
-  <h3>Nuovo turno</h3>
-  <form method="post" action="/volunteer-shifts" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.8rem;align-items:end;">
-    <label>Nome turno<br><input type="text" name="name" required></label>
-    <label>Zona<br>
-      <select name="zone_id"><option value="">-- Nessuna --</option><% zones.forEach(function(z){ %><option value="<%= z.id %>"><%= z.name %></option><% }) %></select>
-    </label>
-    <label>Ruolo<br><input type="text" name="role_label" placeholder="Es. accoglienza"></label>
-    <label>Inizio<br><input type="datetime-local" name="start_at" required></label>
-    <label>Fine<br><input type="datetime-local" name="end_at" required></label>
-    <label>Max volontari<br><input type="number" name="max_volunteers" min="1" value="1"></label>
-    <label style="grid-column:1/-1;">Note<br><textarea name="notes" rows="2"></textarea></label>
-    <div><button class="primary" type="submit">+ Salva turno</button></div>
-  </form>
-</div>
+  /* ── CARD ── */
+  .log-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 1px 4px rgba(30,45,78,.06);margin-bottom:1.25rem;overflow:hidden}
+  .log-card-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.75rem 1.2rem;border-bottom:1px solid #f1f5f9;background:#fafbfc}
+  .log-card-title{font-size:.8rem;font-weight:800;text-transform:uppercase;letter-spacing:.55px;color:#1e2d4e}
+  .log-card-body{padding:1.1rem 1.2rem}
 
-<div class="dash-row" style="grid-template-columns:1.1fr .9fr;align-items:start;">
-  <div class="dash-box">
-    <h3>Volontari</h3>
-    <% if(!volunteers.length){ %><p style="color:var(--text-muted)">Nessun volontario inserito.</p><% } %>
-    <% volunteers.forEach(function(v){ %>
-      <div style="border-top:1px solid var(--border-light);padding:.8rem 0;">
-        <form method="post" action="/volunteers/<%= v.id %>/edit" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.55rem;align-items:end;">
-          <input type="text" name="first_name" value="<%= v.first_name %>" required>
-          <input type="text" name="last_name" value="<%= v.last_name %>" required>
-          <input type="email" name="email" value="<%= v.email||'' %>" placeholder="Email">
-          <input type="text" name="phone" value="<%= v.phone||'' %>" placeholder="Telefono">
-          <input type="text" name="skills" value="<%= v.skills||'' %>" placeholder='Competenze'>
-          <input type="text" name="availability" value="<%= v.availability||'' %>" placeholder='Disponibilità'>
-          <textarea name="notes" rows="2" style="grid-column:1/-1;" placeholder="Note"><%= v.notes||'' %></textarea>
-          <div style="grid-column:1/-1;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
-            <button class="primary" type="submit">Salva</button>
-            <span style="font-size:.78rem;color:var(--text-muted)">Assegnazioni: <strong><%= v.assignments_count||0 %></strong> · Check-in: <strong><%= v.checkins_count||0 %></strong></span>
-          </div>
-        </form>
-        <form method="post" action="/volunteers/<%= v.id %>/delete" onsubmit="return confirm('Eliminare il volontario?')" style="margin-top:.45rem;">
-          <button class="danger" type="submit">Elimina volontario</button>
-        </form>
-      </div>
-    <% }) %>
+  /* ── TABLE ── */
+  .sr-table{width:100%;border-collapse:collapse;font-size:.86rem}
+  .sr-table th{background:#f8fafc;padding:.55rem .75rem;text-align:left;font-size:.73rem;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:700;border-bottom:2px solid #e2e8f0}
+  .sr-table td{padding:.55rem .75rem;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+  .sr-table tr:last-child td{border-bottom:none}
+  .sr-table tr:hover td{background:#fafbfc}
+
+  /* ── BADGE ── */
+  .badge{display:inline-block;font-size:.7rem;font-weight:700;padding:.15rem .5rem;border-radius:9999px;white-space:nowrap}
+  .badge-ok{background:#d1fae5;color:#065f46}
+  .badge-warn{background:#fef3c7;color:#92400e}
+  .badge-full{background:#fee2e2;color:#991b1b}
+  .badge-role{background:#e0e7ff;color:#3730a3}
+  .cnt-pill{background:#e0e0e0;border-radius:9999px;padding:.05rem .45rem;font-size:.72rem;margin-left:.3rem;font-weight:600}
+  .cnt-pill.alert{background:#fef3c7;color:#92400e}
+
+  /* ── FORM ── */
+  .form-row{display:flex;gap:.65rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:.75rem}
+  .form-row .field{display:flex;flex-direction:column;gap:.3rem;min-width:0}
+  .form-row label,.field label{font-size:.73rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
+  .form-row input,.form-row select,.form-row textarea,
+  .field input,.field select,.field textarea{border:1.5px solid #d1d9e6;border-radius:8px;padding:.45rem .7rem;font-size:.87rem;font-family:inherit;color:#1e2d4e;background:#fff;transition:border-color .15s;width:100%}
+  .form-row input:focus,.form-row select:focus,.form-row textarea:focus,
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:#1e2d4e}
+
+  /* ── BUTTONS ── */
+  .btn-sm{background:#1e2d4e;color:#f5c842;border:none;border-radius:8px;padding:.44rem 1.1rem;font-size:.83rem;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit;transition:opacity .15s}
+  .btn-sm:hover{opacity:.88}
+  .btn-ghost{background:#f1f5f9;color:#1e2d4e;border:1.5px solid #d1d9e6;border-radius:8px;padding:.4rem 1rem;font-size:.83rem;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;text-decoration:none;display:inline-block}
+  .btn-ghost:hover{background:#1e2d4e;color:#fff;border-color:#1e2d4e}
+  .btn-del{background:#fee2e2;color:#991b1b;border:none;border-radius:7px;padding:.3rem .6rem;font-size:.78rem;cursor:pointer;font-family:inherit;transition:background .15s}
+  .btn-del:hover{background:#fecaca}
+
+  /* ── SECTION TITLE ── */
+  .section-title{font-size:.8rem;font-weight:800;color:#1e2d4e;text-transform:uppercase;letter-spacing:.07em;margin:1.5rem 0 .75rem;padding-bottom:.35rem;border-bottom:2px solid #e2e8f0;display:flex;align-items:center;gap:.4rem}
+
+  /* ── EMPTY ── */
+  .empty{text-align:center;padding:2rem;color:#94a3b8;font-size:.88rem}
+
+  /* ── VOLUNTEER ROW ── */
+  .vol-row{padding:.9rem 0;border-bottom:1px solid #f1f5f9}
+  .vol-row:last-child{border-bottom:none}
+  .vol-name{font-weight:700;color:#1e2d4e;font-size:.9rem}
+  .vol-meta{font-size:.76rem;color:#64748b;margin-top:.15rem}
+
+  /* ── SHIFT ROW ── */
+  .shift-row{display:flex;align-items:center;gap:.75rem;padding:.75rem 0;border-bottom:1px solid #f1f5f9;flex-wrap:wrap}
+  .shift-row:last-child{border-bottom:none}
+  .shift-time{font-size:.75rem;font-weight:700;color:#1e2d4e;background:#f1f5f9;border-radius:6px;padding:.2rem .55rem;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .shift-name{font-weight:600;color:#1e2d4e;font-size:.88rem}
+  .shift-meta{font-size:.74rem;color:#64748b;margin-top:.1rem}
+
+  /* ── CALENDAR ── */
+  .cal-grid{display:grid;grid-template-columns:56px repeat(3,1fr);gap:0;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#fff;box-shadow:0 1px 4px rgba(30,45,78,.06)}
+  .cal-header{display:contents}
+  .cal-col-head{background:#1e2d4e;color:#fff;padding:.65rem .5rem;text-align:center;font-size:.78rem;font-weight:800;letter-spacing:.04em;border-left:1px solid rgba(255,255,255,.12)}
+  .cal-col-head:first-child{background:#162038;border-left:none}
+  .cal-col-head .day-label{font-size:.65rem;font-weight:600;opacity:.75;text-transform:uppercase;letter-spacing:.06em}
+  .cal-col-head .day-date{font-size:1rem;font-weight:800;margin-top:.1rem}
+  .cal-time-label{font-size:.68rem;color:#94a3b8;padding:.2rem .3rem 0;text-align:right;font-variant-numeric:tabular-nums;border-top:1px solid #f1f5f9;border-right:1px solid #e8ecf0;background:#fafbfc;line-height:1}
+  .cal-time-label.hour{color:#475569;font-weight:600;border-top:1px solid #e2e8f0}
+  .cal-cell{border-top:1px solid #f1f5f9;border-left:1px solid #e8ecf0;min-height:20px;position:relative;background:#fff}
+  .cal-cell.hour{border-top:1px solid #e2e8f0}
+  .cal-slot{position:absolute;left:3px;right:3px;border-radius:5px;padding:.2rem .4rem;font-size:.7rem;font-weight:700;color:#fff;overflow:hidden;cursor:pointer;transition:opacity .15s;z-index:1;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+  .cal-slot:hover{opacity:.88}
+  .cal-slot .sl-name{font-size:.72rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cal-slot .sl-meta{font-size:.64rem;opacity:.88;margin-top:.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cal-empty{display:flex;align-items:center;justify-content:center;height:100%;color:#cbd5e1;font-size:.72rem;padding:1rem}
+
+  /* Colori turni per zona */
+  .sl-0{background:linear-gradient(135deg,#1e2d4e,#2d4270)}
+  .sl-1{background:linear-gradient(135deg,#065f46,#0d9467)}
+  .sl-2{background:linear-gradient(135deg,#7c2d12,#c2410c)}
+  .sl-3{background:linear-gradient(135deg,#4c1d95,#7c3aed)}
+  .sl-4{background:linear-gradient(135deg,#155e75,#0891b2)}
+  .sl-5{background:linear-gradient(135deg,#713f12,#b45309)}
+
+  /* ── TOGGLE FORM ── */
+  .add-form-wrap{display:none;margin-top:1rem;padding:1rem;background:#f8fafc;border-radius:10px;border:1.5px solid #e2e8f0}
+  .add-form-wrap.open{display:block}
+
+  @media(max-width:700px){
+    .cal-grid{grid-template-columns:40px repeat(3,1fr);font-size:.7rem}
+    .cal-col-head .day-date{font-size:.85rem}
+    .form-row{flex-direction:column}
+  }
+</style>
+
+<div class="container" style="max-width:1100px;margin:1.5rem auto;padding:0 1.25rem">
+
+  <!-- PAGE HEADER -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:.75rem">
+    <div>
+      <h1 style="font-size:1.35rem;font-weight:800;color:#1e2d4e;line-height:1.15">🙋 Volontari & Turni</h1>
+      <p style="font-size:.78rem;color:#64748b;margin-top:.15rem">Gestione volontari, turni e assegnazioni</p>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <button class="btn-sm" onclick="toggleForm('form-vol')">+ Nuovo volontario</button>
+      <button class="btn-sm" style="background:#065f46" onclick="toggleForm('form-shift')">+ Nuovo turno</button>
+    </div>
   </div>
 
-  <div class="dash-box">
-    <h3>Turni</h3>
-    <% if(!shifts.length){ %><p style="color:var(--text-muted)">Nessun turno inserito.</p><% } %>
-    <% shifts.forEach(function(s){ %>
-      <div style="border-top:1px solid var(--border-light);padding:.8rem 0;">
-        <form method="post" action="/volunteer-shifts/<%= s.id %>/edit" style="display:grid;gap:.55rem;">
-          <input type="text" name="name" value="<%= s.name %>" required>
-          <select name="zone_id"><option value="">-- Nessuna zona --</option><% zones.forEach(function(z){ %><option value="<%= z.id %>" <%= s.zone_id===z.id ? 'selected' : '' %>><%= z.name %></option><% }) %></select>
-          <input type="text" name="role_label" value="<%= s.role_label||'' %>" placeholder="Ruolo">
-          <input type="datetime-local" name="start_at" value="<%= (s.start_at||'').slice(0,16) %>" required>
-          <input type="datetime-local" name="end_at" value="<%= (s.end_at||'').slice(0,16) %>" required>
-          <input type="number" name="max_volunteers" min="1" value="<%= s.max_volunteers||1 %>">
-          <textarea name="notes" rows="2" placeholder="Note"><%= s.notes||'' %></textarea>
-          <div style="display:flex;gap:.45rem;flex-wrap:wrap;align-items:center;">
-            <button class="primary" type="submit">Salva</button>
-            <a href="/volunteer-assignments/<%= s.id %>" class="primary" style="text-decoration:none;background:#1d6fa4">Assegnazioni</a>
-            <button formaction="/volunteer-shifts/<%= s.id %>/delete" formmethod="post" onclick="return confirm('Eliminare il turno?')" class="danger" type="submit">Elimina</button>
-            <span style="font-size:.78rem;color:var(--text-muted)">Zona: <strong><%= s.zone_name||'—' %></strong> · Assegnati: <strong><%= s.assigned_count||0 %>/<%= s.max_volunteers||1 %></strong></span>
-          </div>
-        </form>
+  <!-- FORM NUOVO VOLONTARIO (collassabile) -->
+  <div class="add-form-wrap" id="form-vol">
+    <div class="section-title">➕ Nuovo volontario</div>
+    <form method="post" action="/volunteers">
+      <div class="form-row">
+        <div class="field" style="flex:1;min-width:140px"><label>Nome</label><input type="text" name="first_name" required></div>
+        <div class="field" style="flex:1;min-width:140px"><label>Cognome</label><input type="text" name="last_name" required></div>
+        <div class="field" style="flex:1;min-width:160px"><label>Email</label><input type="email" name="email"></div>
+        <div class="field" style="flex:1;min-width:130px"><label>Telefono</label><input type="text" name="phone"></div>
       </div>
-    <% }) %>
+      <div class="form-row">
+        <div class="field" style="flex:2;min-width:180px"><label>Competenze</label><input type="text" name="skills" placeholder="Es. accoglienza, logistica"></div>
+        <div class="field" style="flex:2;min-width:180px"><label>Disponibilità</label><input type="text" name="availability" placeholder="Es. sabato mattina, domenica"></div>
+        <div class="field" style="flex:3;min-width:200px"><label>Note</label><input type="text" name="notes"></div>
+      </div>
+      <div style="display:flex;gap:.5rem">
+        <button type="submit" class="btn-sm">Salva volontario</button>
+        <button type="button" class="btn-ghost" onclick="toggleForm('form-vol')">Annulla</button>
+      </div>
+    </form>
   </div>
-</div>
+
+  <!-- FORM NUOVO TURNO (collassabile) -->
+  <div class="add-form-wrap" id="form-shift">
+    <div class="section-title">➕ Nuovo turno</div>
+    <form method="post" action="/volunteer-shifts">
+      <div class="form-row">
+        <div class="field" style="flex:2;min-width:160px"><label>Nome turno</label><input type="text" name="name" required></div>
+        <div class="field" style="flex:1;min-width:140px"><label>Zona</label>
+          <select name="zone_id"><option value="">-- Nessuna --</option><% zones.forEach(function(z){ %><option value="<%= z.id %>"><%= z.name %></option><% }) %></select>
+        </div>
+        <div class="field" style="flex:1;min-width:130px"><label>Ruolo</label><input type="text" name="role_label" placeholder="Es. accoglienza"></div>
+        <div class="field" style="min-width:140px"><label>Max volontari</label><input type="number" name="max_volunteers" min="1" value="1" style="width:80px"></div>
+      </div>
+      <div class="form-row">
+        <div class="field" style="min-width:180px"><label>Inizio</label><input type="datetime-local" name="start_at" required></div>
+        <div class="field" style="min-width:180px"><label>Fine</label><input type="datetime-local" name="end_at" required></div>
+        <div class="field" style="flex:3;min-width:200px"><label>Note</label><input type="text" name="notes"></div>
+      </div>
+      <div style="display:flex;gap:.5rem">
+        <button type="submit" class="btn-sm" style="background:#065f46">Salva turno</button>
+        <button type="button" class="btn-ghost" onclick="toggleForm('form-shift')">Annulla</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- TABS -->
+  <div class="vol-tabs" style="margin-top:1.25rem">
+    <button class="vol-tab active" onclick="switchTab('tab-cal')">📅 Calendario turni</button>
+    <button class="vol-tab" onclick="switchTab('tab-shifts')">🕐 Turni</button>
+    <button class="vol-tab" onclick="switchTab('tab-vols')">🙋 Volontari</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       TAB: CALENDARIO
+  ══════════════════════════════════════════════════════════ -->
+  <div class="vol-panel active" id="tab-cal">
+
+    <%
+      // Calcola i 3 giorni: venerdì, sabato, domenica della settimana fiera
+      // Ricaviamo la data dal primo turno oppure usiamo date fissa fiera
+      // I turni hanno start_at come "YYYY-MM-DD HH:MM:SS" o "YYYY-MM-DDTHH:MM"
+      var FIERA_DAYS = ['2026-05-15','2026-05-16','2026-05-17'];
+      var FIERA_LABELS = ['Venerdì','Sabato','Domenica'];
+      var FIERA_SUB = ['Allestimento','Fiera','Fiera'];
+
+      // Se ci sono turni, determiniamo i giorni reali in modo dinamico
+      if(shifts && shifts.length) {
+        var daySet = {};
+        shifts.forEach(function(s){
+          var d = (s.start_at||'').slice(0,10);
+          if(d) daySet[d] = true;
+        });
+        var uniqueDays = Object.keys(daySet).sort();
+        if(uniqueDays.length >= 1) {
+          // Prendiamo fino a 3 giorni unici dai turni reali
+          while(uniqueDays.length < 3) uniqueDays.push(null);
+          FIERA_DAYS = uniqueDays.slice(0,3);
+          var wd = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+          var fullWd = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+          FIERA_LABELS = FIERA_DAYS.map(function(d){
+            if(!d) return '—';
+            var dt = new Date(d+'T12:00:00');
+            return fullWd[dt.getDay()];
+          });
+          FIERA_SUB = FIERA_DAYS.map(function(d,i){ return i===0?'Allestimento':'Fiera'; });
+        }
+      }
+
+      // Fascia oraria calendario: 08:00–23:00, step 30min
+      var CAL_START = 8;
+      var CAL_END   = 23;
+      var SLOT_H    = 20; // px per slot da 30 min
+      var slots = [];
+      for(var h=CAL_START; h<CAL_END; h++){
+        slots.push({h:h, m:0});
+        slots.push({h:h, m:30});
+      }
+
+      // Raggruppa turni per giorno
+      var shiftsByDay = {};
+      FIERA_DAYS.forEach(function(d){ shiftsByDay[d] = []; });
+      var shiftColors = {};
+      var colorIdx = 0;
+      (shifts||[]).forEach(function(s){
+        var d = (s.start_at||'').slice(0,10);
+        if(shiftsByDay[d]) shiftsByDay[d].push(s);
+        if(shiftColors[s.id]===undefined){ shiftColors[s.id] = colorIdx % 6; colorIdx++; }
+      });
+
+      function timeToMin(tStr) {
+        // "2026-05-16 09:30:00" o "2026-05-16T09:30"
+        var t = (tStr||'').replace('T',' ');
+        var parts = t.split(' ');
+        if(parts.length<2) return 0;
+        var hm = parts[1].split(':');
+        return parseInt(hm[0]||0)*60 + parseInt(hm[1]||0);
+      }
+    %>
+
+    <div class="log-card">
+      <div class="log-card-head">
+        <span class="log-card-title">📅 Calendario turni</span>
+        <span style="font-size:.75rem;color:#64748b">
+          <% FIERA_DAYS.forEach(function(d,i){ if(d){ %><strong><%= FIERA_LABELS[i] %></strong> <%= d %><% if(i<2){ %> &nbsp;·&nbsp;<% } } }); %>
+        </span>
+      </div>
+      <div class="log-card-body" style="padding:.75rem;overflow-x:auto">
+
+        <% if(!shifts || !shifts.length) { %>
+          <div class="cal-empty" style="height:200px">Nessun turno presente — aggiungine uno con il pulsante qui sopra</div>
+        <% } else { %>
+
+        <!-- GRIGLIA CALENDARIO -->
+        <div class="cal-grid" style="--cal-slot-h:<%= SLOT_H %>px">
+
+          <!-- Intestazioni colonne -->
+          <div class="cal-col-head" style="background:#162038;padding:.65rem .3rem;font-size:.65rem;color:#94a3b8;text-align:right;vertical-align:bottom">Ora</div>
+          <% FIERA_DAYS.forEach(function(d,i){ %>
+          <div class="cal-col-head">
+            <div class="day-label"><%= FIERA_SUB[i] %></div>
+            <div class="day-date"><%= FIERA_LABELS[i] %> <% if(d){ var dp=d.split('-'); %><span style="font-size:.65rem;font-weight:600;opacity:.7"><%= dp[2] %>/<%= dp[1] %></span><% } %></div>
+          </div>
+          <% }) %>
+
+          <!-- Righe orarie -->
+          <%
+            var totalSlots = (CAL_END - CAL_START) * 2;
+          %>
+          <% slots.forEach(function(slot, si){ %>
+            <!-- Etichetta ora -->
+            <div class="cal-time-label <%= slot.m===0?'hour':'' %>">
+              <% if(slot.m===0){ %><%= String(slot.h).padStart(2,'0') %>:00<% } %>
+            </div>
+
+            <!-- Celle per ogni giorno -->
+            <% FIERA_DAYS.forEach(function(day, di){ %>
+            <div class="cal-cell <%= slot.m===0?'hour':'' %>" style="height:<%= SLOT_H %>px" data-day="<%= day %>" data-slot="<%= si %>">
+              <%
+                // Disegna turni che iniziano in questo slot
+                if(day && shiftsByDay[day]){
+                  shiftsByDay[day].forEach(function(s){
+                    var startMin = timeToMin(s.start_at);
+                    var endMin   = timeToMin(s.end_at);
+                    var slotMin  = slot.h*60 + slot.m;
+                    if(startMin === slotMin){
+                      var durMin = endMin - startMin;
+                      if(durMin < 30) durMin = 30;
+                      var heightPx = Math.round((durMin / 30) * SLOT_H);
+                      var fill = s.assigned_count >= s.max_volunteers ? '#991b1b' :
+                                 s.assigned_count >= s.max_volunteers*0.75 ? '#92400e' : null;
+              %>
+                      <a href="/volunteer-assignments/<%= s.id %>"
+                         class="cal-slot sl-<%= shiftColors[s.id] %>"
+                         style="height:<%= heightPx %>px;<% if(fill){ %>background:<%= fill %><% } %>"
+                         title="<%= s.name %> | <%= (s.start_at||'').slice(11,16) %>–<%= (s.end_at||'').slice(11,16) %> | Zona: <%= s.zone_name||'—' %> | Assegnati: <%= s.assigned_count||0 %>/<%= s.max_volunteers %>">
+                        <div class="sl-name"><%= s.name %></div>
+                        <div class="sl-meta"><%= (s.start_at||'').slice(11,16) %>–<%= (s.end_at||'').slice(11,16) %> · <%= s.assigned_count||0 %>/<%= s.max_volunteers %></div>
+                      </a>
+              <%    }
+                  });
+                }
+              %>
+            </div>
+            <% }) %>
+          <% }) %>
+
+        </div><!-- /cal-grid -->
+
+        <!-- Legenda colori -->
+        <% if(shifts && shifts.length){ %>
+        <div style="margin-top:.75rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
+          <span style="font-size:.7rem;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Turni:</span>
+          <% shifts.forEach(function(s){ %>
+          <a href="/volunteer-assignments/<%= s.id %>" style="text-decoration:none">
+            <span style="display:inline-flex;align-items:center;gap:.3rem;font-size:.72rem;font-weight:600;color:#1e2d4e;background:#f1f5f9;border-radius:9999px;padding:.15rem .55rem .15rem .3rem;border:1px solid #e2e8f0">
+              <span style="width:8px;height:8px;border-radius:2px;display:inline-block" class="sl-<%= shiftColors[s.id] %>"></span>
+              <%= s.name %>
+              <% var pct = s.max_volunteers>0 ? Math.round((s.assigned_count||0)/s.max_volunteers*100) : 0; %>
+              <span class="cnt-pill <%= pct>=100?'alert':'' %>"><%= s.assigned_count||0 %>/<%= s.max_volunteers %></span>
+            </span>
+          </a>
+          <% }) %>
+        </div>
+        <% } %>
+
+        <% } // end if shifts %>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       TAB: TURNI (lista)
+  ══════════════════════════════════════════════════════════ -->
+  <div class="vol-panel" id="tab-shifts">
+    <div class="log-card">
+      <div class="log-card-head">
+        <span class="log-card-title">🕐 Turni <span class="cnt-pill"><%= shifts.length %></span></span>
+        <button class="btn-sm" style="font-size:.75rem;padding:.3rem .8rem" onclick="switchTab('tab-cal')">📅 Vista calendario</button>
+      </div>
+      <div class="log-card-body" style="padding:0">
+        <% if(!shifts.length){ %>
+          <div class="empty">Nessun turno inserito — usa il pulsante "Nuovo turno" in cima</div>
+        <% } else { %>
+
+        <%
+          // Raggruppa turni per giorno
+          var byDay = {};
+          var dayOrder = [];
+          shifts.forEach(function(s){
+            var d = (s.start_at||'').slice(0,10) || 'N/D';
+            if(!byDay[d]){ byDay[d]=[]; dayOrder.push(d); }
+            byDay[d].push(s);
+          });
+        %>
+
+        <% dayOrder.forEach(function(day){ %>
+          <div style="padding:.5rem 1.2rem .2rem;background:#f8fafc;border-bottom:1px solid #e2e8f0">
+            <span style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#1e2d4e">
+              <%
+                var wdFull=['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+                var dayLabel = day;
+                try { var dt2=new Date(day+'T12:00:00'); dayLabel=wdFull[dt2.getDay()]+' '+day; } catch(e){}
+              %>
+              <%= dayLabel %>
+            </span>
+          </div>
+          <% byDay[day].forEach(function(s){ %>
+          <div class="shift-row" style="padding:.8rem 1.2rem">
+            <span class="shift-time"><%= (s.start_at||'').slice(11,16)||'—' %> → <%= (s.end_at||'').slice(11,16)||'—' %></span>
+            <div style="flex:1;min-width:0">
+              <div class="shift-name"><%= s.name %></div>
+              <div class="shift-meta">
+                <% if(s.zone_name){ %><span>📍 <%= s.zone_name %></span> · <% } %>
+                <% if(s.role_label){ %><span class="badge badge-role"><%= s.role_label %></span> · <% } %>
+                <% var pct2 = s.max_volunteers>0 ? (s.assigned_count||0)/s.max_volunteers : 0; %>
+                <span class="badge <%= pct2>=1?'badge-full':pct2>=0.75?'badge-warn':'badge-ok' %>">
+                  <%= s.assigned_count||0 %>/<%= s.max_volunteers %> volontari
+                </span>
+                <% if(s.notes){ %> · <span style="color:#94a3b8"><%= s.notes %></span><% } %>
+              </div>
+            </div>
+            <div style="display:flex;gap:.4rem;flex-shrink:0;flex-wrap:wrap">
+              <a href="/volunteer-assignments/<%= s.id %>" class="btn-ghost" style="font-size:.78rem;padding:.3rem .7rem">👥 Assegnazioni</a>
+              <button class="btn-ghost" style="font-size:.78rem;padding:.3rem .7rem"
+                onclick="toggleEditShift('<%= s.id %>')">✏️ Modifica</button>
+              <form method="post" action="/volunteer-shifts/<%= s.id %>/delete" onsubmit="return confirm('Eliminare il turno?')" style="margin:0">
+                <button class="btn-del" type="submit">✕</button>
+              </form>
+            </div>
+            <!-- Form modifica turno inline -->
+            <div id="edit-shift-<%= s.id %>" class="add-form-wrap" style="flex-basis:100%;margin-top:.5rem">
+              <form method="post" action="/volunteer-shifts/<%= s.id %>/edit">
+                <div class="form-row">
+                  <div class="field" style="flex:2;min-width:140px"><label>Nome</label><input type="text" name="name" value="<%= s.name %>" required></div>
+                  <div class="field" style="flex:1;min-width:130px"><label>Zona</label>
+                    <select name="zone_id"><option value="">-- Nessuna --</option><% zones.forEach(function(z){ %><option value="<%= z.id %>" <%= s.zone_id===z.id?'selected':'' %>><%= z.name %></option><% }) %></select>
+                  </div>
+                  <div class="field" style="flex:1;min-width:120px"><label>Ruolo</label><input type="text" name="role_label" value="<%= s.role_label||'' %>"></div>
+                  <div class="field" style="min-width:60px"><label>Max</label><input type="number" name="max_volunteers" min="1" value="<%= s.max_volunteers||1 %>" style="width:70px"></div>
+                </div>
+                <div class="form-row">
+                  <div class="field" style="min-width:175px"><label>Inizio</label><input type="datetime-local" name="start_at" value="<%= (s.start_at||'').slice(0,16) %>" required></div>
+                  <div class="field" style="min-width:175px"><label>Fine</label><input type="datetime-local" name="end_at" value="<%= (s.end_at||'').slice(0,16) %>" required></div>
+                  <div class="field" style="flex:3;min-width:160px"><label>Note</label><input type="text" name="notes" value="<%= s.notes||'' %>"></div>
+                </div>
+                <div style="display:flex;gap:.5rem">
+                  <button type="submit" class="btn-sm">Salva modifiche</button>
+                  <button type="button" class="btn-ghost" onclick="toggleEditShift('<%= s.id %>')">Annulla</button>
+                </div>
+              </form>
+            </div>
+          </div>
+          <% }) %>
+        <% }) %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       TAB: VOLONTARI
+  ══════════════════════════════════════════════════════════ -->
+  <div class="vol-panel" id="tab-vols">
+    <div class="log-card">
+      <div class="log-card-head">
+        <span class="log-card-title">🙋 Volontari <span class="cnt-pill"><%= volunteers.length %></span></span>
+        <input type="text" id="vol-search" placeholder="🔍 Cerca volontario…"
+          style="border:1.5px solid #d1d9e6;border-radius:20px;padding:.28rem .85rem;font-size:.82rem;font-family:inherit;color:#1e2d4e;background:#f8fafc;outline:none;min-width:180px"
+          oninput="filterVols(this.value)">
+      </div>
+      <div class="log-card-body" style="padding:0">
+        <% if(!volunteers.length){ %>
+          <div class="empty">Nessun volontario inserito — usa il pulsante "Nuovo volontario" in cima</div>
+        <% } else { %>
+        <table class="sr-table">
+          <thead>
+            <tr>
+              <th>Volontario</th>
+              <th>Contatti</th>
+              <th>Competenze</th>
+              <th>Disponibilità</th>
+              <th style="text-align:center">Turni</th>
+              <th style="text-align:center">Check-in</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="vol-tbody">
+          <% volunteers.forEach(function(v){ %>
+            <tr class="vol-tr" data-name="<%= (v.first_name+' '+v.last_name).toLowerCase() %>">
+              <td>
+                <div class="vol-name"><%= v.last_name %> <%= v.first_name %></div>
+                <% if(v.notes){ %><div class="vol-meta"><%= v.notes %></div><% } %>
+              </td>
+              <td style="font-size:.8rem;color:#475569">
+                <% if(v.email){ %><div><%= v.email %></div><% } %>
+                <% if(v.phone){ %><div><%= v.phone %></div><% } %>
+                <% if(!v.email&&!v.phone){ %><span style="color:#cbd5e1">—</span><% } %>
+              </td>
+              <td><span style="font-size:.8rem;color:#475569"><%= v.skills||'—' %></span></td>
+              <td><span style="font-size:.8rem;color:#475569"><%= v.availability||'—' %></span></td>
+              <td style="text-align:center">
+                <span class="badge <%= (v.assignments_count||0)>0?'badge-ok':''" style="<%= (v.assignments_count||0)===0?'background:#f1f5f9;color:#94a3b8':'' %>">
+                  <%= v.assignments_count||0 %>
+                </span>
+              </td>
+              <td style="text-align:center">
+                <span class="badge <%= (v.checkins_count||0)>0?'badge-ok':'' %>" style="<%= (v.checkins_count||0)===0?'background:#f1f5f9;color:#94a3b8':'' %>">
+                  <%= v.checkins_count||0 %>
+                </span>
+              </td>
+              <td>
+                <div style="display:flex;gap:.35rem;justify-content:flex-end">
+                  <button class="btn-ghost" style="font-size:.75rem;padding:.25rem .6rem" onclick="toggleEditVol('<%= v.id %>')">✏️</button>
+                  <form method="post" action="/volunteers/<%= v.id %>/delete" onsubmit="return confirm('Eliminare il volontario?')" style="margin:0">
+                    <button class="btn-del" type="submit" style="padding:.25rem .5rem">✕</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            <!-- Riga edit inline -->
+            <tr id="edit-vol-<%= v.id %>" style="display:none">
+              <td colspan="7" style="padding:.75rem 1rem;background:#f8fafc">
+                <form method="post" action="/volunteers/<%= v.id %>/edit">
+                  <div class="form-row">
+                    <div class="field" style="flex:1;min-width:120px"><label>Nome</label><input type="text" name="first_name" value="<%= v.first_name %>" required></div>
+                    <div class="field" style="flex:1;min-width:120px"><label>Cognome</label><input type="text" name="last_name" value="<%= v.last_name %>" required></div>
+                    <div class="field" style="flex:1;min-width:150px"><label>Email</label><input type="email" name="email" value="<%= v.email||'' %>"></div>
+                    <div class="field" style="flex:1;min-width:120px"><label>Telefono</label><input type="text" name="phone" value="<%= v.phone||'' %>"></div>
+                  </div>
+                  <div class="form-row">
+                    <div class="field" style="flex:2;min-width:150px"><label>Competenze</label><input type="text" name="skills" value="<%= v.skills||'' %>"></div>
+                    <div class="field" style="flex:2;min-width:150px"><label>Disponibilità</label><input type="text" name="availability" value="<%= v.availability||'' %>"></div>
+                    <div class="field" style="flex:3;min-width:160px"><label>Note</label><input type="text" name="notes" value="<%= v.notes||'' %>"></div>
+                  </div>
+                  <div style="display:flex;gap:.5rem">
+                    <button type="submit" class="btn-sm">Salva</button>
+                    <button type="button" class="btn-ghost" onclick="toggleEditVol('<%= v.id %>')">Annulla</button>
+                  </div>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+          </tbody>
+        </table>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+  function switchTab(id) {
+    document.querySelectorAll('.vol-panel').forEach(function(p){ p.classList.remove('active'); });
+    document.querySelectorAll('.vol-tab').forEach(function(t){ t.classList.remove('active'); });
+    document.getElementById(id).classList.add('active');
+    var idx = ['tab-cal','tab-shifts','tab-vols'].indexOf(id);
+    document.querySelectorAll('.vol-tab')[idx].classList.add('active');
+  }
+  function toggleForm(id) {
+    var el = document.getElementById(id);
+    el.classList.toggle('open');
+    // Chiudi l'altro
+    var other = id==='form-vol'?'form-shift':'form-vol';
+    document.getElementById(other).classList.remove('open');
+  }
+  function toggleEditVol(id) {
+    var row = document.getElementById('edit-vol-'+id);
+    row.style.display = row.style.display==='none'?'table-row':'none';
+  }
+  function toggleEditShift(id) {
+    var el = document.getElementById('edit-shift-'+id);
+    el.classList.toggle('open');
+  }
+  function filterVols(q) {
+    var lq = q.toLowerCase();
+    document.querySelectorAll('#vol-tbody .vol-tr').forEach(function(tr){
+      var match = !lq || tr.dataset.name.includes(lq);
+      tr.style.display = match ? '' : 'none';
+      var editRow = tr.nextElementSibling;
+      if(editRow && editRow.id && editRow.id.startsWith('edit-vol-')){
+        if(!match) editRow.style.display='none';
+      }
+    });
+  }
+  // Ripristina tab dall'URL hash
+  if(location.hash && document.getElementById('tab-'+location.hash.slice(1))){
+    switchTab('tab-'+location.hash.slice(1));
+  }
+</script>
 
 <%- include('partials/footer') %>

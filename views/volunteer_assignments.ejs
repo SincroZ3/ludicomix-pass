@@ -1,43 +1,191 @@
 <%- include('partials/header') %>
-<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">&rsaquo;</span> <a href="/volunteers">Volontari</a> <span class="sep">&rsaquo;</span> <strong>Assegnazioni turno</strong></nav>
-<h1 class="page-title">👥 Assegnazioni — <%= shift.name %></h1>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">&rsaquo;</span> <a href="/volunteers">Volontari</a> <span class="sep">&rsaquo;</span> <strong>Assegnazioni</strong></nav>
 
-<div class="dash-box" style="margin-bottom:1rem;">
-  <h3>Dettagli turno</h3>
-  <p><strong>Zona:</strong> <%= shift.zone_name || '—' %> · <strong>Ruolo:</strong> <%= shift.role_label || '—' %></p>
-  <p><strong>Orario:</strong> <%= shift.start_at %> → <%= shift.end_at %> · <strong>Capienza:</strong> <%= shift.max_volunteers || 1 %></p>
-</div>
+<style>
+  .log-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 1px 4px rgba(30,45,78,.06);margin-bottom:1.25rem;overflow:hidden}
+  .log-card-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.75rem 1.2rem;border-bottom:1px solid #f1f5f9;background:#fafbfc;flex-wrap:wrap}
+  .log-card-title{font-size:.8rem;font-weight:800;text-transform:uppercase;letter-spacing:.55px;color:#1e2d4e}
+  .log-card-body{padding:1.1rem 1.2rem}
+  .sr-table{width:100%;border-collapse:collapse;font-size:.86rem}
+  .sr-table th{background:#f8fafc;padding:.55rem .75rem;text-align:left;font-size:.73rem;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:700;border-bottom:2px solid #e2e8f0}
+  .sr-table td{padding:.55rem .75rem;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+  .sr-table tr:last-child td{border-bottom:none}
+  .sr-table tr:hover td{background:#fafbfc}
+  .badge{display:inline-block;font-size:.7rem;font-weight:700;padding:.15rem .5rem;border-radius:9999px;white-space:nowrap}
+  .badge-ok{background:#d1fae5;color:#065f46}
+  .badge-pending{background:#fef3c7;color:#92400e}
+  .badge-done{background:#dbeafe;color:#1e40af}
+  .form-row{display:flex;gap:.65rem;flex-wrap:wrap;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:.3rem}
+  .field label{font-size:.73rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
+  .field select,.field input{border:1.5px solid #d1d9e6;border-radius:8px;padding:.45rem .7rem;font-size:.87rem;font-family:inherit;color:#1e2d4e;background:#fff;transition:border-color .15s}
+  .field select:focus,.field input:focus{outline:none;border-color:#1e2d4e}
+  .btn-sm{background:#1e2d4e;color:#f5c842;border:none;border-radius:8px;padding:.44rem 1.1rem;font-size:.83rem;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .15s}
+  .btn-sm:hover{opacity:.88}
+  .btn-ghost{background:#f1f5f9;color:#1e2d4e;border:1.5px solid #d1d9e6;border-radius:8px;padding:.4rem 1rem;font-size:.83rem;font-weight:600;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-block;transition:all .15s}
+  .btn-ghost:hover{background:#1e2d4e;color:#fff;border-color:#1e2d4e}
+  .btn-del{background:#fee2e2;color:#991b1b;border:none;border-radius:7px;padding:.3rem .65rem;font-size:.78rem;cursor:pointer;font-family:inherit;transition:background .15s}
+  .btn-del:hover{background:#fecaca}
+  .info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.6rem;margin-bottom:.25rem}
+  .info-item{background:#f8fafc;border:1px solid #e8ecf0;border-radius:8px;padding:.55rem .75rem}
+  .info-label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;margin-bottom:.2rem}
+  .info-val{font-size:.9rem;font-weight:700;color:#1e2d4e}
+  .empty{text-align:center;padding:2rem;color:#94a3b8;font-size:.88rem}
+  .progress-bar{height:6px;background:#e2e8f0;border-radius:9999px;overflow:hidden;margin-top:.4rem}
+  .progress-fill{height:100%;background:#1e2d4e;border-radius:9999px;transition:width .3s}
+  code{background:#f1f5f9;border-radius:4px;padding:.1rem .35rem;font-size:.8rem;color:#1e2d4e;font-family:monospace}
+</style>
 
-<div class="dash-box" style="margin-bottom:1rem;">
-  <h3>Assegna volontario</h3>
-  <form method="post" action="/volunteer-assignments" style="display:flex;gap:.7rem;flex-wrap:wrap;align-items:end;">
-    <input type="hidden" name="shift_id" value="<%= shift.id %>">
-    <label>Volontario<br>
-      <select name="volunteer_id" required>
-        <option value="">-- Seleziona --</option>
-        <% volunteers.forEach(function(v){ %>
-          <option value="<%= v.id %>"><%= v.last_name %> <%= v.first_name %></option>
-        <% }) %>
-      </select>
-    </label>
-    <div><button class="primary" type="submit">+ Assegna</button></div>
-  </form>
-</div>
+<div class="container" style="max-width:900px;margin:1.5rem auto;padding:0 1.25rem">
 
-<div class="dash-box">
-  <h3>Volontari assegnati</h3>
-  <% if(!assignments.length){ %><p style="color:var(--text-muted)">Nessuna assegnazione presente.</p><% } %>
-  <% assignments.forEach(function(a){ %>
-    <div style="display:flex;justify-content:space-between;gap:1rem;border-top:1px solid var(--border-light);padding:.8rem 0;align-items:center;flex-wrap:wrap;">
-      <div>
-        <strong><%= a.last_name %> <%= a.first_name %></strong><br>
-        <span style="font-size:.8rem;color:var(--text-muted)"><%= a.email||'—' %> · <%= a.phone||'—' %></span><br>
-        <span style="font-size:.76rem;color:var(--text-muted)">QR code: <code><%= a.checkin_code||'' %></code> · Stato: <strong><%= a.status %></strong></span>
+  <!-- HEADER TURNO -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:.75rem">
+    <div>
+      <h1 style="font-size:1.25rem;font-weight:800;color:#1e2d4e;line-height:1.2">👥 <%= shift.name %></h1>
+      <p style="font-size:.78rem;color:#64748b;margin-top:.1rem">Gestione assegnazioni volontari per questo turno</p>
+    </div>
+    <a href="/volunteers" class="btn-ghost">← Torna ai volontari</a>
+  </div>
+
+  <!-- DETTAGLI TURNO -->
+  <div class="log-card">
+    <div class="log-card-head">
+      <span class="log-card-title">📋 Dettagli turno</span>
+      <%
+        var assignedCount = assignments ? assignments.length : 0;
+        var maxVol = shift.max_volunteers || 1;
+        var pct = Math.min(100, Math.round(assignedCount / maxVol * 100));
+        var fillColor = pct >= 100 ? '#991b1b' : pct >= 75 ? '#b45309' : '#065f46';
+      %>
+      <span style="font-size:.78rem;font-weight:700;color:<%= fillColor %>">
+        <%= assignedCount %>/<%= maxVol %> volontari assegnati
+      </span>
+    </div>
+    <div class="log-card-body">
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-label">Zona</div>
+          <div class="info-val"><%= shift.zone_name || '—' %></div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Ruolo</div>
+          <div class="info-val"><%= shift.role_label || '—' %></div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Inizio</div>
+          <div class="info-val" style="font-size:.82rem"><%= (shift.start_at||'').replace('T',' ').slice(0,16) %></div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Fine</div>
+          <div class="info-val" style="font-size:.82rem"><%= (shift.end_at||'').replace('T',' ').slice(0,16) %></div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Capienza</div>
+          <div class="info-val"><%= maxVol %></div>
+          <div class="progress-bar"><div class="progress-fill" style="width:<%= pct %>%;background:<%= fillColor %>"></div></div>
+        </div>
+        <% if(shift.notes){ %>
+        <div class="info-item" style="grid-column:1/-1">
+          <div class="info-label">Note</div>
+          <div class="info-val" style="font-size:.82rem;font-weight:400;color:#475569"><%= shift.notes %></div>
+        </div>
+        <% } %>
       </div>
-      <form method="post" action="/volunteer-assignments/<%= a.id %>/delete" onsubmit="return confirm('Rimuovere questa assegnazione?')">
-        <button class="danger" type="submit">Rimuovi</button>
+    </div>
+  </div>
+
+  <!-- ASSEGNA VOLONTARIO -->
+  <div class="log-card">
+    <div class="log-card-head">
+      <span class="log-card-title">➕ Assegna volontario</span>
+    </div>
+    <div class="log-card-body">
+      <form method="post" action="/volunteer-assignments">
+        <input type="hidden" name="shift_id" value="<%= shift.id %>">
+        <div class="form-row" style="align-items:flex-end">
+          <div class="field" style="flex:1;min-width:200px">
+            <label>Seleziona volontario</label>
+            <select name="volunteer_id" required>
+              <option value="">-- Seleziona --</option>
+              <%
+                // Escludi già assegnati
+                var assignedIds = assignments.map(function(a){ return a.volunteer_id || a.id; });
+              %>
+              <% volunteers.forEach(function(v){ %>
+                <option value="<%= v.id %>" <%= assignedIds.indexOf(v.id)>=0 ? 'disabled' : '' %>>
+                  <%= v.last_name %> <%= v.first_name %><%= v.skills?' · '+v.skills:'' %>
+                </option>
+              <% }) %>
+            </select>
+          </div>
+          <button type="submit" class="btn-sm" style="height:38px">+ Assegna</button>
+        </div>
       </form>
     </div>
-  <% }) %>
+  </div>
+
+  <!-- LISTA ASSEGNAZIONI -->
+  <div class="log-card">
+    <div class="log-card-head">
+      <span class="log-card-title">🙋 Volontari assegnati <span style="background:#e2e8f0;border-radius:9999px;padding:.05rem .45rem;font-size:.72rem;margin-left:.3rem;font-weight:600"><%= assignedCount %></span></span>
+    </div>
+    <div class="log-card-body" style="padding:0">
+      <% if(!assignments.length){ %>
+        <div class="empty">Nessun volontario assegnato a questo turno</div>
+      <% } else { %>
+      <table class="sr-table">
+        <thead>
+          <tr>
+            <th>Volontario</th>
+            <th>Contatti</th>
+            <th>Competenze</th>
+            <th style="text-align:center">Stato</th>
+            <th>QR Check-in</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        <% assignments.forEach(function(a){ %>
+          <tr>
+            <td>
+              <strong style="color:#1e2d4e"><%= a.last_name %> <%= a.first_name %></strong>
+            </td>
+            <td style="font-size:.8rem;color:#475569">
+              <% if(a.email){ %><div><%= a.email %></div><% } %>
+              <% if(a.phone){ %><div><%= a.phone %></div><% } %>
+              <% if(!a.email&&!a.phone){ %>—<% } %>
+            </td>
+            <td style="font-size:.8rem;color:#64748b"><%= a.skills||'—' %></td>
+            <td style="text-align:center">
+              <% if(a.checkin_at){ %>
+                <span class="badge badge-done">✅ Check-in</span>
+                <div style="font-size:.7rem;color:#64748b;margin-top:.15rem"><%= (a.checkin_at||'').slice(11,16) %></div>
+              <% } else { %>
+                <span class="badge badge-pending">In attesa</span>
+              <% } %>
+            </td>
+            <td>
+              <% if(a.checkin_code){ %>
+                <code><%= a.checkin_code %></code>
+              <% } else { %>
+                <span style="color:#cbd5e1;font-size:.8rem">—</span>
+              <% } %>
+            </td>
+            <td>
+              <form method="post" action="/volunteer-assignments/<%= a.id %>/delete"
+                    onsubmit="return confirm('Rimuovere l\'assegnazione di <%= a.last_name %> <%= a.first_name %>?')"
+                    style="margin:0">
+                <button class="btn-del" type="submit">Rimuovi</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+        </tbody>
+      </table>
+      <% } %>
+    </div>
+  </div>
+
 </div>
+
 <%- include('partials/footer') %>
