@@ -224,37 +224,6 @@
     display: none;
   }
 
-  /* ── DUAL GATE (Mariambini) ── */
-  .dual-gate-grid {
-    display: grid;
-    grid-template-columns: 1fr 1px 1fr;
-    gap: 0.75rem;
-    align-items: start;
-  }
-  .gate-divider {
-    background: var(--border);
-    min-height: 100%;
-    margin-top: 2rem;
-  }
-  .gate-column {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-  }
-  .gate-label {
-    text-align: center;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 0.2rem;
-    padding: 0 0.25rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
   /* ── BOTTONI VERTICALI (singolo varco) ── */
   .tap-buttons-col {
     display: flex;
@@ -268,6 +237,54 @@
     font-size: 1.05rem;
   }
   .tap-btn.tall .btn-icon { font-size: 2.2rem; }
+
+
+  /* ── VARCO SELECTOR (Mariambini) ── */
+  .varco-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin-bottom: 1rem;
+  }
+  .varco-selector-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 0.1rem;
+  }
+  .varco-pill {
+    width: 100%;
+    padding: 0.85rem 1rem;
+    border-radius: 0.75rem;
+    border: 2px solid var(--border);
+    background: var(--surface2);
+    color: var(--muted);
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .varco-pill.active {
+    border-color: var(--present);
+    color: var(--text);
+    background: rgba(96,165,250,0.12);
+  }
+  .varco-pill:active {
+    transform: scale(0.97);
+  }
+  .varco-attivo-label {
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--present);
+    letter-spacing: 0.04em;
+    margin-bottom: 0.75rem;
+    min-height: 1.2em;
+  }
 
 </style>
 </head>
@@ -289,7 +306,7 @@
 
 <div class="page-content">
 
-  <!-- MARIAMBINI (2 varchi separati) -->
+  <!-- MARIAMBINI (selezione varco + bottoni full-width) -->
   <div class="counter-card active" data-area="mariambini">
     <div class="area-header">
       <span class="area-emoji">🎡</span>
@@ -303,27 +320,27 @@
       <div class="stat-chip ins"><span class="val" id="ins-mariambini">–</span><span class="lbl">Entrati</span></div>
       <div class="stat-chip outs"><span class="val" id="outs-mariambini">–</span><span class="lbl">Usciti</span></div>
     </div>
-    <!-- Due varchi: colonne affiancate, ciascuna con IN/OUT verticali -->
-    <div class="dual-gate-grid">
-      <div class="gate-column">
-        <div class="gate-label">🚪 Varco Bisarnella</div>
-        <button class="tap-btn btn-in tall" onclick="tap('mariambini','IN','Varco Bisarnella')">
-          <span class="btn-icon">↑</span><span class="btn-label">Entrata</span>
-        </button>
-        <button class="tap-btn btn-out tall" onclick="tap('mariambini','OUT','Varco Bisarnella')">
-          <span class="btn-icon">↓</span><span class="btn-label">Uscita</span>
-        </button>
-      </div>
-      <div class="gate-divider"></div>
-      <div class="gate-column">
-        <div class="gate-label">🚪 Varco Vanvere</div>
-        <button class="tap-btn btn-in tall" onclick="tap('mariambini','IN','Varco Vanvere')">
-          <span class="btn-icon">↑</span><span class="btn-label">Entrata</span>
-        </button>
-        <button class="tap-btn btn-out tall" onclick="tap('mariambini','OUT','Varco Vanvere')">
-          <span class="btn-icon">↓</span><span class="btn-label">Uscita</span>
-        </button>
-      </div>
+
+    <!-- Selezione varco -->
+    <div class="varco-selector" id="varco-selector-mariambini">
+      <div class="varco-selector-label">Seleziona il tuo varco:</div>
+      <button class="varco-pill active" data-area="mariambini" data-varco="Varco Bisarnella"
+              onclick="selectVarco('mariambini','Varco Bisarnella')">🚪 Varco Bisarnella</button>
+      <button class="varco-pill" data-area="mariambini" data-varco="Varco Vanvere"
+              onclick="selectVarco('mariambini','Varco Vanvere')">🚪 Varco Vanvere</button>
+    </div>
+
+    <!-- Varco selezionato label -->
+    <div class="varco-attivo-label" id="varco-attivo-mariambini">🚪 Varco Bisarnella</div>
+
+    <!-- Bottoni full-width verticali -->
+    <div class="tap-buttons-col">
+      <button class="tap-btn btn-in tall" onclick="tapVarco('mariambini','IN')">
+        <span class="btn-icon">↑</span><span class="btn-label">Entrata</span>
+      </button>
+      <button class="tap-btn btn-out tall" onclick="tapVarco('mariambini','OUT')">
+        <span class="btn-icon">↓</span><span class="btn-label">Uscita</span>
+      </button>
     </div>
   </div>
 
@@ -441,6 +458,25 @@
   };
   let currentArea = 'mariambini';
   let tapping = false; // debounce
+
+  // Varco attivo per Mariambini
+  const varcoAttivo = { mariambini: 'Varco Bisarnella' };
+
+  function selectVarco(area, varco) {
+    varcoAttivo[area] = varco;
+    // Aggiorna UI pills
+    document.querySelectorAll(`.varco-pill[data-area="${area}"]`).forEach(p => {
+      p.classList.toggle('active', p.dataset.varco === varco);
+    });
+    // Aggiorna label
+    const lbl = document.getElementById('varco-attivo-' + area);
+    if (lbl) lbl.textContent = '🚪 ' + varco;
+  }
+
+  function tapVarco(area, direction) {
+    const gate = varcoAttivo[area] || 'Ingresso';
+    tap(area, direction, gate);
+  }
 
   // ── Area tabs ──
   document.querySelectorAll('.area-tab').forEach(btn => {
