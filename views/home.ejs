@@ -51,6 +51,11 @@
     <div class="kpi-value" id="kpi-senza"><%= stats.senzaPass %></div>
     <div class="kpi-sub">partecipanti senza pass</div>
   </div>
+  <div class="kpi-card" style="--kc:#2d6a4f">
+    <div class="kpi-label">🚶 Visitatori oggi</div>
+    <div class="kpi-value" id="kpi-visitatori">–</div>
+    <div class="kpi-sub" id="kpi-visitatori-sub">QR + contatore manuale</div>
+  </div>
 </div>
 
 <div class="status-pills">
@@ -160,11 +165,16 @@
 <div class="dash-row">
   <!-- Heatmap scan QR oggi -->
   <div class="dash-box">
-    <h3>📊 Scan QR per ora — oggi</h3>
-    <div id="heatmap-bars" style="display:flex;align-items:flex-end;gap:3px;height:70px;margin-top:.5rem">
+    <h3>📊 Ingressi per ora — oggi</h3>
+    <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:.4rem;font-size:.65rem;color:var(--text-muted)">
+      <span><span style="display:inline-block;width:8px;height:8px;background:#1d6fa4;border-radius:2px;margin-right:2px"></span>Scan QR</span>
+      <span><span style="display:inline-block;width:8px;height:8px;background:#2d6a4f;border-radius:2px;margin-right:2px"></span>Contatore</span>
+      <span style="margin-left:auto">Totale oggi: <strong id="heatmap-totale">–</strong></span>
+    </div>
+    <div id="heatmap-bars" style="display:flex;align-items:flex-end;gap:2px;height:90px;margin-top:.25rem">
       <span style="color:var(--text-muted);font-size:.8rem">Nessun dato ancora oggi</span>
     </div>
-    <div style="font-size:.65rem;color:var(--text-muted);margin-top:.3rem;text-align:center">Ore (08–22)</div>
+    <div style="font-size:.62rem;color:var(--text-muted);margin-top:.25rem;text-align:center">Ore (08–22)</div>
   </div>
   <!-- Alert intelligenti -->
   <div class="dash-box">
@@ -261,19 +271,34 @@
     if(!wrap) return;
     if(!data || !data.length){
       wrap.innerHTML='<span style="color:var(--text-muted);font-size:.8rem">Nessun dato ancora oggi</span>';
+      var tot=document.getElementById('heatmap-totale'); if(tot) tot.textContent='0';
       return;
     }
     var byHour={};
-    data.forEach(function(d){ byHour[d.ora]=d.count; });
-    var max=Math.max.apply(null, data.map(function(d){return d.count;}));
+    var totale=0;
+    data.forEach(function(d){
+      byHour[d.ora]={count:parseInt(d.count)||0, qr:parseInt(d.qr)||0, manual:parseInt(d.manual)||0};
+      totale+=parseInt(d.count)||0;
+    });
+    var tot=document.getElementById('heatmap-totale'); if(tot) tot.textContent=totale;
+    var max=Math.max.apply(null,Object.values(byHour).map(function(v){return v.count;}));
     if(max<1) max=1;
     var hours=[];
     for(var h=8;h<=22;h++) hours.push(String(h).padStart(2,'0'));
     wrap.innerHTML = hours.map(function(h){
-      var c=byHour[h]||0;
-      var pct=Math.max(Math.round(c/max*100),2);
-      return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;height:100%;justify-content:flex-end;">'
-        +'<div title="'+h+':00 — '+c+' scan" style="width:100%;height:'+pct+'%;background:#1d6fa4;border-radius:3px 3px 0 0;opacity:.75;min-height:2px;"></div>'
+      var d=byHour[h]||{count:0,qr:0,manual:0};
+      var pct=Math.max(Math.round(d.count/max*100),d.count>0?3:0);
+      var pctQr=d.count>0?Math.round(d.qr/d.count*100):0;
+      var pctMan=100-pctQr;
+      var tooltip=h+':00 — '+d.count+' ingressi ('+d.qr+' QR + '+d.manual+' manuali)';
+      // Barra stacked: QR (blu) + manuale (verde)
+      return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;height:100%;justify-content:flex-end;" title="'+tooltip+'">'
+        +(pct>0
+          ? '<div style="width:100%;height:'+pct+'%;display:flex;flex-direction:column;justify-content:flex-end;border-radius:3px 3px 0 0;overflow:hidden;min-height:3px;">'
+            +'<div style="width:100%;height:'+pctMan+'%;background:#2d6a4f;min-height:'+(d.manual>0?'2':'0')+'px;"></div>'
+            +'<div style="width:100%;height:'+pctQr+'%;background:#1d6fa4;min-height:'+(d.qr>0?'2':'0')+'px;"></div>'
+            +'</div>'
+          : '<div style="width:100%;height:2px;background:var(--border-light);border-radius:2px;"></div>')
         +'<div style="font-size:.58rem;color:var(--text-muted)">'+h+'</div>'
         +'</div>';
     }).join('');
@@ -352,6 +377,8 @@
         renderPresenze(d.presenze || {});
         renderHeatmap(d.heatmapOre || []);
         renderAlerts(d);
+        // KPI visitatori oggi
+        setVal('kpi-visitatori', d.stats.ingressiOggi || 0);
         document.getElementById('dash-live-badge').style.opacity='1';
       })
       .catch(function(){});

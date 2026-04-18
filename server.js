@@ -310,12 +310,24 @@ app.use('/', agendaRoutes(logAction));
         ORDER BY al.id DESC LIMIT 8`).catch(() => []);
 
       // ── Query live (opzionali — non bloccano se falliscono) ───────────────
-      const [r7, r8, r9, r10, r11] = await Promise.all([
-        // Heatmap scan QR oggi per ora
-        dbAll(`SELECT strftime('%H', created_at) as ora, COUNT(*) as count
-               FROM scan_attempts
-               WHERE created_at >= ? AND result = 'OK'
-               GROUP BY ora ORDER BY ora ASC`, [since]).catch(() => []),
+      const [r7, r8, r9, r10, r11, r12] = await Promise.all([
+        // Heatmap: scan QR + contatore manuale uniti per ora
+        dbAll(`
+          SELECT ora, SUM(count) as count, SUM(qr) as qr, SUM(manual) as manual
+          FROM (
+            SELECT strftime('%H', created_at) as ora, COUNT(*) as count,
+                   COUNT(*) as qr, 0 as manual
+            FROM scan_attempts
+            WHERE created_at >= ? AND result = 'OK'
+            GROUP BY ora
+            UNION ALL
+            SELECT strftime('%H', counted_at) as ora, COUNT(*) as count,
+                   0 as qr, COUNT(*) as manual
+            FROM visitor_counts
+            WHERE direction = 'IN' AND counted_at >= ?
+            GROUP BY ora
+          )
+          GROUP BY ora ORDER BY ora ASC`, [since, since]).catch(() => []),
         // Scan anomali: stesso codice >3 volte nelle ultime 2 ore
         dbAll(`SELECT code, COUNT(*) as hits, MAX(created_at) as last_scan,
                  MAX(participant_name) as participant_name, MAX(group_name) as group_name
@@ -341,9 +353,12 @@ app.use('/', agendaRoutes(logAction));
                WHERE vc.counted_at >= COALESCE(vr.last_reset, ?)
                  AND vc.counted_at >= ?
                GROUP BY vc.area`, [since, since]).catch(() => []),
-        // Scan totali oggi
+        // Scan totali oggi (QR)
         dbGet(`SELECT COUNT(*) as total FROM scan_attempts
                WHERE result='OK' AND created_at >= ?`, [since]).catch(() => ({ total: 0 })),
+        // Totale ingressi manuali oggi (visitor_counts)
+        dbGet(`SELECT COUNT(*) as total FROM visitor_counts
+               WHERE direction='IN' AND counted_at >= ?`, [since]).catch(() => ({ total: 0 })),
       ]);
 
       // ── Calcoli ───────────────────────────────────────────────────────────
@@ -388,7 +403,7 @@ app.use('/', agendaRoutes(logAction));
           totalPasses:       r2 ? r2.total : 0,
           passesByStatus,
           senzaPass:         r4 ? r4.total : 0,
-          ingressiOggi:      r11 ? r11.total : 0,
+          ingressiOggi:      (r11 ? r11.total : 0) + (r12 ? r12.total : 0),
         },
         alertGroups:         r5 || [],
         recentActivity:      r6 || [],
