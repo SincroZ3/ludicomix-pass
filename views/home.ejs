@@ -59,6 +59,27 @@
   <% }); %>
 </div>
 
+
+<div class="dash-box">
+  <h3>&#9889; Accesso rapido</h3>
+  <div class="icon-grid">
+    <a href="/participants"     class="icon-item"><span class="icon-emoji">&#128101;</span>Assegnatari Pass</a>
+    <a href="/passes"           class="icon-item"><span class="icon-emoji">&#127931;</span>Pass Generati</a>
+    <a href="/reports"          class="icon-item"><span class="icon-emoji">&#128202;</span>Reports</a>
+    <a href="/volunteers"       class="icon-item"><span class="icon-emoji">🙋</span>Volontari</a>
+    <a href="/admin/logistica"    class="icon-item"><span class="icon-emoji">📦</span>Logistica</a>
+    <a href="/search"           class="icon-item"><span class="icon-emoji">&#128269;</span>Ricerca Pass</a>
+    <a href="/account/password" class="icon-item"><span class="icon-emoji">&#128273;</span>Cambia Password</a>
+    <a href="/account/security" class="icon-item"><span class="icon-emoji">&#128274;</span>Password Sicurezza</a>
+    <% if(currentUser&&currentUser.role==='admin'){ %>
+        <a href="/admin/logs"     class="icon-item"><span class="icon-emoji">&#128203;</span>Log Azioni</a>
+      <a href="/admin/settings" class="icon-item"><span class="icon-emoji">&#9881;&#65039;</span>Impostazioni</a>
+      <a href="/admin/settings/portal-window" class="icon-item"><span class="icon-emoji">🗓</span>Finestra Portali</a>
+    <% } %>
+  </div>
+</div>
+
+
 <div class="dash-row" style="grid-template-columns:<% if(currentUser&&currentUser.role==='admin'){ %>1fr 1fr<% }else{ %>1fr<% } %>;">
   <div class="dash-box">
     <h3>&#128276; Attenzione stand</h3>
@@ -162,25 +183,6 @@
 </div>
 
 
-<div class="dash-box">
-  <h3>&#9889; Accesso rapido</h3>
-  <div class="icon-grid">
-    <a href="/participants"     class="icon-item"><span class="icon-emoji">&#128101;</span>Assegnatari Pass</a>
-    <a href="/passes"           class="icon-item"><span class="icon-emoji">&#127931;</span>Pass Generati</a>
-    <a href="/reports"          class="icon-item"><span class="icon-emoji">&#128202;</span>Reports</a>
-    <a href="/volunteers"       class="icon-item"><span class="icon-emoji">🙋</span>Volontari</a>
-    <a href="/admin/logistica"    class="icon-item"><span class="icon-emoji">📦</span>Logistica</a>
-    <a href="/search"           class="icon-item"><span class="icon-emoji">&#128269;</span>Ricerca Pass</a>
-    <a href="/account/password" class="icon-item"><span class="icon-emoji">&#128273;</span>Cambia Password</a>
-    <a href="/account/security" class="icon-item"><span class="icon-emoji">&#128274;</span>Password Sicurezza</a>
-    <% if(currentUser&&currentUser.role==='admin'){ %>
-        <a href="/admin/logs"     class="icon-item"><span class="icon-emoji">&#128203;</span>Log Azioni</a>
-      <a href="/admin/settings" class="icon-item"><span class="icon-emoji">&#9881;&#65039;</span>Impostazioni</a>
-      <a href="/admin/settings/portal-window" class="icon-item"><span class="icon-emoji">🗓</span>Finestra Portali</a>
-    <% } %>
-  </div>
-</div>
-
 <script>
 (function(){
   var PILL_COLORS={GENERATO:'#6b3fa0',SCARICATO:'#1d6fa4',STAMPATO:'#c9a227',CONSEGNATO:'#2d6a4f',RICONSEGNATO:'#c0392b'};
@@ -192,14 +194,13 @@
     el.classList.add('kpi-bump');
   }
 
+  // FIX: confronto robusto — aggiorna sempre, anima solo se cambia
   function setVal(id, val){
     var el = document.getElementById(id);
     if(!el) return;
-    var old = parseInt(el.textContent, 10);
-    if(old !== val){
-      el.textContent = val;
-      bump(el);
-    }
+    var cur = parseInt(el.textContent, 10);
+    el.textContent = val;
+    if(isNaN(cur) || cur !== val) bump(el);
   }
 
   function renderAlertGroups(groups){
@@ -239,15 +240,17 @@
     }).join('');
   }
 
-  // ── NUOVE FUNZIONI ────────────────────────────────────────────────────────
-
   function renderPresenze(presenze){
     ['mariambini','palazzetto','la_perla','ludostria'].forEach(function(area){
       var d = (presenze && presenze[area]) || {ins:0, outs:0, presenti:0};
-      var el  = document.getElementById('pres-'    + area);
-      var inE = document.getElementById('pres-in-' + area);
-      var ouE = document.getElementById('pres-out-'+ area);
-      if(el)  { var old=parseInt(el.textContent)||0; if(old!==d.presenti){el.textContent=d.presenti; bump(el);} }
+      var el  = document.getElementById('pres-'    +area);
+      var inE = document.getElementById('pres-in-' +area);
+      var ouE = document.getElementById('pres-out-'+area);
+      if(el){
+        var old = parseInt(el.textContent,10);
+        el.textContent = d.presenti;
+        if(isNaN(old)||old!==d.presenti){ bump(el); }
+      }
       if(inE)  inE.textContent  = d.ins;
       if(ouE)  ouE.textContent  = d.outs;
     });
@@ -262,98 +265,103 @@
     }
     var byHour={};
     data.forEach(function(d){ byHour[d.ora]=d.count; });
-    var max=Math.max.apply(null, data.map(function(d){return d.count;}));
-    if(max<1) max=1;
+    var max=1;
+    data.forEach(function(d){ if(d.count>max) max=d.count; });
     var hours=[];
-    for(var h=8;h<=22;h++) hours.push(String(h).padStart(2,'0'));
+    for(var h=8;h<=22;h++) hours.push(h<10?'0'+h:''+h);
     wrap.innerHTML = hours.map(function(h){
       var c=byHour[h]||0;
       var pct=Math.max(Math.round(c/max*100),2);
       return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;height:100%;justify-content:flex-end;">'
-        +'<div title="'+h+':00 — '+c+' scan" style="width:100%;height:'+pct+'%;background:#1d6fa4;border-radius:3px 3px 0 0;opacity:.75;min-height:2px;"></div>'
+        +'<div title="'+h+':00 \u2014 '+c+' scan" style="width:100%;height:'+pct+'%;background:#1d6fa4;border-radius:3px 3px 0 0;opacity:.75;min-height:2px;"></div>'
         +'<div style="font-size:.58rem;color:var(--text-muted)">'+h+'</div>'
         +'</div>';
     }).join('');
   }
 
   function renderAlerts(d){
-    // Banner chiusura
-    var banner = document.getElementById('alert-closing-banner');
-    var bannerText = document.getElementById('alert-closing-text');
-    if(banner && d.nextClosing){
-      var nc=d.nextClosing;
-      var h=Math.floor(nc.diffMin/60), m=nc.diffMin%60;
-      var tl = h>0 ? h+'h '+m+'m' : m+' min';
-      bannerText.innerHTML = '<strong>Chiusura '+nc.label+' alle '+nc.closing+'</strong> — mancano <strong>'+tl+'</strong>';
-      banner.style.display='flex';
-    } else if(banner){
-      banner.style.display='none';
+    var banner   = document.getElementById('alert-closing-banner');
+    var bannerTx = document.getElementById('alert-closing-text');
+    if(banner){
+      if(d.nextClosing){
+        var nc=d.nextClosing;
+        var hh=Math.floor(nc.diffMin/60), mm=nc.diffMin%60;
+        var tl=hh>0?hh+'h '+mm+'m':mm+' min';
+        if(bannerTx) bannerTx.innerHTML='<strong>Chiusura '+nc.label+' alle '+nc.closing+'</strong> \u2014 mancano <strong>'+tl+'</strong>';
+        banner.style.display='flex';
+      } else {
+        banner.style.display='none';
+      }
     }
 
     var hasAlert=false;
 
-    // Scan anomali
     var anomWrap=document.getElementById('scan-anomali-wrap');
     var anomList=document.getElementById('scan-anomali-list');
     if(d.scanAnomali && d.scanAnomali.length){
       hasAlert=true;
-      anomWrap.style.display='block';
-      anomList.innerHTML=d.scanAnomali.map(function(s){
+      if(anomWrap) anomWrap.style.display='block';
+      if(anomList) anomList.innerHTML=d.scanAnomali.map(function(s){
         return '<div style="display:flex;justify-content:space-between;align-items:center;padding:.3rem .5rem;margin-bottom:.25rem;background:rgba(192,57,43,.08);border:1px solid rgba(192,57,43,.3);border-radius:var(--radius-sm);font-size:.78rem;">'
-          +'<span><strong>'+(s.participant_name||s.code)+'</strong>'+(s.group_name?' <span style="opacity:.6">– '+s.group_name+'</span>':'')+'</span>'
-          +'<span style="background:#c0392b;color:#fff;border-radius:9999px;padding:.05rem .45rem;font-size:.68rem;font-weight:700;">'+s.hits+'×</span>'
+          +'<span><strong>'+(s.participant_name||s.code)+'</strong>'+(s.group_name?' <span style="opacity:.6">\u2013 '+s.group_name+'</span>':'')+'</span>'
+          +'<span style="background:#c0392b;color:#fff;border-radius:9999px;padding:.05rem .45rem;font-size:.68rem;font-weight:700;">'+s.hits+'\xd7</span>'
           +'</div>';
       }).join('');
-    } else if(anomWrap){ anomWrap.style.display='none'; }
+    } else {
+      if(anomWrap) anomWrap.style.display='none';
+    }
 
-    // Pass non consegnati vicino chiusura
     var ncWrap=document.getElementById('pass-nc-wrap');
     var ncList=document.getElementById('pass-nc-list');
     if(d.alertPassNonRitirati && d.passNonConsegnati && d.passNonConsegnati.length){
       hasAlert=true;
-      ncWrap.style.display='block';
-      ncList.innerHTML=d.passNonConsegnati.map(function(g){
+      if(ncWrap) ncWrap.style.display='block';
+      if(ncList) ncList.innerHTML=d.passNonConsegnati.map(function(g){
         return '<div style="display:flex;justify-content:space-between;align-items:center;padding:.3rem .5rem;margin-bottom:.25rem;background:rgba(201,162,39,.08);border:1px solid rgba(201,162,39,.3);border-radius:var(--radius-sm);font-size:.78rem;">'
-          +'<span>'+g.group_name+(g.zone?' <span style="opacity:.6">📍'+g.zone+'</span>':'')+'</span>'
+          +'<span>'+g.group_name+(g.zone?' <span style="opacity:.6">\ud83d\udccd'+g.zone+'</span>':'')+'</span>'
           +'<span style="background:#c9a227;color:#fff;border-radius:9999px;padding:.05rem .45rem;font-size:.68rem;font-weight:700;">'+g.non_consegnati+'</span>'
           +'</div>';
       }).join('');
-    } else if(ncWrap){ ncWrap.style.display='none'; }
+    } else {
+      if(ncWrap) ncWrap.style.display='none';
+    }
 
     var emptyEl=document.getElementById('alert-empty');
     if(emptyEl) emptyEl.style.display=hasAlert?'none':'block';
   }
 
-  // ── REFRESH ───────────────────────────────────────────────────────────────
-
   function refresh(){
     fetch('/api/dashboard-stats')
-      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(r){ return r.ok ? r.json() : Promise.reject('HTTP '+r.status); })
       .then(function(d){
-        if(!d) return;
-        var ps = d.stats.passesByStatus || {};
+        var ps = (d.stats && d.stats.passesByStatus) || {};
         var totCons = (ps['CONSEGNATO']||0)+(ps['RICONSEGNATO']||0);
-        setVal('kpi-participants', d.stats.totalParticipants);
-        setVal('kpi-passes',       d.stats.totalPasses);
+        setVal('kpi-participants', d.stats.totalParticipants||0);
+        setVal('kpi-passes',       d.stats.totalPasses||0);
         setVal('kpi-consegnati',   totCons);
-        setVal('kpi-senza',        d.stats.senzaPass);
+        setVal('kpi-senza',        d.stats.senzaPass||0);
         var sc = document.getElementById('kpi-senza-card');
-        if(sc) sc.style.setProperty('--kc', d.stats.senzaPass>0?'#c0392b':'#2d6a4f');
+        if(sc) sc.style.setProperty('--kc', (d.stats.senzaPass||0)>0?'#c0392b':'#2d6a4f');
         STATI.forEach(function(s){
           var el=document.getElementById('pill-'+s);
-          if(el){ var v=ps[s]||0; if(parseInt(el.textContent)!==v){ el.textContent=v; bump(el); } }
+          if(el){ var v=ps[s]||0; el.textContent=v; }
         });
         renderAlertGroups(d.alertGroups);
         renderActivity(d.recentActivity);
-        // ── nuove sezioni ──
         renderPresenze(d.presenze || {});
         renderHeatmap(d.heatmapOre || []);
         renderAlerts(d);
-        document.getElementById('dash-live-badge').style.opacity='1';
+        var badge=document.getElementById('dash-live-badge');
+        if(badge) badge.style.opacity='1';
       })
-      .catch(function(){});
+      .catch(function(err){
+        console.warn('[dashboard] refresh error:', err);
+        var badge=document.getElementById('dash-live-badge');
+        if(badge) badge.style.opacity='0.3';
+      });
   }
 
+  // Avvia subito e poi ogni 15s
   refresh();
   setInterval(refresh, 15000);
 })();

@@ -357,15 +357,13 @@ app.use('/', agendaRoutes(logAction));
              ${edFilter2}
              GROUP BY ag.id
              ORDER BY non_consegnati DESC LIMIT 20`),
-      // 10. Presenze live per area (da visitor_counts)
+      // 10. Presenze live per area (da visitor_counts) — usa solo since per robustezza
       dbAll(`SELECT vc.area,
                SUM(CASE WHEN vc.direction='IN'  THEN 1 ELSE 0 END) as ins,
                SUM(CASE WHEN vc.direction='OUT' THEN 1 ELSE 0 END) as outs
              FROM visitor_counts vc
-             WHERE vc.counted_at >= COALESCE(
-               (SELECT vr.reset_at FROM visitor_resets vr WHERE vr.area=vc.area ORDER BY vr.id DESC LIMIT 1), ?)
-               AND vc.counted_at >= ?
-             GROUP BY vc.area`, [since, since]),
+             WHERE vc.counted_at >= ?
+             GROUP BY vc.area`, [since]),
       // 11. Ingressi totali oggi (scan QR + visitor IN)
       dbGet(`SELECT COUNT(*) as total FROM scan_attempts
              WHERE result='OK' AND created_at >= ?`, [since]),
