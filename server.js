@@ -270,47 +270,141 @@ app.use('/', agendaRoutes(logAction));
   
   // -------- API: Dashboard Stats (polling live) --------
   app.get('/api/dashboard-stats', requireAuth, (req, res) => {
-    db.get('SELECT COUNT(*) as total FROM participants', [], (e, r1) => {
-      const totalParticipants = r1 ? r1.total : 0;
-      db.get('SELECT COUNT(*) as total FROM passes', [], (e2, r2) => {
-        const totalPasses = r2 ? r2.total : 0;
-        db.all('SELECT status, COUNT(*) as count FROM passes GROUP BY status', [], (e3, sRows) => {
-          const passesByStatus = {};
-          (sRows || []).forEach(r => { passesByStatus[r.status] = r.count; });
-          db.get("SELECT COUNT(*) as total FROM participants WHERE id NOT IN (SELECT DISTINCT participant_id FROM passes WHERE status!='INVALIDATO')",
-            [], (e4, r4) => {
-              const senzaPass = r4 ? r4.total : 0;
-              db.all(`SELECT ag.id, ag.name, ag.zone, ag.max_passes,
-                COUNT(DISTINCT pa.id) AS participant_count,
-                COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0) AS pass_count
-                FROM assignment_groups ag
-                LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
-                LEFT JOIN passes p ON p.participant_id = pa.id
-                WHERE (1=1) ${edFilter()}
-                GROUP BY ag.id
-                HAVING
-                  (COUNT(DISTINCT pa.id)>0 AND COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0)=0)
-                  OR (ag.max_passes IS NOT NULL AND ag.max_passes>0 AND COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0)<ag.max_passes)
-                ORDER BY
-                  CASE WHEN COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0)=0 AND COUNT(DISTINCT pa.id)>0 THEN 0 ELSE 1 END ASC,
-                  (CASE WHEN ag.max_passes IS NOT NULL AND ag.max_passes>0 THEN ag.max_passes-COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0) ELSE 0 END) DESC
-                LIMIT 12`,
-                [], (e5, alertGroups) => {
-                  db.all(`SELECT al.action, al.details, al.created_at, u.username
-                    FROM action_logs al LEFT JOIN users u ON u.id = al.user_id
-                    ORDER BY al.id DESC LIMIT 8`,
-                    [], (e6, recentActivity) => {
-                      res.json({
-                        stats: { totalParticipants, totalPasses, passesByStatus, senzaPass },
-                        alertGroups: alertGroups || [],
-                        recentActivity: recentActivity || []
-                      });
-                    });
-                });
-            });
-        });
+    const edId  = (_currentEdition && _currentEdition.id) ? _currentEdition.id : null;
+    const since = todayMidnight();
+
+    // ─── Orari fiera per alert pass non ritirati ───────────────────────────
+    // Ritiro pass: 15/05 14:00-19:30 | 16/05 08:30-09:30
+    // Fiera:       16/05 09:30-21:00(Mari)/19:30(Pal) | 17/05 09:30-19:30
+    const SCHEDULES = [
+      { date: '2026-05-15', closingRitiro: '19:30', label: 'ritiro pass 15/05' },
+      { date: '2026-05-16', closingRitiro: '09:30', label: 'ritiro pass 16/05' },
+      { date: '2026-05-16', closingFiera:  '21:00', label: 'fiera 16/05' },
+      { date: '2026-05-17', closingFiera:  '19:30', label: 'fiera 17/05' },
+    ];
+    function getNextClosing() {
+      const now = new Date();
+      const todayStr = now.toISOString().slice(0,10);
+      const timeStr  = now.toTimeString().slice(0,5); // HH:MM
+      for (const s of SCHEDULES) {
+        if (s.date !== todayStr) continue;
+        const closing = s.closingRitiro || s.closingFiera;
+        if (timeStr < closing) {
+          const [hh, mm] = closing.split(':').map(Number);
+          const closingMs = new Date(now);
+          closingMs.setHours(hh, mm, 0, 0);
+          const diffMs  = closingMs - now;
+          const diffMin = Math.floor(diffMs / 60000);
+          return { closing, label: s.label, diffMin, isRitiro: !!s.closingRitiro };
+        }
+      }
+      return null;
+    }
+
+    // ─── Query in parallelo con Promise ────────────────────────────────────
+    const edFilter2 = edId ? `AND p.edition_id = ${edId}` : '';
+    const edFilterAg = edId ? `AND ag.edition_id = ${edId}` : '';
+
+    Promise.all([
+      // 1. Totale partecipanti
+      dbGet('SELECT COUNT(*) as total FROM participants'),
+      // 2. Totale pass
+      dbGet('SELECT COUNT(*) as total FROM passes'),
+      // 3. Pass per stato
+      dbAll('SELECT status, COUNT(*) as count FROM passes GROUP BY status'),
+      // 4. Partecipanti senza pass
+      dbGet(`SELECT COUNT(*) as total FROM participants WHERE id NOT IN
+             (SELECT DISTINCT participant_id FROM passes WHERE status!='INVALIDATO')`),
+      // 5. Alert gruppi (già esistente)
+      dbAll(`SELECT ag.id, ag.name, ag.zone, ag.max_passes,
+               COUNT(DISTINCT pa.id) AS participant_count,
+               COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0) AS pass_count
+             FROM assignment_groups ag
+             LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
+             LEFT JOIN passes p ON p.participant_id = pa.id
+             WHERE (1=1) ${edFilterAg}
+             GROUP BY ag.id
+             HAVING
+               (COUNT(DISTINCT pa.id)>0 AND COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0)=0)
+               OR (ag.max_passes IS NOT NULL AND ag.max_passes>0 AND COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0)<ag.max_passes)
+             ORDER BY
+               CASE WHEN COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0)=0 AND COUNT(DISTINCT pa.id)>0 THEN 0 ELSE 1 END ASC,
+               (CASE WHEN ag.max_passes IS NOT NULL AND ag.max_passes>0 THEN ag.max_passes-COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0) ELSE 0 END) DESC
+             LIMIT 12`),
+      // 6. Attività recente
+      dbAll(`SELECT al.action, al.details, al.created_at, u.username
+             FROM action_logs al LEFT JOIN users u ON u.id = al.user_id
+             ORDER BY al.id DESC LIMIT 8`),
+      // 7. Heatmap scan QR oggi (per ora)
+      dbAll(`SELECT strftime('%H', created_at) as ora, COUNT(*) as count
+             FROM scan_attempts
+             WHERE created_at >= ? AND result = 'OK'
+             GROUP BY ora ORDER BY ora ASC`, [since]),
+      // 8. Scan anomali (stesso codice >3 volte nelle ultime 2 ore)
+      dbAll(`SELECT code, COUNT(*) as hits, MAX(created_at) as last_scan,
+               MAX(participant_name) as participant_name, MAX(group_name) as group_name
+             FROM scan_attempts
+             WHERE created_at >= datetime('now','-2 hours')
+             GROUP BY code HAVING hits > 3
+             ORDER BY hits DESC LIMIT 10`),
+      // 9. Pass non ancora consegnati (status = 'STAMPATO' o 'GENERATO')
+      dbAll(`SELECT ag.name as group_name, ag.zone,
+               COUNT(p.id) as non_consegnati
+             FROM passes p
+             LEFT JOIN participants pa ON pa.id = p.participant_id
+             LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
+             WHERE p.status IN ('STAMPATO','GENERATO')
+             ${edFilter2}
+             GROUP BY ag.id
+             ORDER BY non_consegnati DESC LIMIT 20`),
+      // 10. Presenze live per area (da visitor_counts)
+      dbAll(`SELECT vc.area,
+               SUM(CASE WHEN vc.direction='IN'  THEN 1 ELSE 0 END) as ins,
+               SUM(CASE WHEN vc.direction='OUT' THEN 1 ELSE 0 END) as outs
+             FROM visitor_counts vc
+             WHERE vc.counted_at >= COALESCE(
+               (SELECT vr.reset_at FROM visitor_resets vr WHERE vr.area=vc.area ORDER BY vr.id DESC LIMIT 1), ?)
+               AND vc.counted_at >= ?
+             GROUP BY vc.area`, [since, since]),
+      // 11. Ingressi totali oggi (scan QR + visitor IN)
+      dbGet(`SELECT COUNT(*) as total FROM scan_attempts
+             WHERE result='OK' AND created_at >= ?`, [since]),
+    ])
+    .then(([r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11]) => {
+      const passesByStatus = {};
+      (r3 || []).forEach(r => { passesByStatus[r.status] = r.count; });
+
+      // Presenze per area
+      const presenze = {};
+      (r10 || []).forEach(r => {
+        presenze[r.area] = { ins: r.ins, outs: r.outs, presenti: Math.max(0, r.ins - r.outs) };
       });
-    });
+
+      // Alert pass non ritirati + orario chiusura
+      const nextClosing = getNextClosing();
+      const alertPassNonRitirati = nextClosing && nextClosing.isRitiro && nextClosing.diffMin <= 120
+        ? { closing: nextClosing.closing, label: nextClosing.label, diffMin: nextClosing.diffMin, groups: r9 || [] }
+        : null;
+
+      res.json({
+        stats: {
+          totalParticipants: r1 ? r1.total : 0,
+          totalPasses:       r2 ? r2.total : 0,
+          passesByStatus,
+          senzaPass:         r4 ? r4.total : 0,
+          ingressiOggi:      r11 ? r11.total : 0,
+        },
+        alertGroups:         r5 || [],
+        recentActivity:      r6 || [],
+        heatmapOre:          r7 || [],
+        scanAnomali:         r8 || [],
+        passNonConsegnati:   r9 || [],
+        presenze,
+        alertPassNonRitirati,
+        nextClosing,
+      });
+    })
+    .catch(err => res.status(500).json({ error: err.message }));
   });
 
 app.get('/home', requireAuth, (req, res) => {
