@@ -565,7 +565,7 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
   <nav class="main-nav">
     <% if(currentUser && currentUser.role === 'scanner'){ %>
       <a href="/scan">&#128247; Scanner QR</a>
-          <a href="/contatore" class="nav-link<% if(path=='/contatore'){%> active<%}%>">🎟️ Contatore</a>
+          <a href="/contatore" class="nav-link<% if(typeof path !== 'undefined' && path=='/contatore'){%> active<%}%>">🎟️ Contatore</a>
       <a href="/account/password">&#128273; Cambia Password</a>
     <% } else { %>
       <a href="/home">&#127968; Home</a>
@@ -580,7 +580,7 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
       <a href="/volunteers">🙋 Volontari</a>
       <a href="/search">&#128269; Ricerca Pass</a>
       <a href="/scan">&#128247; Scanner QR</a>
-          <a href="/contatore" class="nav-link<% if(path=='/contatore'){%> active<%}%>">🎟️ Contatore</a>
+          <a href="/contatore" class="nav-link<% if(typeof path !== 'undefined' && path=='/contatore'){%> active<%}%>">🎟️ Contatore</a>
       <a href="/account/password">&#128273; Cambia Password</a>
       <% if(currentUser&&currentUser.role!=='viewer'){ %>
         <a href="/account/security">&#128274; Password di Sicurezza</a>
