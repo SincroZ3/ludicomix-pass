@@ -223,6 +223,52 @@
     border-radius: 0.75rem; color: #f87171; font-size: 0.8rem;
     display: none;
   }
+
+  /* ── DUAL GATE (Mariambini) ── */
+  .dual-gate-grid {
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr;
+    gap: 0.75rem;
+    align-items: start;
+  }
+  .gate-divider {
+    background: var(--border);
+    min-height: 100%;
+    margin-top: 2rem;
+  }
+  .gate-column {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .gate-label {
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.2rem;
+    padding: 0 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── BOTTONI VERTICALI (singolo varco) ── */
+  .tap-buttons-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  /* ── TALL: bottoni più alti e grandi ── */
+  .tap-btn.tall {
+    padding: 1.8rem 0.5rem;
+    font-size: 1.05rem;
+  }
+  .tap-btn.tall .btn-icon { font-size: 2.2rem; }
+
 </style>
 </head>
 <body>
@@ -243,7 +289,7 @@
 
 <div class="page-content">
 
-  <!-- MARIAMBINI (2 gate) -->
+  <!-- MARIAMBINI (2 varchi separati) -->
   <div class="counter-card active" data-area="mariambini">
     <div class="area-header">
       <span class="area-emoji">🎡</span>
@@ -257,17 +303,27 @@
       <div class="stat-chip ins"><span class="val" id="ins-mariambini">–</span><span class="lbl">Entrati</span></div>
       <div class="stat-chip outs"><span class="val" id="outs-mariambini">–</span><span class="lbl">Usciti</span></div>
     </div>
-    <div class="gate-selector">
-      <button class="gate-btn active" data-gate="Gate A">Gate A</button>
-      <button class="gate-btn" data-gate="Gate B">Gate B</button>
-    </div>
-    <div class="tap-buttons">
-      <button class="tap-btn btn-in"  onclick="tap('mariambini','IN')">
-        <span class="btn-icon">↑</span><span class="btn-label">Entrata</span>
-      </button>
-      <button class="tap-btn btn-out" onclick="tap('mariambini','OUT')">
-        <span class="btn-icon">↓</span><span class="btn-label">Uscita</span>
-      </button>
+    <!-- Due varchi: colonne affiancate, ciascuna con IN/OUT verticali -->
+    <div class="dual-gate-grid">
+      <div class="gate-column">
+        <div class="gate-label">🚪 Varco Bisarnella</div>
+        <button class="tap-btn btn-in tall" onclick="tap('mariambini','IN','Varco Bisarnella')">
+          <span class="btn-icon">↑</span><span class="btn-label">Entrata</span>
+        </button>
+        <button class="tap-btn btn-out tall" onclick="tap('mariambini','OUT','Varco Bisarnella')">
+          <span class="btn-icon">↓</span><span class="btn-label">Uscita</span>
+        </button>
+      </div>
+      <div class="gate-divider"></div>
+      <div class="gate-column">
+        <div class="gate-label">🚪 Varco Vanvere</div>
+        <button class="tap-btn btn-in tall" onclick="tap('mariambini','IN','Varco Vanvere')">
+          <span class="btn-icon">↑</span><span class="btn-label">Entrata</span>
+        </button>
+        <button class="tap-btn btn-out tall" onclick="tap('mariambini','OUT','Varco Vanvere')">
+          <span class="btn-icon">↓</span><span class="btn-label">Uscita</span>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -285,11 +341,11 @@
       <div class="stat-chip ins"><span class="val" id="ins-palazzetto">–</span><span class="lbl">Entrati</span></div>
       <div class="stat-chip outs"><span class="val" id="outs-palazzetto">–</span><span class="lbl">Usciti</span></div>
     </div>
-    <div class="tap-buttons">
-      <button class="tap-btn btn-in"  onclick="tap('palazzetto','IN')">
+    <div class="tap-buttons-col">
+      <button class="tap-btn btn-in tall" onclick="tap('palazzetto','IN')">
         <span class="btn-icon">↑</span><span class="btn-label">Entrata</span>
       </button>
-      <button class="tap-btn btn-out" onclick="tap('palazzetto','OUT')">
+      <button class="tap-btn btn-out tall" onclick="tap('palazzetto','OUT')">
         <span class="btn-icon">↓</span><span class="btn-label">Uscita</span>
       </button>
     </div>
@@ -309,11 +365,11 @@
       <div class="stat-chip ins"><span class="val" id="ins-la_perla">–</span><span class="lbl">Entrati</span></div>
       <div class="stat-chip outs"><span class="val" id="outs-la_perla">–</span><span class="lbl">Usciti</span></div>
     </div>
-    <div class="tap-buttons">
-      <button class="tap-btn btn-in"  onclick="tap('la_perla','IN')">
+    <div class="tap-buttons-col">
+      <button class="tap-btn btn-in tall" onclick="tap('la_perla','IN')">
         <span class="btn-icon">↑</span><span class="btn-label">Entrata</span>
       </button>
-      <button class="tap-btn btn-out" onclick="tap('la_perla','OUT')">
+      <button class="tap-btn btn-out tall" onclick="tap('la_perla','OUT')">
         <span class="btn-icon">↓</span><span class="btn-label">Uscita</span>
       </button>
     </div>
@@ -333,11 +389,11 @@
       <div class="stat-chip ins"><span class="val" id="ins-ludostria">–</span><span class="lbl">Entrati</span></div>
       <div class="stat-chip outs"><span class="val" id="outs-ludostria">–</span><span class="lbl">Usciti</span></div>
     </div>
-    <div class="tap-buttons">
-      <button class="tap-btn btn-in"  onclick="tap('ludostria','IN')">
+    <div class="tap-buttons-col">
+      <button class="tap-btn btn-in tall" onclick="tap('ludostria','IN')">
         <span class="btn-icon">↑</span><span class="btn-label">Entrata</span>
       </button>
-      <button class="tap-btn btn-out" onclick="tap('ludostria','OUT')">
+      <button class="tap-btn btn-out tall" onclick="tap('ludostria','OUT')">
         <span class="btn-icon">↓</span><span class="btn-label">Uscita</span>
       </button>
     </div>
@@ -384,7 +440,6 @@
     ludostria:   { ins: 0, outs: 0, presenti: 0 }
   };
   let currentArea = 'mariambini';
-  let currentGate = 'Gate A'; // solo per mariambini
   let tapping = false; // debounce
 
   // ── Area tabs ──
@@ -398,22 +453,16 @@
     });
   });
 
-  // ── Gate selector (Mariambini) ──
-  document.querySelectorAll('.gate-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.gate-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentGate = btn.dataset.gate;
-    });
-  });
+  // Gate selector rimosso: ogni varco ha i propri bottoni dedicati
 
   // ── Tap ──
-  function tap(area, direction) {
+  function tap(area, direction, gate) {
     if (tapping) return;
     tapping = true;
     setTimeout(() => { tapping = false; }, 300);
 
-    const gate = area === 'mariambini' ? currentGate : 'Ingresso';
+    // gate: passato direttamente dai bottoni Mariambini, default per le altre aree
+    if (!gate) gate = 'Ingresso';
 
     fetch('/api/visitors/tap', {
       method: 'POST',
