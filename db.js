@@ -168,6 +168,30 @@ db.run(`CREATE TABLE IF NOT EXISTS scan_attempts (
   created_at TEXT DEFAULT (datetime('now'))
 )`);
 
+
+// ═══════════════════════════════════════════════════════
+// CONTATORE VISITATORI PER AREA
+// ═══════════════════════════════════════════════════════
+
+db.run(`CREATE TABLE IF NOT EXISTS visitor_counts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  area TEXT NOT NULL,
+  gate TEXT NOT NULL DEFAULT 'main',
+  direction TEXT NOT NULL CHECK(direction IN ('IN','OUT')),
+  user_id INTEGER,
+  counted_at TEXT DEFAULT (datetime('now','localtime')),
+  edition_id INTEGER,
+  FOREIGN KEY(user_id) REFERENCES users(id)
+)`);
+
+// Reset manuale: tabella log dei reset
+db.run(`CREATE TABLE IF NOT EXISTS visitor_resets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  area TEXT,
+  reset_at TEXT DEFAULT (datetime('now','localtime')),
+  user_id INTEGER,
+  note TEXT
+)`);
 // ═══════════════════════════════════════════════════════
 // BACHECA COMUNICAZIONI
 // ═══════════════════════════════════════════════════════

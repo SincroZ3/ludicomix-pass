@@ -3575,6 +3575,147 @@ async function triggerBatchPassOnClose(groupId) {
 app.get('/notifications',requireAuth,requireAdmin,function(req,res){db.run("UPDATE notifications SET read_at=datetime('now') WHERE read_at IS NULL");db.all('SELECT * FROM notifications ORDER BY id DESC LIMIT 200',[],function(err,notifs){res.render('notifications',{notifs:notifs||[]});});});
   app.get('/api/notifications/count',requireAuth,requireAdmin,function(req,res){db.get('SELECT COUNT(*) as n FROM notifications WHERE read_at IS NULL',[],function(e,r){res.json({count:r?r.n:0});});});
   app.post('/notifications/read-all',requireAuth,requireAdmin,function(req,res){db.run("UPDATE notifications SET read_at=datetime('now') WHERE read_at IS NULL",function(){res.redirect('/notifications');});});
+
+
+// ═══════════════════════════════════════════════════════
+// CONTATORE VISITATORI PER AREA
+// ═══════════════════════════════════════════════════════
+
+// Config aree e gate
+const VISITOR_AREAS = {
+  mariambini: { label: 'Mariambini', gates: ['Gate A', 'Gate B'], emoji: '🎡' },
+  palazzetto: { label: 'Palazzetto', gates: ['Ingresso'], emoji: '🏟️' },
+  la_perla:   { label: 'Cinema La Perla', gates: ['Ingresso'], emoji: '🎬' },
+  ludostria:  { label: 'Ludostria', gates: ['Ingresso'], emoji: '🎲' }
+};
+
+// Registra un singolo tap (IN o OUT)
+app.post('/api/visitors/tap', requireAuth, requireNotViewer, (req, res) => {
+  const { area, gate = 'main', direction } = req.body;
+  if (!area || !['IN','OUT'].includes(direction)) {
+    return res.status(400).json({ error: 'area e direction (IN/OUT) richiesti' });
+  }
+  const userId = req.session.user?.id || null;
+  const edId = currentEditionId();
+  db.run(
+    `INSERT INTO visitor_counts (area, gate, direction, user_id, edition_id) VALUES (?,?,?,?,?)`,
+    [area, gate || 'main', direction, userId, edId],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      logAction(userId, 'VISITOR_TAP', `${direction} area=${area} gate=${gate}`);
+      // Ritorna il contatore aggiornato per l'area
+      const since = todayMidnight();
+      db.get(
+        `SELECT
+          SUM(CASE WHEN direction='IN'  AND counted_at >= ? THEN 1 ELSE 0 END) as ins,
+          SUM(CASE WHEN direction='OUT' AND counted_at >= ? THEN 1 ELSE 0 END) as outs
+         FROM visitor_counts WHERE area=? AND (edition_id=? OR edition_id IS NULL)
+           AND counted_at >= COALESCE(
+             (SELECT reset_at FROM visitor_resets WHERE area=? ORDER BY id DESC LIMIT 1), ?)`,
+        [since, since, area, edId, area, since],
+        (e, row) => {
+          const ins  = row?.ins  || 0;
+          const outs = row?.outs || 0;
+          res.json({ ok: true, area, ins, outs, presenti: Math.max(0, ins - outs) });
+        }
+      );
+    }
+  );
+});
+
+// Presenze live per tutte le aree
+app.get('/api/visitors/live', requireAuth, (req, res) => {
+  const since = todayMidnight();
+  const edId  = currentEditionId();
+  db.all(
+    `SELECT vc.area,
+      SUM(CASE WHEN vc.direction='IN'  THEN 1 ELSE 0 END) as ins,
+      SUM(CASE WHEN vc.direction='OUT' THEN 1 ELSE 0 END) as outs
+     FROM visitor_counts vc
+     WHERE vc.counted_at >= COALESCE(
+       (SELECT vr.reset_at FROM visitor_resets vr WHERE vr.area=vc.area ORDER BY vr.id DESC LIMIT 1), ?)
+       AND vc.counted_at >= ?
+       AND (vc.edition_id = ? OR vc.edition_id IS NULL)
+     GROUP BY vc.area`,
+    [since, since, edId],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      const result = {};
+      (rows || []).forEach(r => {
+        result[r.area] = { ins: r.ins, outs: r.outs, presenti: Math.max(0, r.ins - r.outs) };
+      });
+      // Storico orario oggi (aggregato per ora)
+      db.all(
+        `SELECT area,
+          strftime('%H', counted_at) as ora,
+          SUM(CASE WHEN direction='IN'  THEN 1 ELSE 0 END) as ins,
+          SUM(CASE WHEN direction='OUT' THEN 1 ELSE 0 END) as outs
+         FROM visitor_counts
+         WHERE counted_at >= ?
+           AND (edition_id = ? OR edition_id IS NULL)
+         GROUP BY area, ora
+         ORDER BY ora ASC`,
+        [since, edId],
+        (e2, hist) => {
+          res.json({ areas: result, history: hist || [] });
+        }
+      );
+    }
+  );
+});
+
+// Storico orario per una singola area
+app.get('/api/visitors/history/:area', requireAuth, (req, res) => {
+  const since = todayMidnight();
+  const edId  = currentEditionId();
+  db.all(
+    `SELECT strftime('%H:00', counted_at) as ora,
+      SUM(CASE WHEN direction='IN'  THEN 1 ELSE 0 END) as ins,
+      SUM(CASE WHEN direction='OUT' THEN 1 ELSE 0 END) as outs
+     FROM visitor_counts
+     WHERE area=? AND counted_at >= ?
+       AND (edition_id=? OR edition_id IS NULL)
+     GROUP BY ora ORDER BY ora ASC`,
+    [req.params.area, since, edId],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows || []);
+    }
+  );
+});
+
+// Pagina contatore (view dedicata per volontari su mobile)
+app.get('/contatore', requireAuth, (req, res) => {
+  res.render('contatore', {
+    user: req.session.user,
+    areas: VISITOR_AREAS
+  });
+});
+
+// Reset manuale da admin (una area specifica o tutte)
+app.post('/api/visitors/reset', requireAuth, requireAdmin, (req, res) => {
+  const { area, note } = req.body;
+  const userId = req.session.user?.id || null;
+  const areaFilter = area && area !== 'all' ? area : null;
+  db.run(
+    `INSERT INTO visitor_resets (area, user_id, note) VALUES (?,?,?)`,
+    [areaFilter, userId, note || null],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      logAction(userId, 'VISITOR_RESET', `area=${areaFilter || 'TUTTE'} note=${note || ''}`);
+      res.json({ ok: true });
+    }
+  );
+});
+
+// Helper: mezzanotte di oggi in formato SQLite
+function todayMidnight() {
+  const d = new Date();
+  d.setHours(0,0,0,0);
+  // SQLite datetime locale
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} 00:00:00`;
+}
   app.post('/admin/settings/smtp',requireAuth,requireAdmin,function(req,res){var fields=['smtp_host','smtp_port','smtp_secure','smtp_user','smtp_pass','smtp_from','smtp_to'],done=0;fields.forEach(function(k){db.run('INSERT OR REPLACE INTO app_settings(key,value)VALUES(?,?)',[k,req.body[k]||''],function(){if(++done===fields.length)res.redirect('/admin/settings#notifiche');});});});
   app.post('/admin/settings/smtp-test',requireAuth,requireAdmin,function(req,res){var c=req.body;if(!c.smtp_host||!c.smtp_to)return res.json({ok:false,error:'Host e destinatario obbligatori'});nodemailer.createTransport({host:c.smtp_host,port:parseInt(c.smtp_port||'587',10),secure:c.smtp_secure==='1',auth:c.smtp_user?{user:c.smtp_user,pass:c.smtp_pass}:undefined,tls:{rejectUnauthorized:false}}).sendMail({from:c.smtp_from||'noreply@ludicomix.it',to:c.smtp_to,subject:'[Ludicomix] Test SMTP',html:'<p>Test OK!</p>'},function(err){res.json(err?{ok:false,error:err.message}:{ok:true});});});
 
@@ -4704,4 +4845,3 @@ app.get('/search', requireAuth, (req, res) => {
   app.listen(PORT, () => {
     console.log(`Server avviato su http://localhost:${PORT}`);
   });
-

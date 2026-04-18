@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Contatore Ingressi — Ludicomix</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f0f11;
+    --surface: #1a1a1f;
+    --surface2: #242429;
+    --border: rgba(255,255,255,0.08);
+    --text: #e8e8ec;
+    --muted: #888890;
+    --faint: #444448;
+    --in:  #22c55e;
+    --out: #f97316;
+    --in-bg: rgba(34,197,94,0.12);
+    --out-bg: rgba(249,115,22,0.12);
+    --present: #60a5fa;
+    --radius: 1rem;
+    --radius-lg: 1.5rem;
+  }
+  html, body {
+    height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* ── HEADER ── */
+  .top-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: env(safe-area-inset-top, 0) 0 0;
+  }
+  .top-bar-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.75rem 1rem;
+  }
+  .top-bar h1 { font-size: 1rem; font-weight: 700; letter-spacing: 0.01em; }
+  .top-bar .user-badge {
+    font-size: 0.75rem; color: var(--muted);
+    background: var(--surface2); border-radius: 999px;
+    padding: 0.25rem 0.6rem;
+  }
+
+  /* ── AREA SELECTOR ── */
+  .area-tabs {
+    display: flex; gap: 0.5rem; overflow-x: auto; scroll-snap-type: x mandatory;
+    padding: 0.75rem 1rem;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .area-tabs::-webkit-scrollbar { display: none; }
+  .area-tab {
+    flex-shrink: 0; scroll-snap-align: start;
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 999px; padding: 0.4rem 0.9rem;
+    font-size: 0.8rem; font-weight: 600; color: var(--muted);
+    cursor: pointer; transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .area-tab.active {
+    background: var(--surface2); border-color: var(--present);
+    color: var(--text);
+  }
+
+  /* ── MAIN SCROLL ── */
+  .page-content {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 7rem);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 2rem);
+    min-height: 100vh;
+  }
+
+  /* ── COUNTER CARD ── */
+  .counter-card {
+    margin: 0 1rem 1.5rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 1.5rem 1rem 1rem;
+    display: none;
+  }
+  .counter-card.active { display: block; }
+
+  .area-header {
+    display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.25rem;
+  }
+  .area-emoji { font-size: 1.6rem; }
+  .area-name { font-size: 1.1rem; font-weight: 700; }
+
+  /* Presenti big number */
+  .presenti-block {
+    text-align: center; margin-bottom: 1.5rem;
+  }
+  .presenti-label {
+    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 0.25rem;
+  }
+  .presenti-number {
+    font-size: clamp(4rem, 18vw, 6rem); font-weight: 800;
+    color: var(--present); line-height: 1;
+    font-variant-numeric: tabular-nums;
+    transition: transform 0.1s ease;
+  }
+  .presenti-number.bump { transform: scale(1.08); }
+
+  /* Stats row */
+  .stats-row {
+    display: flex; gap: 0.75rem; margin-bottom: 1.5rem;
+  }
+  .stat-chip {
+    flex: 1; border-radius: 0.75rem; padding: 0.6rem 0.5rem; text-align: center;
+  }
+  .stat-chip.ins  { background: var(--in-bg); }
+  .stat-chip.outs { background: var(--out-bg); }
+  .stat-chip .val {
+    font-size: 1.4rem; font-weight: 800; font-variant-numeric: tabular-nums;
+    display: block; line-height: 1.1;
+  }
+  .stat-chip.ins  .val { color: var(--in); }
+  .stat-chip.outs .val { color: var(--out); }
+  .stat-chip .lbl {
+    font-size: 0.65rem; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted);
+  }
+
+  /* Tap buttons */
+  .tap-buttons {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;
+  }
+  .tap-btn {
+    border: none; border-radius: var(--radius); padding: 1.4rem 0.5rem;
+    font-size: 1rem; font-weight: 700; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
+    transition: transform 0.08s ease, opacity 0.08s ease;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  .tap-btn:active { transform: scale(0.93); opacity: 0.85; }
+  .tap-btn.btn-in  { background: var(--in-bg);  color: var(--in);  border: 2px solid rgba(34,197,94,0.3); }
+  .tap-btn.btn-out { background: var(--out-bg); color: var(--out); border: 2px solid rgba(249,115,22,0.3); }
+  .tap-btn .btn-icon { font-size: 1.8rem; line-height: 1; }
+  .tap-btn .btn-label { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; }
+
+  /* Gate selector (per Mariambini) */
+  .gate-selector {
+    display: flex; gap: 0.5rem; margin-bottom: 1rem;
+  }
+  .gate-btn {
+    flex: 1; padding: 0.5rem; border-radius: 0.5rem; border: 1.5px solid var(--border);
+    background: var(--surface2); color: var(--muted); font-size: 0.8rem;
+    font-weight: 600; cursor: pointer; text-align: center;
+    transition: all 0.12s ease;
+  }
+  .gate-btn.active {
+    border-color: var(--present); color: var(--text); background: rgba(96,165,250,0.1);
+  }
+
+  /* Feedback toast */
+  #feedback-toast {
+    position: fixed; bottom: calc(env(safe-area-inset-bottom,0px) + 1.5rem);
+    left: 50%; transform: translateX(-50%) translateY(2rem);
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 0.55rem 1.2rem;
+    font-size: 0.85rem; font-weight: 600; color: var(--text);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    white-space: nowrap; z-index: 200;
+  }
+  #feedback-toast.show {
+    opacity: 1; transform: translateX(-50%) translateY(0);
+  }
+  #feedback-toast.toast-in  { border-color: var(--in);  color: var(--in); }
+  #feedback-toast.toast-out { border-color: var(--out); color: var(--out); }
+
+  /* Admin reset panel */
+  .reset-panel {
+    margin: 0 1rem 1rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1rem;
+    display: none;
+  }
+  .reset-panel h3 { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; }
+  .reset-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.5rem; }
+  .reset-row select, .reset-row input {
+    flex: 1; min-width: 0; padding: 0.5rem 0.7rem;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 0.5rem;
+    color: var(--text); font-size: 0.8rem;
+  }
+  .reset-row input::placeholder { color: var(--faint); }
+  .btn-reset {
+    padding: 0.5rem 1rem; border-radius: 0.5rem;
+    background: rgba(239,68,68,0.15); border: 1.5px solid rgba(239,68,68,0.3);
+    color: #f87171; font-size: 0.8rem; font-weight: 700; cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-reset:active { background: rgba(239,68,68,0.25); }
+
+  /* Admin toggle */
+  .admin-toggle {
+    text-align: center; margin: 0 1rem 1rem;
+  }
+  .admin-toggle button {
+    background: none; border: 1px solid var(--faint); color: var(--muted);
+    padding: 0.4rem 1rem; border-radius: 999px; font-size: 0.75rem; cursor: pointer;
+  }
+
+  /* Last update */
+  .last-update {
+    text-align: center; color: var(--faint); font-size: 0.7rem; margin-bottom: 0.5rem;
+  }
+
+  /* Error state */
+  .err-banner {
+    margin: 0 1rem 1rem; padding: 0.75rem 1rem;
+    background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 0.75rem; color: #f87171; font-size: 0.8rem;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="top-bar">
+  <div class="top-bar-inner">
+    <h1>🎟️ Contatore</h1>
+    <span class="user-badge"><%= user.username %></span>
+  </div>
+  <div class="area-tabs" id="area-tabs">
+    <button class="area-tab active" data-area="mariambini">🎡 Mariambini</button>
+    <button class="area-tab" data-area="palazzetto">🏟️ Palazzetto</button>
+    <button class="area-tab" data-area="la_perla">🎬 La Perla</button>
+    <button class="area-tab" data-area="ludostria">🎲 Ludostria</button>
+  </div>
+</div>
+
+<div class="page-content">
+
+  <!-- MARIAMBINI (2 gate) -->
+  <div class="counter-card active" data-area="mariambini">
+    <div class="area-header">
+      <span class="area-emoji">🎡</span>
+      <span class="area-name">Mariambini</span>
+    </div>
+    <div class="presenti-block">
+      <div class="presenti-label">Presenti ora</div>
+      <div class="presenti-number" id="presenti-mariambini">–</div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-chip ins"><span class="val" id="ins-mariambini">–</span><span class="lbl">Entrati</span></div>
+      <div class="stat-chip outs"><span class="val" id="outs-mariambini">–</span><span class="lbl">Usciti</span></div>
+    </div>
+    <div class="gate-selector">
+      <button class="gate-btn active" data-gate="Gate A">Gate A</button>
+      <button class="gate-btn" data-gate="Gate B">Gate B</button>
+    </div>
+    <div class="tap-buttons">
+      <button class="tap-btn btn-in"  onclick="tap('mariambini','IN')">
+        <span class="btn-icon">↑</span><span class="btn-label">Entrata</span>
+      </button>
+      <button class="tap-btn btn-out" onclick="tap('mariambini','OUT')">
+        <span class="btn-icon">↓</span><span class="btn-label">Uscita</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- PALAZZETTO -->
+  <div class="counter-card" data-area="palazzetto">
+    <div class="area-header">
+      <span class="area-emoji">🏟️</span>
+      <span class="area-name">Palazzetto</span>
+    </div>
+    <div class="presenti-block">
+      <div class="presenti-label">Presenti ora</div>
+      <div class="presenti-number" id="presenti-palazzetto">–</div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-chip ins"><span class="val" id="ins-palazzetto">–</span><span class="lbl">Entrati</span></div>
+      <div class="stat-chip outs"><span class="val" id="outs-palazzetto">–</span><span class="lbl">Usciti</span></div>
+    </div>
+    <div class="tap-buttons">
+      <button class="tap-btn btn-in"  onclick="tap('palazzetto','IN')">
+        <span class="btn-icon">↑</span><span class="btn-label">Entrata</span>
+      </button>
+      <button class="tap-btn btn-out" onclick="tap('palazzetto','OUT')">
+        <span class="btn-icon">↓</span><span class="btn-label">Uscita</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- CINEMA LA PERLA -->
+  <div class="counter-card" data-area="la_perla">
+    <div class="area-header">
+      <span class="area-emoji">🎬</span>
+      <span class="area-name">Cinema La Perla</span>
+    </div>
+    <div class="presenti-block">
+      <div class="presenti-label">Presenti ora</div>
+      <div class="presenti-number" id="presenti-la_perla">–</div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-chip ins"><span class="val" id="ins-la_perla">–</span><span class="lbl">Entrati</span></div>
+      <div class="stat-chip outs"><span class="val" id="outs-la_perla">–</span><span class="lbl">Usciti</span></div>
+    </div>
+    <div class="tap-buttons">
+      <button class="tap-btn btn-in"  onclick="tap('la_perla','IN')">
+        <span class="btn-icon">↑</span><span class="btn-label">Entrata</span>
+      </button>
+      <button class="tap-btn btn-out" onclick="tap('la_perla','OUT')">
+        <span class="btn-icon">↓</span><span class="btn-label">Uscita</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- LUDOSTRIA -->
+  <div class="counter-card" data-area="ludostria">
+    <div class="area-header">
+      <span class="area-emoji">🎲</span>
+      <span class="area-name">Ludostria</span>
+    </div>
+    <div class="presenti-block">
+      <div class="presenti-label">Presenti ora</div>
+      <div class="presenti-number" id="presenti-ludostria">–</div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-chip ins"><span class="val" id="ins-ludostria">–</span><span class="lbl">Entrati</span></div>
+      <div class="stat-chip outs"><span class="val" id="outs-ludostria">–</span><span class="lbl">Usciti</span></div>
+    </div>
+    <div class="tap-buttons">
+      <button class="tap-btn btn-in"  onclick="tap('ludostria','IN')">
+        <span class="btn-icon">↑</span><span class="btn-label">Entrata</span>
+      </button>
+      <button class="tap-btn btn-out" onclick="tap('ludostria','OUT')">
+        <span class="btn-icon">↓</span><span class="btn-label">Uscita</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Error banner -->
+  <div class="err-banner" id="err-banner">⚠️ Errore di connessione — riprova</div>
+
+  <!-- Last update -->
+  <div class="last-update" id="last-update"></div>
+
+  <% if (user.role === 'admin') { %>
+  <!-- Admin reset panel -->
+  <div class="admin-toggle">
+    <button onclick="document.getElementById('reset-panel').style.display = document.getElementById('reset-panel').style.display === 'block' ? 'none' : 'block'">⚙️ Reset contatori</button>
+  </div>
+  <div class="reset-panel" id="reset-panel">
+    <h3>Reset manuale contatori</h3>
+    <div class="reset-row">
+      <select id="reset-area">
+        <option value="all">Tutte le aree</option>
+        <option value="mariambini">Mariambini</option>
+        <option value="palazzetto">Palazzetto</option>
+        <option value="la_perla">Cinema La Perla</option>
+        <option value="ludostria">Ludostria</option>
+      </select>
+      <input type="text" id="reset-note" placeholder="Motivo (opz.)" />
+      <button class="btn-reset" onclick="doReset()">Reset</button>
+    </div>
+  </div>
+  <% } %>
+
+</div><!-- /page-content -->
+
+<!-- Feedback toast -->
+<div id="feedback-toast"></div>
+
+<script>
+  // ── State ──
+  const state = {
+    mariambini: { ins: 0, outs: 0, presenti: 0 },
+    palazzetto:  { ins: 0, outs: 0, presenti: 0 },
+    la_perla:    { ins: 0, outs: 0, presenti: 0 },
+    ludostria:   { ins: 0, outs: 0, presenti: 0 }
+  };
+  let currentArea = 'mariambini';
+  let currentGate = 'Gate A'; // solo per mariambini
+  let tapping = false; // debounce
+
+  // ── Area tabs ──
+  document.querySelectorAll('.area-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.area-tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.counter-card').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      currentArea = btn.dataset.area;
+      document.querySelector(`.counter-card[data-area="${currentArea}"]`).classList.add('active');
+    });
+  });
+
+  // ── Gate selector (Mariambini) ──
+  document.querySelectorAll('.gate-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.gate-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentGate = btn.dataset.gate;
+    });
+  });
+
+  // ── Tap ──
+  function tap(area, direction) {
+    if (tapping) return;
+    tapping = true;
+    setTimeout(() => { tapping = false; }, 300);
+
+    const gate = area === 'mariambini' ? currentGate : 'Ingresso';
+
+    fetch('/api/visitors/tap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ area, gate, direction })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        state[area] = { ins: data.ins, outs: data.outs, presenti: data.presenti };
+        updateUI(area);
+        showToast(direction === 'IN'
+          ? `↑ Entrata registrata — presenti: ${data.presenti}`
+          : `↓ Uscita registrata — presenti: ${data.presenti}`,
+          direction === 'IN' ? 'toast-in' : 'toast-out');
+        hideError();
+      }
+    })
+    .catch(() => { showError(); });
+  }
+
+  // ── UI update ──
+  function updateUI(area) {
+    const s = state[area];
+    const presEl = document.getElementById('presenti-' + area);
+    if (presEl) {
+      presEl.textContent = s.presenti;
+      presEl.classList.add('bump');
+      setTimeout(() => presEl.classList.remove('bump'), 150);
+    }
+    const insEl = document.getElementById('ins-' + area);
+    const outsEl = document.getElementById('outs-' + area);
+    if (insEl) insEl.textContent = s.ins;
+    if (outsEl) outsEl.textContent = s.outs;
+  }
+
+  // ── Toast ──
+  let toastTimer;
+  function showToast(msg, cls) {
+    const t = document.getElementById('feedback-toast');
+    t.textContent = msg;
+    t.className = 'show ' + (cls || '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.className = ''; }, 2000);
+  }
+
+  // ── Error ──
+  function showError() { document.getElementById('err-banner').style.display = 'block'; }
+  function hideError() { document.getElementById('err-banner').style.display = 'none'; }
+
+  // ── Polling live (ogni 20s) ──
+  function refreshLive() {
+    fetch('/api/visitors/live')
+      .then(r => r.json())
+      .then(data => {
+        Object.keys(state).forEach(area => {
+          if (data.areas[area]) {
+            state[area] = data.areas[area];
+            updateUI(area);
+          }
+        });
+        const now = new Date();
+        document.getElementById('last-update').textContent =
+          'Aggiornato alle ' + now.toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+        hideError();
+      })
+      .catch(() => showError());
+  }
+
+  // ── Admin reset ──
+  function doReset() {
+    const area = document.getElementById('reset-area').value;
+    const note = document.getElementById('reset-note').value;
+    if (!confirm('Sei sicuro di voler resettare ' + (area === 'all' ? 'TUTTE le aree' : area) + '?')) return;
+    fetch('/api/visitors/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ area, note })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        showToast('✅ Reset eseguito', '');
+        refreshLive();
+      }
+    })
+    .catch(() => showError());
+  }
+
+  // ── Init ──
+  refreshLive();
+  setInterval(refreshLive, 20000);
+</script>
+</body>
+</html>
