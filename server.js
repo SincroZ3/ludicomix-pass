@@ -339,14 +339,14 @@ app.use('/', agendaRoutes(logAction));
       dbAll(`SELECT strftime('%H', created_at) as ora, COUNT(*) as count
              FROM scan_attempts
              WHERE created_at >= ? AND result = 'OK'
-             GROUP BY ora ORDER BY ora ASC`, [since]),
+             GROUP BY ora ORDER BY ora ASC`, [since]).catch(()=>[]),
       // 8. Scan anomali (stesso codice >3 volte nelle ultime 2 ore)
       dbAll(`SELECT code, COUNT(*) as hits, MAX(created_at) as last_scan,
                MAX(participant_name) as participant_name, MAX(group_name) as group_name
              FROM scan_attempts
              WHERE created_at >= datetime('now','-2 hours')
              GROUP BY code HAVING hits > 3
-             ORDER BY hits DESC LIMIT 10`),
+             ORDER BY hits DESC LIMIT 10`).catch(()=>[]),
       // 9. Pass non ancora consegnati (status = 'STAMPATO' o 'GENERATO')
       dbAll(`SELECT ag.name as group_name, ag.zone,
                COUNT(p.id) as non_consegnati
@@ -357,16 +357,21 @@ app.use('/', agendaRoutes(logAction));
              ${edFilter2}
              GROUP BY ag.id
              ORDER BY non_consegnati DESC LIMIT 20`),
-      // 10. Presenze live per area (da visitor_counts) — usa solo since per robustezza
+      // 10. Presenze live per area (da visitor_counts)
       dbAll(`SELECT vc.area,
                SUM(CASE WHEN vc.direction='IN'  THEN 1 ELSE 0 END) as ins,
                SUM(CASE WHEN vc.direction='OUT' THEN 1 ELSE 0 END) as outs
              FROM visitor_counts vc
-             WHERE vc.counted_at >= ?
-             GROUP BY vc.area`, [since]),
+             LEFT JOIN (
+               SELECT area, MAX(reset_at) as last_reset
+               FROM visitor_resets GROUP BY area
+             ) vr ON vr.area = vc.area
+             WHERE vc.counted_at >= COALESCE(vr.last_reset, ?)
+               AND vc.counted_at >= ?
+             GROUP BY vc.area`, [since, since]).catch(()=>[]),
       // 11. Ingressi totali oggi (scan QR + visitor IN)
       dbGet(`SELECT COUNT(*) as total FROM scan_attempts
-             WHERE result='OK' AND created_at >= ?`, [since]),
+             WHERE result='OK' AND created_at >= ?`, [since]).catch(()=>({total:0})),
     ])
     .then(([r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11]) => {
       const passesByStatus = {};
