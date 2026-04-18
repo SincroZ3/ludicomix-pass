@@ -3596,7 +3596,7 @@ app.post('/api/visitors/tap', requireAuth, requireNotViewer, (req, res) => {
     return res.status(400).json({ error: 'area e direction (IN/OUT) richiesti' });
   }
   const userId = req.session.user?.id || null;
-  const edId = currentEditionId();
+  const edId = (_currentEdition && _currentEdition.id) ? _currentEdition.id : null;
   db.run(
     `INSERT INTO visitor_counts (area, gate, direction, user_id, edition_id) VALUES (?,?,?,?,?)`,
     [area, gate || 'main', direction, userId, edId],
@@ -3626,7 +3626,7 @@ app.post('/api/visitors/tap', requireAuth, requireNotViewer, (req, res) => {
 // Presenze live per tutte le aree
 app.get('/api/visitors/live', requireAuth, (req, res) => {
   const since = todayMidnight();
-  const edId  = currentEditionId();
+  const edId  = (_currentEdition && _currentEdition.id) ? _currentEdition.id : null;
   db.all(
     `SELECT vc.area,
       SUM(CASE WHEN vc.direction='IN'  THEN 1 ELSE 0 END) as ins,
@@ -3667,7 +3667,7 @@ app.get('/api/visitors/live', requireAuth, (req, res) => {
 // Storico orario per una singola area
 app.get('/api/visitors/history/:area', requireAuth, (req, res) => {
   const since = todayMidnight();
-  const edId  = currentEditionId();
+  const edId  = (_currentEdition && _currentEdition.id) ? _currentEdition.id : null;
   db.all(
     `SELECT strftime('%H:00', counted_at) as ora,
       SUM(CASE WHEN direction='IN'  THEN 1 ELSE 0 END) as ins,
