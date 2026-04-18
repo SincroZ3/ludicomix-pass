@@ -1343,11 +1343,11 @@ app.get('/home', requireAuth, (req, res) => {
   app.post('/volunteers/:id/edit', requireAuth, requireNotViewer, async (req, res) => {
     try {
       const id = parseInt(req.params.id, 10);
-      const { first_name, last_name, email, phone, notes, availability, skills, active, status } = req.body;
+      const { first_name, last_name, email, phone, notes, availability, skills, active, status, birth_date, birth_place, fiscal_code, residence } = req.body;
       db.run(
         `UPDATE volunteers
             SET first_name=?, last_name=?, email=?, phone=?, availability=?, skills=?, notes=?,
-                active=?, status=?
+                active=?, status=?, birth_date=?, birth_place=?, fiscal_code=?, residence=?
           WHERE id=?`,
         [
           String(first_name||'').trim(),
@@ -1359,6 +1359,10 @@ app.get('/home', requireAuth, (req, res) => {
           notes||null,
           active ? 1 : 0,
           status || 'pending',
+          birth_date||null,
+          birth_place||null,
+          fiscal_code ? String(fiscal_code).toUpperCase().trim() : null,
+          residence||null,
           id
         ],
         function(err) {
@@ -1515,7 +1519,7 @@ app.get('/home', requireAuth, (req, res) => {
 
   app.post('/volunteers', requireAuth, requireNotViewer, async (req, res) => {
     try {
-      const { first_name, last_name, email, phone, notes, availability, skills } = req.body;
+      const { first_name, last_name, email, phone, notes, availability, skills, birth_date, birth_place, fiscal_code, residence } = req.body;
       if (!String(first_name||'').trim() || !String(last_name||'').trim()) return res.status(400).send('Nome e cognome obbligatori');
 
       let edId = (_currentEdition && _currentEdition.id) ? _currentEdition.id : null;
@@ -1530,9 +1534,9 @@ app.get('/home', requireAuth, (req, res) => {
       if (!edId) edId = 1;
 
       db.run(
-        `INSERT INTO volunteers (edition_id, first_name, last_name, email, phone, availability, skills, tshirt_size, status, notes, import_batch_id, active)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [edId, String(first_name).trim(), String(last_name).trim(), email||null, phone||null, availability||'', skills||'', null, 'pending', notes||null, null, 1],
+        `INSERT INTO volunteers (edition_id, first_name, last_name, email, phone, availability, skills, tshirt_size, status, notes, import_batch_id, active, birth_date, birth_place, fiscal_code, residence)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [edId, String(first_name).trim(), String(last_name).trim(), email||null, phone||null, availability||'', skills||'', null, 'pending', notes||null, null, 1, birth_date||null, birth_place||null, fiscal_code ? String(fiscal_code).toUpperCase().trim() : null, residence||null],
         function(err) {
           if (err) return res.status(500).type('text/plain').send('Errore salvataggio volontario: ' + err.message);
           res.redirect('/volunteers');

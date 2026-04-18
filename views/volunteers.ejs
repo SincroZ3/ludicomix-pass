@@ -127,6 +127,12 @@
         <div class="field" style="flex:1;min-width:130px"><label>Telefono</label><input type="text" name="phone"></div>
       </div>
       <div class="form-row">
+        <div class="field" style="min-width:130px"><label>Data di nascita</label><input type="date" name="birth_date"></div>
+        <div class="field" style="flex:1;min-width:150px"><label>Luogo di nascita</label><input type="text" name="birth_place" placeholder="Es. Roma (RM)"></div>
+        <div class="field" style="flex:1;min-width:160px"><label>Codice fiscale</label><input type="text" name="fiscal_code" placeholder="Es. RSSMRA80A01H501Z" maxlength="16" style="text-transform:uppercase"></div>
+        <div class="field" style="flex:2;min-width:200px"><label>Luogo di residenza</label><input type="text" name="residence" placeholder="Es. Via Roma 1, 00100 Roma (RM)"></div>
+      </div>
+      <div class="form-row">
         <div class="field" style="flex:2;min-width:180px"><label>Competenze</label><input type="text" name="skills" placeholder="Es. accoglienza, logistica"></div>
         <div class="field" style="flex:2;min-width:180px"><label>Disponibilità</label><input type="text" name="availability" placeholder="Es. sabato mattina, domenica"></div>
         <div class="field" style="flex:3;min-width:200px"><label>Note</label><input type="text" name="notes"></div>
@@ -436,6 +442,7 @@
             <tr>
               <th>Volontario</th>
               <th>Contatti</th>
+              <th>Dati anagrafici</th>
               <th>Competenze</th>
               <th>Disponibilità</th>
               <th style="text-align:center">Turni</th>
@@ -454,6 +461,12 @@
                 <% if(v.email){ %><div><%= v.email %></div><% } %>
                 <% if(v.phone){ %><div><%= v.phone %></div><% } %>
                 <% if(!v.email&&!v.phone){ %><span style="color:#cbd5e1">—</span><% } %>
+              </td>
+              <td style="font-size:.78rem;color:#475569">
+                <% if(v.birth_date){ %><div>🎂 <%= v.birth_date %><% if(v.birth_place){ %> · <%= v.birth_place %><% } %></div><% } %>
+                <% if(v.fiscal_code){ %><div style="font-family:monospace;letter-spacing:.04em;font-size:.76rem"><%= v.fiscal_code %></div><% } %>
+                <% if(v.residence){ %><div style="color:#64748b"><%= v.residence %></div><% } %>
+                <% if(!v.birth_date&&!v.fiscal_code&&!v.residence){ %><span style="color:#cbd5e1">—</span><% } %>
               </td>
               <td><span style="font-size:.8rem;color:#475569"><%= v.skills||'—' %></span></td>
               <td><span style="font-size:.8rem;color:#475569"><%= v.availability||'—' %></span></td>
@@ -482,13 +495,19 @@
             </tr>
             <!-- Riga edit inline -->
             <tr id="edit-vol-<%= v.id %>" style="display:none">
-              <td colspan="7" style="padding:.75rem 1rem;background:#f8fafc">
+              <td colspan="8" style="padding:.75rem 1rem;background:#f8fafc">
                 <form method="post" action="/volunteers/<%= v.id %>/edit">
                   <div class="form-row">
                     <div class="field" style="flex:1;min-width:120px"><label>Nome</label><input type="text" name="first_name" value="<%= v.first_name %>" required></div>
                     <div class="field" style="flex:1;min-width:120px"><label>Cognome</label><input type="text" name="last_name" value="<%= v.last_name %>" required></div>
                     <div class="field" style="flex:1;min-width:150px"><label>Email</label><input type="email" name="email" value="<%= v.email||'' %>"></div>
                     <div class="field" style="flex:1;min-width:120px"><label>Telefono</label><input type="text" name="phone" value="<%= v.phone||'' %>"></div>
+                  </div>
+                  <div class="form-row">
+                    <div class="field" style="min-width:130px"><label>Data di nascita</label><input type="date" name="birth_date" value="<%= v.birth_date||'' %>"></div>
+                    <div class="field" style="flex:1;min-width:150px"><label>Luogo di nascita</label><input type="text" name="birth_place" value="<%= v.birth_place||'' %>"></div>
+                    <div class="field" style="flex:1;min-width:160px"><label>Codice fiscale</label><input type="text" name="fiscal_code" value="<%= v.fiscal_code||'' %>" maxlength="16" style="text-transform:uppercase"></div>
+                    <div class="field" style="flex:2;min-width:200px"><label>Residenza</label><input type="text" name="residence" value="<%= v.residence||'' %>"></div>
                   </div>
                   <div class="form-row">
                     <div class="field" style="flex:2;min-width:150px"><label>Competenze</label><input type="text" name="skills" value="<%= v.skills||'' %>"></div>

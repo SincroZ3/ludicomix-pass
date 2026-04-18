@@ -710,7 +710,11 @@ db.serialize(() => {
   [
     'ALTER TABLE volunteers ADD COLUMN active INTEGER NOT NULL DEFAULT 1',
     'ALTER TABLE volunteers ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP',
-    'ALTER TABLE shifts ADD COLUMN active INTEGER NOT NULL DEFAULT 1'
+    'ALTER TABLE shifts ADD COLUMN active INTEGER NOT NULL DEFAULT 1',
+    'ALTER TABLE volunteers ADD COLUMN birth_date TEXT',
+    'ALTER TABLE volunteers ADD COLUMN birth_place TEXT',
+    'ALTER TABLE volunteers ADD COLUMN fiscal_code TEXT',
+    'ALTER TABLE volunteers ADD COLUMN residence TEXT'
   ].forEach(sql => {
     db.run(sql, function(err) {
       if (err && !String(err.message || '').includes('duplicate column name')) {
