@@ -717,7 +717,7 @@ db.serialize(() => {
 
   [
     'ALTER TABLE volunteers ADD COLUMN active INTEGER NOT NULL DEFAULT 1',
-    'ALTER TABLE volunteers ADD COLUMN created_at TEXT DEFAULT (datetime('now','localtime'))',
+    'ALTER TABLE volunteers ADD COLUMN created_at TEXT',
     'ALTER TABLE shifts ADD COLUMN active INTEGER NOT NULL DEFAULT 1',
     'ALTER TABLE volunteers ADD COLUMN birth_date TEXT',
     'ALTER TABLE volunteers ADD COLUMN birth_place TEXT',
