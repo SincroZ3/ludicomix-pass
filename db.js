@@ -53,7 +53,7 @@ db.run(`CREATE TABLE IF NOT EXISTS passes (
   status TEXT DEFAULT 'GENERATO',
   pdf_file TEXT,
   replaced_by INTEGER,
-  created_at TEXT DEFAULT (datetime('now')),
+  created_at TEXT DEFAULT (datetime('now','localtime')),
   FOREIGN KEY(participant_id) REFERENCES participants(id),
   FOREIGN KEY(pass_type_id) REFERENCES pass_types(id)
 )`);
@@ -100,7 +100,7 @@ db.run(`CREATE TABLE IF NOT EXISTS users (
   username TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'operator',
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT (datetime('now','localtime'))
 )`);
 
 db.run(`CREATE TABLE IF NOT EXISTS action_logs (
@@ -110,7 +110,7 @@ db.run(`CREATE TABLE IF NOT EXISTS action_logs (
   entity_type TEXT,
   entity_id INTEGER,
   details TEXT,
-  created_at TEXT DEFAULT (datetime('now')),
+  created_at TEXT DEFAULT (datetime('now','localtime')),
   FOREIGN KEY(user_id) REFERENCES users(id)
 )`);
 
@@ -118,7 +118,7 @@ db.run(`CREATE TABLE IF NOT EXISTS pass_status_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   pass_id INTEGER NOT NULL,
   status TEXT NOT NULL,
-  changed_at TEXT DEFAULT (datetime('now')),
+  changed_at TEXT DEFAULT (datetime('now','localtime')),
   user_id INTEGER,
   FOREIGN KEY(pass_id) REFERENCES passes(id),
   FOREIGN KEY(user_id) REFERENCES users(id)
@@ -138,7 +138,7 @@ db.run(`CREATE TABLE IF NOT EXISTS notifications (
   message TEXT NOT NULL,
   related_type TEXT,
   related_id INTEGER,
-  created_at TEXT DEFAULT (datetime('now')),
+  created_at TEXT DEFAULT (datetime('now','localtime')),
   read_at TEXT
 )`);
 
@@ -152,7 +152,7 @@ db.run(`CREATE TABLE IF NOT EXISTS auto_passes (
   pdf_file TEXT,
   pass_number INTEGER,
   total_passes INTEGER,
-  created_at TEXT DEFAULT (datetime('now')),
+  created_at TEXT DEFAULT (datetime('now','localtime')),
   FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id)
 )`);
 
@@ -165,7 +165,7 @@ db.run(`CREATE TABLE IF NOT EXISTS scan_attempts (
   group_name TEXT,
   user_id INTEGER,
   ip TEXT,
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT (datetime('now','localtime'))
 )`);
 
 
@@ -204,7 +204,7 @@ db.run(`CREATE TABLE IF NOT EXISTS announcements (
   type TEXT DEFAULT 'info',
   is_pinned INTEGER DEFAULT 0,
   created_by INTEGER,
-  created_at TEXT DEFAULT (datetime('now')),
+  created_at TEXT DEFAULT (datetime('now','localtime')),
   expires_at TEXT,
   FOREIGN KEY(created_by) REFERENCES users(id)
 )`);
@@ -213,7 +213,7 @@ db.run(`CREATE TABLE IF NOT EXISTS announcement_reads (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   announcement_id INTEGER NOT NULL,
   portal_token TEXT NOT NULL,
-  read_at TEXT DEFAULT (datetime('now')),
+  read_at TEXT DEFAULT (datetime('now','localtime')),
   UNIQUE(announcement_id, portal_token),
   FOREIGN KEY(announcement_id) REFERENCES announcements(id) ON DELETE CASCADE
 )`);
@@ -253,7 +253,7 @@ db.run(`CREATE TABLE IF NOT EXISTS group_documents (
   doc_type TEXT,
   notes TEXT,
   uploaded_by INTEGER,
-  uploaded_at TEXT DEFAULT (datetime('now')),
+  uploaded_at TEXT DEFAULT (datetime('now','localtime')),
   FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
 )`);
 
@@ -268,7 +268,7 @@ db.run(`CREATE TABLE IF NOT EXISTS portal_documents (
   filename TEXT NOT NULL,
   original_name TEXT,
   status TEXT DEFAULT 'ricevuto',
-  uploaded_at TEXT DEFAULT (datetime('now')),
+  uploaded_at TEXT DEFAULT (datetime('now','localtime')),
   reviewed_by INTEGER,
   reviewed_at TEXT,
   review_notes TEXT,
@@ -282,7 +282,7 @@ db.run(`CREATE TABLE IF NOT EXISTS support_tickets (
   subject TEXT NOT NULL,
   message TEXT NOT NULL,
   status TEXT DEFAULT 'aperto',
-  created_at TEXT DEFAULT (datetime('now')),
+  created_at TEXT DEFAULT (datetime('now','localtime')),
   closed_at TEXT,
   FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
 )`);
@@ -293,7 +293,7 @@ db.run(`CREATE TABLE IF NOT EXISTS ticket_replies (
   message TEXT NOT NULL,
   is_admin INTEGER DEFAULT 0,
   author_name TEXT,
-  created_at TEXT DEFAULT (datetime('now')),
+  created_at TEXT DEFAULT (datetime('now','localtime')),
   FOREIGN KEY(ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE
 )`);
 
@@ -323,7 +323,7 @@ db.run(`CREATE TABLE IF NOT EXISTS accreditation_requests (
   channel_url TEXT,
   platform TEXT,
   subscribers TEXT,
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT (datetime('now','localtime'))
 )`);
 
 // ═══════════════════════════════════════════════════════
@@ -335,7 +335,7 @@ db.run(`CREATE TABLE IF NOT EXISTS editions (
   name TEXT NOT NULL,
   year INTEGER,
   is_current INTEGER DEFAULT 0,
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT (datetime('now','localtime'))
 )`);
 
 // ═══════════════════════════════════════════════════════
@@ -350,7 +350,7 @@ db.run(`CREATE TABLE IF NOT EXISTS spaces (
   location TEXT,
   color TEXT DEFAULT '#4f98a3',
   active INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 )`);
 
 db.run(`CREATE TABLE IF NOT EXISTS speakers (
@@ -363,7 +363,7 @@ db.run(`CREATE TABLE IF NOT EXISTS speakers (
   social_url TEXT,
   notes TEXT,
   active INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 )`);
 
 // ═══════════════════════════════════════════════════════
@@ -380,7 +380,7 @@ db.run(`CREATE TABLE IF NOT EXISTS guests (
   sort_order    INTEGER NOT NULL DEFAULT 0,
   featured      INTEGER NOT NULL DEFAULT 0,
   active        INTEGER NOT NULL DEFAULT 1,
-  created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at    TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 )`);
 
 db.run(`CREATE TABLE IF NOT EXISTS events (
@@ -399,8 +399,8 @@ db.run(`CREATE TABLE IF NOT EXISTS events (
   image_url TEXT,
   tags TEXT,
   notes TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
   CHECK (end_time > start_time)
 )`);
 
@@ -423,7 +423,7 @@ db.run(`CREATE TABLE IF NOT EXISTS registrations (
   pass_id INTEGER REFERENCES passes(id) ON DELETE SET NULL,
   status TEXT NOT NULL DEFAULT 'confirmed',
   notes TEXT,
-  registered_at TEXT NOT NULL DEFAULT (datetime('now')),
+  registered_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
   cancelled_at TEXT,
   UNIQUE(event_id, email)
 )`);
@@ -620,7 +620,7 @@ db.dbPath = dbPath;
     status TEXT NOT NULL DEFAULT 'approved',
     import_batch_id TEXT,
     active INTEGER NOT NULL DEFAULT 1,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT DEFAULT (datetime('now','localtime')),
     birth_date TEXT,
     birth_place TEXT,
     fiscal_code TEXT,
@@ -717,7 +717,7 @@ db.serialize(() => {
 
   [
     'ALTER TABLE volunteers ADD COLUMN active INTEGER NOT NULL DEFAULT 1',
-    'ALTER TABLE volunteers ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP',
+    'ALTER TABLE volunteers ADD COLUMN created_at TEXT DEFAULT (datetime('now','localtime'))',
     'ALTER TABLE shifts ADD COLUMN active INTEGER NOT NULL DEFAULT 1',
     'ALTER TABLE volunteers ADD COLUMN birth_date TEXT',
     'ALTER TABLE volunteers ADD COLUMN birth_place TEXT',
@@ -823,8 +823,8 @@ db.run(`CREATE TABLE IF NOT EXISTS service_requests (
   quantity            INTEGER DEFAULT 1,
   notes               TEXT,
   status              TEXT DEFAULT 'in_attesa',
-  requested_at        TEXT DEFAULT (datetime('now')),
-  updated_at          TEXT DEFAULT (datetime('now'))
+  requested_at        TEXT DEFAULT (datetime('now','localtime')),
+  updated_at          TEXT DEFAULT (datetime('now','localtime'))
 )`);
 
 db.run(`CREATE TABLE IF NOT EXISTS equipment (
@@ -840,14 +840,14 @@ db.run(`CREATE TABLE IF NOT EXISTS equipment_loans (
   equipment_id        INTEGER NOT NULL REFERENCES equipment(id),
   assignment_group_id INTEGER REFERENCES assignment_groups(id),
   qty                 INTEGER DEFAULT 1,
-  loaned_at           TEXT DEFAULT (datetime('now')),
+  loaned_at           TEXT DEFAULT (datetime('now','localtime')),
   returned_at         TEXT,
   notes               TEXT
 )`);
 
 // ── Migrazioni Modulo 7: colonne mancanti su DB esistenti ────────────────────
-db.run(`ALTER TABLE service_requests ADD COLUMN requested_at TEXT DEFAULT (datetime('now'))`, () => {});
-db.run(`ALTER TABLE service_requests ADD COLUMN updated_at   TEXT DEFAULT (datetime('now'))`, () => {});
+db.run(`ALTER TABLE service_requests ADD COLUMN requested_at TEXT DEFAULT (datetime('now','localtime'))`, () => {});
+db.run(`ALTER TABLE service_requests ADD COLUMN updated_at   TEXT DEFAULT (datetime('now','localtime'))`, () => {});
 db.run(`ALTER TABLE equipment        ADD COLUMN category     TEXT`,                           () => {});
 db.run(`ALTER TABLE equipment        ADD COLUMN total_qty    INTEGER DEFAULT 1`,              () => {});
 db.run(`ALTER TABLE equipment        ADD COLUMN notes        TEXT`,                           () => {});
@@ -856,7 +856,7 @@ db.run(`ALTER TABLE equipment        ADD COLUMN location_custom TEXT`,          
 
 db.run(`ALTER TABLE equipment        ADD COLUMN location       TEXT`,                           () => {});
 db.run(`ALTER TABLE equipment        ADD COLUMN location_custom TEXT`,                          () => {});
-db.run(`ALTER TABLE equipment_loans  ADD COLUMN loaned_at    TEXT DEFAULT (datetime('now'))`, () => {});
+db.run(`ALTER TABLE equipment_loans  ADD COLUMN loaned_at    TEXT DEFAULT (datetime('now','localtime'))`, () => {});
 db.run(`ALTER TABLE equipment_loans  ADD COLUMN returned_at  TEXT`,                          () => {});
 db.run(`ALTER TABLE equipment_loans  ADD COLUMN notes        TEXT`,                          () => {});
 
@@ -917,7 +917,7 @@ db.run(`INSERT OR IGNORE INTO logistic_locations (key_name,label,icon,sort_order
 db.run(`CREATE TABLE IF NOT EXISTS checklist_templates (
   id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, area TEXT,
   phase TEXT NOT NULL DEFAULT 'montaggio', sort_order INTEGER DEFAULT 0,
-  created_at TEXT DEFAULT (datetime('now')))`);
+  created_at TEXT DEFAULT (datetime('now','localtime')))`);
 db.run(`CREATE TABLE IF NOT EXISTS checklist_items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   template_id INTEGER NOT NULL REFERENCES checklist_templates(id) ON DELETE CASCADE,
@@ -925,7 +925,7 @@ db.run(`CREATE TABLE IF NOT EXISTS checklist_items (
 db.run(`CREATE TABLE IF NOT EXISTS checklist_runs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   template_id INTEGER NOT NULL REFERENCES checklist_templates(id),
-  edition_id INTEGER, started_at TEXT DEFAULT (datetime('now')),
+  edition_id INTEGER, started_at TEXT DEFAULT (datetime('now','localtime')),
   completed_at TEXT, notes TEXT)`);
 db.run(`CREATE TABLE IF NOT EXISTS checklist_run_items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -937,24 +937,24 @@ db.run(`CREATE TABLE IF NOT EXISTS checklist_run_items (
 db.run(`CREATE TABLE IF NOT EXISTS catering_shifts (
   id INTEGER PRIMARY KEY AUTOINCREMENT, label TEXT NOT NULL, date TEXT,
   meal_type TEXT NOT NULL DEFAULT 'pranzo', edition_id INTEGER,
-  notes TEXT, created_at TEXT DEFAULT (datetime('now')))`);
+  notes TEXT, created_at TEXT DEFAULT (datetime('now','localtime')))`);
 db.run(`CREATE TABLE IF NOT EXISTS catering_orders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   shift_id INTEGER NOT NULL REFERENCES catering_shifts(id) ON DELETE CASCADE,
   staff_name TEXT NOT NULL, role TEXT, menu_choice TEXT,
-  dietary TEXT, notes TEXT, created_at TEXT DEFAULT (datetime('now')))`);
+  dietary TEXT, notes TEXT, created_at TEXT DEFAULT (datetime('now','localtime')))`);
 
 // ── Fornitori ──────────────────────────────────────────────────
 db.run(`CREATE TABLE IF NOT EXISTS suppliers (
   id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, category TEXT,
   contact_name TEXT, phone TEXT, email TEXT, website TEXT, notes TEXT,
-  created_at TEXT DEFAULT (datetime('now')))`);
+  created_at TEXT DEFAULT (datetime('now','localtime')))`);
 db.run(`CREATE TABLE IF NOT EXISTS supplier_items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   supplier_id INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
   description TEXT NOT NULL, item_type TEXT DEFAULT 'noleggio',
   quantity INTEGER DEFAULT 1, unit_cost REAL, total_cost REAL,
-  edition_id INTEGER, notes TEXT, created_at TEXT DEFAULT (datetime('now')))`);
+  edition_id INTEGER, notes TEXT, created_at TEXT DEFAULT (datetime('now','localtime')))`);
 
 // ── Migrazioni equipment ───────────────────────────────────────
 db.run(`ALTER TABLE equipment ADD COLUMN location TEXT`,        () => {});

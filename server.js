@@ -2919,7 +2919,7 @@ async function triggerBatchPassOnClose(groupId) {
     const id = parseInt(req.params.id, 10);
     try {
       await dbRun(
-        `UPDATE service_requests SET status=?, updated_at=datetime('now') WHERE id=?`,
+        `UPDATE service_requests SET status=?, updated_at=datetime('now','localtime') WHERE id=?`,
         [status, id]
       );
       logAction(req.session.user.id,'update_logistica_request','service_request',id,`Stato richiesta #${id} → ${status}`);
@@ -2995,7 +2995,7 @@ async function triggerBatchPassOnClose(groupId) {
     try {
       await dbRun(
         `INSERT INTO equipment_loans (equipment_id, assignment_group_id, qty, loaned_at, notes)
-         VALUES (?,?,?,datetime('now'),?)`,
+         VALUES (?,?,?,datetime('now','localtime'),?)`,
         [parseInt(equipment_id, 10),
          assignment_group_id ? parseInt(assignment_group_id, 10) : null,
          parseInt(qty, 10) || 1,
@@ -3012,7 +3012,7 @@ async function triggerBatchPassOnClose(groupId) {
   app.post('/admin/logistica/loans/:id/return', requireAuth, requireOrganizer, async (req, res) => {
     try {
       await dbRun(
-        `UPDATE equipment_loans SET returned_at=datetime('now') WHERE id=?`,
+        `UPDATE equipment_loans SET returned_at=datetime('now','localtime') WHERE id=?`,
         [parseInt(req.params.id, 10)]
       );
       res.json({ ok: true });
@@ -3195,7 +3195,7 @@ async function triggerBatchPassOnClose(groupId) {
         [isDone,isDone?new Date().toISOString().slice(0,19).replace('T',' '):null,
          isDone?req.session.user.username:null,+req.params.itemId]);
       const pending=await dbGet(`SELECT COUNT(*) AS c FROM checklist_run_items WHERE run_id=? AND done=0`,[+req.params.runId]);
-      if(pending.c===0) await dbRun(`UPDATE checklist_runs SET completed_at=datetime('now') WHERE id=? AND completed_at IS NULL`,[+req.params.runId]);
+      if(pending.c===0) await dbRun(`UPDATE checklist_runs SET completed_at=datetime('now','localtime') WHERE id=? AND completed_at IS NULL`,[+req.params.runId]);
       else await dbRun(`UPDATE checklist_runs SET completed_at=NULL WHERE id=?`,[+req.params.runId]);
       logAction(req.session.user.id,'toggle_checklist_item','checklist',+req.params.itemId,(isDone?'✅ Completata':'↩️ Deselezionata')+' voce checklist run #'+req.params.runId);
       res.json({ok:true});
@@ -3447,7 +3447,7 @@ async function triggerBatchPassOnClose(groupId) {
   }
   // ── Fine controllo finestra ──────────────────────────────────────────────
 
-      const anns = await dbAll(`SELECT id FROM announcements WHERE expires_at IS NULL OR expires_at > datetime('now')`);
+      const anns = await dbAll(`SELECT id FROM announcements WHERE expires_at IS NULL OR expires_at > datetime('now','localtime')`);
       for (const a of anns) {
         await dbRun(
           'INSERT OR IGNORE INTO announcement_reads (announcement_id, portal_token) VALUES (?,?)',
@@ -3467,7 +3467,7 @@ async function triggerBatchPassOnClose(groupId) {
       const row = await dbGet(`
         SELECT COUNT(*) AS cnt
         FROM announcements a
-        WHERE (a.expires_at IS NULL OR a.expires_at > datetime('now'))
+        WHERE (a.expires_at IS NULL OR a.expires_at > datetime('now','localtime'))
           AND (a.target_group_id IS NULL OR a.target_group_id = (
             SELECT id FROM assignment_groups WHERE portal_token=? LIMIT 1
           ))
@@ -3512,7 +3512,7 @@ async function triggerBatchPassOnClose(groupId) {
           `SELECT a.*, CASE WHEN ar.id IS NOT NULL THEN 1 ELSE 0 END AS is_read
            FROM announcements a
            LEFT JOIN announcement_reads ar ON ar.announcement_id=a.id AND ar.portal_token=?
-           WHERE (a.expires_at IS NULL OR a.expires_at > datetime('now'))
+           WHERE (a.expires_at IS NULL OR a.expires_at > datetime('now','localtime'))
              AND (a.target_group_id IS NULL OR a.target_group_id = (
                SELECT id FROM assignment_groups WHERE portal_token=? LIMIT 1
              ))
@@ -3521,7 +3521,7 @@ async function triggerBatchPassOnClose(groupId) {
         ),
         dbGet(
           `SELECT COUNT(*) AS cnt FROM announcements a
-           WHERE (a.expires_at IS NULL OR a.expires_at > datetime('now'))
+           WHERE (a.expires_at IS NULL OR a.expires_at > datetime('now','localtime'))
              AND NOT EXISTS (
                SELECT 1 FROM announcement_reads ar
                WHERE ar.announcement_id=a.id AND ar.portal_token=?
@@ -3688,9 +3688,9 @@ async function triggerBatchPassOnClose(groupId) {
     });
   });
 
-app.get('/notifications',requireAuth,requireAdmin,function(req,res){db.run("UPDATE notifications SET read_at=datetime('now') WHERE read_at IS NULL");db.all('SELECT * FROM notifications ORDER BY id DESC LIMIT 200',[],function(err,notifs){res.render('notifications',{notifs:notifs||[]});});});
+app.get('/notifications',requireAuth,requireAdmin,function(req,res){db.run("UPDATE notifications SET read_at=datetime('now','localtime') WHERE read_at IS NULL");db.all('SELECT * FROM notifications ORDER BY id DESC LIMIT 200',[],function(err,notifs){res.render('notifications',{notifs:notifs||[]});});});
   app.get('/api/notifications/count',requireAuth,requireAdmin,function(req,res){db.get('SELECT COUNT(*) as n FROM notifications WHERE read_at IS NULL',[],function(e,r){res.json({count:r?r.n:0});});});
-  app.post('/notifications/read-all',requireAuth,requireAdmin,function(req,res){db.run("UPDATE notifications SET read_at=datetime('now') WHERE read_at IS NULL",function(){res.redirect('/notifications');});});
+  app.post('/notifications/read-all',requireAuth,requireAdmin,function(req,res){db.run("UPDATE notifications SET read_at=datetime('now','localtime') WHERE read_at IS NULL",function(){res.redirect('/notifications');});});
 
 
 // ═══════════════════════════════════════════════════════
@@ -4905,7 +4905,7 @@ app.get('/search', requireAuth, (req, res) => {
       );
       await dbRun(
         `UPDATE accreditation_requests
-         SET status='portale_attivato', reviewed_by=?, reviewed_at=datetime('now'), assignment_group_id=?
+         SET status='portale_attivato', reviewed_by=?, reviewed_at=datetime('now','localtime'), assignment_group_id=?
          WHERE id=?`,
         req.session.user.id, newGroupId, id
       );
@@ -4938,7 +4938,7 @@ app.get('/search', requireAuth, (req, res) => {
       if (!request) return res.status(404).send('Richiesta non trovata');
       await dbRun(
         `UPDATE accreditation_requests
-         SET status='rifiutato', reviewed_by=?, reviewed_at=datetime('now'), rejection_reason=?
+         SET status='rifiutato', reviewed_by=?, reviewed_at=datetime('now','localtime'), rejection_reason=?
          WHERE id=?`,
         req.session.user.id, rejection_reason || null, id
       );
@@ -5085,7 +5085,7 @@ app.get('/search', requireAuth, (req, res) => {
       await new Promise((resolve, reject) => {
         db.run(
           `UPDATE volunteers SET status='approved', active=1,
-           reviewed_by=?, reviewed_at=datetime('now') WHERE id=?`,
+           reviewed_by=?, reviewed_at=datetime('now','localtime') WHERE id=?`,
           [req.session.user.id, id],
           err => err ? reject(err) : resolve());
       });
@@ -5136,7 +5136,7 @@ app.get('/search', requireAuth, (req, res) => {
       await new Promise((resolve, reject) => {
         db.run(
           `UPDATE volunteers SET status='rejected', active=0,
-           reviewed_by=?, reviewed_at=datetime('now'),
+           reviewed_by=?, reviewed_at=datetime('now','localtime'),
            rejection_reason=? WHERE id=?`,
           [req.session.user.id, rejection_reason||null, id],
           err => err ? reject(err) : resolve());
