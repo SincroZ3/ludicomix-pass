@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Candidatura Volontario — <%= eventName %></title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #1e2d4e;
+    --gold: #f5c842;
+    --teal: #01696f;
+    --bg: #f7f6f2;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --muted: #64748b;
+    --error: #dc2626;
+    --success: #065f46;
+  }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--navy); min-height: 100dvh; }
+
+  /* HEADER */
+  .site-header {
+    background: var(--navy);
+    color: #fff;
+    padding: 1.1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .site-header .logo {
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: -.02em;
+  }
+  .site-header .subtitle {
+    font-size: .85rem;
+    color: rgba(255,255,255,.65);
+    margin-top: .1rem;
+  }
+
+  /* LAYOUT */
+  .page-wrap {
+    max-width: 680px;
+    margin: 2.5rem auto;
+    padding: 0 1rem 3rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border-radius: 16px;
+    box-shadow: 0 2px 16px rgba(30,45,78,.09);
+    padding: 2rem 2rem;
+  }
+
+  .card-title {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--navy);
+    margin-bottom: .35rem;
+  }
+  .card-desc {
+    font-size: .9rem;
+    color: var(--muted);
+    margin-bottom: 1.75rem;
+    line-height: 1.6;
+  }
+
+  /* FORM */
+  .section-label {
+    font-size: .7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--teal);
+    margin: 1.5rem 0 .75rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid #e8f4f4;
+  }
+  .section-label:first-of-type { margin-top: 0; }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: .85rem; }
+  .form-row.single { grid-template-columns: 1fr; }
+  .form-row.triple { grid-template-columns: 1fr 1fr 1fr; }
+
+  @media (max-width: 520px) {
+    .form-row, .form-row.triple { grid-template-columns: 1fr; }
+    .card { padding: 1.25rem 1rem; }
+  }
+
+  .field { display: flex; flex-direction: column; gap: .35rem; }
+  .field label { font-size: .8rem; font-weight: 700; color: var(--navy); }
+  .field label .req { color: var(--error); margin-left: .15rem; }
+  .field label .opt { font-weight: 400; color: var(--muted); font-size: .75rem; margin-left: .25rem; }
+
+  input[type="text"], input[type="email"], input[type="tel"], input[type="date"], textarea, select {
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: .6rem .85rem;
+    font-size: .9rem;
+    color: var(--navy);
+    background: #fafbfc;
+    transition: border-color .15s, box-shadow .15s;
+    width: 100%;
+  }
+  input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px rgba(1,105,111,.12);
+    background: #fff;
+  }
+  textarea { min-height: 90px; resize: vertical; }
+  input[type="text"].cf { text-transform: uppercase; font-family: monospace; letter-spacing: .06em; }
+
+  /* Privacy */
+  .privacy-box {
+    background: #f8fafc;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: .9rem 1rem;
+    display: flex;
+    align-items: flex-start;
+    gap: .65rem;
+    margin-top: 1.5rem;
+    cursor: pointer;
+  }
+  .privacy-box input[type="checkbox"] {
+    width: 18px; height: 18px; margin-top: .1rem; accent-color: var(--teal); cursor: pointer; flex-shrink: 0;
+  }
+  .privacy-box label { font-size: .82rem; color: var(--muted); line-height: 1.5; cursor: pointer; }
+  .privacy-box label strong { color: var(--navy); }
+
+  /* CTA */
+  .btn-submit {
+    display: block;
+    width: 100%;
+    margin-top: 1.5rem;
+    padding: .85rem;
+    background: var(--navy);
+    color: var(--gold);
+    font-size: 1rem;
+    font-weight: 800;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    letter-spacing: .02em;
+    transition: background .15s, transform .1s;
+  }
+  .btn-submit:hover { background: #152240; }
+  .btn-submit:active { transform: scale(.99); }
+
+  /* Alert */
+  .alert {
+    border-radius: 10px;
+    padding: .85rem 1rem;
+    font-size: .88rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: flex-start;
+    gap: .6rem;
+  }
+  .alert-error { background: #fef2f2; border: 1.5px solid #fecaca; color: var(--error); }
+  .alert-success { background: #d1fae5; border: 1.5px solid #6ee7b7; color: var(--success); }
+  .alert-success h3 { font-size: 1.05rem; font-weight: 800; margin-bottom: .3rem; }
+  .alert-success p { font-size: .88rem; }
+
+  /* Footer */
+  .page-footer {
+    text-align: center;
+    margin-top: 2rem;
+    font-size: .78rem;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div>
+    <div class="logo"><%= eventName %></div>
+    <div class="subtitle">Portale candidatura volontari</div>
+  </div>
+</header>
+
+<div class="page-wrap">
+  <% if (sent) { %>
+    <div class="card">
+      <div class="alert alert-success">
+        <span style="font-size:1.5rem">🎉</span>
+        <div>
+          <h3>Candidatura inviata!</h3>
+          <p>Grazie per esserti candidato/a come volontario. Riceverai una email di conferma all'indirizzo che hai indicato. Ti contatteremo presto!</p>
+        </div>
+      </div>
+      <a href="/candidatura-volontario" style="display:inline-block;margin-top:.5rem;font-size:.85rem;color:var(--teal);font-weight:700;text-decoration:none">← Invia un'altra candidatura</a>
+    </div>
+  <% } else { %>
+
+  <div class="card">
+    <div class="card-title">🙋 Candidati come volontario</div>
+    <div class="card-desc">
+      Vuoi far parte del team di <strong><%= eventName %></strong>? Compila il modulo qui sotto.<br>
+      Gli organizzatori valuteranno la tua candidatura e ti risponderanno via email.
+    </div>
+
+    <% if (error) { %>
+      <div class="alert alert-error">⚠️ <%= error %></div>
+    <% } %>
+
+    <form method="post" action="/candidatura-volontario" novalidate>
+
+      <div class="section-label">Dati personali</div>
+      <div class="form-row">
+        <div class="field">
+          <label>Nome <span class="req">*</span></label>
+          <input type="text" name="first_name" required placeholder="Mario" autocomplete="given-name">
+        </div>
+        <div class="field">
+          <label>Cognome <span class="req">*</span></label>
+          <input type="text" name="last_name" required placeholder="Rossi" autocomplete="family-name">
+        </div>
+      </div>
+      <div class="form-row" style="margin-top:.85rem">
+        <div class="field">
+          <label>Email <span class="req">*</span></label>
+          <input type="email" name="email" required placeholder="mario.rossi@email.it" autocomplete="email">
+        </div>
+        <div class="field">
+          <label>Telefono <span class="opt">(facoltativo)</span></label>
+          <input type="tel" name="phone" placeholder="+39 333 1234567" autocomplete="tel">
+        </div>
+      </div>
+
+      <div class="section-label">Dati anagrafici <span style="font-weight:400;color:var(--muted);font-size:.8rem;text-transform:none;letter-spacing:0">(facoltativi — necessari a fini assicurativi)</span></div>
+      <div class="form-row" style="margin-bottom:.85rem">
+        <div class="field">
+          <label>Data di nascita</label>
+          <input type="date" name="birth_date">
+        </div>
+        <div class="field">
+          <label>Luogo di nascita</label>
+          <input type="text" name="birth_place" placeholder="Es. Roma (RM)">
+        </div>
+      </div>
+      <div class="form-row single" style="margin-bottom:.85rem">
+        <div class="field">
+          <label>Codice fiscale</label>
+          <input type="text" name="fiscal_code" class="cf" placeholder="RSSMRA80A01H501Z" maxlength="16">
+        </div>
+      </div>
+      <div class="form-row single">
+        <div class="field">
+          <label>Luogo di residenza</label>
+          <input type="text" name="residence" placeholder="Via Roma 1, 00100 Roma (RM)" autocomplete="street-address">
+        </div>
+      </div>
+
+      <div class="section-label">Disponibilità e competenze</div>
+      <div class="form-row single" style="margin-bottom:.85rem">
+        <div class="field">
+          <label>Competenze / esperienze <span class="opt">(facoltativo)</span></label>
+          <input type="text" name="skills" placeholder="Es. accoglienza, logistica, giochi da tavolo, primo soccorso…">
+        </div>
+      </div>
+      <div class="form-row single" style="margin-bottom:.85rem">
+        <div class="field">
+          <label>Disponibilità <span class="opt">(facoltativo)</span></label>
+          <input type="text" name="availability" placeholder="Es. sabato mattina, tutta la domenica, entrambe le giornate…">
+        </div>
+      </div>
+      <div class="form-row single">
+        <div class="field">
+          <label>Note aggiuntive <span class="opt">(facoltativo)</span></label>
+          <textarea name="notes" placeholder="Qualcosa che vorresti farci sapere…"></textarea>
+        </div>
+      </div>
+
+      <div class="privacy-box">
+        <input type="checkbox" name="privacy" id="privacy" value="1">
+        <label for="privacy">
+          Acconsento al trattamento dei dati personali forniti in questo modulo ai sensi del
+          <strong>Regolamento UE 2016/679 (GDPR)</strong>, per le finalità legate all'organizzazione
+          dell'evento e alla gestione dei volontari. I dati non saranno ceduti a terzi.
+        </label>
+      </div>
+
+      <button type="submit" class="btn-submit">Invia candidatura →</button>
+    </form>
+  </div>
+
+  <% } %>
+
+  <div class="page-footer">
+    <%= eventName %> &mdash; Portale volontari
+  </div>
+</div>
+
+</body>
+</html>

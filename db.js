@@ -608,6 +608,7 @@ db.dbPath = dbPath;
   // ── Modulo Volontari ───────────────────────────────────────
   db.run(`CREATE TABLE IF NOT EXISTS volunteers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    edition_id INTEGER,
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
     email TEXT,
@@ -615,8 +616,15 @@ db.dbPath = dbPath;
     notes TEXT,
     availability TEXT,
     skills TEXT,
+    tshirt_size TEXT,
+    status TEXT NOT NULL DEFAULT 'approved',
+    import_batch_id TEXT,
     active INTEGER NOT NULL DEFAULT 1,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    birth_date TEXT,
+    birth_place TEXT,
+    fiscal_code TEXT,
+    residence TEXT
   )`, function(err) {
     if (err) console.warn('[DB] volunteers create:', err.message);
   });
@@ -714,7 +722,11 @@ db.serialize(() => {
     'ALTER TABLE volunteers ADD COLUMN birth_date TEXT',
     'ALTER TABLE volunteers ADD COLUMN birth_place TEXT',
     'ALTER TABLE volunteers ADD COLUMN fiscal_code TEXT',
-    'ALTER TABLE volunteers ADD COLUMN residence TEXT'
+    'ALTER TABLE volunteers ADD COLUMN residence TEXT',
+    "ALTER TABLE volunteers ADD COLUMN status TEXT NOT NULL DEFAULT 'approved'",
+    'ALTER TABLE volunteers ADD COLUMN edition_id INTEGER',
+    'ALTER TABLE volunteers ADD COLUMN tshirt_size TEXT',
+    'ALTER TABLE volunteers ADD COLUMN import_batch_id TEXT'
   ].forEach(sql => {
     db.run(sql, function(err) {
       if (err && !String(err.message || '').includes('duplicate column name')) {

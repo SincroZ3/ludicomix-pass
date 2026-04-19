@@ -796,18 +796,19 @@ app.get('/home', requireAuth, (req, res) => {
 
   app.get('/volunteers', requireAuth, async (req, res) => {
     try {
-      const [volunteers, shifts, zones] = await Promise.all([
+      const [volunteers, pending, shifts, zones] = await Promise.all([
         dbAll(`SELECT v.*, 
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
-               FROM volunteers v ORDER BY v.last_name ASC, v.first_name ASC`),
+               FROM volunteers v WHERE v.status IN ('approved','active') OR v.status IS NULL ORDER BY v.last_name ASC, v.first_name ASC`),
+        dbAll(`SELECT * FROM volunteers WHERE status='pending' ORDER BY rowid DESC`),
         dbAll(`SELECT s.*, z.name AS zone_name,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
         dbAll('SELECT * FROM zones ORDER BY sort_order, name')
       ]);
-      res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[] });
+      res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
       console.error('[Volunteers]', err.message);
       res.status(500).send('Errore interno del server');
@@ -994,18 +995,19 @@ app.get('/home', requireAuth, (req, res) => {
   app.get('/volunteers', requireAuth, async (req, res) => {
     try {
       await new Promise((resolve, reject) => ensureVolunteerTables(err => err ? reject(err) : resolve()));
-      const [volunteers, shifts, zones] = await Promise.all([
+      const [volunteers, pending, shifts, zones] = await Promise.all([
         dbAll(`SELECT v.*, 
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
-               FROM volunteers v ORDER BY v.last_name ASC, v.first_name ASC`),
+               FROM volunteers v WHERE v.status IN ('approved','active') OR v.status IS NULL ORDER BY v.last_name ASC, v.first_name ASC`),
+        dbAll(`SELECT * FROM volunteers WHERE status='pending' ORDER BY rowid DESC`),
         dbAll(`SELECT s.*, z.name AS zone_name,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
         dbAll('SELECT * FROM zones ORDER BY sort_order, name')
       ]);
-      res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[] });
+      res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
       console.error('[Volunteers]', err.message);
       res.status(500).send('Errore interno del server');
@@ -1265,18 +1267,19 @@ app.get('/home', requireAuth, (req, res) => {
   app.get('/volunteers', requireAuth, async (req, res) => {
     try {
       await new Promise((resolve, reject) => ensureVolunteerTables(err => err ? reject(err) : resolve()));
-      const [volunteers, shifts, zones] = await Promise.all([
+      const [volunteers, pending, shifts, zones] = await Promise.all([
         dbAll(`SELECT v.*, 
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
-               FROM volunteers v ORDER BY v.last_name ASC, v.first_name ASC`),
+               FROM volunteers v WHERE v.status IN ('approved','active') OR v.status IS NULL ORDER BY v.last_name ASC, v.first_name ASC`),
+        dbAll(`SELECT * FROM volunteers WHERE status='pending' ORDER BY rowid DESC`),
         dbAll(`SELECT s.*, z.name AS zone_name,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
         dbAll('SELECT * FROM zones ORDER BY sort_order, name')
       ]);
-      res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[] });
+      res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
       console.error('[Volunteers GET]', err && err.stack ? err.stack : err);
       res.status(500).type('text/plain').send('Volunteers GET error: ' + (err.message || err));
@@ -4950,6 +4953,218 @@ app.get('/search', requireAuth, (req, res) => {
     } catch (e) {
       console.error('Errore rifiuto accreditamento:', e.message);
       res.status(500).send('Errore: ' + e.message);
+    }
+  });
+
+
+  // ══════════════════════════════════════════════════════════════════════
+  // CANDIDATURA VOLONTARIO — form pubblico + gestione candidature
+  // ══════════════════════════════════════════════════════════════════════
+
+  // Form pubblico (no auth)
+  app.get('/candidatura-volontario', async (req, res) => {
+    try {
+      const settings = {};
+      const rows = await dbAll("SELECT key,value FROM app_settings");
+      rows.forEach(r => { settings[r.key] = r.value; });
+      const eventName = settings.event_name || 'Ludicomix';
+      res.render('candidatura_volontario', { eventName, sent: false, error: null });
+    } catch (e) {
+      res.render('candidatura_volontario', { eventName: 'Ludicomix', sent: false, error: null });
+    }
+  });
+
+  // Submit form pubblico
+  app.post('/candidatura-volontario', async (req, res) => {
+    try {
+      const settings = {};
+      const rows = await dbAll("SELECT key,value FROM app_settings");
+      rows.forEach(r => { settings[r.key] = r.value; });
+      const eventName = settings.event_name || 'Ludicomix';
+
+      const {
+        first_name, last_name, email, phone,
+        birth_date, birth_place, fiscal_code, residence,
+        skills, availability, notes, privacy
+      } = req.body;
+
+      if (!String(first_name||'').trim() || !String(last_name||'').trim()) {
+        return res.render('candidatura_volontario', { eventName, sent: false, error: 'Nome e cognome sono obbligatori.' });
+      }
+      if (!email || !String(email).includes('@')) {
+        return res.render('candidatura_volontario', { eventName, sent: false, error: 'Inserisci un indirizzo email valido.' });
+      }
+      if (!privacy) {
+        return res.render('candidatura_volontario', { eventName, sent: false, error: 'Devi accettare il trattamento dei dati personali per procedere.' });
+      }
+
+      // Determina edition_id corrente
+      let edId = (_currentEdition && _currentEdition.id) ? _currentEdition.id : null;
+      if (!edId) {
+        const cur = await dbGet('SELECT id FROM editions WHERE is_current=1 LIMIT 1');
+        if (cur) edId = cur.id;
+      }
+      if (!edId) {
+        const any = await dbGet('SELECT id FROM editions ORDER BY id DESC LIMIT 1');
+        if (any) edId = any.id;
+      }
+      if (!edId) edId = 1;
+
+      const fn = String(first_name).trim();
+      const ln = String(last_name).trim();
+      const fc = fiscal_code ? String(fiscal_code).toUpperCase().trim() : null;
+
+      await new Promise((resolve, reject) => {
+        db.run(
+          `INSERT INTO volunteers
+            (edition_id, first_name, last_name, email, phone, availability, skills, status, notes,
+             birth_date, birth_place, fiscal_code, residence, active, import_batch_id, tshirt_size)
+           VALUES (?,?,?,?,?,?,?,'pending',?,?,?,?,?,1,NULL,NULL)`,
+          [edId, fn, ln, email||null, phone||null, availability||'', skills||'', notes||null,
+           birth_date||null, birth_place||null, fc, residence||null],
+          function(err) { err ? reject(err) : resolve(this.lastID); }
+        );
+      });
+
+      // Email di conferma al candidato
+      if (email) {
+        db.all("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'", [], function(e, smtpRows) {
+          if (e || !smtpRows) return;
+          const c = {};
+          smtpRows.forEach(r => { c[r.key] = r.value; });
+          if (!c.smtp_host) return;
+          nodemailer.createTransport({
+            host: c.smtp_host, port: parseInt(c.smtp_port||'587',10),
+            secure: c.smtp_secure==='1',
+            auth: c.smtp_user ? { user: c.smtp_user, pass: c.smtp_pass } : undefined,
+            tls: { rejectUnauthorized: false }
+          }).sendMail({
+            from: c.smtp_from || 'noreply@ludicomix.it',
+            to: email,
+            subject: `[${eventName}] Candidatura volontario ricevuta`,
+            html: `<div style="font-family:sans-serif;max-width:560px">
+              <h2 style="color:#1e2d4e">Grazie, ${fn}!</h2>
+              <p>Abbiamo ricevuto la tua candidatura come volontario per <strong>${eventName}</strong>.</p>
+              <p>La valuteremo al più presto e ti contatteremo a questo indirizzo email.</p>
+              <hr style="border:none;border-top:1px solid #e2e8f0;margin:1.5rem 0">
+              <p style="font-size:.85rem;color:#64748b">Non rispondere a questa email — per info scrivi agli organizzatori.</p>
+            </div>`
+          }, err2 => { if (err2) console.error('[Candidatura email candidato]', err2.message); });
+        });
+      }
+
+      // Notifica agli organizzatori
+      trySendEmail(
+        `Nuova candidatura volontario — ${fn} ${ln}`,
+        `<p>Nuova candidatura ricevuta dal form pubblico:</p>
+         <table style="border-collapse:collapse;font-size:.9rem">
+           <tr><td style="padding:.3rem .75rem;color:#64748b">Nome</td><td style="padding:.3rem .75rem;font-weight:600">${fn} ${ln}</td></tr>
+           <tr><td style="padding:.3rem .75rem;color:#64748b">Email</td><td style="padding:.3rem .75rem">${email||'—'}</td></tr>
+           <tr><td style="padding:.3rem .75rem;color:#64748b">Telefono</td><td style="padding:.3rem .75rem">${phone||'—'}</td></tr>
+           <tr><td style="padding:.3rem .75rem;color:#64748b">Competenze</td><td style="padding:.3rem .75rem">${skills||'—'}</td></tr>
+           <tr><td style="padding:.3rem .75rem;color:#64748b">Disponibilità</td><td style="padding:.3rem .75rem">${availability||'—'}</td></tr>
+         </table>
+         <p style="margin-top:1rem"><a href="/volunteers" style="background:#1e2d4e;color:#f5c842;padding:.5rem 1rem;border-radius:6px;text-decoration:none;font-weight:700">Vai alle candidature →</a></p>`
+      );
+
+      res.render('candidatura_volontario', { eventName, sent: true, error: null });
+    } catch (err) {
+      console.error('[Candidatura POST]', err.message);
+      res.render('candidatura_volontario', { eventName: 'Ludicomix', sent: false, error: 'Errore interno — riprova tra qualche istante.' });
+    }
+  });
+
+  // Accetta candidatura (admin/organizer)
+  app.post('/volunteers/:id/accept', requireAuth, requireNotViewer, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    try {
+      const vol = await dbGet('SELECT * FROM volunteers WHERE id=?', [id]);
+      if (!vol) return res.status(404).send('Volontario non trovato');
+      await new Promise((resolve, reject) => {
+        db.run("UPDATE volunteers SET status='approved', active=1 WHERE id=?", [id],
+          err => err ? reject(err) : resolve());
+      });
+      logAction(req.session.user.id, 'accept_volunteer', 'volunteer', id, `Candidatura #${id} accettata`);
+      // Email al candidato
+      if (vol.email) {
+        const settings = {};
+        const rows = await dbAll("SELECT key,value FROM app_settings");
+        rows.forEach(r => { settings[r.key] = r.value; });
+        const eventName = settings.event_name || 'Ludicomix';
+        db.all("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'", [], function(e, smtpRows) {
+          if (e || !smtpRows) return;
+          const c = {};
+          smtpRows.forEach(r => { c[r.key] = r.value; });
+          if (!c.smtp_host) return;
+          nodemailer.createTransport({
+            host: c.smtp_host, port: parseInt(c.smtp_port||'587',10),
+            secure: c.smtp_secure==='1',
+            auth: c.smtp_user ? { user: c.smtp_user, pass: c.smtp_pass } : undefined,
+            tls: { rejectUnauthorized: false }
+          }).sendMail({
+            from: c.smtp_from || 'noreply@ludicomix.it',
+            to: vol.email,
+            subject: `[${eventName}] Candidatura accettata 🎉`,
+            html: `<div style="font-family:sans-serif;max-width:560px">
+              <h2 style="color:#065f46">Benvenuto/a nel team, ${vol.first_name}!</h2>
+              <p>La tua candidatura come volontario per <strong>${eventName}</strong> è stata <strong>accettata</strong>.</p>
+              <p>Ti contatteremo presto con maggiori dettagli sui turni e le attività.</p>
+              <hr style="border:none;border-top:1px solid #e2e8f0;margin:1.5rem 0">
+              <p style="font-size:.85rem;color:#64748b">Non rispondere a questa email — per info scrivi agli organizzatori.</p>
+            </div>`
+          }, err2 => { if (err2) console.error('[Accept email]', err2.message); });
+        });
+      }
+      res.redirect('/volunteers#candidature');
+    } catch (err) {
+      res.status(500).send('Errore: ' + err.message);
+    }
+  });
+
+  // Rifiuta candidatura
+  app.post('/volunteers/:id/reject', requireAuth, requireNotViewer, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { rejection_reason } = req.body;
+    try {
+      const vol = await dbGet('SELECT * FROM volunteers WHERE id=?', [id]);
+      if (!vol) return res.status(404).send('Volontario non trovato');
+      await new Promise((resolve, reject) => {
+        db.run("UPDATE volunteers SET status='rejected', active=0 WHERE id=?", [id],
+          err => err ? reject(err) : resolve());
+      });
+      logAction(req.session.user.id, 'reject_volunteer', 'volunteer', id, `Candidatura #${id} rifiutata`);
+      if (vol.email) {
+        const settings = {};
+        const rows = await dbAll("SELECT key,value FROM app_settings");
+        rows.forEach(r => { settings[r.key] = r.value; });
+        const eventName = settings.event_name || 'Ludicomix';
+        db.all("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'", [], function(e, smtpRows) {
+          if (e || !smtpRows) return;
+          const c = {};
+          smtpRows.forEach(r => { c[r.key] = r.value; });
+          if (!c.smtp_host) return;
+          nodemailer.createTransport({
+            host: c.smtp_host, port: parseInt(c.smtp_port||'587',10),
+            secure: c.smtp_secure==='1',
+            auth: c.smtp_user ? { user: c.smtp_user, pass: c.smtp_pass } : undefined,
+            tls: { rejectUnauthorized: false }
+          }).sendMail({
+            from: c.smtp_from || 'noreply@ludicomix.it',
+            to: vol.email,
+            subject: `[${eventName}] Aggiornamento sulla tua candidatura`,
+            html: `<div style="font-family:sans-serif;max-width:560px">
+              <h2 style="color:#1e2d4e">Gentile ${vol.first_name},</h2>
+              <p>Grazie per esserti candidato/a come volontario per <strong>${eventName}</strong>.</p>
+              <p>Purtroppo, in questa edizione non saremo in grado di accettare la tua candidatura.</p>
+              ${rejection_reason ? `<p><em>Note: ${rejection_reason}</em></p>` : ''}
+              <p>Speriamo di rivederti nelle prossime edizioni!</p>
+            </div>`
+          }, err2 => { if (err2) console.error('[Reject email]', err2.message); });
+        });
+      }
+      res.redirect('/volunteers#candidature');
+    } catch (err) {
+      res.status(500).send('Errore: ' + err.message);
     }
   });
 

@@ -173,6 +173,11 @@
     <button class="vol-tab active" onclick="switchTab('tab-cal')">📅 Calendario turni</button>
     <button class="vol-tab" onclick="switchTab('tab-shifts')">🕐 Turni</button>
     <button class="vol-tab" onclick="switchTab('tab-vols')">🙋 Volontari</button>
+    <button class="vol-tab" onclick="switchTab('tab-candidature')" id="btn-tab-candidature" style="position:relative">
+      📥 Candidature
+      <% var pendingCount = (typeof pending !== 'undefined' ? pending : []).length; %>
+      <% if(pendingCount > 0){ %><span style="position:absolute;top:2px;right:2px;background:#dc2626;color:#fff;font-size:.58rem;font-weight:800;border-radius:99px;padding:.05rem .32rem;min-width:14px;text-align:center"><%= pendingCount %></span><% } %>
+    </button>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════
@@ -783,6 +788,95 @@ document.addEventListener('keydown', function(e) {
   }
 });
 </script>
+
+      <!-- ══ TAB CANDIDATURE ══ -->
+      <div id="tab-candidature" class="tab-pane" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:.75rem">
+          <div>
+            <div style="font-size:1rem;font-weight:800;color:#1e2d4e">📥 Candidature in attesa</div>
+            <div style="font-size:.8rem;color:#64748b;margin-top:.15rem">Volontari iscritti tramite il form pubblico. Accetta o rifiuta ogni candidatura.</div>
+          </div>
+          <a href="/candidatura-volontario" target="_blank" style="background:#f5c842;color:#1e2d4e;font-weight:800;font-size:.8rem;padding:.5rem 1rem;border-radius:8px;text-decoration:none;display:inline-flex;align-items:center;gap:.4rem">🔗 Apri form pubblico</a>
+        </div>
+
+        <% var pendingList = (typeof pending !== 'undefined' ? pending : []); %>
+        <% if(pendingList.length === 0){ %>
+          <div style="text-align:center;padding:3rem 1rem;color:#94a3b8">
+            <div style="font-size:2.5rem;margin-bottom:.75rem">📭</div>
+            <div style="font-weight:700;color:#64748b">Nessuna candidatura in attesa</div>
+            <div style="font-size:.83rem;margin-top:.35rem">Le nuove candidature dal form pubblico appariranno qui.</div>
+          </div>
+        <% } else { %>
+          <div style="display:flex;flex-direction:column;gap:.75rem">
+            <% pendingList.forEach(function(p){ %>
+            <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:1rem 1.1rem;display:grid;grid-template-columns:1fr auto;gap:.75rem;align-items:start">
+              <div>
+                <div style="font-weight:800;font-size:.95rem;color:#1e2d4e;margin-bottom:.3rem">
+                  <%= p.last_name %> <%= p.first_name %>
+                  <span style="font-size:.72rem;font-weight:400;color:#94a3b8;margin-left:.4rem">#<%= p.id %></span>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:.4rem .85rem;font-size:.8rem;color:#475569;margin-bottom:.5rem">
+                  <% if(p.email){ %><span>✉️ <%= p.email %></span><% } %>
+                  <% if(p.phone){ %><span>📞 <%= p.phone %></span><% } %>
+                  <% if(p.birth_date){ %><span>🎂 <%= p.birth_date %><% if(p.birth_place){ %> · <%= p.birth_place %><% } %></span><% } %>
+                  <% if(p.fiscal_code){ %><span style="font-family:monospace;letter-spacing:.04em">🪪 <%= p.fiscal_code %></span><% } %>
+                  <% if(p.residence){ %><span>🏠 <%= p.residence %></span><% } %>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:.4rem .85rem;font-size:.78rem;color:#64748b">
+                  <% if(p.skills){ %><span style="background:#f1f5f9;border-radius:6px;padding:.1rem .5rem">🎯 <%= p.skills %></span><% } %>
+                  <% if(p.availability){ %><span style="background:#f1f5f9;border-radius:6px;padding:.1rem .5rem">🕐 <%= p.availability %></span><% } %>
+                  <% if(p.notes){ %><span style="background:#fefce8;border-radius:6px;padding:.1rem .5rem;color:#854d0e">📝 <%= p.notes %></span><% } %>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.45rem;min-width:120px">
+                <form method="post" action="/volunteers/<%= p.id %>/accept" style="margin:0">
+                  <button type="submit" style="width:100%;background:#d1fae5;color:#065f46;border:1.5px solid #6ee7b7;border-radius:7px;padding:.4rem .75rem;font-weight:700;font-size:.8rem;cursor:pointer">✅ Accetta</button>
+                </form>
+                <button onclick="openRejectModal(<%= p.id %>, '<%= (p.first_name||'').replace(/'/g, '') %> <%= (p.last_name||'').replace(/'/g, '') %>')"
+                  style="width:100%;background:#fef2f2;color:#dc2626;border:1.5px solid #fecaca;border-radius:7px;padding:.4rem .75rem;font-weight:700;font-size:.8rem;cursor:pointer">
+                  ❌ Rifiuta
+                </button>
+              </div>
+            </div>
+            <% }); %>
+          </div>
+        <% } %>
+      </div>
+
+      <!-- Modale rifiuto candidatura -->
+      <div id="reject-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(15,20,40,.5);z-index:2000;align-items:center;justify-content:center;padding:1rem" onclick="closeRejectModal(event)">
+        <div style="background:#fff;border-radius:14px;padding:1.5rem;max-width:420px;width:100%;box-shadow:0 16px 48px rgba(15,20,40,.2);animation:modalIn .18s ease" onclick="event.stopPropagation()">
+          <div style="font-weight:800;font-size:1rem;color:#1e2d4e;margin-bottom:.3rem">Rifiuta candidatura</div>
+          <div id="reject-modal-name" style="font-size:.85rem;color:#64748b;margin-bottom:1rem"></div>
+          <form id="reject-form" method="post" action="">
+            <label style="font-size:.8rem;font-weight:700;color:#1e2d4e;display:block;margin-bottom:.4rem">Motivazione <span style="font-weight:400;color:#94a3b8">(facoltativa — verrà inviata al candidato)</span></label>
+            <textarea name="rejection_reason" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:.6rem .8rem;font-size:.85rem;min-height:80px;resize:vertical"></textarea>
+            <div style="display:flex;gap:.6rem;margin-top:1rem">
+              <button type="submit" style="flex:1;background:#dc2626;color:#fff;border:none;border-radius:8px;padding:.65rem;font-weight:700;font-size:.9rem;cursor:pointer">Conferma rifiuto</button>
+              <button type="button" onclick="closeRejectModal()" style="flex:1;background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:.65rem;font-weight:700;font-size:.9rem;cursor:pointer">Annulla</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <script>
+      function openRejectModal(id, name) {
+        document.getElementById('reject-modal-name').textContent = name;
+        document.getElementById('reject-form').action = '/volunteers/' + id + '/reject';
+        var ov = document.getElementById('reject-modal-overlay');
+        ov.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+      }
+      function closeRejectModal(e) {
+        if (e && e.target !== document.getElementById('reject-modal-overlay')) return;
+        document.getElementById('reject-modal-overlay').style.display = 'none';
+        document.body.style.overflow = '';
+      }
+      // Auto-apri tab candidature se hash #candidature
+      if (window.location.hash === '#candidature') {
+        switchTab('tab-candidature');
+      }
+      </script>
 </div><!-- /container -->
 
 <script>
@@ -790,7 +884,7 @@ document.addEventListener('keydown', function(e) {
     document.querySelectorAll('.vol-panel').forEach(function(p){ p.classList.remove('active'); });
     document.querySelectorAll('.vol-tab').forEach(function(t){ t.classList.remove('active'); });
     document.getElementById(id).classList.add('active');
-    var idx = ['tab-cal','tab-shifts','tab-vols'].indexOf(id);
+    var idx = ['tab-cal','tab-shifts','tab-vols','tab-candidature'].indexOf(id);
     document.querySelectorAll('.vol-tab')[idx].classList.add('active');
   }
   function toggleForm(id) {
