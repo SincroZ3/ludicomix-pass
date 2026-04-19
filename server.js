@@ -472,18 +472,19 @@ app.get('/home', requireAuth, (req, res) => {
 
   app.get('/volunteers', requireAuth, async (req, res) => {
     try {
-      const [volunteers, shifts, zones] = await Promise.all([
+      const [volunteers, pending, shifts, zones] = await Promise.all([
         dbAll(`SELECT v.*, 
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
-               FROM volunteers v ORDER BY COALESCE(v.active,1) DESC, v.last_name ASC, v.first_name ASC`),
+               FROM volunteers v WHERE v.status IN ('approved','active') OR v.status IS NULL ORDER BY v.last_name ASC, v.first_name ASC`),
+        dbAll(`SELECT * FROM volunteers WHERE status='pending' ORDER BY rowid DESC`),
         dbAll(`SELECT s.*, z.name AS zone_name,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
         dbAll('SELECT * FROM zones ORDER BY sort_order, name')
       ]);
-      res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[] });
+      res.render('volunteers', { volunteers: volunteers||[], pending: pending||[], shifts: shifts||[], zones: zones||[] });
     } catch (err) {
       console.error('[Volunteers]', err.message);
       res.status(500).send('Errore interno del server');
@@ -657,7 +658,7 @@ app.get('/home', requireAuth, (req, res) => {
                ORDER BY s.start_at ASC, s.name ASC`),
         dbAll('SELECT * FROM zones ORDER BY sort_order, name')
       ]);
-      res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[] });
+      res.render('volunteers', { volunteers: volunteers||[], pending: pending||[], shifts: shifts||[], zones: zones||[] });
     } catch (err) {
       console.error('[Volunteers]', err.message);
       res.status(500).send('Errore interno del server');
