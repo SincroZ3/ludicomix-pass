@@ -476,7 +476,7 @@ app.get('/home', requireAuth, (req, res) => {
         dbAll(`SELECT v.*, 
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
-               FROM volunteers v WHERE v.status IN ('approved','active') OR v.status IS NULL ORDER BY v.last_name ASC, v.first_name ASC`),
+               FROM volunteers v WHERE v.status != 'pending' OR v.status IS NULL ORDER BY v.last_name ASC, v.first_name ASC`),
         dbAll(`SELECT * FROM volunteers WHERE status='pending' ORDER BY rowid DESC`),
         dbAll(`SELECT s.*, z.name AS zone_name,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
@@ -514,7 +514,7 @@ app.get('/home', requireAuth, (req, res) => {
       db.run(
         `INSERT INTO volunteers (edition_id, first_name, last_name, email, phone, availability, skills, tshirt_size, status, notes, import_batch_id, active, birth_date, birth_place, fiscal_code, residence)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [edId, fn, ln, email || null, phone || null, availability || '', skills || '', tshirt_size || null, status || 'pending', notes || null, null, 1, birth_date||null, birth_place||null, fiscal_code ? String(fiscal_code).toUpperCase().trim() : null, residence||null],
+        [edId, fn, ln, email || null, phone || null, availability || '', skills || '', tshirt_size || null, status || 'approved', notes || null, null, 1, birth_date||null, birth_place||null, fiscal_code ? String(fiscal_code).toUpperCase().trim() : null, residence||null],
         function(err) {
           if (err) {
             console.error('[Volunteers POST]', err && err.stack ? err.stack : err.message);
@@ -647,11 +647,12 @@ app.get('/home', requireAuth, (req, res) => {
 
   app.get('/volunteers', requireAuth, async (req, res) => {
     try {
-      const [volunteers, shifts, zones] = await Promise.all([
+      const [volunteers, pending, shifts, zones] = await Promise.all([
         dbAll(`SELECT v.*, 
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
-               FROM volunteers v ORDER BY COALESCE(v.active,1) DESC, v.last_name ASC, v.first_name ASC`),
+               FROM volunteers v WHERE v.status != 'pending' OR v.status IS NULL ORDER BY COALESCE(v.active,1) DESC, v.last_name ASC, v.first_name ASC`),
+        dbAll(`SELECT * FROM volunteers WHERE status='pending' ORDER BY rowid DESC`),
         dbAll(`SELECT s.*, z.name AS zone_name,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
@@ -801,7 +802,7 @@ app.get('/home', requireAuth, (req, res) => {
         dbAll(`SELECT v.*, 
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
-               FROM volunteers v WHERE v.status IN ('approved','active') OR v.status IS NULL ORDER BY v.last_name ASC, v.first_name ASC`),
+               FROM volunteers v WHERE v.status != 'pending' OR v.status IS NULL ORDER BY v.last_name ASC, v.first_name ASC`),
         dbAll(`SELECT * FROM volunteers WHERE status='pending' ORDER BY rowid DESC`),
         dbAll(`SELECT s.*, z.name AS zone_name,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
@@ -1000,7 +1001,7 @@ app.get('/home', requireAuth, (req, res) => {
         dbAll(`SELECT v.*, 
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
-               FROM volunteers v WHERE v.status IN ('approved','active') OR v.status IS NULL ORDER BY v.last_name ASC, v.first_name ASC`),
+               FROM volunteers v WHERE v.status != 'pending' OR v.status IS NULL ORDER BY v.last_name ASC, v.first_name ASC`),
         dbAll(`SELECT * FROM volunteers WHERE status='pending' ORDER BY rowid DESC`),
         dbAll(`SELECT s.*, z.name AS zone_name,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
@@ -1272,7 +1273,7 @@ app.get('/home', requireAuth, (req, res) => {
         dbAll(`SELECT v.*, 
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
-               FROM volunteers v WHERE v.status IN ('approved','active') OR v.status IS NULL ORDER BY v.last_name ASC, v.first_name ASC`),
+               FROM volunteers v WHERE v.status != 'pending' OR v.status IS NULL ORDER BY v.last_name ASC, v.first_name ASC`),
         dbAll(`SELECT * FROM volunteers WHERE status='pending' ORDER BY rowid DESC`),
         dbAll(`SELECT s.*, z.name AS zone_name,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
