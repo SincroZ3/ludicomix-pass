@@ -726,7 +726,10 @@ db.serialize(() => {
     "ALTER TABLE volunteers ADD COLUMN status TEXT NOT NULL DEFAULT 'approved'",
     'ALTER TABLE volunteers ADD COLUMN edition_id INTEGER',
     'ALTER TABLE volunteers ADD COLUMN tshirt_size TEXT',
-    'ALTER TABLE volunteers ADD COLUMN import_batch_id TEXT'
+    'ALTER TABLE volunteers ADD COLUMN import_batch_id TEXT',
+    'ALTER TABLE volunteers ADD COLUMN reviewed_by INTEGER',
+    'ALTER TABLE volunteers ADD COLUMN reviewed_at TEXT',
+    'ALTER TABLE volunteers ADD COLUMN rejection_reason TEXT'
   ].forEach(sql => {
     db.run(sql, function(err) {
       if (err && !String(err.message || '').includes('duplicate column name')) {

@@ -476,7 +476,7 @@ app.get('/home', requireAuth, (req, res) => {
         dbAll(`SELECT v.*, 
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
-               FROM volunteers v WHERE v.status != 'pending' OR v.status IS NULL ORDER BY v.last_name ASC, v.first_name ASC`),
+               FROM volunteers v WHERE (v.status NOT IN ('pending','rejected') OR v.status IS NULL) ORDER BY v.last_name ASC, v.first_name ASC`),
         dbAll(`SELECT * FROM volunteers WHERE status='pending' ORDER BY rowid DESC`),
         dbAll(`SELECT s.*, z.name AS zone_name,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
@@ -651,7 +651,7 @@ app.get('/home', requireAuth, (req, res) => {
         dbAll(`SELECT v.*, 
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
-               FROM volunteers v WHERE v.status != 'pending' OR v.status IS NULL ORDER BY COALESCE(v.active,1) DESC, v.last_name ASC, v.first_name ASC`),
+               FROM volunteers v WHERE (v.status NOT IN ('pending','rejected') OR v.status IS NULL) ORDER BY COALESCE(v.active,1) DESC, v.last_name ASC, v.first_name ASC`),
         dbAll(`SELECT * FROM volunteers WHERE status='pending' ORDER BY rowid DESC`),
         dbAll(`SELECT s.*, z.name AS zone_name,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
@@ -802,7 +802,7 @@ app.get('/home', requireAuth, (req, res) => {
         dbAll(`SELECT v.*, 
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
-               FROM volunteers v WHERE v.status != 'pending' OR v.status IS NULL ORDER BY v.last_name ASC, v.first_name ASC`),
+               FROM volunteers v WHERE (v.status NOT IN ('pending','rejected') OR v.status IS NULL) ORDER BY v.last_name ASC, v.first_name ASC`),
         dbAll(`SELECT * FROM volunteers WHERE status='pending' ORDER BY rowid DESC`),
         dbAll(`SELECT s.*, z.name AS zone_name,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
@@ -943,7 +943,7 @@ app.get('/home', requireAuth, (req, res) => {
                JOIN volunteers v ON v.id=sa.volunteer_id
                WHERE sa.shift_id=?
                ORDER BY v.last_name, v.first_name`, [shiftId]),
-        dbAll(`SELECT * FROM volunteers ORDER BY last_name, first_name`)
+        dbAll(`SELECT * FROM volunteers WHERE (status NOT IN ('pending','rejected') OR status IS NULL) ORDER BY last_name, first_name`)
       ]);
       if (!shift) return res.status(404).send('Turno non trovato');
       res.render('volunteer_assignments', { shift, assignments: assignments||[], volunteers: volunteers||[] });
@@ -1001,7 +1001,7 @@ app.get('/home', requireAuth, (req, res) => {
         dbAll(`SELECT v.*, 
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
-               FROM volunteers v WHERE v.status != 'pending' OR v.status IS NULL ORDER BY v.last_name ASC, v.first_name ASC`),
+               FROM volunteers v WHERE (v.status NOT IN ('pending','rejected') OR v.status IS NULL) ORDER BY v.last_name ASC, v.first_name ASC`),
         dbAll(`SELECT * FROM volunteers WHERE status='pending' ORDER BY rowid DESC`),
         dbAll(`SELECT s.*, z.name AS zone_name,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
@@ -1194,7 +1194,7 @@ app.get('/home', requireAuth, (req, res) => {
                JOIN volunteers v ON v.id=sa.volunteer_id
                WHERE sa.shift_id=?
                ORDER BY v.last_name, v.first_name`, [shiftId]),
-        dbAll(`SELECT * FROM volunteers ORDER BY last_name, first_name`)
+        dbAll(`SELECT * FROM volunteers WHERE (status NOT IN ('pending','rejected') OR status IS NULL) ORDER BY last_name, first_name`)
       ]);
       if (!shift) return res.status(404).send('Turno non trovato');
       res.render('volunteer_assignments', { shift, assignments: assignments||[], volunteers: volunteers||[] });
@@ -1273,7 +1273,7 @@ app.get('/home', requireAuth, (req, res) => {
         dbAll(`SELECT v.*, 
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
-               FROM volunteers v WHERE v.status != 'pending' OR v.status IS NULL ORDER BY v.last_name ASC, v.first_name ASC`),
+               FROM volunteers v WHERE (v.status NOT IN ('pending','rejected') OR v.status IS NULL) ORDER BY v.last_name ASC, v.first_name ASC`),
         dbAll(`SELECT * FROM volunteers WHERE status='pending' ORDER BY rowid DESC`),
         dbAll(`SELECT s.*, z.name AS zone_name,
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
@@ -5083,7 +5083,10 @@ app.get('/search', requireAuth, (req, res) => {
       const vol = await dbGet('SELECT * FROM volunteers WHERE id=?', [id]);
       if (!vol) return res.status(404).send('Volontario non trovato');
       await new Promise((resolve, reject) => {
-        db.run("UPDATE volunteers SET status='approved', active=1 WHERE id=?", [id],
+        db.run(
+          `UPDATE volunteers SET status='approved', active=1,
+           reviewed_by=?, reviewed_at=datetime('now') WHERE id=?`,
+          [req.session.user.id, id],
           err => err ? reject(err) : resolve());
       });
       logAction(req.session.user.id, 'accept_volunteer', 'volunteer', id, `Candidatura #${id} accettata`);
@@ -5131,7 +5134,11 @@ app.get('/search', requireAuth, (req, res) => {
       const vol = await dbGet('SELECT * FROM volunteers WHERE id=?', [id]);
       if (!vol) return res.status(404).send('Volontario non trovato');
       await new Promise((resolve, reject) => {
-        db.run("UPDATE volunteers SET status='rejected', active=0 WHERE id=?", [id],
+        db.run(
+          `UPDATE volunteers SET status='rejected', active=0,
+           reviewed_by=?, reviewed_at=datetime('now'),
+           rejection_reason=? WHERE id=?`,
+          [req.session.user.id, rejection_reason||null, id],
           err => err ? reject(err) : resolve());
       });
       logAction(req.session.user.id, 'reject_volunteer', 'volunteer', id, `Candidatura #${id} rifiutata`);
@@ -5166,6 +5173,23 @@ app.get('/search', requireAuth, (req, res) => {
       }
       res.redirect('/volunteers#candidature');
     } catch (err) {
+      res.status(500).send('Errore: ' + err.message);
+    }
+  });
+
+  // ── GET storico candidature ──
+  app.get('/volunteers/storico', requireAuth, async (req, res) => {
+    try {
+      const history = await dbAll(`
+        SELECT v.*,
+               u.username AS reviewed_by_name
+        FROM volunteers v
+        LEFT JOIN users u ON u.id = v.reviewed_by
+        WHERE v.status IN ('approved','rejected')
+        ORDER BY v.reviewed_at DESC, v.id DESC
+      `);
+      res.render('volunteers_storico', { history: history||[] });
+    } catch(err) {
       res.status(500).send('Errore: ' + err.message);
     }
   });
