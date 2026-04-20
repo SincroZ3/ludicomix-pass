@@ -163,6 +163,8 @@ app.use('/', agendaRoutes(logAction));
     if (req.session.user.role === ROLES.SCANNER &&
         !req.path.startsWith('/scan') &&
         !req.path.startsWith('/api/scan') &&
+        !req.path.startsWith('/contatore') &&
+        !req.path.startsWith('/api/visitors') &&
         !req.path.startsWith('/logout')) {
       return res.redirect('/scan');
     }
