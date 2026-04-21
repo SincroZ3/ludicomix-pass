@@ -101,6 +101,25 @@
     </div>
   </div>
 
+  <!-- FILTRO SALE -->
+  <% if(spaces && spaces.length){ %>
+  <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.85rem;align-items:center">
+    <span style="font-size:.75rem;font-weight:700;color:#64748b;margin-right:.25rem">FILTRA:</span>
+    <button class="space-filter-btn active" data-space="all"
+      style="display:inline-flex;align-items:center;gap:.35rem;background:#1e2d4e;color:#f5c842;border:1.5px solid #1e2d4e;border-radius:99px;padding:.25rem .85rem;font-size:.76rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s">
+      Tutte le sale
+    </button>
+    <% spaces.forEach(function(sp){ %>
+    <button class="space-filter-btn" data-space="<%= sp.id %>"
+      style="display:inline-flex;align-items:center;gap:.35rem;background:#fff;color:#1e2d4e;border:1.5px solid #d1d9e6;border-radius:99px;padding:.25rem .85rem;font-size:.76rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s"
+      data-color="<%= sp.color||'#4f98a3' %>">
+      <span style="width:9px;height:9px;border-radius:50%;background:<%= sp.color||'#4f98a3' %>;flex-shrink:0;display:inline-block"></span>
+      <%= sp.name %>
+    </button>
+    <% }); %>
+  </div>
+  <% } %>
+
   <!-- CALENDARIO -->
   <div class="cal-wrap">
     <%
@@ -269,6 +288,7 @@
                  data-space="<%= (ev.space_name||'').replace(/"/g,'&quot;') %>"
                  data-time="<%= ev.start_time ? ev.start_time.slice(0,5) : '' %>–<%= ev.end_time ? ev.end_time.slice(0,5) : '' %>"
                  data-seats="<%= ev.seats_taken||0 %>/<%= ev.space_capacity||'?' %>"
+                 data-space-id="<%= ev.space_id %>"
                  onmouseenter="showEvTooltip(event,this)"
                  onmouseleave="hideEvTooltip()">
                 <div class="ev-title"><%= ev.title %></div>
@@ -331,6 +351,40 @@ function hideEvTooltip() {
 document.addEventListener('mousemove', function(e){
   var t = document.getElementById('ev-tooltip');
   if(t.style.display !== 'none') posTooltip(e, t);
+});
+
+// ── FILTRO SALE ──
+document.querySelectorAll('.space-filter-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var spaceId = this.dataset.space;
+
+    // Aggiorna stile bottoni
+    document.querySelectorAll('.space-filter-btn').forEach(function(b){
+      var col = b.dataset.color || '#1e2d4e';
+      b.style.background = '#fff';
+      b.style.color = '#1e2d4e';
+      b.style.borderColor = '#d1d9e6';
+    });
+    if(spaceId === 'all'){
+      this.style.background = '#1e2d4e';
+      this.style.color = '#f5c842';
+      this.style.borderColor = '#1e2d4e';
+    } else {
+      var col = this.dataset.color || '#1e2d4e';
+      this.style.background = col;
+      this.style.color = '#fff';
+      this.style.borderColor = col;
+    }
+
+    // Mostra/nascondi eventi
+    document.querySelectorAll('.cal-event').forEach(function(ev){
+      if(spaceId === 'all'){
+        ev.style.display = '';
+      } else {
+        ev.style.display = (ev.dataset.spaceId === spaceId) ? '' : 'none';
+      }
+    });
+  });
 });
 </script>
 
