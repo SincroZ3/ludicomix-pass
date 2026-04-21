@@ -66,14 +66,14 @@ function getFlash(req) {
 router.get('/agenda', requireAuth, (req, res) => {
   const date = req.query.date || new Date().toISOString().slice(0, 10);
 
-  db.all(`SELECT e.*, s.name AS space_name, s.color AS space_color,
+  // Tutti gli eventi (per il calendario) + eventi del giorno selezionato
+  db.all(`SELECT e.*, s.name AS space_name, s.color AS space_color, s.capacity AS space_capacity,
     COUNT(r.id) AS seats_taken
     FROM events e
     JOIN spaces s ON s.id = e.space_id
     LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'confirmed'
-    WHERE e.date = ?
     GROUP BY e.id
-    ORDER BY e.start_time`, [date], (err, events) => {
+    ORDER BY e.date, e.start_time`, [], (err, allEvents) => {
 
     db.all(`SELECT * FROM spaces WHERE active = 1 ORDER BY name`, [], (err2, spaces) => {
       db.get(`SELECT COUNT(*) AS total FROM events`, [], (err3, totRow) => {
@@ -81,7 +81,8 @@ router.get('/agenda', requireAuth, (req, res) => {
           res.render('agenda/dashboard', {
             currentUser: req.session.user,
             flash: getFlash(req),
-            events: events || [],
+            allEvents: allEvents || [],
+            events: (allEvents || []).filter(e => e.date === date),
             spaces: spaces || [],
             selectedDate: date,
             totalEvents: totRow ? totRow.total : 0,

@@ -1,122 +1,337 @@
-<%- include('../partials/header') %>
-<main class="content">
+<%- include('../partials/header', { path: '/agenda', currentUser: currentUser }) %>
 
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.2rem;">
-    <h1 class="page-title" style="margin:0;border:none;">📅 Agenda Palinsesto</h1>
-    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-      <a href="/agenda/events/new" class="primary">+ Nuovo Evento</a>
-      <a href="/agenda/events" class="secondary">Tutti gli eventi</a>
-      <a href="/agenda/spaces" class="secondary">🏛 Sale</a>
-      <a href="/agenda/speakers" class="secondary">🎤 Speaker</a>
-      <a href="/agenda/registrations" class="secondary">📋 Iscrizioni</a>
-    </div>
+<style>
+  /* ── KPI CARDS ── */
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem;margin-bottom:1.5rem}
+  .kpi-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 1px 4px rgba(30,45,78,.06);padding:1rem 1.2rem;display:flex;flex-direction:column;align-items:center;text-align:center;gap:.3rem}
+  .kpi-icon{font-size:1.8rem}
+  .kpi-value{font-size:1.6rem;font-weight:800;color:#1e2d4e;line-height:1}
+  .kpi-label{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8}
+  .kpi-link{color:#1e2d4e;font-weight:700;font-size:.88rem;text-decoration:none}
+  .kpi-link:hover{text-decoration:underline}
+
+  /* ── TOOLBAR ── */
+  .agenda-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:1.25rem}
+  .btn-toolbar{display:inline-flex;align-items:center;gap:.4rem;padding:.44rem .95rem;border-radius:8px;font-size:.82rem;font-weight:700;cursor:pointer;text-decoration:none;border:1.5px solid transparent;font-family:inherit;transition:all .15s}
+  .btn-primary{background:#f5c842;color:#1e2d4e;border-color:#f5c842}
+  .btn-primary:hover{background:#e6b800;border-color:#e6b800}
+  .btn-ghost{background:#fff;color:#1e2d4e;border-color:#d1d9e6}
+  .btn-ghost:hover{background:#f1f5f9}
+  .btn-ghost.active{background:#1e2d4e;color:#f5c842;border-color:#1e2d4e}
+
+  /* ── CALENDAR ── */
+  .cal-wrap{background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 1px 4px rgba(30,45,78,.06);overflow:hidden}
+  .cal-grid{display:grid;gap:0}
+  .cal-col-head{background:#1e2d4e;color:#fff;padding:.65rem .5rem;text-align:center;font-size:.78rem;font-weight:800;letter-spacing:.04em;border-left:1px solid rgba(255,255,255,.12)}
+  .cal-col-head:first-child{background:#162038;border-left:none}
+  .cal-col-head .day-label{font-size:.65rem;font-weight:600;opacity:.75;text-transform:uppercase;letter-spacing:.06em}
+  .cal-col-head .day-date{font-size:1rem;font-weight:800;margin-top:.1rem}
+  .cal-time-label{font-size:.67rem;color:#94a3b8;padding:.15rem .3rem 0;text-align:right;font-variant-numeric:tabular-nums;border-top:1px solid #f1f5f9;border-right:1px solid #e8ecf0;background:#fafbfc;line-height:1}
+  .cal-time-label.hour{color:#475569;font-weight:600;border-top:1px solid #e2e8f0}
+  .cal-cell{border-top:1px solid #f1f5f9;border-left:1px solid #e8ecf0;position:relative;background:#fff}
+  .cal-cell.hour{border-top:1px solid #e2e8f0}
+  .cal-event{position:absolute;border-radius:5px;padding:.2rem .4rem;font-size:.7rem;font-weight:700;color:#fff;overflow:hidden;cursor:pointer;transition:opacity .15s;z-index:1;box-shadow:0 1px 3px rgba(0,0,0,.18);box-sizing:border-box;left:1px;right:1px}
+  .cal-event:hover{opacity:.88;z-index:10}
+  .cal-event .ev-title{font-size:.72rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cal-event .ev-meta{font-size:.63rem;opacity:.88;margin-top:.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cal-empty-msg{display:flex;align-items:center;justify-content:center;min-height:200px;color:#cbd5e1;font-size:.82rem}
+
+  /* ── TOOLTIP evento ── */
+  #ev-tooltip{position:fixed;z-index:9999;background:#1e2d4e;color:#fff;border-radius:10px;padding:.75rem 1rem;font-size:.82rem;max-width:260px;box-shadow:0 8px 24px rgba(0,0,0,.22);pointer-events:none;display:none;line-height:1.4}
+  #ev-tooltip .tt-title{font-weight:800;font-size:.9rem;margin-bottom:.3rem}
+  #ev-tooltip .tt-row{font-size:.78rem;opacity:.85;margin-top:.15rem}
+
+  /* ── FLASH ── */
+  .flash{padding:.65rem 1rem;border-radius:8px;font-size:.85rem;font-weight:600;margin-bottom:1rem}
+  .flash.success{background:#d1fae5;color:#065f46;border:1px solid #6ee7b7}
+  .flash.error{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
+
+  @media(max-width:700px){
+    .kpi-grid{grid-template-columns:1fr 1fr}
+    .agenda-toolbar{flex-direction:column;align-items:stretch}
+  }
+</style>
+
+<div class="container" style="max-width:1200px;margin:1.5rem auto;padding:0 1.25rem 3rem">
+
+  <!-- BREADCRUMB -->
+  <div style="font-size:.78rem;color:#64748b;margin-bottom:1rem">
+    <a href="/home" style="color:#1e2d4e;text-decoration:none">🏠 Home</a>
+    <span style="margin:0 .4rem">›</span>
+    <span>📅 Agenda Palinsesto</span>
   </div>
 
-  <% if (flash) { %>
-    <div class="alert alert-<%= flash.type === 'error' ? 'danger' : 'success' %>">
-      <span><%= flash.type === 'error' ? '⚠️' : '✅' %></span>
-      <span><%- flash.msg %></span>
-    </div>
+  <% if(typeof flash !== 'undefined' && flash){ %>
+    <div class="flash <%= flash.type %>"><%= flash.msg %></div>
   <% } %>
 
-  <!-- Stats -->
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem;margin-bottom:1.5rem;">
-    <div class="card" style="margin:0;text-align:center;">
-      <div style="font-size:2rem;">📅</div>
-      <div style="font-size:1.6rem;font-weight:700;color:var(--brand-dark);"><%= totalEvents %></div>
-      <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;">Totale eventi</div>
-    </div>
-    <div class="card" style="margin:0;text-align:center;">
-      <div style="font-size:2rem;">👥</div>
-      <div style="font-size:1.6rem;font-weight:700;color:var(--brand-dark);"><%= totalRegistrations %></div>
-      <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;">Iscrizioni confermate</div>
-    </div>
-    <div class="card" style="margin:0;text-align:center;">
-      <div style="font-size:2rem;">🏛</div>
-      <div style="font-size:1.6rem;font-weight:700;color:var(--brand-dark);"><%= spaces.length %></div>
-      <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;">Sale attive</div>
-    </div>
-    <div class="card" style="margin:0;text-align:center;">
-      <div style="font-size:2rem;">📡</div>
-      <a href="/programma" target="_blank" style="display:block;font-size:0.85rem;font-weight:700;color:var(--accent-blue);margin-top:.4rem;">Programma Pubblico ↗</a>
-      <div style="font-size:0.78rem;color:var(--text-muted);margin-top:.2rem;">
-        <a href="/programma/qr" target="_blank" style="font-size:0.75rem;">🔳 QR Code</a>
-      </div>
+  <!-- TITOLO + AZIONI -->
+  <div class="agenda-toolbar">
+    <h1 style="font-size:1.35rem;font-weight:800;color:#1e2d4e;line-height:1.15">📅 Agenda Palinsesto</h1>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <a href="/agenda/events/new" class="btn-toolbar btn-primary">+ NUOVO EVENTO</a>
+      <a href="/agenda/events" class="btn-toolbar btn-ghost">TUTTI GLI EVENTI</a>
+      <a href="/agenda/spaces" class="btn-toolbar btn-ghost">🏛 SALE</a>
+      <a href="/agenda/speakers" class="btn-toolbar btn-ghost">🎤 SPEAKER</a>
+      <a href="/agenda/registrations" class="btn-toolbar btn-ghost">📋 ISCRIZIONI</a>
     </div>
   </div>
 
-  <!-- Selettore data -->
-  <div class="card">
-    <div class="card-title">Vista giornaliera</div>
-    <form method="GET" action="/agenda" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-      <label style="margin:0;display:flex;align-items:center;gap:.5rem;">
-        <span style="font-size:.82rem;font-weight:700;color:var(--text-secondary);">Data:</span>
-        <input type="date" name="date" value="<%= selectedDate %>" style="width:auto;" onchange="this.form.submit()">
-      </label>
-      <div style="display:flex;gap:.4rem;">
-        <% const prev = new Date(new Date(selectedDate).getTime() - 86400000).toISOString().slice(0,10); %>
-        <% const next = new Date(new Date(selectedDate).getTime() + 86400000).toISOString().slice(0,10); %>
-        <a href="/agenda?date=<%= prev %>" class="secondary" style="padding:.3rem .7rem;">◀ Giorno prec.</a>
-        <a href="/agenda" class="secondary" style="padding:.3rem .7rem;">Oggi</a>
-        <a href="/agenda?date=<%= next %>" class="secondary" style="padding:.3rem .7rem;">Giorno succ. ▶</a>
-      </div>
-    </form>
+  <!-- KPI -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <span class="kpi-icon">📅</span>
+      <span class="kpi-value"><%= totalEvents %></span>
+      <span class="kpi-label">Totale eventi</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-icon">👥</span>
+      <span class="kpi-value"><%= totalRegistrations %></span>
+      <span class="kpi-label">Iscrizioni confermate</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-icon">🏛</span>
+      <span class="kpi-value"><%= spaces.length %></span>
+      <span class="kpi-label">Sale attive</span>
+    </div>
+    <div class="kpi-card" style="cursor:default">
+      <span class="kpi-icon">📡</span>
+      <a href="/programma-pubblico" target="_blank" class="kpi-link">Programma Pubblico ↗</a>
+      <a href="/agenda/qrcode" class="btn-toolbar btn-ghost" style="font-size:.72rem;padding:.25rem .65rem;margin-top:.2rem">■ QR Code</a>
+    </div>
   </div>
 
-  <!-- Griglia eventi del giorno -->
-  <% if (events.length === 0) { %>
-    <div class="card" style="text-align:center;padding:3rem;color:var(--text-muted);">
-      <div style="font-size:2.5rem;margin-bottom:.75rem;">📭</div>
-      <p>Nessun evento programmato per <strong><%= selectedDate %></strong>.</p>
-      <a href="/agenda/events/new" class="primary" style="margin-top:.75rem;">+ Crea il primo evento</a>
-    </div>
-  <% } else { %>
-    <% const bySpace = {}; events.forEach(e => { if(!bySpace[e.space_name]) bySpace[e.space_name] = []; bySpace[e.space_name].push(e); }); %>
-    <% Object.entries(bySpace).forEach(([spaceName, evs]) => { %>
-      <div class="card">
-        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
-          <span>🏛 <%= spaceName %></span>
-          <span style="font-size:.75rem;color:var(--text-muted)"><%= evs.length %> event<%= evs.length===1?'o':'i' %></span>
-        </div>
-        <div class="table-wrapper" style="margin:0;">
-          <table>
-            <thead><tr>
-              <th>Orario</th><th>Titolo</th><th>Tipo</th><th>Posti</th><th>Stato</th><th>Azioni</th>
-            </tr></thead>
-            <tbody>
-            <% evs.forEach(e => { %>
-              <tr>
-                <td style="white-space:nowrap;font-weight:700;"><%= e.start_time %> – <%= e.end_time %></td>
-                <td><strong><%= e.title %></strong></td>
-                <td><span class="chip"><%= e.event_type %></span></td>
-                <td>
-                  <% if(e.max_seats > 0) { %>
-                    <%= e.seats_taken %> / <%= e.max_seats %>
-                    <% if(e.seats_taken >= e.max_seats) { %><span style="color:#c0392b;font-weight:700;"> ESAURITO</span><% } %>
-                  <% } else { %>
-                    <span style="color:var(--text-muted)">Libero</span>
-                  <% } %>
-                </td>
-                <td>
-                  <% if(e.published) { %>
-                    <span style="color:#1d6a39;font-weight:700;">● Pubblicato</span>
-                  <% } else { %>
-                    <span style="color:#7d5a00;">○ Bozza</span>
-                  <% } %>
-                </td>
-                <td style="white-space:nowrap;">
-                  <a href="/agenda/events/<%= e.id %>/edit" class="link-action">Modifica</a>
-                  &nbsp;
-                  <a href="/agenda/events/<%= e.id %>/registrations" class="link-action">Iscritti</a>
-                </td>
-              </tr>
-            <% }); %>
-            </tbody>
-          </table>
+  <!-- CALENDARIO -->
+  <div class="cal-wrap">
+    <%
+
+      // ── Ricava i giorni disponibili dagli eventi ──
+      var FIERA_DAYS_FULL = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+
+      // Prendi tutti i giorni distinti presenti negli eventi, mostra solo Sabato+Domenica se disponibili
+      // altrimenti tutti i giorni con eventi
+      var allDates = {};
+      (allEvents||[]).forEach(function(e){ if(e.date) allDates[e.date] = true; });
+      var sortedDates = Object.keys(allDates).sort();
+
+      // Filtra solo Sab+Dom se presenti, altrimenti usa tutti i giorni (max 3)
+      var satSun = sortedDates.filter(function(d){
+        var day = new Date(d+'T12:00:00').getDay();
+        return day === 6 || day === 0;
+      });
+      var CAL_DAYS = satSun.length >= 2 ? satSun.slice(0,3) : sortedDates.slice(0,3);
+
+      // Fallback: se non ci sono eventi mostriamo sabato e domenica di default (fiera)
+      if(!CAL_DAYS.length){
+        CAL_DAYS = ['2026-05-16','2026-05-17'];
+      }
+
+      var CAL_LABELS = CAL_DAYS.map(function(d){
+        var dt = new Date(d+'T12:00:00');
+        return FIERA_DAYS_FULL[dt.getDay()];
+      });
+
+      // ── Fascia oraria: 09:00–23:00 step 15 min ──
+      var CAL_START = 9;
+      var CAL_END   = 23;
+      var SLOT_MIN  = 15;          // minuti per slot
+      var SLOT_H    = 14;          // px per slot da 15 min
+      var SLOTS_PER_HOUR = 60 / SLOT_MIN;  // = 4
+
+      var slots = [];
+      for(var h = CAL_START; h < CAL_END; h++){
+        for(var m = 0; m < 60; m += SLOT_MIN){
+          slots.push({ h: h, m: m });
+        }
+      }
+
+      // ── Raggruppa eventi per giorno ──
+      var eventsByDay = {};
+      CAL_DAYS.forEach(function(d){ eventsByDay[d] = []; });
+      (allEvents||[]).forEach(function(e){
+        if(eventsByDay[e.date]) eventsByDay[e.date].push(e);
+      });
+
+      function timeToMin(tStr){
+        if(!tStr) return 0;
+        var parts = tStr.split(':');
+        return parseInt(parts[0]||0)*60 + parseInt(parts[1]||0);
+      }
+
+      // ── Calcolo colonne per eventi sovrapposti ──
+      var colPos = {};
+      CAL_DAYS.forEach(function(day){
+        var dayEvents = eventsByDay[day]||[];
+        if(!dayEvents.length) return;
+        var sorted = dayEvents.slice().sort(function(a,b){
+          return timeToMin(a.start_time) - timeToMin(b.start_time);
+        });
+        var clusters = [];
+        sorted.forEach(function(ev){
+          var eStart = timeToMin(ev.start_time);
+          var eEnd   = timeToMin(ev.end_time);
+          var placed = false;
+          for(var ci=0;ci<clusters.length;ci++){
+            var ok = clusters[ci].some(function(c){
+              return eStart < timeToMin(c.end_time) && eEnd > timeToMin(c.start_time);
+            });
+            if(ok){ clusters[ci].push(ev); placed=true; break; }
+          }
+          if(!placed) clusters.push([ev]);
+        });
+        clusters.forEach(function(cluster){
+          var n = cluster.length;
+          if(n===1){ colPos[cluster[0].id]={col:0,total:1}; return; }
+          var cols=[];
+          cluster.forEach(function(ev){
+            var eStart=timeToMin(ev.start_time), eEnd=timeToMin(ev.end_time);
+            var placed=false;
+            for(var ci=0;ci<cols.length;ci++){
+              if(cols[ci]<=eStart){ cols[ci]=eEnd; colPos[ev.id]={col:ci,total:n}; placed=true; break; }
+            }
+            if(!placed){ colPos[ev.id]={col:cols.length,total:n}; cols.push(eEnd); }
+          });
+          var realCols=cols.length;
+          cluster.forEach(function(ev){ if(colPos[ev.id]) colPos[ev.id].total=realCols; });
+        });
+      });
+
+      var numDays = CAL_DAYS.length;
+      var gridCols = '56px repeat(' + numDays + ', 1fr)';
+    %>
+
+    <% if(!(allEvents && allEvents.length)){ %>
+      <div class="cal-empty-msg">
+        <div style="text-align:center">
+          <div style="font-size:2.5rem;margin-bottom:.5rem">📭</div>
+          <div style="font-weight:700;color:#64748b">Nessun evento programmato</div>
+          <div style="font-size:.8rem;color:#94a3b8;margin-top:.3rem;margin-bottom:1rem">Crea il primo evento per vederlo nel calendario</div>
+          <a href="/agenda/events/new" class="btn-toolbar btn-primary" style="display:inline-flex">+ CREA IL PRIMO EVENTO</a>
         </div>
       </div>
+    <% } else { %>
+
+    <!-- HEADER GIORNI -->
+    <div style="display:grid;grid-template-columns:<%= gridCols %>;position:sticky;top:0;z-index:20">
+      <div class="cal-col-head" style="background:#162038;padding:.65rem .3rem;font-size:.65rem;color:#94a3b8;text-align:right"></div>
+      <% CAL_DAYS.forEach(function(d,i){ %>
+      <div class="cal-col-head">
+        <div class="day-label"><%= CAL_LABELS[i] %></div>
+        <div class="day-date">
+          <% var dp=d.split('-'); %><span style="font-size:.72rem;font-weight:600;opacity:.75"><%= dp[2] %>/<%= dp[1] %>/<%= dp[0] %></span>
+        </div>
+        <div style="font-size:.65rem;opacity:.6;margin-top:.1rem"><%= eventsByDay[d].length %> eventi</div>
+      </div>
+      <% }) %>
+    </div>
+
+    <!-- GRIGLIA ORARIA -->
+    <div style="overflow-y:auto;max-height:75vh">
+      <div class="cal-grid" style="grid-template-columns:<%= gridCols %>">
+
+        <% slots.forEach(function(slot, si){
+          var isHour = slot.m === 0;
+          var isQuarter = slot.m === 15 || slot.m === 45;
+        %>
+
+          <!-- Etichetta ora -->
+          <div class="cal-time-label <%= isHour ? 'hour' : '' %>" style="height:<%= SLOT_H %>px;line-height:<%= SLOT_H %>px;padding:0 4px 0 0">
+            <% if(isHour){ %><%= String(slot.h).padStart(2,'0') %>:00<% } else if(slot.m===30){ %><span style="opacity:.5"><%= String(slot.h).padStart(2,'0') %>:30</span><% } %>
+          </div>
+
+          <!-- Celle per ogni giorno -->
+          <% CAL_DAYS.forEach(function(day, di){
+            var dayEvs = eventsByDay[day]||[];
+            var slotMin = slot.h*60 + slot.m;
+          %>
+            <div class="cal-cell <%= isHour ? 'hour' : '' %>" style="height:<%= SLOT_H %>px">
+              <%
+                // Renderizza gli eventi che iniziano in questo slot
+                dayEvs.forEach(function(ev){
+                  var evStartMin = timeToMin(ev.start_time);
+                  var evEndMin   = timeToMin(ev.end_time);
+                  if(evStartMin !== slotMin) return;   // solo dove iniziano
+
+                  var durationMin = evEndMin - evStartMin;
+                  if(durationMin <= 0) durationMin = SLOT_MIN;
+                  var heightPx = Math.round((durationMin / SLOT_MIN) * SLOT_H) - 2;
+                  var cp = colPos[ev.id] || {col:0,total:1};
+                  var pct = 100 / cp.total;
+                  var leftPct = cp.col * pct;
+
+                  // Colore: usa space_color se disponibile, altrimenti colori predefiniti
+                  var bgColor = ev.space_color || '#1e2d4e';
+              %>
+              <a href="/agenda/events/<%= ev.id %>"
+                 class="cal-event"
+                 style="top:1px;height:<%= heightPx %>px;left:calc(<%= leftPct %>% + 1px);width:calc(<%= pct %>% - 3px);background:<%= bgColor %>"
+                 data-title="<%= (ev.title||'').replace(/"/g,'&quot;') %>"
+                 data-space="<%= (ev.space_name||'').replace(/"/g,'&quot;') %>"
+                 data-time="<%= ev.start_time ? ev.start_time.slice(0,5) : '' %>–<%= ev.end_time ? ev.end_time.slice(0,5) : '' %>"
+                 data-seats="<%= ev.seats_taken||0 %>/<%= ev.space_capacity||'?' %>"
+                 onmouseenter="showEvTooltip(event,this)"
+                 onmouseleave="hideEvTooltip()">
+                <div class="ev-title"><%= ev.title %></div>
+                <% if(heightPx > 30){ %>
+                <div class="ev-meta"><%= ev.space_name %> · <%= ev.start_time ? ev.start_time.slice(0,5) : '' %>–<%= ev.end_time ? ev.end_time.slice(0,5) : '' %></div>
+                <% } %>
+              </a>
+              <% }); %>
+            </div>
+          <% }); %>
+
+        <% }); %>
+      </div><!-- /cal-grid -->
+    </div><!-- /scroll -->
+    <% } %>
+  </div><!-- /cal-wrap -->
+
+  <!-- LEGENDA SALE -->
+  <% if(spaces && spaces.length){ %>
+  <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.85rem">
+    <% spaces.forEach(function(sp){ %>
+      <span style="display:inline-flex;align-items:center;gap:.35rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:99px;padding:.2rem .75rem;font-size:.75rem;font-weight:600;color:#1e2d4e">
+        <span style="width:10px;height:10px;border-radius:50%;background:<%= sp.color||'#4f98a3' %>;flex-shrink:0"></span>
+        <%= sp.name %> <span style="opacity:.55;font-weight:400">(cap. <%= sp.capacity %>)</span>
+      </span>
     <% }); %>
+  </div>
   <% } %>
 
-</main>
+</div><!-- /container -->
+
+<!-- TOOLTIP -->
+<div id="ev-tooltip">
+  <div class="tt-title" id="tt-title"></div>
+  <div class="tt-row" id="tt-time">🕐 </div>
+  <div class="tt-row" id="tt-space">🏛 </div>
+  <div class="tt-row" id="tt-seats">👥 </div>
+</div>
+
+<script>
+function showEvTooltip(e, el) {
+  var t = document.getElementById('ev-tooltip');
+  document.getElementById('tt-title').textContent  = el.dataset.title;
+  document.getElementById('tt-time').textContent   = '🕐 ' + el.dataset.time;
+  document.getElementById('tt-space').textContent  = '🏛 '  + el.dataset.space;
+  document.getElementById('tt-seats').textContent  = '👥 ' + el.dataset.seats + ' iscritti';
+  t.style.display = 'block';
+  posTooltip(e, t);
+}
+function posTooltip(e, t) {
+  var x = e.clientX + 14, y = e.clientY - 10;
+  if(x + 270 > window.innerWidth) x = e.clientX - 280;
+  if(y + 140 > window.innerHeight) y = e.clientY - 150;
+  t.style.left = x + 'px';
+  t.style.top  = y + 'px';
+}
+function hideEvTooltip() {
+  document.getElementById('ev-tooltip').style.display = 'none';
+}
+document.addEventListener('mousemove', function(e){
+  var t = document.getElementById('ev-tooltip');
+  if(t.style.display !== 'none') posTooltip(e, t);
+});
+</script>
+
 <%- include('../partials/footer') %>
