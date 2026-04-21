@@ -281,7 +281,7 @@
                   // Colore: usa space_color se disponibile, altrimenti colori predefiniti
                   var bgColor = ev.space_color || '#1e2d4e';
               %>
-              <a href="/agenda/events/<%= ev.id %>"
+              <a href="/agenda/events/<%= ev.id %>/edit"
                  class="cal-event"
                  style="top:1px;height:<%= heightPx %>px;left:calc(<%= leftPct %>% + 1px);width:calc(<%= pct %>% - 3px);background:<%= bgColor %>"
                  data-title="<%= (ev.title||'').replace(/"/g,'&quot;') %>"
