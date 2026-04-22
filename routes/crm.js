@@ -46,6 +46,22 @@ module.exports = function(app, db, deps) {
     } catch(e) { res.status(500).json({ error: e.message }); }
   });
 
+
+  app.post('/assignment-groups/:id/contacts/:cid/edit', requireAuth, requireNotViewer, async (req, res) => {
+    const gid = parseInt(req.params.id, 10), cid = parseInt(req.params.cid, 10);
+    const { name, role, email, phone, is_primary } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Nome obbligatorio' });
+    try {
+      if (is_primary === '1') await qRun('UPDATE contacts SET is_primary=0 WHERE assignment_group_id=?', [gid]);
+      await qRun(
+        'UPDATE contacts SET name=?, role=?, email=?, phone=?, is_primary=? WHERE id=? AND assignment_group_id=?',
+        [name.trim(), role || null, email || null, phone || null, is_primary === '1' ? 1 : 0, cid, gid]
+      );
+      logAction(req.session.user.id, 'edit_contact', 'contact', cid, `Referente "${name}" aggiornato (gruppo ${gid})`);
+      res.json({ ok: true });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+  });
+
   app.post('/assignment-groups/:id/contacts/:cid/delete', requireAuth, requireNotViewer, async (req, res) => {
     const gid = parseInt(req.params.id, 10), cid = parseInt(req.params.cid, 10);
     try {

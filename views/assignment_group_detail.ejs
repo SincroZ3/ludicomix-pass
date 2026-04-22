@@ -1035,6 +1035,7 @@ function maronnoForza() {
         <td style="padding:.45rem .5rem;color:#64748b;"><%= c.phone||'—' %></td>
         <td style="padding:.45rem .5rem;white-space:nowrap;">
           <% if(!c.is_primary){ %><button type="button" onclick="setPrimaryContact(<%= groupInfo.id %>,<%= c.id %>)" style="font-size:.72rem;padding:.2rem .5rem;border-radius:4px;border:1px solid #2d6a4f;background:#fff;color:#2d6a4f;cursor:pointer;margin-right:.25rem;">⭐</button><% } %>
+          <button type="button" onclick="openEditContact(<%= groupInfo.id %>,<%= c.id %>,'<%- (c.name||'').replace(/'/g,"\\'") %>','<%- (c.role||'').replace(/'/g,"\\'") %>','<%- (c.email||'').replace(/'/g,"\\'") %>','<%- (c.phone||'').replace(/'/g,"\\'") %>',<%= c.is_primary||0 %>)" style="font-size:.72rem;padding:.2rem .5rem;border-radius:4px;border:1px solid #1d6fa4;background:#fff;color:#1d6fa4;cursor:pointer;margin-right:.25rem;">✏️</button>
           <button type="button" onclick="deleteContact(<%= groupInfo.id %>,<%= c.id %>,this)" style="font-size:.72rem;padding:.2rem .5rem;border-radius:4px;border:1px solid #c0392b;background:#fff;color:#c0392b;cursor:pointer;">✕</button>
         </td>
       </tr>
@@ -1517,5 +1518,86 @@ function mostraStorico(passId) {
   modal.onclick = function(e){ if(e.target===modal) modal.style.display='none'; };
 }
 
+
+// ── Modifica referente ────────────────────────────────────────────────────
+function openEditContact(gid, cid, name, role, email, phone, isPrimary) {
+  document.getElementById('ec-gid').value   = gid;
+  document.getElementById('ec-cid').value   = cid;
+  document.getElementById('ec-name').value  = name;
+  document.getElementById('ec-role').value  = role;
+  document.getElementById('ec-email').value = email;
+  document.getElementById('ec-phone').value = phone;
+  document.getElementById('ec-primary').checked = isPrimary == 1;
+  document.getElementById('ec-msg').textContent = '';
+  var m = document.getElementById('modal-edit-contact');
+  m.style.display = 'flex';
+}
+function closeEditContactModal() {
+  document.getElementById('modal-edit-contact').style.display = 'none';
+}
+function submitEditContact(e) {
+  e.preventDefault();
+  var gid = document.getElementById('ec-gid').value;
+  var cid = document.getElementById('ec-cid').value;
+  var data = {
+    name:       document.getElementById('ec-name').value,
+    role:       document.getElementById('ec-role').value,
+    email:      document.getElementById('ec-email').value,
+    phone:      document.getElementById('ec-phone').value,
+    is_primary: document.getElementById('ec-primary').checked ? '1' : '0'
+  };
+  _post('/assignment-groups/'+gid+'/contacts/'+cid+'/edit', data).then(function(d) {
+    if (d.ok) {
+      document.getElementById('ec-msg').textContent = '✓ Salvato!';
+      document.getElementById('ec-msg').style.color = '#2d6a4f';
+      setTimeout(function(){ location.reload(); }, 700);
+    } else {
+      document.getElementById('ec-msg').textContent = d.error || 'Errore';
+      document.getElementById('ec-msg').style.color = '#c0392b';
+    }
+  });
+}
+// Chiudi modale cliccando fuori
+document.getElementById('modal-edit-contact').addEventListener('click', function(e) {
+  if (e.target === this) closeEditContactModal();
+});
+
 </script>
+
+<!-- MODALE MODIFICA REFERENTE -->
+<div id="modal-edit-contact" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1200;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:10px;padding:1.5rem 1.8rem;width:min(460px,94vw);box-shadow:0 8px 32px rgba(0,0,0,.18);position:relative;">
+    <button onclick="closeEditContactModal()" style="position:absolute;top:.7rem;right:.9rem;font-size:1.2rem;background:none;border:none;cursor:pointer;color:#64748b;">✕</button>
+    <h3 style="margin-bottom:1rem;font-size:1rem;">✏️ Modifica referente</h3>
+    <form id="edit-contact-form" onsubmit="submitEditContact(event)" style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
+      <input type="hidden" id="ec-gid">
+      <input type="hidden" id="ec-cid">
+      <label style="font-size:.8rem;grid-column:1/-1;">
+        Nome *
+        <input type="text" id="ec-name" required style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;">
+      </label>
+      <label style="font-size:.8rem;">
+        Ruolo
+        <input type="text" id="ec-role" style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;">
+      </label>
+      <label style="font-size:.8rem;">
+        Email
+        <input type="email" id="ec-email" style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;">
+      </label>
+      <label style="font-size:.8rem;grid-column:1/-1;">
+        Telefono
+        <input type="text" id="ec-phone" style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;">
+      </label>
+      <label style="font-size:.8rem;grid-column:1/-1;">
+        <input type="checkbox" id="ec-primary"> Referente principale
+      </label>
+      <div style="grid-column:1/-1;display:flex;gap:.5rem;justify-content:flex-end;margin-top:.4rem;">
+        <span id="ec-msg" style="font-size:.78rem;align-self:center;"></span>
+        <button type="button" onclick="closeEditContactModal()" style="padding:.4rem 1rem;border-radius:6px;border:1px solid #cbd5e1;background:#f8fafc;cursor:pointer;font-size:.85rem;">Annulla</button>
+        <button type="submit" style="padding:.4rem 1.1rem;border-radius:6px;border:none;background:#1d6fa4;color:#fff;cursor:pointer;font-size:.85rem;font-weight:600;">Salva</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <%-include('partials/footer') %>
