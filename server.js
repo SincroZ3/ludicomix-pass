@@ -1568,7 +1568,7 @@ app.get('/home', requireAuth, (req, res) => {
           LEFT JOIN participants p ON p.assignment_group_id = ag.id
           WHERE (1=1) ${edFilter()}
           GROUP BY ag.id, ag.name, ag.notes, ag.group_id, ag.stand_name, ag.zone, ag.stand_code, ag.max_passes, g.name, g.priority
-          ORDER BY g.priority, g.name, ag.name
+          ORDER BY g.priority, LOWER(g.name), LOWER(ag.name)
         `;
         db.all(sql, [], (err3, assignmentGroups) => {
           if (err3) return res.status(500).send('Errore DB gruppi assegnatari');
@@ -1703,7 +1703,8 @@ app.get('/home', requireAuth, (req, res) => {
                 _crmQ('SELECT * FROM payments        WHERE assignment_group_id=? ORDER BY created_at DESC', [id]),
                 _crmQ('SELECT * FROM group_documents WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [id]),
                 _crmQ('SELECT * FROM guest_profiles  WHERE assignment_group_id=? LIMIT 1', [id]),
-              ]).then(function([contacts, payments, groupDocs, gpRows]) {
+                new Promise((ok, ko) => db.get('SELECT * FROM fiscal_data WHERE assignment_group_id=?', [id], (e, r) => e ? ko(e) : ok(r))),
+              ]).then(function([contacts, payments, groupDocs, gpRows, fiscalData]) {
                 const guestProfile = gpRows && gpRows[0] ? gpRows[0] : null;
                 res.render('assignment_group_detail', {
                   groupInfo, types, participants, PASS_STATUSES,
@@ -1711,7 +1712,8 @@ app.get('/home', requireAuth, (req, res) => {
                   importOk, importSkip, importErrs, replaceOk,
                   autoPasses: autoPasses || [],
                   contacts, payments, groupDocs,
-                  guestProfile
+                  guestProfile,
+                  fiscalData: fiscalData || null
                 });
               }).catch(function() {
                 res.render('assignment_group_detail', {

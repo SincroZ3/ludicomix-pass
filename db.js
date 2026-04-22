@@ -956,6 +956,29 @@ db.run(`CREATE TABLE IF NOT EXISTS supplier_items (
   quantity INTEGER DEFAULT 1, unit_cost REAL, total_cost REAL,
   edition_id INTEGER, notes TEXT, created_at TEXT DEFAULT (datetime('now','localtime')))`);
 
+
+// ── Dati fiscali ─────────────────────────────────────────────────────────────
+db.run(`CREATE TABLE IF NOT EXISTS fiscal_data (
+  id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+  assignment_group_id  INTEGER NOT NULL UNIQUE,
+  ragione_sociale      TEXT,
+  codice_fiscale       TEXT,
+  partita_iva          TEXT,
+  indirizzo            TEXT,
+  cap                  TEXT,
+  citta                TEXT,
+  provincia            TEXT,
+  paese                TEXT DEFAULT 'IT',
+  pec                  TEXT,
+  sdi                  TEXT,
+  iban                 TEXT,
+  bic                  TEXT,
+  intestatario_conto   TEXT,
+  note_fiscali         TEXT,
+  updated_at           TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE
+)`);
+
 // ── Migrazioni equipment ───────────────────────────────────────
 db.run(`ALTER TABLE equipment ADD COLUMN location TEXT`,        () => {});
 db.run(`ALTER TABLE equipment ADD COLUMN location_custom TEXT`, () => {});

@@ -71,6 +71,46 @@ module.exports = function(app, db, deps) {
     } catch(e) { res.status(500).json({ error: e.message }); }
   });
 
+
+  // ═══════════════════════════════ DATI FISCALI ════════════════════════════ //
+
+  app.get('/assignment-groups/:id/fiscal', requireAuth, async (req, res) => {
+    const gid = parseInt(req.params.id, 10);
+    try {
+      const row = await qGet('SELECT * FROM fiscal_data WHERE assignment_group_id=?', [gid]);
+      res.json({ ok: true, data: row || null });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/assignment-groups/:id/fiscal', requireAuth, requireNotViewer, async (req, res) => {
+    const gid = parseInt(req.params.id, 10);
+    const { ragione_sociale, codice_fiscale, partita_iva, indirizzo, cap, citta, provincia,
+            paese, pec, sdi, iban, bic, intestatario_conto, note_fiscali } = req.body;
+    try {
+      const exists = await qGet('SELECT id FROM fiscal_data WHERE assignment_group_id=?', [gid]);
+      if (exists) {
+        await qRun(`UPDATE fiscal_data SET
+          ragione_sociale=?, codice_fiscale=?, partita_iva=?, indirizzo=?, cap=?, citta=?,
+          provincia=?, paese=?, pec=?, sdi=?, iban=?, bic=?, intestatario_conto=?,
+          note_fiscali=?, updated_at=datetime('now')
+          WHERE assignment_group_id=?`,
+          [ragione_sociale||null, codice_fiscale||null, partita_iva||null, indirizzo||null,
+           cap||null, citta||null, provincia||null, paese||'IT', pec||null, sdi||null,
+           iban||null, bic||null, intestatario_conto||null, note_fiscali||null, gid]);
+      } else {
+        await qRun(`INSERT INTO fiscal_data
+          (assignment_group_id, ragione_sociale, codice_fiscale, partita_iva, indirizzo, cap,
+           citta, provincia, paese, pec, sdi, iban, bic, intestatario_conto, note_fiscali)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          [gid, ragione_sociale||null, codice_fiscale||null, partita_iva||null, indirizzo||null,
+           cap||null, citta||null, provincia||null, paese||'IT', pec||null, sdi||null,
+           iban||null, bic||null, intestatario_conto||null, note_fiscali||null]);
+      }
+      logAction(req.session.user.id, 'edit_fiscal_data', 'assignment_group', gid, `Dati fiscali aggiornati`);
+      res.json({ ok: true });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+  });
+
   // ═══════════════════════════════ PAGAMENTI ═══════════════════════════════ //
 
   app.post('/assignment-groups/:id/payments', requireAuth, requireNotViewer, async (req, res) => {

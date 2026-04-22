@@ -30,6 +30,7 @@
   <button type="button" class="crm-tab" id="tab-btn-tickets" data-tab="inbox-tickets" onclick="crmTab('inbox-tickets',this)">💬 Ticket<span id="badge-inbox-tickets" class="crm-badge" style="display:none"></span></button>
   <button type="button" class="crm-tab" data-tab="referenti" onclick="crmTab('referenti',this)">👤 Referenti<% if(typeof contacts!=='undefined'&&contacts.length){ %> <span class="crm-badge"><%= contacts.length %></span><% } %></button>
   <button type="button" class="crm-tab" data-tab="pagamenti" onclick="crmTab('pagamenti',this)">💳 Pagamenti<% if(typeof payments!=='undefined'&&payments.length){ %><% var _scad=payments.filter(function(p){return p.status==='scaduto';}).length; %><% if(_scad){ %> <span class="crm-badge crm-badge-danger"><%= _scad %> ⚠</span><% }else{ %> <span class="crm-badge"><%= payments.length %></span><% } %><% } %></button>
+  <button type="button" class="crm-tab" data-tab="fiscale" onclick="crmTab('fiscale',this)">🧾 Dati Fiscali</button>
   <button type="button" class="crm-tab" data-tab="documenti" onclick="crmTab('documenti',this)">📁 Documenti<% if(typeof groupDocs!=='undefined'&&groupDocs.length){ %> <span class="crm-badge"><%= groupDocs.length %></span><% } %></button>
 <% } %>
 <% } %>
@@ -1119,6 +1120,143 @@ function maronnoForza() {
 <% } %>
 </div><!-- /tab-pagamenti -->
 
+<!-- ══════ TAB DATI FISCALI ══════ -->
+<div id="tab-fiscale" class="crm-panel">
+<% if(!isViewer){ %>
+<div class="card">
+  <div class="card-title">🧾 Dati Fiscali</div>
+  <form id="fiscal-form" onsubmit="saveFiscalData(event, <%= groupInfo.id %>)"
+        style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem .9rem;margin-top:.5rem;">
+
+    <label style="font-size:.8rem;grid-column:1/-1;">
+      Ragione Sociale / Denominazione
+      <input type="text" name="ragione_sociale" value="<%= (typeof fiscalData!=='undefined'&&fiscalData&&fiscalData.ragione_sociale)||'' %>"
+             placeholder="es. Associazione Ludicomix ASD"
+             style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;">
+    </label>
+
+    <label style="font-size:.8rem;">
+      Codice Fiscale
+      <input type="text" name="codice_fiscale" value="<%= (typeof fiscalData!=='undefined'&&fiscalData&&fiscalData.codice_fiscale)||'' %>"
+             placeholder="RSSMRA80A01H501U"
+             style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;text-transform:uppercase;">
+    </label>
+
+    <label style="font-size:.8rem;">
+      Partita IVA
+      <input type="text" name="partita_iva" value="<%= (typeof fiscalData!=='undefined'&&fiscalData&&fiscalData.partita_iva)||'' %>"
+             placeholder="IT12345678901"
+             style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;">
+    </label>
+
+    <label style="font-size:.8rem;grid-column:1/-1;">
+      Indirizzo sede legale
+      <input type="text" name="indirizzo" value="<%= (typeof fiscalData!=='undefined'&&fiscalData&&fiscalData.indirizzo)||'' %>"
+             placeholder="Via Roma 1"
+             style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;">
+    </label>
+
+    <label style="font-size:.8rem;">
+      CAP
+      <input type="text" name="cap" value="<%= (typeof fiscalData!=='undefined'&&fiscalData&&fiscalData.cap)||'' %>"
+             placeholder="00100" maxlength="10"
+             style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;">
+    </label>
+
+    <label style="font-size:.8rem;">
+      Città
+      <input type="text" name="citta" value="<%= (typeof fiscalData!=='undefined'&&fiscalData&&fiscalData.citta)||'' %>"
+             placeholder="Roma"
+             style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;">
+    </label>
+
+    <label style="font-size:.8rem;">
+      Provincia
+      <input type="text" name="provincia" value="<%= (typeof fiscalData!=='undefined'&&fiscalData&&fiscalData.provincia)||'' %>"
+             placeholder="RM" maxlength="5"
+             style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;text-transform:uppercase;">
+    </label>
+
+    <label style="font-size:.8rem;">
+      Paese
+      <input type="text" name="paese" value="<%= (typeof fiscalData!=='undefined'&&fiscalData&&fiscalData.paese)||'IT' %>"
+             placeholder="IT" maxlength="5"
+             style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;text-transform:uppercase;">
+    </label>
+
+    <hr style="grid-column:1/-1;border:none;border-top:1px solid #e8ecf3;margin:.2rem 0;">
+
+    <label style="font-size:.8rem;">
+      PEC
+      <input type="email" name="pec" value="<%= (typeof fiscalData!=='undefined'&&fiscalData&&fiscalData.pec)||'' %>"
+             placeholder="info@pec.esempio.it"
+             style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;">
+    </label>
+
+    <label style="font-size:.8rem;">
+      Codice SDI (fatturazione elettronica)
+      <input type="text" name="sdi" value="<%= (typeof fiscalData!=='undefined'&&fiscalData&&fiscalData.sdi)||'' %>"
+             placeholder="XXXXXXX" maxlength="10"
+             style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;text-transform:uppercase;">
+    </label>
+
+    <hr style="grid-column:1/-1;border:none;border-top:1px solid #e8ecf3;margin:.2rem 0;">
+
+    <label style="font-size:.8rem;grid-column:1/-1;">
+      Intestatario conto
+      <input type="text" name="intestatario_conto" value="<%= (typeof fiscalData!=='undefined'&&fiscalData&&fiscalData.intestatario_conto)||'' %>"
+             placeholder="Nome Cognome / Denominazione"
+             style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;">
+    </label>
+
+    <label style="font-size:.8rem;grid-column:1/-1;">
+      IBAN
+      <input type="text" name="iban" value="<%= (typeof fiscalData!=='undefined'&&fiscalData&&fiscalData.iban)||'' %>"
+             placeholder="IT60 X054 2811 1010 0000 0123 456" maxlength="34"
+             style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;letter-spacing:.04em;text-transform:uppercase;">
+    </label>
+
+    <label style="font-size:.8rem;">
+      BIC / SWIFT
+      <input type="text" name="bic" value="<%= (typeof fiscalData!=='undefined'&&fiscalData&&fiscalData.bic)||'' %>"
+             placeholder="UNCRITMM" maxlength="12"
+             style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;text-transform:uppercase;">
+    </label>
+
+    <label style="font-size:.8rem;grid-column:1/-1;">
+      Note fiscali
+      <textarea name="note_fiscali" rows="2" placeholder="Esente IVA art. 4 DPR 633/72…"
+                style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;resize:vertical;"><%= (typeof fiscalData!=='undefined'&&fiscalData&&fiscalData.note_fiscali)||'' %></textarea>
+    </label>
+
+    <div style="grid-column:1/-1;display:flex;gap:.6rem;align-items:center;margin-top:.2rem;">
+      <button type="submit" class="primary" style="font-size:.85rem;padding:.4rem 1.2rem;">💾 Salva dati fiscali</button>
+      <span id="fiscal-msg" style="font-size:.78rem;"></span>
+      <% if(typeof fiscalData!=='undefined'&&fiscalData&&fiscalData.updated_at){ %>
+        <span style="margin-left:auto;font-size:.74rem;color:#94a3b8;">Ultimo aggiornamento: <%= new Date(fiscalData.updated_at).toLocaleString('it-IT') %></span>
+      <% } %>
+    </div>
+  </form>
+</div>
+<% }else{ %>
+  <!-- Viewer: sola lettura -->
+  <div class="card">
+    <div class="card-title">🧾 Dati Fiscali</div>
+    <% if(typeof fiscalData!=='undefined'&&fiscalData){ %>
+    <dl style="display:grid;grid-template-columns:auto 1fr;gap:.35rem .9rem;font-size:.85rem;">
+      <% var _fd=fiscalData; var _ffields=[
+        ['Ragione Sociale',_fd.ragione_sociale],['Codice Fiscale',_fd.codice_fiscale],
+        ['Partita IVA',_fd.partita_iva],['Indirizzo',_fd.indirizzo?(_fd.indirizzo+(_fd.cap?' '+_fd.cap:'')+(_fd.citta?' '+_fd.citta:'')+(_fd.provincia?' ('+_fd.provincia+')':'')):null],
+        ['PEC',_fd.pec],['SDI',_fd.sdi],['IBAN',_fd.iban],['BIC',_fd.bic],
+        ['Intestatario',_fd.intestatario_conto],['Note',_fd.note_fiscali]
+      ]; %>
+      <% _ffields.forEach(function(f){ if(f[1]){ %><dt style="color:#64748b;font-weight:600;white-space:nowrap;"><%= f[0] %></dt><dd><%= f[1] %></dd><% } }); %>
+    </dl>
+    <% }else{ %><p style="color:#64748b;font-size:.83rem;">Nessun dato fiscale inserito.</p><% } %>
+  </div>
+<% } %>
+</div><!-- /tab-fiscale -->
+
 <!-- ══════ TAB DOCUMENTI ══════ -->
 <div id="tab-documenti" class="crm-panel">
 <% if(!isViewer){ %>
@@ -1561,6 +1699,29 @@ function submitEditContact(e) {
 document.getElementById('modal-edit-contact').addEventListener('click', function(e) {
   if (e.target === this) closeEditContactModal();
 });
+
+
+// ── Dati Fiscali ─────────────────────────────────────────────────────────────
+function saveFiscalData(e, gid) {
+  e.preventDefault();
+  var msg = document.getElementById('fiscal-msg');
+  var data = {};
+  new FormData(document.getElementById('fiscal-form')).forEach(function(v, k) { data[k] = v; });
+  // uppercase helpers
+  ['codice_fiscale','partita_iva','provincia','paese','sdi','iban','bic'].forEach(function(k){
+    if (data[k]) data[k] = data[k].toUpperCase().replace(/\s+/g, ' ').trim();
+  });
+  _post('/assignment-groups/'+gid+'/fiscal', data).then(function(d) {
+    if (d.ok) {
+      msg.textContent = '✓ Salvato!';
+      msg.style.color = '#2d6a4f';
+      setTimeout(function(){ msg.textContent = ''; }, 3000);
+    } else {
+      msg.textContent = d.error || 'Errore';
+      msg.style.color = '#c0392b';
+    }
+  });
+}
 
 </script>
 
