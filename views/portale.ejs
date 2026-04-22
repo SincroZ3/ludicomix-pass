@@ -997,9 +997,9 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
             <% if(t.status === 'aperto'){ %>
             <div class="reply-form">
               <input type="text" id="reply-input-<%= t.id %>" placeholder="Rispondi…" class="fld-input">
-              <button type="button" onclick="submitReply(<%= t.id %>, this)" class="btn btn-accent btn-sm">📨 Invia</button>
+              <button type="button" onclick="submitReply(<%= t.id %>, this)" class="btn btn-accent btn-sm">&#128232; Invia</button>
             </div>
-            <span id="reply-msg-<%= t.id %>" class="form-msg" style="font-size:.75rem;"></span>
+            <span id="reply-msg-<%= t.id %>" class="form-msg" style="font-size:.75rem;display:block;margin-top:.25rem;"></span>
             <% } %>
           </div>
         </div>
@@ -1484,84 +1484,90 @@ if(typeof __SRV_TOKEN!=='undefined'&&__SRV_TOKEN){loadSrvHistory();}
 //  PORTALE — Funzioni interattive (nominativi, docs, ticket)
 // ═══════════════════════════════════════════════════════════
 
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 // ── Aggiungi nominativo ───────────────────────────────────
 function addNominativo(e) {
   e.preventDefault();
-  if (__WC) { alert('La finestra di inserimento è chiusa. Non è possibile aggiungere nominativi.'); return; }
+  if (typeof __WC !== 'undefined' && __WC) {
+    alert("La finestra di inserimento è chiusa. Non è possibile aggiungere nominativi."); return;
+  }
   var form = document.getElementById('add-nom-form');
   var btn  = document.getElementById('add-nom-btn');
   var msg  = document.getElementById('add-nom-msg');
-  var data = new FormData(form);
-  var body = { first_name: data.get('first_name'), last_name: data.get('last_name'), role: data.get('role') };
+  var fd   = new FormData(form);
+  var fn   = (fd.get('first_name') || '').trim();
+  var ln   = (fd.get('last_name')  || '').trim();
+  var role = (fd.get('role')       || '').trim();
 
-  if (!body.first_name || !body.last_name) { msg.textContent = 'Nome e cognome obbligatori.'; msg.className = 'form-msg err'; return; }
+  if (!fn || !ln) { msg.textContent = "Nome e cognome obbligatori."; msg.className = 'form-msg err'; return; }
 
-  btn.disabled = true; btn.textContent = 'Salvataggio…';
+  btn.disabled = true; btn.textContent = "Salvataggio...";
   msg.textContent = ''; msg.className = 'form-msg';
 
   fetch('/api/portale/' + token + '/participants', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+    body: JSON.stringify({ first_name: fn, last_name: ln, role: role })
   })
-  .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
-  .then(function(res) {
-    if (!res.ok) {
-      msg.textContent = res.data.error || 'Errore durante il salvataggio.';
+  .then(function(r){ return r.json().then(function(d){ return {ok:r.ok,data:d}; }); })
+  .then(function(result) {
+    btn.disabled = false; btn.textContent = "\u2713 Aggiungi";
+    if (!result.ok) {
+      msg.textContent = result.data.error || "Errore durante il salvataggio.";
       msg.className = 'form-msg err';
-      btn.disabled = false; btn.textContent = '✓ Aggiungi';
       return;
     }
-    // Aggiungi la riga nella lista senza ricaricare la pagina
     var listEl = document.getElementById('nom-list');
     if (listEl) {
       var row = document.createElement('div');
-      row.id = 'nom-row-' + res.data.id;
-      row.style.cssText = 'display:flex;align-items:center;gap:.75rem;padding:.5rem .6rem;background:#f8fafc;border-radius:8px;border:1px solid var(--border-light);';
+      row.id = 'nom-row-' + result.data.id;
+      row.className = 'item-card';
+      row.style.cssText = 'display:flex;align-items:center;gap:.65rem;padding:.55rem .85rem;';
       row.innerHTML =
-        '<span style="font-size:1.1rem;">👤</span>' +
+        '<span style="font-size:1.1rem;">\uD83D\uDC64</span>' +
         '<div style="flex:1;min-width:0;">' +
-          '<div style="font-size:.85rem;font-weight:700;">' + esc(res.data.last_name) + ' ' + esc(res.data.first_name) + '</div>' +
-          (res.data.role ? '<div style="font-size:.74rem;color:var(--muted);">' + esc(res.data.role) + '</div>' : '') +
+          '<div style="font-size:.85rem;font-weight:700;">' + esc(ln) + ' ' + esc(fn) + '</div>' +
+          (role ? '<div style="font-size:.74rem;color:var(--muted);">' + esc(role) + '</div>' : '') +
         '</div>' +
-        '<span class="pill pill-gray" style="font-size:.68rem;">⏳ Senza pass</span>' +
-        '<button type="button" onclick="removeNominativo(' + res.data.id + ', this)" class="btn btn-danger btn-xs" title="Rimuovi nominativo">✕ Rimuovi</button>';
+        '<span class="pill pill-gray" style="font-size:.68rem;">\u23F3 Senza pass</span>' +
+        '<button type="button" onclick="removeNominativo(' + result.data.id + ', this)" ' +
+          'class="btn btn-danger btn-xs" title="Rimuovi nominativo">\u2715 Rimuovi</button>';
       listEl.appendChild(row);
     }
     form.reset();
-    msg.textContent = '✓ Nominativo aggiunto con successo!';
+    msg.textContent = "\u2713 Nominativo aggiunto con successo!";
     msg.className = 'form-msg ok';
-    btn.disabled = false; btn.textContent = '✓ Aggiungi';
-    // Nascondi messaggio dopo 3s
-    setTimeout(function() { msg.textContent = ''; msg.className = 'form-msg'; }, 3000);
+    setTimeout(function(){ msg.textContent = ''; msg.className = 'form-msg'; }, 3500);
   })
-  .catch(function() {
-    msg.textContent = 'Errore di rete. Riprova.';
-    msg.className = 'form-msg err';
-    btn.disabled = false; btn.textContent = '✓ Aggiungi';
+  .catch(function(){
+    btn.disabled = false; btn.textContent = "\u2713 Aggiungi";
+    msg.textContent = "Errore di rete. Riprova."; msg.className = 'form-msg err';
   });
 }
 
 // ── Rimuovi nominativo ────────────────────────────────────
 function removeNominativo(pid, btnEl) {
-  if (!confirm('Rimuovere questo nominativo dalla lista?')) return;
+  if (!confirm("Rimuovere questo nominativo dalla lista?")) return;
   var msgEl = document.getElementById('nom-remove-msg');
   if (msgEl) { msgEl.style.display = 'none'; }
   btnEl.disabled = true;
 
   fetch('/api/portale/' + token + '/participants/' + pid + '/delete', { method: 'POST' })
-  .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
-  .then(function(res) {
-    if (!res.ok) {
-      if (msgEl) { msgEl.textContent = res.data.error || 'Impossibile rimuovere.'; msgEl.style.display = 'block'; msgEl.className = 'form-msg err'; }
+  .then(function(r){ return r.json().then(function(d){ return {ok:r.ok,data:d}; }); })
+  .then(function(result) {
+    if (!result.ok) {
+      if (msgEl) { msgEl.textContent = result.data.error || "Impossibile rimuovere."; msgEl.style.display = 'block'; msgEl.className = 'form-msg err'; }
       btnEl.disabled = false;
       return;
     }
     var row = document.getElementById('nom-row-' + pid);
-    if (row) { row.style.opacity = '0'; row.style.transition = 'opacity .3s'; setTimeout(function(){ row.remove(); }, 310); }
+    if (row) { row.style.transition = 'opacity .3s'; row.style.opacity = '0'; setTimeout(function(){ row.remove(); }, 320); }
   })
-  .catch(function() {
-    if (msgEl) { msgEl.textContent = 'Errore di rete. Riprova.'; msgEl.style.display = 'block'; }
+  .catch(function(){
+    if (msgEl) { msgEl.textContent = "Errore di rete. Riprova."; msgEl.style.display = 'block'; }
     btnEl.disabled = false;
   });
 }
@@ -1569,36 +1575,36 @@ function removeNominativo(pid, btnEl) {
 // ── Upload documento ──────────────────────────────────────
 function uploadPortalDoc(e) {
   e.preventDefault();
-  if (__WC) { alert('La finestra di caricamento documenti è chiusa.'); return; }
-  var form  = document.getElementById('portal-doc-form');
-  var btn   = document.getElementById('portal-doc-btn');
-  var msg   = document.getElementById('portal-doc-msg');
-  var fd    = new FormData(form);
-
-  if (!fd.get('docfile') || fd.get('docfile').size === 0) {
-    msg.textContent = 'Seleziona un file da caricare.'; msg.className = 'form-msg err'; return;
+  if (typeof __WC !== 'undefined' && __WC) {
+    alert("La finestra di caricamento documenti è chiusa."); return;
   }
+  var form = document.getElementById('portal-doc-form');
+  var btn  = document.getElementById('portal-doc-btn');
+  var msg  = document.getElementById('portal-doc-msg');
+  var fd   = new FormData(form);
 
-  btn.disabled = true; btn.textContent = 'Caricamento…';
+  var f = fd.get('docfile');
+  if (!f || f.size === 0) { msg.textContent = "Seleziona un file da caricare."; msg.className = 'form-msg err'; return; }
+
+  btn.disabled = true; btn.textContent = "Caricamento...";
   msg.textContent = ''; msg.className = 'form-msg';
 
   fetch('/portale/' + token + '/documents', { method: 'POST', body: fd })
-  .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
-  .then(function(res) {
-    if (!res.ok) {
-      msg.textContent = res.data.error || 'Errore durante il caricamento.';
+  .then(function(r){ return r.json().then(function(d){ return {ok:r.ok,data:d}; }); })
+  .then(function(result) {
+    btn.disabled = false; btn.textContent = "\u2B06 Carica documento";
+    if (!result.ok) {
+      msg.textContent = result.data.error || "Errore durante il caricamento.";
       msg.className = 'form-msg err';
     } else {
-      msg.textContent = '✓ Documento caricato. L'organizzazione lo riceverà a breve.';
-      msg.className = 'form-msg ok';
       form.reset();
+      msg.textContent = "\u2713 Documento caricato correttamente.";
+      msg.className = 'form-msg ok';
     }
-    btn.disabled = false; btn.textContent = '⬆ Carica documento';
   })
-  .catch(function() {
-    msg.textContent = 'Errore di rete. Riprova.';
-    msg.className = 'form-msg err';
-    btn.disabled = false; btn.textContent = '⬆ Carica documento';
+  .catch(function(){
+    btn.disabled = false; btn.textContent = "\u2B06 Carica documento";
+    msg.textContent = "Errore di rete. Riprova."; msg.className = 'form-msg err';
   });
 }
 
@@ -1608,39 +1614,36 @@ function submitTicket(e) {
   var form = document.getElementById('ticket-form');
   var btn  = document.getElementById('ticket-btn');
   var msg  = document.getElementById('ticket-msg');
-  var data = new FormData(form);
-  var body = { subject: data.get('subject'), message: data.get('message') };
+  var fd   = new FormData(form);
+  var subj = (fd.get('subject') || '').trim();
+  var text = (fd.get('message') || '').trim();
 
-  if (!body.subject || !body.message) {
-    msg.textContent = 'Oggetto e messaggio obbligatori.'; msg.className = 'form-msg err'; return;
-  }
+  if (!subj || !text) { msg.textContent = "Oggetto e messaggio obbligatori."; msg.className = 'form-msg err'; return; }
 
-  btn.disabled = true; btn.textContent = 'Invio…';
+  btn.disabled = true; btn.textContent = "Invio...";
   msg.textContent = ''; msg.className = 'form-msg';
 
   fetch('/portale/' + token + '/tickets', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+    body: JSON.stringify({ subject: subj, message: text })
   })
-  .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
-  .then(function(res) {
-    if (!res.ok) {
-      msg.textContent = res.data.error || 'Errore durante l'invio.';
+  .then(function(r){ return r.json().then(function(d){ return {ok:r.ok,data:d}; }); })
+  .then(function(result) {
+    btn.disabled = false; btn.textContent = "\uD83D\uDCE8 Invia richiesta";
+    if (!result.ok) {
+      msg.textContent = result.data.error || "Errore durante l'invio.";
       msg.className = 'form-msg err';
     } else {
-      msg.textContent = '✓ Richiesta inviata! L'organizzazione risponderà al più presto.';
-      msg.className = 'form-msg ok';
       form.reset();
-      // Nascondi il form dopo 4s e ricarica per mostrare il ticket appena creato
-      setTimeout(function() { window.location.reload(); }, 2500);
+      msg.textContent = "\u2713 Richiesta inviata. Riceverai risposta al più presto.";
+      msg.className = 'form-msg ok';
+      setTimeout(function(){ window.location.reload(); }, 2500);
     }
-    btn.disabled = false; btn.textContent = '📨 Invia richiesta';
   })
-  .catch(function() {
-    msg.textContent = 'Errore di rete. Riprova.';
-    msg.className = 'form-msg err';
-    btn.disabled = false; btn.textContent = '📨 Invia richiesta';
+  .catch(function(){
+    btn.disabled = false; btn.textContent = "\uD83D\uDCE8 Invia richiesta";
+    msg.textContent = "Errore di rete. Riprova."; msg.className = 'form-msg err';
   });
 }
 
@@ -1649,11 +1652,10 @@ function submitReply(tid, btnEl) {
   var input = document.getElementById('reply-input-' + tid);
   var msg   = document.getElementById('reply-msg-' + tid);
   if (!input || !input.value.trim()) {
-    if (msg) { msg.textContent = 'Scrivi un messaggio prima di inviare.'; msg.className = 'form-msg err'; }
+    if (msg) { msg.textContent = "Scrivi un messaggio prima di inviare."; msg.className = 'form-msg err'; }
     return;
   }
-
-  btnEl.disabled = true; btnEl.textContent = 'Invio…';
+  btnEl.disabled = true; btnEl.textContent = "Invio...";
   if (msg) { msg.textContent = ''; msg.className = 'form-msg'; }
 
   fetch('/portale/' + token + '/tickets/' + tid + '/reply', {
@@ -1661,26 +1663,21 @@ function submitReply(tid, btnEl) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message: input.value.trim() })
   })
-  .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
-  .then(function(res) {
-    if (!res.ok) {
-      if (msg) { msg.textContent = res.data.error || 'Errore durante l'invio.'; msg.className = 'form-msg err'; }
+  .then(function(r){ return r.json().then(function(d){ return {ok:r.ok,data:d}; }); })
+  .then(function(result) {
+    btnEl.disabled = false; btnEl.textContent = "\uD83D\uDCE8 Invia";
+    if (!result.ok) {
+      if (msg) { msg.textContent = result.data.error || "Errore."; msg.className = 'form-msg err'; }
     } else {
       input.value = '';
-      if (msg) { msg.textContent = '✓ Risposta inviata.'; msg.className = 'form-msg ok'; }
-      setTimeout(function() { window.location.reload(); }, 1200);
+      if (msg) { msg.textContent = "\u2713 Risposta inviata."; msg.className = 'form-msg ok'; }
+      setTimeout(function(){ window.location.reload(); }, 1200);
     }
-    btnEl.disabled = false; btnEl.textContent = '📨 Invia';
   })
-  .catch(function() {
-    if (msg) { msg.textContent = 'Errore di rete. Riprova.'; msg.className = 'form-msg err'; }
-    btnEl.disabled = false; btnEl.textContent = '📨 Invia';
+  .catch(function(){
+    btnEl.disabled = false; btnEl.textContent = "\uD83D\uDCE8 Invia";
+    if (msg) { msg.textContent = "Errore di rete. Riprova."; msg.className = 'form-msg err'; }
   });
-}
-
-// ── Utility: escape HTML ──────────────────────────────────
-function esc(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 </script>
