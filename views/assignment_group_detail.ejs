@@ -1608,6 +1608,62 @@ function applyBulkStatus(){
     </div>
   </div>
 </div>
+
+
+<!-- MODALE MODIFICA REFERENTE -->
+<div id="modal-edit-contact" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1200;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:10px;padding:1.5rem 1.8rem;width:min(460px,94vw);box-shadow:0 8px 32px rgba(0,0,0,.18);position:relative;">
+    <button onclick="closeEditContactModal()" style="position:absolute;top:.7rem;right:.9rem;font-size:1.2rem;background:none;border:none;cursor:pointer;color:#64748b;">✕</button>
+    <h3 style="margin-bottom:1rem;font-size:1rem;">✏️ Modifica referente</h3>
+    <form id="edit-contact-form" onsubmit="submitEditContact(event)" style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
+      <input type="hidden" id="ec-gid">
+      <input type="hidden" id="ec-cid">
+      <label style="font-size:.8rem;grid-column:1/-1;">
+        Nome *
+        <input type="text" id="ec-name" required style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;">
+      </label>
+      <label style="font-size:.8rem;">
+        Ruolo
+        <input type="text" id="ec-role" style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;">
+      </label>
+      <label style="font-size:.8rem;">
+        Email
+        <input type="email" id="ec-email" style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;">
+      </label>
+      <label style="font-size:.8rem;grid-column:1/-1;">
+        Telefono
+        <input type="text" id="ec-phone" style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;">
+      </label>
+      <label style="font-size:.8rem;grid-column:1/-1;">
+        <input type="checkbox" id="ec-primary"> Referente principale
+      </label>
+      <div style="grid-column:1/-1;display:flex;gap:.5rem;justify-content:flex-end;margin-top:.4rem;">
+        <span id="ec-msg" style="font-size:.78rem;align-self:center;"></span>
+        <button type="button" onclick="closeEditContactModal()" style="padding:.4rem 1rem;border-radius:6px;border:1px solid #cbd5e1;background:#f8fafc;cursor:pointer;font-size:.85rem;">Annulla</button>
+        <button type="submit" style="padding:.4rem 1.1rem;border-radius:6px;border:none;background:#1d6fa4;color:#fff;cursor:pointer;font-size:.85rem;font-weight:600;">Salva</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ══════ MODALE VISUALIZZATORE DOCUMENTI ══════ -->
+<div id="modal-doc-preview" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:2000;flex-direction:column;align-items:center;justify-content:center;" onclick="closeDocPreview(event)">
+  <div style="background:#1e2d4e;border-radius:10px;width:min(940px,96vw);max-height:92vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.5);overflow:hidden;">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;gap:.75rem;padding:.65rem 1rem;border-bottom:1px solid rgba(255,255,255,.1);flex-shrink:0;">
+      <span id="preview-filename" style="color:#e2e8f0;font-size:.85rem;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></span>
+      <a id="preview-download-btn" href="#" class="secondary" style="font-size:.75rem;padding:.25rem .75rem;flex-shrink:0;">⬇ Scarica</a>
+      <button onclick="closeDocPreview()" style="background:none;border:none;color:#94a3b8;font-size:1.3rem;cursor:pointer;padding:0 .2rem;flex-shrink:0;" title="Chiudi">✕</button>
+    </div>
+    <!-- Corpo visualizzatore -->
+    <div id="preview-body" style="flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;min-height:200px;background:#0f172a;">
+      <!-- Contenuto iniettato da JS -->
+    </div>
+  </div>
+</div>
+
+
 <script>
 
 function mostraStorico(passId) {
@@ -1804,58 +1860,4 @@ document.addEventListener('keydown', function(e) {
 });
 
 </script>
-
-<!-- MODALE MODIFICA REFERENTE -->
-<div id="modal-edit-contact" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1200;align-items:center;justify-content:center;">
-  <div style="background:#fff;border-radius:10px;padding:1.5rem 1.8rem;width:min(460px,94vw);box-shadow:0 8px 32px rgba(0,0,0,.18);position:relative;">
-    <button onclick="closeEditContactModal()" style="position:absolute;top:.7rem;right:.9rem;font-size:1.2rem;background:none;border:none;cursor:pointer;color:#64748b;">✕</button>
-    <h3 style="margin-bottom:1rem;font-size:1rem;">✏️ Modifica referente</h3>
-    <form id="edit-contact-form" onsubmit="submitEditContact(event)" style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
-      <input type="hidden" id="ec-gid">
-      <input type="hidden" id="ec-cid">
-      <label style="font-size:.8rem;grid-column:1/-1;">
-        Nome *
-        <input type="text" id="ec-name" required style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;">
-      </label>
-      <label style="font-size:.8rem;">
-        Ruolo
-        <input type="text" id="ec-role" style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;">
-      </label>
-      <label style="font-size:.8rem;">
-        Email
-        <input type="email" id="ec-email" style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;">
-      </label>
-      <label style="font-size:.8rem;grid-column:1/-1;">
-        Telefono
-        <input type="text" id="ec-phone" style="width:100%;margin-top:.25rem;padding:.4rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.88rem;">
-      </label>
-      <label style="font-size:.8rem;grid-column:1/-1;">
-        <input type="checkbox" id="ec-primary"> Referente principale
-      </label>
-      <div style="grid-column:1/-1;display:flex;gap:.5rem;justify-content:flex-end;margin-top:.4rem;">
-        <span id="ec-msg" style="font-size:.78rem;align-self:center;"></span>
-        <button type="button" onclick="closeEditContactModal()" style="padding:.4rem 1rem;border-radius:6px;border:1px solid #cbd5e1;background:#f8fafc;cursor:pointer;font-size:.85rem;">Annulla</button>
-        <button type="submit" style="padding:.4rem 1.1rem;border-radius:6px;border:none;background:#1d6fa4;color:#fff;cursor:pointer;font-size:.85rem;font-weight:600;">Salva</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-
-<!-- ══════ MODALE VISUALIZZATORE DOCUMENTI ══════ -->
-<div id="modal-doc-preview" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:2000;flex-direction:column;align-items:center;justify-content:center;" onclick="closeDocPreview(event)">
-  <div style="background:#1e2d4e;border-radius:10px;width:min(940px,96vw);max-height:92vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.5);overflow:hidden;">
-    <!-- Header -->
-    <div style="display:flex;align-items:center;gap:.75rem;padding:.65rem 1rem;border-bottom:1px solid rgba(255,255,255,.1);flex-shrink:0;">
-      <span id="preview-filename" style="color:#e2e8f0;font-size:.85rem;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></span>
-      <a id="preview-download-btn" href="#" class="secondary" style="font-size:.75rem;padding:.25rem .75rem;flex-shrink:0;">⬇ Scarica</a>
-      <button onclick="closeDocPreview()" style="background:none;border:none;color:#94a3b8;font-size:1.3rem;cursor:pointer;padding:0 .2rem;flex-shrink:0;" title="Chiudi">✕</button>
-    </div>
-    <!-- Corpo visualizzatore -->
-    <div id="preview-body" style="flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;min-height:200px;background:#0f172a;">
-      <!-- Contenuto iniettato da JS -->
-    </div>
-  </div>
-</div>
-
 <%-include('partials/footer') %>
