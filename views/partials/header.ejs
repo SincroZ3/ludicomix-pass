@@ -486,22 +486,101 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 .login-btn:hover { background: #ffe066; }
 
 /* ============================================================
-   RESPONSIVE
+   RESPONSIVE — Mobile First
    ============================================================ */
+
+/* ── Tablet (max 900px) ── */
 @media (max-width: 900px) {
   .content { padding: 1rem 1rem 2rem; }
-  .topbar { flex-wrap: wrap; gap: 0.5rem; padding: 0.5rem 1rem; }
+  .topbar { flex-wrap: wrap; gap: 0.5rem; padding: 0.5rem 1rem; min-height: 58px; }
   .main-nav a { font-size: 0.7rem; padding: 0.45rem 0.5rem; }
   table { font-size: 0.78rem; }
   th, td { padding: 0.45rem 0.6rem; }
   .brand-ciuco { height: 48px; }
   .brand-logo-img { height: 40px; }
+  .card { padding: 0.85rem 1rem; }
+  .icon-grid { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ── Smartphone (max 600px) ── */
 @media (max-width: 600px) {
-  .topbar { flex-direction: column; align-items: flex-start; }
-  .icon-grid { grid-template-columns: repeat(2, 1fr); }
-  .main-nav { overflow-x: auto; flex-wrap: nowrap; }
-  .main-nav a { flex-shrink: 0; }
+  /* Topbar: loghi compatti, testo utente nascosto, logout visibile */
+  .topbar { flex-direction: row; align-items: center; justify-content: space-between; padding: 0 0.75rem; min-height: 52px; gap: 0.5rem; flex-wrap: nowrap; }
+  .brand { gap: 0.4rem; }
+  .brand-ciuco { height: 38px; }
+  .brand-logo-img { height: 32px; }
+  .brand-text-block { display: none; }
+  .logout-form button { padding: 0.35rem 0.65rem; font-size: 0.75rem; }
+
+  /* Navbar: scroll orizzontale su una riga */
+  .main-nav { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 0; min-height: 34px; }
+  .main-nav::-webkit-scrollbar { display: none; }
+  .main-nav a { flex-shrink: 0; font-size: 0.67rem; padding: 0.42rem 0.55rem; letter-spacing: 0.2px; }
+
+  /* Breadcrumb */
+  .breadcrumb-bar { padding: 0.35rem 0.75rem; font-size: 0.73rem; }
+
+  /* Contenuto principale */
+  .content { padding: 0.75rem 0.65rem 2rem; }
+  .page-title { font-size: 1.05rem; margin-bottom: 0.9rem; }
+  h2 { font-size: 0.92rem; }
+  h3 { font-size: 0.8rem; }
+
+  /* Card */
+  .card { padding: 0.75rem 0.8rem; margin-bottom: 1rem; border-radius: 8px; }
+  .card-title { font-size: 0.73rem; }
+
+  /* Bottoni */
+  button.primary, a.primary { padding: 0.42rem 0.85rem; font-size: 0.78rem; }
+  button.secondary, a.secondary { padding: 0.4rem 0.75rem; font-size: 0.78rem; }
+  button.btn-danger { font-size: 0.74rem; padding: 0.3rem 0.6rem; }
+
+  /* Form */
+  label { font-size: 0.78rem; }
+  input[type="text"], input[type="email"], input[type="password"],
+  input[type="number"], select, textarea { font-size: 0.83rem; padding: 0.42rem 0.55rem; }
+
+  /* Tabelle: scroll orizzontale + font ridotto */
+  .table-wrapper { border-radius: 6px; font-size: 0.74rem; }
+  table { font-size: 0.74rem; min-width: 520px; }
+  th { font-size: 0.67rem; padding: 0.42rem 0.55rem; }
+  td { padding: 0.38rem 0.55rem; }
+
+  /* Icon grid */
+  .icon-grid { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+  .icon-grid > a { padding: 0.75rem 0.5rem; font-size: 0.78rem; }
+  .icon-grid .icon { font-size: 1.6rem; }
+  .icon-grid .label { font-size: 0.72rem; }
+
+  /* Badge e pill */
+  .badge, .pill { font-size: 0.65rem; padding: 0.12rem 0.45rem; }
+  .status-badge { font-size: 0.65rem; padding: 0.12rem 0.45rem; }
+
+  /* Alert/notice box */
+  .alert, .notice, .info-box { font-size: 0.78rem; padding: 0.65rem 0.8rem; border-radius: 6px; }
+}
+
+/* ── Smartphone piccolo (max 380px) ── */
+@media (max-width: 380px) {
+  .topbar { padding: 0 0.5rem; min-height: 46px; }
+  .brand-ciuco { height: 32px; }
+  .brand-logo-img { display: none; }
+  .main-nav a { font-size: 0.62rem; padding: 0.38rem 0.45rem; }
+  .content { padding: 0.6rem 0.5rem 1.8rem; }
+  .icon-grid { grid-template-columns: repeat(2, 1fr); gap: 0.4rem; }
+  table { min-width: 440px; }
+}
+
+/* ── Touch: rimuovi hover state, aggiungi :active feedback ── */
+@media (hover: none) {
+  button.primary:hover, a.primary:hover { background: var(--brand-yellow); transform: none; }
+  button.secondary:hover, a.secondary:hover { background: var(--bg-white); }
+  .main-nav a:hover { background: transparent; }
+  button.primary:active, a.primary:active { transform: scale(0.97); opacity: 0.88; }
+  button.secondary:active, a.secondary:active { transform: scale(0.97); opacity: 0.85; }
+  .main-nav a:active { background: rgba(0,0,0,0.12); }
+  html { -webkit-text-size-adjust: 100%; }
+  input, select, textarea { font-size: 16px !important; } /* evita zoom iOS */
 }
 
   </style>
