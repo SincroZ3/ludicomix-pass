@@ -57,12 +57,12 @@
         <table id="table-cat-<%= c.id %>">
           <thead>
             <tr>
-              <th>Gruppo / Associazione</th>
-              <th>Nome stand</th>
-              <th>Zona / Padiglione</th>
-              <th>Codice stand</th>
-              <th>N. assegnatari</th>
-              <th>Max pass</th>
+              <th class="sortable-th" data-sort="name" onclick="sortTable(this)">Gruppo / Associazione <span class="sort-icon">↕</span></th>
+              <th class="sortable-th" data-sort="stand" onclick="sortTable(this)">Nome stand <span class="sort-icon">↕</span></th>
+              <th class="sortable-th" data-sort="zone" onclick="sortTable(this)">Zona / Padiglione <span class="sort-icon">↕</span></th>
+              <th class="sortable-th" data-sort="code" onclick="sortTable(this)">Codice stand <span class="sort-icon">↕</span></th>
+              <th class="sortable-th" data-sort="participants" onclick="sortTable(this)">N. assegnatari <span class="sort-icon">↕</span></th>
+              <th class="sortable-th" data-sort="maxpass" onclick="sortTable(this)">Max pass <span class="sort-icon">↕</span></th>
               <th>Note</th>
               <th>Gestione Pass</th>
               <% if (!isViewer) { %><th>Cancella</th><% } %>
@@ -75,7 +75,9 @@
                   data-stand="<%= (ag.stand_name||'').toLowerCase() %>"
                   data-zone="<%= (ag.zone||'').toLowerCase() %>"
                   data-code="<%= (ag.stand_code||'').toLowerCase() %>"
-                  data-notes="<%= (ag.notes||'').toLowerCase() %>">
+                  data-notes="<%= (ag.notes||'').toLowerCase() %>"
+                   data-participants="<%= ag.participants_count || 0 %>"
+                   data-maxpass="<%= ag.max_passes != null ? ag.max_passes : 999999 %>">
                 <td><strong><%= ag.name %></strong></td>
                 <td><%= ag.stand_name || ag.name || '' %></td>
                 <td><%= ag.zone || '—' %></td>
@@ -316,5 +318,85 @@ function submitBulkForced() {
     })
     .catch(() => { errEl.textContent = 'Errore di rete'; errEl.style.display = ''; });
 }
+
+// ── Ordinamento colonne tabella ──────────────────────────────────────────────
+(function() {
+  // Stato sort per tabella: { tableId: { col, dir } }
+  const sortState = {};
+
+  window.sortTable = function(th) {
+    const col   = th.dataset.sort;
+    const table = th.closest('table');
+    const tid   = table.id;
+    const tbody = table.querySelector('tbody');
+    const rows  = Array.from(tbody.querySelectorAll('tr.group-row'));
+
+    // Determina direzione
+    let dir = 'asc';
+    if (sortState[tid] && sortState[tid].col === col) {
+      dir = sortState[tid].dir === 'asc' ? 'desc' : 'asc';
+    }
+    sortState[tid] = { col, dir };
+
+    // Aggiorna icone: resetta tutte le th di questa tabella
+    table.querySelectorAll('th.sortable-th').forEach(t => {
+      t.querySelector('.sort-icon').textContent = '↕';
+      t.classList.remove('sort-asc', 'sort-desc');
+    });
+    th.querySelector('.sort-icon').textContent = dir === 'asc' ? '↑' : '↓';
+    th.classList.add(dir === 'asc' ? 'sort-asc' : 'sort-desc');
+
+    // Valori numerici per queste colonne
+    const numericCols = ['participants', 'maxpass'];
+
+    rows.sort((a, b) => {
+      let va = (a.dataset[col] || '').trim();
+      let vb = (b.dataset[col] || '').trim();
+
+      if (numericCols.includes(col)) {
+        va = parseFloat(va) || 0;
+        vb = parseFloat(vb) || 0;
+        return dir === 'asc' ? va - vb : vb - va;
+      } else {
+        va = va.toLowerCase();
+        vb = vb.toLowerCase();
+        if (va < vb) return dir === 'asc' ? -1 :  1;
+        if (va > vb) return dir === 'asc' ?  1 : -1;
+        return 0;
+      }
+    });
+
+    rows.forEach(r => tbody.appendChild(r));
+  };
+})();
+
 </script>
+<style>
+/* ── Ordinamento colonne ── */
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.sortable-th:hover {
+  background: rgba(0,0,0,0.04);
+}
+.sort-icon {
+  display: inline-block;
+  margin-left: 0.3em;
+  font-size: 0.8em;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+.sortable-th:hover .sort-icon,
+.sortable-th.sort-asc .sort-icon,
+.sortable-th.sort-desc .sort-icon {
+  opacity: 1;
+}
+.sortable-th.sort-asc .sort-icon,
+.sortable-th.sort-desc .sort-icon {
+  color: var(--color-primary, #01696f);
+  font-weight: bold;
+}
+</style>
 <%-include('partials/footer') %>
