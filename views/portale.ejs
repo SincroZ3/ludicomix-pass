@@ -318,21 +318,110 @@ details.sec-details summary:hover{background:rgba(107,63,160,.04)}
 @keyframes pulse-badge{0%,100%{opacity:1}50%{opacity:.55}}
 
 /* ══════════════════════════════════════════
-   RESPONSIVE
+   RESPONSIVE — Mobile First
 ══════════════════════════════════════════ */
+
+/* ── Tablet (max 768px) ── */
+@media(max-width:768px){
+  .wrap{padding:1rem .85rem 2.5rem}
+  .hdr-inner{padding:0 .85rem}
+  .info-strip{grid-template-columns:repeat(2,1fr);gap:.5rem}
+  .pass-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.7rem}
+  .nopass-grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.55rem}
+  .form-grid-2{grid-template-columns:1fr 1fr}
+  .item-card-hd{flex-direction:column;align-items:flex-start;gap:.3rem}
+  .item-card-meta{font-size:.68rem}
+  .sec-card-hd{flex-wrap:wrap;gap:.45rem}
+  .sec-card-actions{width:100%;justify-content:flex-end}
+}
+
+/* ── Smartphone (max 520px) ── */
 @media(max-width:520px){
-  .topbar{padding:0 .9rem}.brand-ciuco{height:48px}.brand-logo-img{height:40px}
-  .hdr-stand{padding:1.2rem 0}
-  .info-strip{grid-template-columns:repeat(2,1fr)}
-  .pass-grid,.nopass-grid{grid-template-columns:1fr}
-  .prog-num{font-size:1.7rem}
+  /* Topbar */
+  .topbar{padding:0 .75rem;min-height:56px;gap:.4rem}
+  .brand-ciuco{height:42px}
+  .brand-logo-img{height:36px}
+  .brand-text-block{display:none}
+  .topbar-right{font-size:.62rem;letter-spacing:0}
+
+  /* Header stand */
+  .hdr-stand{padding:.9rem 0}
+  .hdr-title{font-size:clamp(1.2rem,5vw,1.6rem)}
+
+  /* Contenuto principale */
+  .wrap{padding:.75rem .65rem 2rem}
+  .hdr-inner{padding:0 .65rem}
+
+  /* Info strip: 2 colonne strette */
+  .info-strip{grid-template-columns:1fr 1fr;gap:.4rem}
+  .info-strip > *{padding:.55rem .65rem}
+
+  /* Pass grid: 1 colonna */
+  .pass-grid,.nopass-grid{grid-template-columns:1fr;gap:.6rem}
+
+  /* Pass card: layout verticale ottimizzato */
+  .pass-card{padding:.75rem .85rem}
+
+  /* Progress bar */
+  .prog-num{font-size:1.5rem}
+  .prog-bar-wrap{min-width:0;width:100%}
+
+  /* Form: 1 colonna */
   .form-grid-2{grid-template-columns:1fr}
-  .sec-card-hd{flex-wrap:wrap;gap:.5rem}
+  .form-footer{flex-direction:column;align-items:stretch;gap:.5rem}
+  .form-footer .btn{width:100%;justify-content:center}
+  .form-footer .form-msg{text-align:center}
+
+  /* Sezione card */
+  .sec-card{border-radius:10px;margin-bottom:1rem}
+  .sec-card-hd{padding:.7rem .85rem;flex-wrap:wrap;gap:.4rem}
+  .sec-card-title{font-size:.72rem}
+  .sec-card-actions{width:100%;justify-content:flex-end;margin-top:.1rem}
+  .sec-card-body{padding:.85rem .85rem}
+
+  /* Item card */
+  .item-card{padding:.7rem .8rem}
+  .item-card-hd{flex-direction:column;align-items:flex-start;gap:.25rem}
+  .item-card-title{font-size:.84rem}
+  .item-card-meta{font-size:.67rem}
+  .item-card-footer{gap:.4rem}
+  .item-card-footer .btn{font-size:.72rem;padding:.28rem .6rem}
+
+  /* Bottoni */
+  .btn{font-size:.8rem;padding:.45rem .9rem}
+  .btn-sm{font-size:.73rem;padding:.32rem .65rem}
+  .btn-xs{font-size:.67rem;padding:.22rem .5rem}
+
+  /* Servizi */
+  .srv-type-grid{grid-template-columns:repeat(2,1fr);gap:.4rem}
+
+  /* Nopass card */
+  .nopass-card{padding:.7rem .85rem}
+  .nopass-card > div:first-child{font-size:.82rem}
+
+  /* Banner finestra chiusa */
+  #wc-banner{padding:.6rem .75rem;font-size:.75rem}
+  #wc-banner > div{gap:.4rem}
+
+  /* Popup finestra chiusa */
+  #wc-modal-overlay > div{margin:1rem;width:calc(100% - 2rem);max-height:90vh;overflow-y:auto}
+}
+
+/* ── Smartphone piccolo (max 380px) ── */
+@media(max-width:380px){
+  .topbar{min-height:50px}
+  .brand-ciuco{height:36px}
+  .brand-logo-img{height:30px}
+  .hdr-title{font-size:1.15rem}
+  .info-strip{grid-template-columns:1fr}
+  .sec-card-hd{padding:.6rem .7rem}
+  .sec-card-body{padding:.7rem .7rem}
+  .wrap{padding:.6rem .5rem 1.8rem}
 }
 
 /* ── Servizi ─────────────────────────────────────────── */
 .srv-type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin:.5rem 0 .75rem}
-@media(max-width:480px){.srv-type-grid{grid-template-columns:repeat(2,1fr)}}
+/* srv-type responsive incluso nel blocco mobile sopra */
 .srv-type-btn{
   display:flex;flex-direction:column;align-items:center;gap:.25rem;
   padding:.65rem .4rem;border:1.5px solid var(--border);border-radius:var(--radius-sm);
@@ -353,6 +442,17 @@ details.sec-details summary:hover{background:rgba(107,63,160,.04)}
 .srv-pill-done{background:rgba(29,111,164,.13);color:var(--blue)}
 .srv-pill-cancel{background:rgba(192,57,43,.12);color:var(--red)}
 
+/* ── UX mobile: tap feedback e scroll fluido ── */
+@media(hover:none){
+  .btn:hover{background:initial;color:initial}
+  .btn-primary:hover{background:var(--navy);color:#fff}
+  .btn-accent:hover{background:var(--accent);color:#fff}
+  .btn-outline:hover{background:transparent;border-color:var(--border)}
+  .btn:active{transform:scale(.96);opacity:.88}
+  .item-card{-webkit-tap-highlight-color:transparent}
+  .sec-card-hd{-webkit-tap-highlight-color:transparent}
+  html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+}
 </style>
 </head>
 <body>
