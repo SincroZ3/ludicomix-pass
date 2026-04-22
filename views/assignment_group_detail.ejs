@@ -1269,6 +1269,7 @@ function maronnoForza() {
     <div id="doc-row-<%= d.id %>" style="display:flex;align-items:center;gap:.75rem;padding:.55rem .75rem;background:#f8fafc;border-radius:8px;border:1px solid #e8ecf3;">
       <span style="font-size:1.2rem;">📄</span>
       <div style="flex:1;min-width:0;"><div style="font-size:.83rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><%= d.original_name||d.filename %></div><div style="font-size:.72rem;color:#9ca3af;"><%= d.doc_type %> · <%= new Date(d.uploaded_at).toLocaleDateString('it-IT') %></div></div>
+      <button type="button" onclick="previewDoc(<%= d.id %>,'<%- (d.original_name||d.filename||'').replace(/'/g,"\\'")\ %>')" class="secondary" style="font-size:.75rem;padding:.25rem .5rem;margin-right:.3rem;">👁 Anteprima</button>
       <a href="/assignment-groups/<%= groupInfo.id %>/documents/<%= d.id %>/download" class="secondary" style="font-size:.75rem;padding:.25rem .65rem;">⬇ Scarica</a>
       <button type="button" onclick="deleteDoc(<%= groupInfo.id %>,<%= d.id %>)" style="font-size:.75rem;padding:.25rem .6rem;border-radius:4px;border:1px solid #c0392b;background:#fff;color:#c0392b;cursor:pointer;">✕</button>
     </div>
@@ -1723,6 +1724,84 @@ function saveFiscalData(e, gid) {
   });
 }
 
+
+// ── Visualizzatore documenti ─────────────────────────────────────────────────
+var _previewGroupId = <%= groupInfo.id %>;
+var _previewExts = {
+  pdf:   ['pdf'],
+  image: ['png','jpg','jpeg','gif','webp','svg'],
+  text:  ['txt','csv']
+};
+
+function previewDoc(did, filename) {
+  var url      = '/assignment-groups/' + _previewGroupId + '/documents/' + did + '/preview';
+  var dlUrl    = '/assignment-groups/' + _previewGroupId + '/documents/' + did + '/download';
+  var ext      = (filename.split('.').pop() || '').toLowerCase();
+  var body     = document.getElementById('preview-body');
+  var modal    = document.getElementById('modal-doc-preview');
+  var fnEl     = document.getElementById('preview-filename');
+  var dlBtn    = document.getElementById('preview-download-btn');
+
+  fnEl.textContent = filename;
+  dlBtn.href = dlUrl;
+  body.innerHTML = '<div style="color:#94a3b8;font-size:.9rem;padding:2rem;">Caricamento…</div>';
+  modal.style.display = 'flex';
+
+  if (_previewExts.pdf.includes(ext)) {
+    // PDF: usa <iframe>
+    body.innerHTML = '<iframe src="' + url + '" style="width:100%;height:78vh;border:none;display:block;"></iframe>';
+  } else if (_previewExts.image.includes(ext)) {
+    // Immagine
+    var img = new Image();
+    img.onload = function() {
+      body.innerHTML = '';
+      img.style.cssText = 'max-width:100%;max-height:78vh;object-fit:contain;display:block;border-radius:4px;';
+      body.appendChild(img);
+    };
+    img.onerror = function() { previewFallback(body, filename, dlUrl); };
+    img.src = url;
+  } else if (_previewExts.text.includes(ext)) {
+    // Testo / CSV
+    fetch(url)
+      .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.text();
+      })
+      .then(function(text) {
+        var pre = document.createElement('pre');
+        pre.style.cssText = 'color:#e2e8f0;font-size:.8rem;padding:1.2rem;margin:0;white-space:pre-wrap;word-break:break-word;max-height:78vh;overflow:auto;width:100%;';
+        pre.textContent = text;
+        body.innerHTML = '';
+        body.appendChild(pre);
+      })
+      .catch(function() { previewFallback(body, filename, dlUrl); });
+  } else {
+    // Formato non visualizzabile inline
+    previewFallback(body, filename, dlUrl);
+  }
+}
+
+function previewFallback(body, filename, dlUrl) {
+  body.innerHTML =
+    '<div style="text-align:center;padding:2.5rem 1.5rem;">' +
+    '<div style="font-size:3rem;margin-bottom:1rem;">📄</div>' +
+    '<p style="color:#cbd5e1;font-size:.9rem;margin-bottom:.4rem;">' + filename + '</p>' +
+    '<p style="color:#64748b;font-size:.8rem;margin-bottom:1.2rem;">Anteprima non disponibile per questo tipo di file.</p>' +
+    '<a href="' + dlUrl + '" class="primary" style="font-size:.85rem;padding:.45rem 1.1rem;border-radius:6px;background:#1d6fa4;color:#fff;text-decoration:none;">⬇ Scarica il file</a>' +
+    '</div>';
+}
+
+function closeDocPreview(e) {
+  if (!e || e.target === document.getElementById('modal-doc-preview')) {
+    document.getElementById('modal-doc-preview').style.display = 'none';
+    document.getElementById('preview-body').innerHTML = '';
+  }
+}
+// ESC per chiudere
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeDocPreview();
+});
+
 </script>
 
 <!-- MODALE MODIFICA REFERENTE -->
@@ -1758,6 +1837,23 @@ function saveFiscalData(e, gid) {
         <button type="submit" style="padding:.4rem 1.1rem;border-radius:6px;border:none;background:#1d6fa4;color:#fff;cursor:pointer;font-size:.85rem;font-weight:600;">Salva</button>
       </div>
     </form>
+  </div>
+</div>
+
+
+<!-- ══════ MODALE VISUALIZZATORE DOCUMENTI ══════ -->
+<div id="modal-doc-preview" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:2000;flex-direction:column;align-items:center;justify-content:center;" onclick="closeDocPreview(event)">
+  <div style="background:#1e2d4e;border-radius:10px;width:min(940px,96vw);max-height:92vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.5);overflow:hidden;">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;gap:.75rem;padding:.65rem 1rem;border-bottom:1px solid rgba(255,255,255,.1);flex-shrink:0;">
+      <span id="preview-filename" style="color:#e2e8f0;font-size:.85rem;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></span>
+      <a id="preview-download-btn" href="#" class="secondary" style="font-size:.75rem;padding:.25rem .75rem;flex-shrink:0;">⬇ Scarica</a>
+      <button onclick="closeDocPreview()" style="background:none;border:none;color:#94a3b8;font-size:1.3rem;cursor:pointer;padding:0 .2rem;flex-shrink:0;" title="Chiudi">✕</button>
+    </div>
+    <!-- Corpo visualizzatore -->
+    <div id="preview-body" style="flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;min-height:200px;background:#0f172a;">
+      <!-- Contenuto iniettato da JS -->
+    </div>
   </div>
 </div>
 

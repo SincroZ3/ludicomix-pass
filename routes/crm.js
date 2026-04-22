@@ -191,6 +191,32 @@ module.exports = function(app, db, deps) {
     } catch(e) { res.status(500).send(e.message); }
   });
 
+
+  app.get('/assignment-groups/:id/documents/:did/preview', requireAuth, async (req, res) => {
+    const gid = parseInt(req.params.id, 10), did = parseInt(req.params.did, 10);
+    try {
+      const doc = await qGet('SELECT * FROM group_documents WHERE id=? AND assignment_group_id=?', [did, gid]);
+      if (!doc) return res.status(404).send('Documento non trovato');
+      const filePath = path.join(DOCS_DIR, doc.filename);
+      const ext = path.extname(doc.original_name || doc.filename).toLowerCase();
+      const mimeMap = {
+        '.pdf':  'application/pdf',
+        '.png':  'image/png',
+        '.jpg':  'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif':  'image/gif',
+        '.webp': 'image/webp',
+        '.svg':  'image/svg+xml',
+        '.txt':  'text/plain; charset=utf-8',
+        '.csv':  'text/plain; charset=utf-8',
+      };
+      const mime = mimeMap[ext] || 'application/octet-stream';
+      res.setHeader('Content-Type', mime);
+      res.setHeader('Content-Disposition', 'inline; filename="' + encodeURIComponent(doc.original_name || doc.filename) + '"');
+      res.sendFile(filePath);
+    } catch(e) { res.status(500).send(e.message); }
+  });
+
   app.post('/assignment-groups/:id/documents/:did/delete', requireAuth, requireOrganizer, async (req, res) => {
     const gid = parseInt(req.params.id, 10), did = parseInt(req.params.did, 10);
     try {
