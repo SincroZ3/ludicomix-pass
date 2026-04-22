@@ -342,6 +342,87 @@ module.exports = function(app, db, deps) {
     } catch(e) { res.status(500).json({ error: e.message }); }
   });
 
+  // ── PORTALE: aggiunta nominativo ─────────────────────────────────────────────
+  app.post('/api/portale/:token/participants', async (req, res) => {
+    const token = req.params.token;
+    const { first_name, last_name, role } = req.body;
+    if (!first_name || !last_name) return res.status(400).json({ error: 'Nome e cognome obbligatori' });
+    try {
+      const group = await qGet(
+        'SELECT * FROM assignment_groups WHERE portal_token=? AND portal_enabled=1', [token]
+      );
+      if (!group) return res.status(403).json({ error: 'Portale non disponibile' });
+
+      // Controlla limite max_passes
+      if (group.max_passes != null) {
+        const cnt = await qGet('SELECT COUNT(*) AS c FROM participants WHERE assignment_group_id=?', [group.id]);
+        if (cnt && cnt.c >= group.max_passes)
+          return res.status(400).json({ error: `Limite massimo di ${group.max_passes} nominativi raggiunto.` });
+      }
+
+      const result = await new Promise((resolve, reject) => {
+        db.run(
+          `INSERT INTO participants (first_name, last_name, role, assignment_group_id)
+           VALUES (?, ?, ?, ?)`,
+          [first_name.trim(), last_name.trim(), role ? role.trim() : null, group.id],
+          function(err) { err ? reject(err) : resolve(this.lastID); }
+        );
+      });
+
+      // Log azione
+      db.run(
+        `INSERT INTO action_logs (user_id, action, entity_type, entity_id, details, created_at)
+         VALUES (NULL, 'portal_add_participant', 'participant', ?, ?, datetime('now','localtime'))`,
+        [result, `Nominativo ${first_name} ${last_name} aggiunto dal portale espositore (${group.name})`]
+      );
+
+      res.json({ ok: true, id: result, first_name: first_name.trim(), last_name: last_name.trim(), role: role ? role.trim() : null });
+    } catch(err) {
+      console.error('Errore POST /api/portale/:token/participants:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // ── PORTALE: rimozione nominativo ────────────────────────────────────────────
+  app.post('/api/portale/:token/participants/:pid/delete', async (req, res) => {
+    const token = req.params.token;
+    const pid   = parseInt(req.params.pid, 10);
+    try {
+      const group = await qGet(
+        'SELECT * FROM assignment_groups WHERE portal_token=? AND portal_enabled=1', [token]
+      );
+      if (!group) return res.status(403).json({ error: 'Portale non disponibile' });
+
+      // Verifica che il nominativo appartenga a questo gruppo
+      const part = await qGet(
+        'SELECT * FROM participants WHERE id=? AND assignment_group_id=?', [pid, group.id]
+      );
+      if (!part) return res.status(404).json({ error: 'Nominativo non trovato' });
+
+      // Non permettere rimozione se ha già un pass generato
+      const hasPass = await qGet(
+        `SELECT id FROM passes WHERE participant_id=? AND status NOT IN ('INVALIDATO')`, [pid]
+      );
+      if (hasPass) return res.status(400).json({ error: 'Impossibile rimuovere: il nominativo ha già un pass generato.' });
+
+      await new Promise((resolve, reject) => {
+        db.run('DELETE FROM participants WHERE id=?', [pid], err => err ? reject(err) : resolve());
+      });
+
+      db.run(
+        `INSERT INTO action_logs (user_id, action, entity_type, entity_id, details, created_at)
+         VALUES (NULL, 'portal_remove_participant', 'participant', ?, ?, datetime('now','localtime'))`,
+        [pid, `Nominativo ${part.first_name} ${part.last_name} rimosso dal portale espositore (${group.name})`]
+      );
+
+      res.json({ ok: true });
+    } catch(err) {
+      console.error('Errore POST /api/portale/:token/participants/:pid/delete:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+
   // ADMIN — risponde a un ticket
   app.post('/admin/tickets/:tid/reply', requireAuth, requireNotViewer, async (req, res) => {
     const tid = parseInt(req.params.tid, 10);

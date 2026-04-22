@@ -3499,7 +3499,7 @@ async function triggerBatchPassOnClose(groupId) {
 
       const [parts, autoPasses, announcements, unreadRow, zoneInfo, zoneStands, refWRow, refHRow] = await Promise.all([
         dbAll(
-          `SELECT pa.first_name, pa.last_name, pa.email, pa.role,
+          `SELECT pa.id AS participant_id, pa.first_name, pa.last_name, pa.email, pa.role,
                   p.id AS pass_id, p.code, p.status, pt.name AS type_name
            FROM participants pa
            LEFT JOIN passes p ON p.participant_id=pa.id AND p.status!='INVALIDATO'
