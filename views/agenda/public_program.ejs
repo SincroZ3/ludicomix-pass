@@ -323,13 +323,100 @@
     .modal-foot { padding: .8rem 1.4rem 1.1rem; border-top: 1px solid #e8ecf3; text-align: right; }
 
     /* ── RESPONSIVE ── */
+    /* ── DAY TABS STICKY ── */
+    .day-tabs-wrap {
+      position: sticky; top: 0; z-index: 100;
+      background: #f0ede8;
+      padding: .5rem 0 .4rem;
+      border-bottom: 1px solid #e2e8f0;
+      margin-bottom: .5rem;
+    }
+    .day-tabs-scroll {
+      display: flex; gap: .45rem;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      scrollbar-width: none; padding: 0 1rem;
+    }
+    .day-tabs-scroll::-webkit-scrollbar { display: none; }
+    .day-tab {
+      flex-shrink: 0;
+      padding: .38rem .9rem;
+      border-radius: 999px;
+      border: 1.5px solid #d1d9e6;
+      background: #fff;
+      font-size: .78rem; font-weight: 700;
+      color: #4a5568; cursor: pointer;
+      white-space: nowrap;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .day-tab:hover  { border-color: #1e2d4e; color: #1e2d4e; }
+    .day-tab.active { background: #1e2d4e; color: #f5c842; border-color: #1e2d4e; }
+
+    /* ── FILTRI COLLASSABILI ── */
+    .filter-toggle-btn {
+      display: none; /* visibile solo mobile */
+      width: 100%; padding: .65rem 1rem;
+      background: #fff; border: 1px solid #d1d9e6; border-radius: 10px;
+      font-size: .9rem; font-weight: 700; color: #1e2d4e;
+      cursor: pointer; text-align: left;
+      box-shadow: 0 1px 4px rgba(30,45,78,.07);
+      justify-content: space-between; align-items: center; gap: .5rem;
+    }
+    .filter-toggle-btn .ftb-arrow { transition: transform .2s; }
+    .filter-toggle-btn.open .ftb-arrow { transform: rotate(180deg); }
+    .filter-collapsible {
+      overflow: hidden;
+      max-height: 1000px;
+      transition: max-height .3s ease, opacity .25s ease;
+      opacity: 1;
+    }
+    .filter-collapsible.collapsed { max-height: 0; opacity: 0; }
+
+    /* ── MOBILE: event card verticale ── */
     @media (max-width: 640px) {
-      .filter-row { flex-direction: column; }
-      .filter-group { min-width: 100%; }
-      .filter-actions { width: 100%; }
-      .event-card { grid-template-columns: 66px 1fr; }
-      .ev-seats { grid-column: 2; text-align: left; }
-      .ev-seats .s-bar { margin-left: 0; }
+      /* filtri collassabili */
+      .filter-toggle-btn { display: flex; margin-bottom: .5rem; }
+      .filter-collapsible.collapsed { max-height: 0; opacity: 0; }
+
+      /* card eventi: layout verticale a 2 colonne (tempo | body) senza colonna posti */
+      .event-card {
+        grid-template-columns: 58px 1fr;
+        grid-template-rows: auto auto;
+        gap: .5rem .75rem;
+        padding: .8rem .9rem;
+      }
+      .ev-time {
+        grid-column: 1; grid-row: 1;
+        align-items: flex-start; padding-top: .05rem;
+      }
+      .ev-time .t-start { font-size: 1.05rem; }
+      .ev-body {
+        grid-column: 2; grid-row: 1;
+      }
+      /* posti: va sotto, full-width, inline orizzontale */
+      .ev-seats {
+        grid-column: 1 / -1; grid-row: 2;
+        display: flex; align-items: center; gap: .6rem;
+        text-align: left; padding-top: 0; padding-left: 0;
+        border-top: 1px solid #f0f2f7; margin-top: .2rem; padding-top: .5rem;
+      }
+      .ev-seats .s-count { font-size: .8rem; white-space: nowrap; }
+      .ev-seats .s-bar   { width: 60px; margin-left: 0; margin-top: 0; flex-shrink: 0; }
+      .ev-seats .free-label { font-size: .78rem; }
+      .btn-iscriviti { margin-top: 0; padding: .28rem .7rem; font-size: .7rem; }
+
+      /* day tabs: visibili su mobile */
+      .day-tabs-wrap { display: block; }
+
+      /* hero più compatto */
+      .hero { padding: 2rem 1rem 2.2rem; }
+      .hero h1 { font-size: clamp(2rem, 9vw, 3rem); }
+
+      /* navbar più compatta */
+      .navbar { padding: .4rem .9rem; }
+    }
+    @media (min-width: 641px) {
+      /* Day tabs nascosti su desktop (si usa la select) */
+      .day-tabs-wrap { display: none; }
     }
   </style>
 </head>
@@ -353,6 +440,11 @@
 <!-- FILTERS -->
 <div class="container">
   <div class="filter-wrap">
+    <button class="filter-toggle-btn" id="filterToggleBtn" onclick="toggleFilters()" aria-expanded="false" aria-controls="filterCollapsible">
+      <span>🔍 Filtra &amp; Cerca</span>
+      <span class="ftb-arrow">▼</span>
+    </button>
+    <div class="filter-collapsible collapsed" id="filterCollapsible">
     <div class="filter-card">
       <form class="filter-row" method="GET" action="/programma" id="filterForm">
         <div class="filter-group">
@@ -392,9 +484,27 @@
       </form>
       <div class="events-count" id="eventsCount"><%= events.length %> eventi</div>
     </div>
+    </div><!-- /filter-collapsible -->
   </div>
 </div>
 
+
+<!-- DAY TABS STICKY (mobile) -->
+<% if (dates && dates.length > 1) { %>
+<div class="day-tabs-wrap" id="dayTabsWrap">
+  <div class="day-tabs-scroll" id="dayTabsScroll">
+    <button class="day-tab<%= !filters.date ? ' active' : '' %>" onclick="setDayTab('', this)">Tutti</button>
+    <% dates.forEach(function(d) {
+         var label = new Date(d.date + 'T12:00:00').toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'short'});
+         label = label.charAt(0).toUpperCase() + label.slice(1);
+    %>
+    <button class="day-tab<%= filters.date === d.date ? ' active' : '' %>"
+            onclick="setDayTab('<%= d.date %>', this)"
+            data-date="<%= d.date %>"><%= label %></button>
+    <% }); %>
+  </div>
+</div>
+<% } %>
 
 <!-- OSPITI IN EVIDENZA -->
 <% if (typeof featuredGuests !== 'undefined' && featuredGuests.length > 0) { %>
@@ -509,7 +619,7 @@
          const dayMon  = dayDate.toLocaleDateString('it-IT',{month:'short'}).toUpperCase().replace('.','');
          const dayFull = dayDate.toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).toUpperCase();
     %>
-    <div class="day-group">
+    <div class="day-group" data-date="<%= day %>">
       <div class="day-header">
         <div class="day-badge">
           <span class="d-num"><%= dayNum %></span>
@@ -883,6 +993,60 @@ function applyClientFilter() {
     else                          { c.classList.add('hidden'); }
   });
   document.getElementById('eventsCount').textContent = visible + ' eventi';
+}
+
+/* ── FILTRI COLLASSABILI ── */
+function toggleFilters() {
+  var btn  = document.getElementById('filterToggleBtn');
+  var wrap = document.getElementById('filterCollapsible');
+  if (!btn || !wrap) return;
+  var isOpen = !wrap.classList.contains('collapsed');
+  if (isOpen) {
+    wrap.classList.add('collapsed');
+    btn.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
+  } else {
+    wrap.classList.remove('collapsed');
+    btn.classList.add('open');
+    btn.setAttribute('aria-expanded', 'true');
+  }
+}
+
+/* ── DAY TABS STICKY ── */
+function setDayTab(dateVal, btnEl) {
+  /* aggiorna stato active delle pill */
+  document.querySelectorAll('.day-tab').forEach(function(b) { b.classList.remove('active'); });
+  if (btnEl) btnEl.classList.add('active');
+
+  /* scroll la pill attiva al centro */
+  if (btnEl) {
+    var scroll = document.getElementById('dayTabsScroll');
+    if (scroll) {
+      var btnLeft   = btnEl.offsetLeft;
+      var btnWidth  = btnEl.offsetWidth;
+      var scrollW   = scroll.offsetWidth;
+      scroll.scrollTo({ left: btnLeft - scrollW / 2 + btnWidth / 2, behavior: 'smooth' });
+    }
+  }
+
+  /* filtra i day-group e gli event-card */
+  var groups = document.querySelectorAll('.day-group');
+  groups.forEach(function(g) {
+    if (!dateVal || g.dataset.date === dateVal) {
+      g.style.display = '';
+    } else {
+      g.style.display = 'none';
+    }
+  });
+
+  /* aggiorna contatore visibile */
+  var visible = 0;
+  document.querySelectorAll('.event-card:not(.hidden)').forEach(function(c) {
+    var grp = c.closest('.day-group');
+    if (!grp || grp.style.display !== 'none') visible++;
+  });
+  var countEl = document.getElementById('eventsCount');
+  if (countEl) countEl.textContent = visible + ' eventi';
 }
 
 /* ── MODALE OSPITI ── */
