@@ -1,6 +1,6 @@
 /**
  * routes/crm.js — Montato automaticamente da server.js via:
- *   require('./routes/crm')(app, db, { requireAuth, requireNotViewer, requireOrganizer, logAction, uploadMemory });
+ * require('./routes/crm')(app, db, { requireAuth, requireNotViewer, requireOrganizer, logAction, uploadMemory });
  */
 const path = require('path');
 const fs   = require('fs');
@@ -46,7 +46,6 @@ module.exports = function(app, db, deps) {
     } catch(e) { res.status(500).json({ error: e.message }); }
   });
 
-
   app.post('/assignment-groups/:id/contacts/:cid/edit', requireAuth, requireNotViewer, async (req, res) => {
     const gid = parseInt(req.params.id, 10), cid = parseInt(req.params.cid, 10);
     const { name, role, email, phone, is_primary } = req.body;
@@ -70,7 +69,6 @@ module.exports = function(app, db, deps) {
       res.json({ ok: true });
     } catch(e) { res.status(500).json({ error: e.message }); }
   });
-
 
   // ═══════════════════════════════ DATI FISCALI ════════════════════════════ //
 
@@ -191,7 +189,6 @@ module.exports = function(app, db, deps) {
     } catch(e) { res.status(500).send(e.message); }
   });
 
-
   app.get('/assignment-groups/:id/documents/:did/preview', requireAuth, async (req, res) => {
     const gid = parseInt(req.params.id, 10), did = parseInt(req.params.did, 10);
     try {
@@ -200,15 +197,9 @@ module.exports = function(app, db, deps) {
       const filePath = path.join(DOCS_DIR, doc.filename);
       const ext = path.extname(doc.original_name || doc.filename).toLowerCase();
       const mimeMap = {
-        '.pdf':  'application/pdf',
-        '.png':  'image/png',
-        '.jpg':  'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.gif':  'image/gif',
-        '.webp': 'image/webp',
-        '.svg':  'image/svg+xml',
-        '.txt':  'text/plain; charset=utf-8',
-        '.csv':  'text/plain; charset=utf-8',
+        '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp',
+        '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8', '.csv': 'text/plain; charset=utf-8',
       };
       const mime = mimeMap[ext] || 'application/octet-stream';
       res.setHeader('Content-Type', mime);
@@ -256,12 +247,9 @@ module.exports = function(app, db, deps) {
     try {
       const group = await qGet('SELECT * FROM assignment_groups WHERE portal_token=? AND portal_enabled=1', [token]);
       if (!group) return res.status(403).json({ error: 'Portale non valido' });
-
-      // Controllo finestra temporale
       const now = new Date().toISOString().slice(0, 16);
-      if (group.portal_open_from && now < group.portal_open_from) return res.status(403).json({ error: 'Portale non ancora aperto' });
+      if (group.portal_open_from  && now < group.portal_open_from)  return res.status(403).json({ error: 'Portale non ancora aperto' });
       if (group.portal_open_until && now > group.portal_open_until) return res.status(403).json({ error: 'Finestra inserimento chiusa' });
-
       const ext = path.extname(req.file.originalname) || '';
       const safeName = 'pdoc_' + group.id + '_' + Date.now() + ext;
       await fs.promises.writeFile(path.join(PORTAL_DOCS_DIR, safeName), req.file.buffer);
@@ -269,7 +257,8 @@ module.exports = function(app, db, deps) {
         'INSERT INTO portal_documents (assignment_group_id, doc_type, filename, original_name) VALUES (?,?,?,?)',
         [group.id, req.body.doc_type || 'altro', safeName, req.file.originalname]
       );
-      logAction(null,'portal_upload_doc','portal_document',group.id,`Documento caricato dal portale del gruppo #${group.id}: ${req.file.originalname}`);
+      logAction(null, 'portal_upload_doc', 'portal_document', group.id,
+        `Documento caricato dal portale del gruppo #${group.id}: ${req.file.originalname}`);
       res.json({ ok: true });
     } catch(e) { res.status(500).json({ error: e.message }); }
   });
@@ -311,25 +300,25 @@ module.exports = function(app, db, deps) {
     try {
       const group = await qGet('SELECT * FROM assignment_groups WHERE portal_token=? AND portal_enabled=1', [token]);
       if (!group) return res.status(403).json({ error: 'Portale non valido' });
-      // Max 3 ticket aperti per stand
       const openCount = await qGet('SELECT COUNT(*) as n FROM support_tickets WHERE assignment_group_id=? AND status="aperto"', [group.id]);
       if (openCount && openCount.n >= 3) return res.status(400).json({ error: 'Massimo 3 richieste aperte contemporaneamente' });
       await qRun(
         'INSERT INTO support_tickets (assignment_group_id, portal_token, subject, message) VALUES (?,?,?,?)',
         [group.id, token, subject.trim(), message.trim()]
       );
-      logAction(null,'portal_open_ticket','support_ticket',group.id,`Ticket aperto dal portale del gruppo #${group.id}: "${subject.trim()}"`);
+      logAction(null, 'portal_open_ticket', 'support_ticket', group.id,
+        `Ticket aperto dal portale del gruppo #${group.id}: "${subject.trim()}"`);
       res.json({ ok: true });
     } catch(e) { res.status(500).json({ error: e.message }); }
   });
 
   app.post('/portale/:token/tickets/:tid/reply', async (req, res) => {
     const token = req.params.token;
-    const tid   = parseInt(req.params.tid, 10);
+    const tid = parseInt(req.params.tid, 10);
     const { message } = req.body;
     if (!message || !message.trim()) return res.status(400).json({ error: 'Messaggio vuoto' });
     try {
-      const group  = await qGet('SELECT * FROM assignment_groups WHERE portal_token=? AND portal_enabled=1', [token]);
+      const group = await qGet('SELECT * FROM assignment_groups WHERE portal_token=? AND portal_enabled=1', [token]);
       if (!group) return res.status(403).json({ error: 'Non autorizzato' });
       const ticket = await qGet('SELECT * FROM support_tickets WHERE id=? AND assignment_group_id=? AND status="aperto"', [tid, group.id]);
       if (!ticket) return res.status(404).json({ error: 'Ticket non trovato o chiuso' });
@@ -337,12 +326,14 @@ module.exports = function(app, db, deps) {
         'INSERT INTO ticket_replies (ticket_id, message, is_admin, author_name) VALUES (?,?,0,?)',
         [tid, message.trim(), group.name]
       );
-      logAction(null,'portal_reply_ticket','support_ticket',tid,`Risposta ticket #${tid} dal portale del gruppo #${group.id}`);
+      logAction(null, 'portal_reply_ticket', 'support_ticket', tid,
+        `Risposta ticket #${tid} dal portale del gruppo #${group.id}`);
       res.json({ ok: true });
     } catch(e) { res.status(500).json({ error: e.message }); }
   });
 
-  // ── PORTALE: aggiunta nominativo ─────────────────────────────────────────────
+  // ── PORTALE: aggiunta nominativo ─────────────────────────────────────────
+  // FIX: parentesi graffe corrette, try/catch completo
   app.post('/api/portale/:token/participants', async (req, res) => {
     const token = req.params.token;
     const { first_name, last_name, role } = req.body;
@@ -356,20 +347,19 @@ module.exports = function(app, db, deps) {
       // Controlla limite max_passes
       if (group.max_passes != null) {
         const cnt = await qGet('SELECT COUNT(*) AS c FROM participants WHERE assignment_group_id=?', [group.id]);
-        if (cnt && cnt.c >= group.max_passes)
+        if (cnt && cnt.c >= group.max_passes) {
           return res.status(400).json({ error: `Limite massimo di ${group.max_passes} nominativi raggiunto.` });
+        }
       }
 
       const result = await new Promise((resolve, reject) => {
         db.run(
-          `INSERT INTO participants (first_name, last_name, role, assignment_group_id)
-           VALUES (?, ?, ?, ?)`,
+          `INSERT INTO participants (first_name, last_name, role, assignment_group_id) VALUES (?, ?, ?, ?)`,
           [first_name.trim(), last_name.trim(), role ? role.trim() : null, group.id],
           function(err) { err ? reject(err) : resolve(this.lastID); }
         );
       });
 
-      // Log azione
       db.run(
         `INSERT INTO action_logs (user_id, action, entity_type, entity_id, details, created_at)
          VALUES (NULL, 'portal_add_participant', 'participant', ?, ?, datetime('now','localtime'))`,
@@ -383,7 +373,8 @@ module.exports = function(app, db, deps) {
     }
   });
 
-  // ── PORTALE: rimozione nominativo ────────────────────────────────────────────
+  // ── PORTALE: rimozione nominativo ────────────────────────────────────────
+  // FIX: parentesi graffe corrette, try/catch completo
   app.post('/api/portale/:token/participants/:pid/delete', async (req, res) => {
     const token = req.params.token;
     const pid   = parseInt(req.params.pid, 10);
@@ -393,13 +384,11 @@ module.exports = function(app, db, deps) {
       );
       if (!group) return res.status(403).json({ error: 'Portale non disponibile' });
 
-      // Verifica che il nominativo appartenga a questo gruppo
       const part = await qGet(
         'SELECT * FROM participants WHERE id=? AND assignment_group_id=?', [pid, group.id]
       );
       if (!part) return res.status(404).json({ error: 'Nominativo non trovato' });
 
-      // Non permettere rimozione se ha già un pass generato
       const hasPass = await qGet(
         `SELECT id FROM passes WHERE participant_id=? AND status NOT IN ('INVALIDATO')`, [pid]
       );
@@ -422,8 +411,7 @@ module.exports = function(app, db, deps) {
     }
   });
 
-
-  // ADMIN — risponde a un ticket
+  // ── ADMIN: risponde a un ticket ───────────────────────────────────────────
   app.post('/admin/tickets/:tid/reply', requireAuth, requireNotViewer, async (req, res) => {
     const tid = parseInt(req.params.tid, 10);
     const { message } = req.body;
@@ -440,7 +428,7 @@ module.exports = function(app, db, deps) {
     } catch(e) { res.status(500).json({ error: e.message }); }
   });
 
-  // ADMIN — chiude ticket
+  // ── ADMIN: chiude ticket ──────────────────────────────────────────────────
   app.post('/admin/tickets/:tid/close', requireAuth, requireNotViewer, async (req, res) => {
     const tid = parseInt(req.params.tid, 10);
     try {
@@ -450,7 +438,7 @@ module.exports = function(app, db, deps) {
     } catch(e) { res.status(500).json({ error: e.message }); }
   });
 
-  // API JSON — tutti i ticket di un gruppo (per la scheda admin)
+  // ── API JSON: tutti i ticket + portal_docs di un gruppo (scheda admin) ───
   app.get('/api/assignment-groups/:id/tickets', requireAuth, async (req, res) => {
     const gid = parseInt(req.params.id, 10);
     try {
