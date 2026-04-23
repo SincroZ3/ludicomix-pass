@@ -3728,7 +3728,7 @@ app.post('/api/visitors/tap', requireAuth, requireCanScan, (req, res) => {
     [area, gate || 'main', direction, userId, edId],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
-      logAction(userId, 'VISITOR_TAP', `${direction} area=${area} gate=${gate}`);
+      // tap già tracciato in visitor_counts — non duplicare su action_logs
       // Ritorna il contatore aggiornato per l'area
       const since = todayMidnight();
       db.get(
