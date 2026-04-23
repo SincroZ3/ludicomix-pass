@@ -694,6 +694,41 @@ router.get('/programma', (req, res) => {
   });
 });
 
+
+// ── PAGINA PUBBLICA OSPITI ──────────────────────────────────────────────────
+router.get('/ospiti', (req, res) => {
+  const { category } = req.query;
+  const selectedCat = category || null;
+
+  db.all(
+    `SELECT gp.*, ag.name AS group_name
+     FROM guest_profiles gp
+     JOIN assignment_groups ag ON ag.id = gp.assignment_group_id
+     WHERE gp.active = 1
+     ORDER BY gp.sort_order ASC, ag.name ASC`,
+    [], (err, guests) => {
+      if (err) { console.error('[Ospiti]', err.message); return res.status(500).send('Errore interno'); }
+
+      // Categorie uniche per filtro
+      const categories = [...new Set(
+        (guests || []).map(g => g.category).filter(Boolean)
+      )].sort();
+
+      // Filtra per categoria se richiesto
+      const filtered = selectedCat
+        ? (guests || []).filter(g => g.category === selectedCat)
+        : (guests || []);
+
+      res.render('agenda/public_guests', {
+        guests:     filtered,
+        categories,
+        filters:    { category: selectedCat },
+        title:      'Ludicomix'
+      });
+    }
+  );
+});
+
 // ── QR CODE che punta al programma pubblico ──────────────────
 router.get('/programma/qr', (req, res) => {
   const baseUrl   = process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`;

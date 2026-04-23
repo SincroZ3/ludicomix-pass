@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ospiti <%= title %></title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; font-size: 15px; background: #f0ede8; color: #1a2744; line-height: 1.55; }
+    a { color: inherit; text-decoration: none; }
+
+    /* ── NAVBAR ── */
+    .navbar {
+      background: #1e2d4e;
+      padding: .6rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 3px solid #f5c842;
+    }
+    .navbar-brand { display: flex; align-items: center; gap: .75rem; }
+    .navbar-brand img { height: auto; width: auto; object-fit: contain; }
+    .navbar-actions { display: flex; gap: .5rem; }
+    .navbar-actions a {
+      display: inline-flex; align-items: center; gap: .35rem;
+      padding: .35rem .85rem; border-radius: 999px;
+      background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2);
+      color: #fff; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+      transition: background .15s;
+    }
+    .navbar-actions a:hover { background: rgba(255,255,255,.2); }
+    .navbar-actions a.active-nav { background: #f5c842; color: #1e2d4e; border-color: #f5c842; }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(175deg, #1e2d4e 0%, #162240 100%);
+      padding: 3rem 1rem 3.5rem;
+      text-align: center; color: #fff;
+    }
+    .hero-eyebrow {
+      display: flex; align-items: center; justify-content: center; gap: .75rem;
+      font-size: .72rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+      color: #aec6e8; margin-bottom: 1.1rem;
+    }
+    .hero-eyebrow::before, .hero-eyebrow::after {
+      content: ''; display: block; height: 1px; width: 60px; background: rgba(174,198,232,.4);
+    }
+    .hero h1 {
+      font-size: clamp(2.6rem, 7vw, 5rem);
+      font-style: italic; font-weight: 800; color: #f5f0e8;
+      letter-spacing: -.5px; line-height: 1.05; margin-bottom: .9rem;
+    }
+    .hero-sub { font-size: .95rem; color: #aec6e8; max-width: 500px; margin: 0 auto; line-height: 1.6; }
+
+    /* ── CONTAINER ── */
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 1rem; }
+
+    /* ── FILTER ── */
+    .filter-wrap { padding: 1.5rem 0 .75rem; }
+    .filter-toggle-btn {
+      display: none;
+      width: 100%; padding: .65rem 1rem;
+      background: #fff; border: 1px solid #d1d9e6; border-radius: 10px;
+      font-size: .9rem; font-weight: 700; color: #1e2d4e;
+      cursor: pointer; text-align: left;
+      box-shadow: 0 1px 4px rgba(30,45,78,.07);
+      justify-content: space-between; align-items: center; gap: .5rem;
+    }
+    .filter-toggle-btn .ftb-arrow { transition: transform .2s; }
+    .filter-toggle-btn.open .ftb-arrow { transform: rotate(180deg); }
+    .filter-collapsible { overflow: hidden; max-height: 1000px; transition: max-height .3s ease, opacity .25s ease; opacity: 1; }
+    .filter-collapsible.collapsed { max-height: 0; opacity: 0; }
+    .filter-card {
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(30,45,78,.10);
+      padding: 1.1rem 1.4rem 1rem;
+    }
+    .filter-row { display: flex; align-items: flex-end; flex-wrap: wrap; gap: .6rem; }
+    .filter-group { display: flex; flex-direction: column; gap: .3rem; flex: 1; min-width: 140px; }
+    .filter-group label { font-size: .63rem; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: #8896ab; }
+    .filter-group select, .filter-group input {
+      padding: .42rem .7rem; border: 1px solid #d1d9e6; border-radius: 6px;
+      font-size: .82rem; color: #1a2744; background: #f8f9fc;
+      appearance: none; -webkit-appearance: none; outline: none; transition: border-color .15s; width: 100%;
+    }
+    .filter-group select:focus, .filter-group input:focus { border-color: #1e2d4e; }
+    .filter-group.search { flex: 2; min-width: 200px; }
+    .filter-actions { display: flex; gap: .4rem; align-items: flex-end; padding-bottom: 1px; }
+    .btn-filtra {
+      padding: .44rem 1.2rem; background: #1e2d4e; color: #f5c842;
+      border: none; border-radius: 6px; font-size: .8rem; font-weight: 700;
+      cursor: pointer; text-transform: uppercase; letter-spacing: .4px; transition: background .15s;
+    }
+    .btn-filtra:hover { background: #162240; }
+    .btn-reset {
+      padding: .44rem 1rem; background: transparent; color: #8896ab;
+      border: 1px solid #d1d9e6; border-radius: 6px; font-size: .8rem; font-weight: 600;
+      cursor: pointer; text-decoration: none; display: inline-block; transition: border-color .15s;
+    }
+    .btn-reset:hover { border-color: #8896ab; color: #1a2744; }
+    .guests-count { margin-top: .75rem; font-size: .78rem; font-weight: 700; color: #8896ab; text-transform: uppercase; letter-spacing: .4px; }
+
+    /* ── CATEGORY TABS STICKY ── */
+    .cat-tabs-wrap {
+      position: sticky; top: 0; z-index: 100;
+      background: #f0ede8;
+      padding: .5rem 0 .4rem;
+      border-bottom: 1px solid #e2e8f0;
+      margin-bottom: .5rem;
+    }
+    .cat-tabs-scroll {
+      display: flex; gap: .45rem;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      scrollbar-width: none; padding: 0 1rem;
+    }
+    .cat-tabs-scroll::-webkit-scrollbar { display: none; }
+    .cat-tab {
+      flex-shrink: 0; padding: .38rem .9rem;
+      border-radius: 999px; border: 1.5px solid #d1d9e6;
+      background: #fff; font-size: .78rem; font-weight: 700;
+      color: #4a5568; cursor: pointer; white-space: nowrap;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .cat-tab:hover  { border-color: #1e2d4e; color: #1e2d4e; }
+    .cat-tab.active { background: #1e2d4e; color: #f5c842; border-color: #1e2d4e; }
+
+    /* ── GUEST CARDS — PORTRAIT ── */
+    .guests-wrap {
+      padding: .75rem 0 2.5rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+    .guest-card {
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 4px rgba(30,45,78,.07);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      cursor: pointer;
+      transition: box-shadow .15s, transform .1s;
+    }
+    .guest-card:hover { box-shadow: 0 6px 20px rgba(30,45,78,.15); transform: translateY(-2px); }
+    .guest-card.hidden { display: none; }
+
+    /* Foto portrait — quadrata in cima */
+    .gc-photo {
+      width: 100%; aspect-ratio: 1 / 1;
+      overflow: hidden;
+      background: linear-gradient(135deg,#e8eaf6,#c5cae9);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .gc-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .gc-photo-placeholder { font-size: 3rem; }
+
+    /* Corpo sotto la foto */
+    .gc-body {
+      padding: .8rem 1rem 1rem;
+      display: flex; flex-direction: column; flex: 1;
+    }
+    .gc-cat {
+      font-size: .62rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .5px; color: #6b3fa0; margin-bottom: .2rem;
+    }
+    .gc-name { font-size: .97rem; font-weight: 800; color: #1a2744; margin-bottom: .3rem; line-height: 1.25; }
+    .gc-bio {
+      font-size: .79rem; color: #718096; line-height: 1.5;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+      flex: 1;
+    }
+    .gc-links { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .6rem; }
+    .gc-link {
+      display: inline-flex; align-items: center; gap: .25rem;
+      font-size: .68rem; color: #6b3fa0; background: #f3eeff;
+      border-radius: 99px; padding: .2rem .6rem; text-decoration: none;
+      transition: background .15s;
+    }
+    .gc-link:hover { background: #e4d5ff; }
+
+    /* CTA nascosto in portrait (tutta la card è cliccabile) */
+    .gc-cta { display: none; }
+    .gc-arrow { display: none; }
+
+    /* ── MODALE OSPITE ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(20,30,60,.55); backdrop-filter: blur(3px);
+      z-index: 1000; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: #fff; border-radius: 16px; padding: 2rem;
+      max-width: 460px; width: 100%;
+      box-shadow: 0 20px 60px rgba(20,30,60,.25);
+      position: relative; max-height: 90vh; overflow-y: auto;
+    }
+    .modal-close {
+      position: absolute; top: 1rem; right: 1rem;
+      background: #f0f4ff; border: none; border-radius: 50%;
+      width: 32px; height: 32px; font-size: 1.1rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; color: #4a5568;
+    }
+    .modal-close:hover { background: #e4d5ff; }
+    .guest-modal-photo { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; display: block; margin: 0 auto 1rem; border: 3px solid #e8ecf3; }
+    .guest-modal-photo-placeholder { width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg,#e8eaf6,#c5cae9); display: flex; align-items: center; justify-content: center; font-size: 2.8rem; margin: 0 auto 1rem; }
+    .guest-modal-name { text-align: center; font-size: 1.2rem; font-weight: 700; color: #1a2744; margin-bottom: .3rem; }
+    .guest-modal-cat  { text-align: center; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #6b3fa0; margin-bottom: .8rem; }
+    .guest-modal-bio  { font-size: .87rem; color: #4a5568; line-height: 1.6; }
+    .guest-modal-links { display: flex; gap: .6rem; justify-content: center; flex-wrap: wrap; margin-top: .9rem; }
+    .guest-modal-link { display: inline-flex; align-items: center; gap: .3rem; font-size: .8rem; color: #6b3fa0; text-decoration: none; background: #f3eeff; border-radius: 99px; padding: .3rem .8rem; }
+    .guest-modal-link:hover { background: #e4d5ff; }
+
+    /* ── EMPTY STATE ── */
+    .empty-state { text-align: center; padding: 4rem 1rem; color: #8896ab; }
+    .empty-state .empty-icon { font-size: 3rem; margin-bottom: .75rem; }
+
+    /* ── FOOTER ── */
+    .footer {
+      text-align: center; padding: 1.5rem 1rem;
+      color: #8896ab; font-size: .75rem;
+      border-top: 1px solid #e2e8f0; margin-top: 1rem;
+    }
+
+    /* ── MOBILE ── */
+    @media (max-width: 640px) {
+      .filter-toggle-btn { display: flex; margin-bottom: .5rem; }
+      .filter-collapsible.collapsed { max-height: 0; opacity: 0; }
+      .cat-tabs-wrap { display: block; }
+      .hero { padding: 2rem 1rem 2.2rem; }
+      .hero h1 { font-size: clamp(2rem, 9vw, 3rem); }
+      .navbar { padding: .4rem .9rem; }
+      .guests-wrap { grid-template-columns: repeat(2, 1fr); gap: .65rem; }
+      .gc-name { font-size: .88rem; }
+      .gc-bio { -webkit-line-clamp: 2; }
+    }
+    @media (min-width: 641px) {
+      .cat-tabs-wrap { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <div class="navbar-brand">
+    <img src="/ciuco.png" alt="Ludicomix" style="height:60px;width:auto;max-width:64px;object-fit:contain;mix-blend-mode:screen">
+    <img src="/logo-ludi.png" alt="Ludicomix" style="height:52px;width:auto;object-fit:contain;margin-left:.4rem;mix-blend-mode:screen">
+  </div>
+  <div class="navbar-actions">
+    <a href="/ospiti" class="active-nav">🎤 Ospiti</a>
+    <a href="/programma">📅 Programma</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-eyebrow">Ludicomix &mdash; Edizione 2026</div>
+  <h1>Gli Ospiti</h1>
+  <p class="hero-sub">Tutti gli ospiti, relatori e special guest della manifestazione.</p>
+</section>
+
+<!-- FILTERS -->
+<div class="container">
+  <div class="filter-wrap">
+    <button class="filter-toggle-btn" id="filterToggleBtn" onclick="toggleFilters()" aria-expanded="false" aria-controls="filterCollapsible">
+      <span>🔍 Filtra &amp; Cerca</span>
+      <span class="ftb-arrow">▼</span>
+    </button>
+    <div class="filter-collapsible collapsed" id="filterCollapsible">
+      <div class="filter-card">
+        <div class="filter-row">
+          <div class="filter-group">
+            <label>Tutte le categorie</label>
+            <select id="filterCat" onchange="applyFilter()">
+              <option value="">Tutte le categorie</option>
+              <% categories.forEach(function(c) { %>
+              <option value="<%= c %>" <%= filters.category === c ? 'selected' : '' %>><%= c %></option>
+              <% }); %>
+            </select>
+          </div>
+          <div class="filter-group search">
+            <label>Cerca ospite&hellip;</label>
+            <input type="text" id="filterSearch" placeholder="Cerca per nome o bio..." oninput="applyFilter()">
+          </div>
+        </div>
+        <div class="guests-count" id="guestsCount"><%= guests.length %> ospiti</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CATEGORY TABS (mobile sticky) -->
+<% if (categories.length > 1) { %>
+<div class="cat-tabs-wrap" id="catTabsWrap">
+  <div class="cat-tabs-scroll" id="catTabsScroll">
+    <button class="cat-tab active" onclick="setCatTab('', this)">Tutti</button>
+    <% categories.forEach(function(c) { %>
+    <button class="cat-tab" onclick="setCatTab('<%= c %>', this)" data-cat="<%= c %>"><%= c %></button>
+    <% }); %>
+  </div>
+</div>
+<% } %>
+
+<!-- GUEST LIST -->
+<div class="container">
+  <div class="guests-wrap">
+    <% if (guests.length === 0) { %>
+    <div class="empty-state">
+      <div class="empty-icon">🎤</div>
+      <p>Nessun ospite disponibile al momento.</p>
+    </div>
+    <% } else { %>
+    <% guests.forEach(function(g) { %>
+    <div class="guest-card"
+         data-name="<%= (g.name || g.group_name || '').toLowerCase() %>"
+         data-bio="<%= (g.bio || '').toLowerCase() %>"
+         data-cat="<%= (g.category || '').toLowerCase() %>"
+         onclick="openGuestModal(<%= g.assignment_group_id %>)">
+
+      <div class="gc-photo">
+        <% if (g.photo_url) { %>
+          <img src="<%= g.photo_url %>" alt="<%= g.name || g.group_name %>" loading="lazy">
+        <% } else { %>
+          <div class="gc-photo-placeholder">🎤</div>
+        <% } %>
+      </div>
+
+      <div class="gc-body">
+        <% if (g.category) { %><div class="gc-cat"><%= g.category %></div><% } %>
+        <div class="gc-name"><%= g.name || g.group_name %></div>
+        <% if (g.bio) { %><div class="gc-bio"><%= g.bio %></div><% } %>
+        <div class="gc-links">
+          <% if (g.website) { %>
+            <a href="<%= g.website %>" target="_blank" rel="noopener" class="gc-link" onclick="event.stopPropagation()">🌐 Sito web</a>
+          <% } %>
+          <% if (g.social_instagram) { %>
+            <a href="https://instagram.com/<%= g.social_instagram.replace('@','') %>" target="_blank" rel="noopener" class="gc-link" onclick="event.stopPropagation()">📷 @<%= g.social_instagram.replace('@','') %></a>
+          <% } %>
+        </div>
+      </div>
+
+      <div class="gc-cta"><span class="gc-arrow">›</span></div>
+    </div>
+    <% }); %>
+    <% } %>
+  </div>
+</div>
+
+<!-- MODALE OSPITE -->
+<div class="modal-overlay" id="guestModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal()" aria-label="Chiudi">✕</button>
+    <div id="gmPhoto"></div>
+    <div class="guest-modal-name" id="gmName"></div>
+    <div class="guest-modal-cat"  id="gmCat"></div>
+    <div class="guest-modal-bio"  id="gmBio"></div>
+    <div class="guest-modal-links" id="gmLinks"></div>
+  </div>
+</div>
+
+<footer class="footer">
+  <strong>Ludicomix</strong> &mdash; Per assistenza contatta l&rsquo;organizzazione
+</footer>
+
+<script>
+/* ── DATI OSPITI ── */
+var GUESTDATA = {};
+<% guests.forEach(function(g) { %>
+GUESTDATA[<%= g.assignment_group_id %>] = <%- JSON.stringify({
+  id: g.assignment_group_id,
+  name: g.name || g.group_name || '',
+  photo: g.photo_url || '',
+  bio: g.bio || '',
+  category: g.category || '',
+  website: g.website || '',
+  instagram: g.social_instagram || ''
+}) %>;
+<% }); %>
+
+/* ── MODALE ── */
+function openGuestModal(id) {
+  var g = GUESTDATA[id]; if (!g) return;
+  var photoEl = document.getElementById('gmPhoto');
+  if (g.photo) {
+    photoEl.innerHTML = '<img src="' + g.photo + '" alt="' + g.name + '" class="guest-modal-photo" loading="lazy">';
+  } else {
+    photoEl.innerHTML = '<div class="guest-modal-photo-placeholder">🎤</div>';
+  }
+  document.getElementById('gmName').textContent = g.name;
+  document.getElementById('gmCat').textContent  = g.category || '';
+  document.getElementById('gmBio').textContent  = g.bio || '';
+  var links = document.getElementById('gmLinks');
+  links.innerHTML = '';
+  if (g.website) links.innerHTML += '<a href="' + g.website + '" target="_blank" rel="noopener" class="guest-modal-link">🌐 Sito web</a>';
+  if (g.instagram) {
+    var ig = g.instagram.replace(/^@/, '');
+    links.innerHTML += '<a href="https://instagram.com/' + ig + '" target="_blank" rel="noopener" class="guest-modal-link">📷 @' + ig + '</a>';
+  }
+  document.getElementById('guestModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal() {
+  document.getElementById('guestModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+document.getElementById('guestModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+/* ── FILTRI COLLASSABILI ── */
+function toggleFilters() {
+  var btn  = document.getElementById('filterToggleBtn');
+  var wrap = document.getElementById('filterCollapsible');
+  if (!btn || !wrap) return;
+  var isOpen = !wrap.classList.contains('collapsed');
+  if (isOpen) {
+    wrap.classList.add('collapsed'); btn.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
+  } else {
+    wrap.classList.remove('collapsed'); btn.classList.add('open');
+    btn.setAttribute('aria-expanded', 'true');
+  }
+}
+
+/* ── CATEGORY TABS (mobile) ── */
+function setCatTab(catVal, btnEl) {
+  document.querySelectorAll('.cat-tab').forEach(function(b) { b.classList.remove('active'); });
+  if (btnEl) btnEl.classList.add('active');
+  if (btnEl) {
+    var scroll = document.getElementById('catTabsScroll');
+    if (scroll) scroll.scrollTo({ left: btnEl.offsetLeft - scroll.offsetWidth / 2 + btnEl.offsetWidth / 2, behavior: 'smooth' });
+  }
+  /* sync select */
+  var sel = document.getElementById('filterCat');
+  if (sel) sel.value = catVal;
+  applyFilter();
+}
+
+/* ── FILTRO CLIENT-SIDE ── */
+function applyFilter() {
+  var catVal    = (document.getElementById('filterCat')    || {}).value || '';
+  var searchVal = ((document.getElementById('filterSearch') || {}).value || '').toLowerCase().trim();
+  var cards     = document.querySelectorAll('.guest-card');
+  var visible   = 0;
+  cards.forEach(function(c) {
+    var matchCat    = !catVal    || c.dataset.cat === catVal.toLowerCase();
+    var matchSearch = !searchVal || c.dataset.name.includes(searchVal) || c.dataset.bio.includes(searchVal);
+    if (matchCat && matchSearch) { c.classList.remove('hidden'); visible++; }
+    else                         { c.classList.add('hidden'); }
+  });
+  var countEl = document.getElementById('guestsCount');
+  if (countEl) countEl.textContent = visible + ' ospiti';
+}
+</script>
+</body>
+</html>
