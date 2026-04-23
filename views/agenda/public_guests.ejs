@@ -188,9 +188,13 @@
       padding: .8rem 1rem 1rem;
       display: flex; flex-direction: column; flex: 1;
     }
-    .gc-cat {
-      font-size: .62rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: .5px; color: #6b3fa0; margin-bottom: .2rem;
+    .gc-cats { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .3rem; }
+    .gc-cat-tag {
+      display: inline-block;
+      font-size: .6rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .4px; color: #6b3fa0;
+      background: #f3eeff; border-radius: 999px;
+      padding: .15rem .55rem;
     }
     .gc-name { font-size: .97rem; font-weight: 800; color: #1a2744; margin-bottom: .3rem; line-height: 1.25; }
     .gc-bio {
@@ -346,7 +350,7 @@
     <div class="guest-card"
          data-name="<%= (g.name || g.group_name || '').toLowerCase() %>"
          data-bio="<%= (g.bio || '').toLowerCase() %>"
-         data-cat="<%= (g.category || '').toLowerCase() %>"
+         data-cat="<%= (g.category || '').split(',').map(function(c){return c.trim().toLowerCase();}).join('|') %>"
          onclick="openGuestModal(<%= g.assignment_group_id %>)">
 
       <div class="gc-photo">
@@ -358,7 +362,13 @@
       </div>
 
       <div class="gc-body">
-        <% if (g.category) { %><div class="gc-cat"><%= g.category %></div><% } %>
+        <% if (g.category) { %>
+          <div class="gc-cats">
+            <% g.category.split(',').map(function(c){return c.trim();}).filter(Boolean).forEach(function(cat){ %>
+              <span class="gc-cat-tag"><%= cat %></span>
+            <% }); %>
+          </div>
+        <% } %>
         <div class="gc-name"><%= g.name || g.group_name %></div>
         <% if (g.bio) { %><div class="gc-bio"><%= g.bio %></div><% } %>
         <div class="gc-links">
@@ -476,7 +486,7 @@ function applyFilter() {
   var cards     = document.querySelectorAll('.guest-card');
   var visible   = 0;
   cards.forEach(function(c) {
-    var matchCat    = !catVal    || c.dataset.cat === catVal.toLowerCase();
+    var matchCat    = !catVal    || c.dataset.cat.split('|').includes(catVal.toLowerCase());
     var matchSearch = !searchVal || c.dataset.name.includes(searchVal) || c.dataset.bio.includes(searchVal);
     if (matchCat && matchSearch) { c.classList.remove('hidden'); visible++; }
     else                         { c.classList.add('hidden'); }

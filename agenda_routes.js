@@ -709,14 +709,17 @@ router.get('/ospiti', (req, res) => {
     [], (err, guests) => {
       if (err) { console.error('[Ospiti]', err.message); return res.status(500).send('Errore interno'); }
 
-      // Categorie uniche per filtro
+      // Categorie uniche per filtro — split per virgola
       const categories = [...new Set(
-        (guests || []).map(g => g.category).filter(Boolean)
+        (guests || [])
+          .flatMap(g => (g.category || '').split(',').map(c => c.trim()).filter(Boolean))
       )].sort();
 
-      // Filtra per categoria se richiesto
+      // Filtra per categoria se richiesto (un ospite può averne più di una)
       const filtered = selectedCat
-        ? (guests || []).filter(g => g.category === selectedCat)
+        ? (guests || []).filter(g =>
+            (g.category || '').split(',').map(c => c.trim()).includes(selectedCat)
+          )
         : (guests || []);
 
       res.render('agenda/public_guests', {
