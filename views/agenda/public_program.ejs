@@ -619,7 +619,7 @@
          const dayMon  = dayDate.toLocaleDateString('it-IT',{month:'short'}).toUpperCase().replace('.','');
          const dayFull = dayDate.toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).toUpperCase();
     %>
-    <div class="day-group" data-date="<%= day %>">
+    <div class="day-group" data-date="<%= date %>">
       <div class="day-header">
         <div class="day-badge">
           <span class="d-num"><%= dayNum %></span>
