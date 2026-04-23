@@ -3716,7 +3716,7 @@ const VISITOR_AREAS = {
 };
 
 // Registra un singolo tap (IN o OUT)
-app.post('/api/visitors/tap', requireAuth, requireNotViewer, (req, res) => {
+app.post('/api/visitors/tap', requireAuth, requireCanScan, (req, res) => {
   const { area, gate = 'main', direction } = req.body;
   if (!area || !['IN','OUT'].includes(direction)) {
     return res.status(400).json({ error: 'area e direction (IN/OUT) richiesti' });
@@ -3750,7 +3750,7 @@ app.post('/api/visitors/tap', requireAuth, requireNotViewer, (req, res) => {
 });
 
 // Presenze live per tutte le aree
-app.get('/api/visitors/live', requireAuth, (req, res) => {
+app.get('/api/visitors/live', requireAuth, requireCanScan, (req, res) => {
   const since = todayMidnight();
   const edId  = (_currentEdition && _currentEdition.id) ? _currentEdition.id : null;
   db.all(
@@ -3791,7 +3791,7 @@ app.get('/api/visitors/live', requireAuth, (req, res) => {
 });
 
 // Storico orario per una singola area
-app.get('/api/visitors/history/:area', requireAuth, (req, res) => {
+app.get('/api/visitors/history/:area', requireAuth, requireCanScan, (req, res) => {
   const since = todayMidnight();
   const edId  = (_currentEdition && _currentEdition.id) ? _currentEdition.id : null;
   db.all(
