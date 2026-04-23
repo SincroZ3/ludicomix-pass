@@ -3436,7 +3436,7 @@ async function triggerBatchPassOnClose(groupId) {
       // Trigger batch pass alla prima chiusura finestra
       if (group.portal_status !== 'scaduto') {
         triggerBatchPassOnClose(group.id).catch(e => console.error('[batchClose]', e.message));
-        try { await dbRun(`UPDATE assignmentgroups SET portal_status='scaduto' WHERE id=?`, group.id); } catch(e2) {}
+        try { await dbRun(`UPDATE assignment_groups SET portal_status='scaduto' WHERE id=?`, group.id); } catch(e2) {}
       }
       const dtC = new Date(group.portal_open_until).toLocaleString('it-IT', { dateStyle: 'long', timeStyle: 'short' });
       return res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
@@ -3560,6 +3560,10 @@ async function triggerBatchPassOnClose(groupId) {
       }
       // ── Fine CRM ─────────────────────────────────────────────
 
+      const _now2 = new Date().toISOString().slice(0, 16);
+      const windowClosed = !!(group.portal_open_until && _now2 > group.portal_open_until);
+      const windowUntil  = group.portal_open_until || null;
+
       res.render('portale', {
         group,
         parts:        parts       || [],
@@ -3573,6 +3577,8 @@ async function triggerBatchPassOnClose(groupId) {
         mapRefH:      (refHRow && refHRow.value) ? parseInt(refHRow.value,10) : null,
         portalDocs:   portalDocs  || [],
         tickets:      ticketsRaw  || [],
+        windowClosed,
+        windowUntil,
       });
     } catch(err) {
       console.error('Errore GET /portale/:token:', err);
