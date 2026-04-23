@@ -446,8 +446,11 @@
       .navbar { padding: .4rem .9rem; }
     }
     @media (min-width: 641px) {
-      /* Day tabs nascosti su desktop (si usa la select) */
+      /* Day tabs nascosti su desktop */
       .day-tabs-wrap { display: none; }
+      /* Filtri sempre visibili su desktop, ignora classe collapsed */
+      .filter-collapsible { max-height: none !important; opacity: 1 !important; overflow: visible !important; }
+      .filter-toggle-btn { display: none !important; }
     }
   </style>
 </head>
