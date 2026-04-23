@@ -193,9 +193,15 @@
       border-top: 1px solid #e2e8f0; margin-top: 1rem;
     }
 
-    /* ── OSPITI IN EVIDENZA ── */
+    /* ── OSPITI IN EVIDENZA — CAROUSEL ── */
     .guests-featured-wrap { padding: 1rem 0 .5rem; }
-    .guest-cards-grid { display:flex; flex-wrap:wrap; gap:1rem; margin-top:.8rem; }
+    .guest-carousel-outer { position:relative; }
+    .guest-viewport { overflow:hidden; border-radius:12px; }
+    .guest-cards-grid {
+      display:flex; gap:1rem; margin-top:.8rem;
+      transition:transform .4s cubic-bezier(.25,.46,.45,.94);
+      will-change:transform;
+    }
     .guest-fc {
       flex: 0 0 calc(25% - .75rem);
       background:#fff;
@@ -215,6 +221,7 @@
     .guest-fc-bio  { font-size:.8rem; color:#4b5563; line-height:1.45; margin-top:.25rem; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
     @media(max-width:900px) { .guest-fc { flex: 0 0 calc(50% - .5rem); } }
     @media(max-width:600px) { .guest-fc { flex: 0 0 100%; } }
+    .guest-dots { display:flex; justify-content:center; gap:.45rem; margin-top:.75rem; }
 
     /* ── MODALE OSPITI ── */
     #guestModal .modal-box { max-width: 420px; }
@@ -396,22 +403,29 @@
     <div class="featured-header">
       <span class="featured-label">🎤 Ospiti in evidenza</span>
     </div>
-    <div class="guest-cards-grid">
-      <% featuredGuests.forEach(function(g) { %>
-      <div class="guest-fc" onclick="openGuestModal(<%= g.assignment_group_id %>)" data-gid="<%= g.assignment_group_id %>">
-        <% if (g.photo_url) { %>
-          <img src="<%= g.photo_url %>" alt="<%= g.group_name %>" class="guest-fc-img" loading="lazy">
-        <% } else { %>
-          <div class="guest-fc-img-placeholder">🎤</div>
-        <% } %>
-        <div class="guest-fc-body">
-          <div class="guest-fc-name"><%= g.group_name %></div>
-          <% if (g.category) { %><div class="guest-fc-cat"><%= g.category %></div><% } %>
-          <% if (g.bio) { %><div class="guest-fc-bio"><%= g.bio %></div><% } %>
+    <div class="guest-carousel-outer" id="guestOuter">
+      <button class="carousel-btn prev" id="guestPrev" onclick="guestSlide(-1)" aria-label="Precedente">&#8592;</button>
+      <div class="guest-viewport" id="guestViewport">
+        <div class="guest-cards-grid" id="guestTrack">
+          <% featuredGuests.forEach(function(g) { %>
+          <div class="guest-fc" onclick="openGuestModal(<%= g.assignment_group_id %>)" data-gid="<%= g.assignment_group_id %>">
+            <% if (g.photo_url) { %>
+              <img src="<%= g.photo_url %>" alt="<%= g.group_name %>" class="guest-fc-img" loading="lazy">
+            <% } else { %>
+              <div class="guest-fc-img-placeholder">🎤</div>
+            <% } %>
+            <div class="guest-fc-body">
+              <div class="guest-fc-name"><%= g.group_name %></div>
+              <% if (g.category) { %><div class="guest-fc-cat"><%= g.category %></div><% } %>
+              <% if (g.bio) { %><div class="guest-fc-bio"><%= g.bio %></div><% } %>
+            </div>
+          </div>
+          <% }); %>
         </div>
       </div>
-      <% }); %>
+      <button class="carousel-btn next" id="guestNext" onclick="guestSlide(1)" aria-label="Successivo">&#8594;</button>
     </div>
+    <div class="guest-dots" id="guestDots"></div>
   </div>
 </div>
 <% } %>
@@ -682,6 +696,7 @@ document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { clo
   var cards    = track.querySelectorAll('.featured-card');
   var total    = cards.length;
   var current  = 0;
+  var autoTimer = null;
 
   function getVisible() {
     var w = viewport ? viewport.offsetWidth : window.innerWidth;
@@ -692,7 +707,7 @@ document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { clo
 
   function getCardWidth() {
     if (!cards[0]) return 0;
-    return cards[0].offsetWidth + 16; /* gap=1rem=16px */
+    return cards[0].offsetWidth + 16;
   }
 
   function maxIndex() { return Math.max(0, total - getVisible()); }
@@ -704,11 +719,9 @@ document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { clo
     track.style.transform = 'translateX(-' + (current * getCardWidth()) + 'px)';
     if (btnPrev) btnPrev.disabled = current === 0;
     if (btnNext) btnNext.disabled = current >= max;
-    /* show/hide arrows only when needed */
     var needArrows = total > vis;
     if (btnPrev) btnPrev.style.display = needArrows ? '' : 'none';
     if (btnNext) btnNext.style.display = needArrows ? '' : 'none';
-    /* dots */
     if (dotsWrap) {
       dotsWrap.innerHTML = '';
       if (needArrows) {
@@ -717,7 +730,7 @@ document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { clo
             var d = document.createElement('button');
             d.className = 'c-dot' + (idx === current ? ' active' : '');
             d.setAttribute('aria-label', 'Vai a ' + (idx+1));
-            d.onclick = function() { current = idx; update(); };
+            d.onclick = function() { current = idx; update(); resetAuto(); };
             dotsWrap.appendChild(d);
           })(i);
         }
@@ -725,23 +738,124 @@ document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { clo
     }
   }
 
+  function startAuto() {
+    if (autoTimer) clearInterval(autoTimer);
+    autoTimer = setInterval(function() {
+      current = (current >= maxIndex()) ? 0 : current + 1;
+      update();
+    }, 5000);
+  }
+
+  function resetAuto() { startAuto(); }
+
   window.featSlide = function(dir) {
     current += dir;
     update();
+    resetAuto();
   };
 
-  /* Make cards open modal */
+  /* Pausa su hover/touch */
+  var outer = document.getElementById('featuredOuter');
+  if (outer) {
+    outer.addEventListener('mouseenter', function() { if (autoTimer) clearInterval(autoTimer); });
+    outer.addEventListener('mouseleave', startAuto);
+    outer.addEventListener('touchstart', function() { if (autoTimer) clearInterval(autoTimer); }, { passive: true });
+    outer.addEventListener('touchend', function() { resetAuto(); }, { passive: true });
+  }
+
   cards.forEach(function(card) {
     card.addEventListener('click', function(e) {
       if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') return;
-      var fi = parseInt(card.dataset.fi, 10);
-      var evCards = document.querySelectorAll('.event-card');
-      /* find id from EVDATA matching featured index - use data embedded in card if available */
     });
   });
 
   window.addEventListener('resize', function() { update(); });
   update();
+  startAuto();
+})();
+
+/* ── GUEST CAROUSEL ── */
+(function() {
+  var track    = document.getElementById('guestTrack');
+  var viewport = document.getElementById('guestViewport');
+  var dotsWrap = document.getElementById('guestDots');
+  var btnPrev  = document.getElementById('guestPrev');
+  var btnNext  = document.getElementById('guestNext');
+  if (!track) return;
+
+  var cards    = track.querySelectorAll('.guest-fc');
+  var total    = cards.length;
+  var current  = 0;
+  var autoTimer = null;
+
+  function getVisible() {
+    var w = viewport ? viewport.offsetWidth : window.innerWidth;
+    if (w <= 600)  return 1;
+    if (w <= 900)  return 2;
+    return 4;
+  }
+
+  function getCardWidth() {
+    if (!cards[0]) return 0;
+    return cards[0].offsetWidth + 16;
+  }
+
+  function maxIndex() { return Math.max(0, total - getVisible()); }
+
+  function update() {
+    var vis = getVisible();
+    var max = maxIndex();
+    current = Math.max(0, Math.min(current, max));
+    track.style.transform = 'translateX(-' + (current * getCardWidth()) + 'px)';
+    if (btnPrev) btnPrev.disabled = current === 0;
+    if (btnNext) btnNext.disabled = current >= max;
+    var needArrows = total > vis;
+    if (btnPrev) btnPrev.style.display = needArrows ? '' : 'none';
+    if (btnNext) btnNext.style.display = needArrows ? '' : 'none';
+    if (dotsWrap) {
+      dotsWrap.innerHTML = '';
+      if (needArrows) {
+        for (var i = 0; i <= max; i++) {
+          (function(idx) {
+            var d = document.createElement('button');
+            d.className = 'c-dot' + (idx === current ? ' active' : '');
+            d.setAttribute('aria-label', 'Vai a ospite ' + (idx+1));
+            d.onclick = function() { current = idx; update(); resetAuto(); };
+            dotsWrap.appendChild(d);
+          })(i);
+        }
+      }
+    }
+  }
+
+  function startAuto() {
+    if (autoTimer) clearInterval(autoTimer);
+    autoTimer = setInterval(function() {
+      current = (current >= maxIndex()) ? 0 : current + 1;
+      update();
+    }, 4000);
+  }
+
+  function resetAuto() { startAuto(); }
+
+  window.guestSlide = function(dir) {
+    current += dir;
+    update();
+    resetAuto();
+  };
+
+  /* Pausa su hover/touch */
+  var outer = document.getElementById('guestOuter');
+  if (outer) {
+    outer.addEventListener('mouseenter', function() { if (autoTimer) clearInterval(autoTimer); });
+    outer.addEventListener('mouseleave', startAuto);
+    outer.addEventListener('touchstart', function() { if (autoTimer) clearInterval(autoTimer); }, { passive: true });
+    outer.addEventListener('touchend', function() { resetAuto(); }, { passive: true });
+  }
+
+  window.addEventListener('resize', function() { update(); });
+  update();
+  startAuto();
 })();
 
 /* ── FILTRO TIPO (client-side) ── */
