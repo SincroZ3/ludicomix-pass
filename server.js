@@ -2585,7 +2585,7 @@ async function triggerBatchPassOnClose(groupId) {
 
       if (apply_to_all === '1') {
         await dbRun(
-          `UPDATE assignment_groups SET portal_open_from=?, portal_open_until=? WHERE portal_enabled=1 ${edFilter()}`,
+          `UPDATE assignment_groups SET portal_open_from=?, portal_open_until=? WHERE portal_enabled=1${_currentEdition ? ' AND edition_id=' + _currentEdition.id : ''}`,
           [fromVal || null, untilVal || null]
         );
         logAction(req.session.user.id, 'portal_window_all', 'settings', null,
