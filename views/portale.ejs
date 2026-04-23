@@ -1094,8 +1094,8 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
 </div>
 
 <script>
+  var token = '<%= token %>';  // globale — usato da addNominativo, uploadPortalDoc, submitTicket, submitReply
 (function(){
-  var token = '<%= token %>';
   window.__SRV_TOKEN = token; // esposto globalmente per il modulo servizi
   var marked = false;
 
