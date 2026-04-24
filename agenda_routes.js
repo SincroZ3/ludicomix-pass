@@ -695,6 +695,120 @@ router.get('/programma', (req, res) => {
 });
 
 
+
+// ── MAPPA PUBBLICA (dati da DB) ────────────────────────────────────────────
+router.get('/mappa', (req, res) => {
+  db.all(
+    `SELECT * FROM zones WHERE map_active = 1 AND map_lat IS NOT NULL AND map_lng IS NOT NULL
+     ORDER BY sort_order ASC, name ASC`,
+    [], (err, zones) => {
+      if (err) { console.error('[Mappa]', err.message); return res.status(500).send('Errore interno'); }
+      res.render('agenda/public_map', {
+        zones: zones || [],
+        zonesJson: JSON.stringify(zones || []),
+        title: 'Mappa Ludicomix'
+      });
+    }
+  );
+});
+
+// ── ADMIN MAPPA PUBBLICA ────────────────────────────────────────────────────
+const { requireAuth, requireNotViewer, requireAdmin } = (() => {
+  // helper locali per questo router (usa middleware dal server principale via req)
+  return {
+    requireAuth:       (req, res, next) => req.session && req.session.user ? next() : res.redirect('/login'),
+    requireNotViewer:  (req, res, next) => {
+      if (!req.session || !req.session.user) return res.redirect('/login');
+      if (req.session.user.role === 'viewer') return res.status(403).send('Accesso negato');
+      next();
+    },
+    requireAdmin:      (req, res, next) => {
+      if (!req.session || !req.session.user) return res.redirect('/login');
+      if (!['admin','organizer'].includes(req.session.user.role)) return res.status(403).send('Accesso negato');
+      next();
+    }
+  };
+})();
+
+router.get('/admin/mappa-pubblica', requireAuth, requireAdmin, (req, res) => {
+  db.all(`SELECT * FROM zones ORDER BY sort_order ASC, name ASC`, [], (err, zones) => {
+    if (err) return res.status(500).send('Errore DB');
+    res.render('agenda/admin_map', {
+      zones: zones || [],
+      currentUser: req.session.user,
+      flash: req.query.flash || null,
+      title: 'Gestione Mappa Pubblica'
+    });
+  });
+});
+
+router.post('/admin/mappa-pubblica/zone/:id', requireAuth, requireAdmin, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const {
+    map_lat, map_lng, map_zoom, map_label, map_type,
+    map_desc, map_address, map_tags, map_active, map_color
+  } = req.body;
+  db.run(
+    `UPDATE zones SET
+       map_lat=?, map_lng=?, map_zoom=?, map_label=?, map_type=?,
+       map_desc=?, map_address=?, map_tags=?, map_active=?, map_color=?
+     WHERE id=?`,
+    [
+      map_lat  ? parseFloat(map_lat)  : null,
+      map_lng  ? parseFloat(map_lng)  : null,
+      map_zoom ? parseInt(map_zoom)   : 16,
+      map_label  || null,
+      map_type   || 'area',
+      map_desc   || null,
+      map_address|| null,
+      map_tags   || null,
+      map_active === '1' ? 1 : 0,
+      map_color  || null,
+      id
+    ],
+    function(err) {
+      if (err) return res.redirect('/admin/mappa-pubblica?flash=error');
+      res.redirect('/admin/mappa-pubblica?flash=saved');
+    }
+  );
+});
+
+router.post('/admin/mappa-pubblica/zone/:id/delete', requireAuth, requireAdmin, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  // Azzera solo i campi mappa, non cancella la zona (potrebbe avere shift/volontari)
+  db.run(
+    `UPDATE zones SET map_lat=NULL, map_lng=NULL, map_label=NULL, map_type='area',
+     map_desc=NULL, map_address=NULL, map_tags=NULL, map_active=0, map_color=NULL WHERE id=?`,
+    [id], () => res.redirect('/admin/mappa-pubblica?flash=removed')
+  );
+});
+
+router.post('/admin/mappa-pubblica/zone/new', requireAuth, requireAdmin, (req, res) => {
+  const { name, sort_order, map_lat, map_lng, map_zoom, map_label, map_type, map_desc, map_address, map_tags, map_color } = req.body;
+  if (!name) return res.redirect('/admin/mappa-pubblica?flash=error');
+  db.run(
+    `INSERT INTO zones (name, sort_order, map_lat, map_lng, map_zoom, map_label, map_type, map_desc, map_address, map_tags, map_active, map_color)
+     VALUES (?,?,?,?,?,?,?,?,?,?,1,?)`,
+    [
+      name.trim(),
+      parseInt(sort_order) || 0,
+      map_lat   ? parseFloat(map_lat)  : null,
+      map_lng   ? parseFloat(map_lng)  : null,
+      map_zoom  ? parseInt(map_zoom)   : 16,
+      map_label  || name.trim(),
+      map_type   || 'area',
+      map_desc   || null,
+      map_address|| null,
+      map_tags   || null,
+      map_color  || null
+    ],
+    function(err) {
+      if (err) return res.redirect('/admin/mappa-pubblica?flash=error');
+      res.redirect('/admin/mappa-pubblica?flash=created');
+    }
+  );
+});
+
 // ── PAGINA PUBBLICA OSPITI ──────────────────────────────────────────────────
 router.get('/ospiti', (req, res) => {
   const { category } = req.query;

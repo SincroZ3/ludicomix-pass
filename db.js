@@ -983,4 +983,17 @@ db.run(`CREATE TABLE IF NOT EXISTS fiscal_data (
 db.run(`ALTER TABLE equipment ADD COLUMN location TEXT`,        () => {});
 db.run(`ALTER TABLE equipment ADD COLUMN location_custom TEXT`, () => {});
 
+
+// ── Migrazione mappa pubblica — colonne geografiche zones ─────────────────
+db.run(`ALTER TABLE zones ADD COLUMN map_lat      REAL`,                    () => {});
+db.run(`ALTER TABLE zones ADD COLUMN map_lng      REAL`,                    () => {});
+db.run(`ALTER TABLE zones ADD COLUMN map_zoom     INTEGER DEFAULT 16`,      () => {});
+db.run(`ALTER TABLE zones ADD COLUMN map_label    TEXT`,                    () => {});
+db.run(`ALTER TABLE zones ADD COLUMN map_type     TEXT DEFAULT 'area'`,     () => {});
+db.run(`ALTER TABLE zones ADD COLUMN map_desc     TEXT`,                    () => {});
+db.run(`ALTER TABLE zones ADD COLUMN map_address  TEXT`,                    () => {});
+db.run(`ALTER TABLE zones ADD COLUMN map_tags     TEXT`,                    () => {});
+db.run(`ALTER TABLE zones ADD COLUMN map_active   INTEGER DEFAULT 1`,       () => {});
+db.run(`ALTER TABLE zones ADD COLUMN map_color    TEXT`,                    () => {});
+
 module.exports = db;
