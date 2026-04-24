@@ -713,23 +713,6 @@ router.get('/mappa', (req, res) => {
 });
 
 // ── ADMIN MAPPA PUBBLICA ────────────────────────────────────────────────────
-const { requireAuth, requireNotViewer, requireAdmin } = (() => {
-  // helper locali per questo router (usa middleware dal server principale via req)
-  return {
-    requireAuth:       (req, res, next) => req.session && req.session.user ? next() : res.redirect('/login'),
-    requireNotViewer:  (req, res, next) => {
-      if (!req.session || !req.session.user) return res.redirect('/login');
-      if (req.session.user.role === 'viewer') return res.status(403).send('Accesso negato');
-      next();
-    },
-    requireAdmin:      (req, res, next) => {
-      if (!req.session || !req.session.user) return res.redirect('/login');
-      if (!['admin','organizer'].includes(req.session.user.role)) return res.status(403).send('Accesso negato');
-      next();
-    }
-  };
-})();
-
 router.get('/admin/mappa-pubblica', requireAuth, requireAdmin, (req, res) => {
   db.all(`SELECT * FROM zones ORDER BY sort_order ASC, name ASC`, [], (err, zones) => {
     if (err) return res.status(500).send('Errore DB');
