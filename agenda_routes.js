@@ -28,6 +28,18 @@ function requireAuth(req, res, next) {
   res.redirect('/login');
 }
 
+function requireAdmin(req, res, next) {
+  if (!req.session || !req.session.user) return res.redirect('/login');
+  if (!['admin','organizer'].includes(req.session.user.role)) return res.status(403).send('Accesso negato');
+  next();
+}
+
+function requireNotViewer(req, res, next) {
+  if (!req.session || !req.session.user) return res.redirect('/login');
+  if (req.session.user.role === 'viewer') return res.status(403).send('Accesso negato');
+  next();
+}
+
 // ─────────────────────────────────────────────
 // UTILITY — rilevamento conflitti spazio/orario
 // Ritorna array di eventi in conflitto (vuoto = nessun conflitto)
