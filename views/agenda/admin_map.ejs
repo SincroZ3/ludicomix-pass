@@ -175,6 +175,8 @@
             <label>Tipo</label>
             <select name="map_type">
               <option value="area">🎪 Area evento</option>
+              <option value="eventi">🎭 Area eventi</option>
+              <option value="sala">🎤 Sala incontri</option>
               <option value="mostra">🖼️ Mostra</option>
               <option value="extra">⭐ Extra</option>
               <option value="parking">🅿️ Parcheggio</option>
@@ -291,6 +293,8 @@
             <label>Tipo</label>
             <select name="map_type" id="ef_type">
               <option value="area">🎪 Area evento</option>
+              <option value="eventi">🎭 Area eventi</option>
+              <option value="sala">🎤 Sala incontri</option>
               <option value="mostra">🖼️ Mostra</option>
               <option value="extra">⭐ Extra</option>
               <option value="parking">🅿️ Parcheggio</option>
@@ -337,7 +341,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 var ZONES = <%- JSON.stringify(zones) %>;
-var TYPE_COLORS = { area:'#e8372a', mostra:'#1e2d4e', extra:'#6b3fa0', parking:'#1e7ed4', default:'#555' };
+var TYPE_COLORS = { area:'#e8372a', eventi:'#e05c00', sala:'#1a7a4a', mostra:'#1e2d4e', extra:'#6b3fa0', parking:'#1e7ed4', default:'#555' };
 function zColor(z) { return z.map_color || TYPE_COLORS[z.map_type] || TYPE_COLORS.default; }
 
 /* ── MAPPA ADMIN ── */

@@ -737,50 +737,10 @@ router.get('/admin/mappa-pubblica', requireAuth, requireAdmin, (req, res) => {
   });
 });
 
-router.post('/admin/mappa-pubblica/zone/:id', requireAuth, requireAdmin, (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const {
-    map_lat, map_lng, map_zoom, map_label, map_type,
-    map_desc, map_address, map_tags, map_active, map_color
-  } = req.body;
-  db.run(
-    `UPDATE zones SET
-       map_lat=?, map_lng=?, map_zoom=?, map_label=?, map_type=?,
-       map_desc=?, map_address=?, map_tags=?, map_active=?, map_color=?
-     WHERE id=?`,
-    [
-      map_lat  ? parseFloat(map_lat)  : null,
-      map_lng  ? parseFloat(map_lng)  : null,
-      map_zoom ? parseInt(map_zoom)   : 16,
-      map_label  || null,
-      map_type   || 'area',
-      map_desc   || null,
-      map_address|| null,
-      map_tags   || null,
-      map_active === '1' ? 1 : 0,
-      map_color  || null,
-      id
-    ],
-    function(err) {
-      if (err) return res.redirect('/admin/mappa-pubblica?flash=error');
-      res.redirect('/admin/mappa-pubblica?flash=saved');
-    }
-  );
-});
-
-router.post('/admin/mappa-pubblica/zone/:id/delete', requireAuth, requireAdmin, (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  // Azzera solo i campi mappa, non cancella la zona (potrebbe avere shift/volontari)
-  db.run(
-    `UPDATE zones SET map_lat=NULL, map_lng=NULL, map_label=NULL, map_type='area',
-     map_desc=NULL, map_address=NULL, map_tags=NULL, map_active=0, map_color=NULL WHERE id=?`,
-    [id], () => res.redirect('/admin/mappa-pubblica?flash=removed')
-  );
-});
-
+// ✅ ORDINE CRITICO: /new deve stare PRIMA di /:id altrimenti Express cattura 'new' come id
 router.post('/admin/mappa-pubblica/zone/new', requireAuth, requireAdmin, (req, res) => {
   const { name, sort_order, map_lat, map_lng, map_zoom, map_label, map_type, map_desc, map_address, map_tags, map_color } = req.body;
-  if (!name) return res.redirect('/admin/mappa-pubblica?flash=error');
+  if (!name || !name.trim()) return res.redirect('/admin/mappa-pubblica?flash=error');
   db.run(
     `INSERT INTO zones (name, sort_order, map_lat, map_lng, map_zoom, map_label, map_type, map_desc, map_address, map_tags, map_active, map_color)
      VALUES (?,?,?,?,?,?,?,?,?,?,1,?)`,
@@ -790,7 +750,7 @@ router.post('/admin/mappa-pubblica/zone/new', requireAuth, requireAdmin, (req, r
       map_lat   ? parseFloat(map_lat)  : null,
       map_lng   ? parseFloat(map_lng)  : null,
       map_zoom  ? parseInt(map_zoom)   : 16,
-      map_label  || name.trim(),
+      (map_label || name.trim()).substring(0, 4),
       map_type   || 'area',
       map_desc   || null,
       map_address|| null,
@@ -798,8 +758,50 @@ router.post('/admin/mappa-pubblica/zone/new', requireAuth, requireAdmin, (req, r
       map_color  || null
     ],
     function(err) {
-      if (err) return res.redirect('/admin/mappa-pubblica?flash=error');
+      if (err) { console.error('[Mappa/new]', err.message); return res.redirect('/admin/mappa-pubblica?flash=error'); }
       res.redirect('/admin/mappa-pubblica?flash=created');
+    }
+  );
+});
+
+router.post('/admin/mappa-pubblica/zone/:id/delete', requireAuth, requireAdmin, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.redirect('/admin/mappa-pubblica?flash=error');
+  db.run(
+    `UPDATE zones SET map_lat=NULL, map_lng=NULL, map_label=NULL, map_type='area',
+     map_desc=NULL, map_address=NULL, map_tags=NULL, map_active=0, map_color=NULL WHERE id=?`,
+    [id], function(err) {
+      if (err) console.error('[Mappa/delete]', err.message);
+      res.redirect('/admin/mappa-pubblica?flash=removed');
+    }
+  );
+});
+
+router.post('/admin/mappa-pubblica/zone/:id', requireAuth, requireAdmin, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.redirect('/admin/mappa-pubblica?flash=error');
+  const { map_lat, map_lng, map_zoom, map_label, map_type, map_desc, map_address, map_tags, map_active, map_color } = req.body;
+  db.run(
+    `UPDATE zones SET
+       map_lat=?, map_lng=?, map_zoom=?, map_label=?, map_type=?,
+       map_desc=?, map_address=?, map_tags=?, map_active=?, map_color=?
+     WHERE id=?`,
+    [
+      map_lat  ? parseFloat(map_lat)  : null,
+      map_lng  ? parseFloat(map_lng)  : null,
+      map_zoom ? parseInt(map_zoom)   : 16,
+      (map_label || null),
+      map_type   || 'area',
+      map_desc   || null,
+      map_address|| null,
+      map_tags   || null,
+      map_active === '1' ? 1 : 0,
+      map_color  || null,
+      id
+    ],
+    function(err) {
+      if (err) { console.error('[Mappa/update]', err.message); return res.redirect('/admin/mappa-pubblica?flash=error'); }
+      res.redirect('/admin/mappa-pubblica?flash=saved');
     }
   );
 });
