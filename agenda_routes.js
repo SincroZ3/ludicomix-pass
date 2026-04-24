@@ -709,7 +709,7 @@ router.get('/programma', (req, res) => {
 
 
 // ── MAPPA PUBBLICA (dati da DB) ────────────────────────────────────────────
-router.get('/mappa', (req, res) => {
+router.get('/mappa-pubblica', (req, res) => {
   db.all(
     `SELECT * FROM zones WHERE map_active = 1 AND map_lat IS NOT NULL AND map_lng IS NOT NULL
      ORDER BY sort_order ASC, name ASC`,
