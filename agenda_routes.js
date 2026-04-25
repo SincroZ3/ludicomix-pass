@@ -770,10 +770,24 @@ router.post('/admin/mappa-pubblica/zone/new', requireAuth, requireAdmin, (req, r
   });
 });
 
+// ✅ NUOVO: rimozione coordinate senza cancellare la zona
+router.post('/admin/mappa-pubblica/zone/:id/remove-coords', requireAuth, requireAdmin, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.redirect('/admin/mappa-pubblica?flash=error');
+  db.run(
+    `UPDATE zones SET map_lat=NULL, map_lng=NULL, map_label=NULL, map_type='area',
+     map_desc=NULL, map_address=NULL, map_tags=NULL, map_active=0, map_color=NULL WHERE id=?`,
+    [id], function(err) {
+      if (err) console.error('[Mappa/remove-coords]', err.message);
+      res.redirect('/admin/mappa-pubblica?flash=removed');
+    }
+  );
+});
+
+// ✅ FIX: eliminazione definitiva della zona dal database
 router.post('/admin/mappa-pubblica/zone/:id/delete', requireAuth, requireAdmin, (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) return res.redirect('/admin/mappa-pubblica?flash=error');
-  // ✅ FIX: DELETE reale della zona (prima era solo un UPDATE di azzeramento)
   db.run(`DELETE FROM zones WHERE id=?`, [id], function(err) {
     if (err) { console.error('[Mappa/delete]', err.message); return res.redirect('/admin/mappa-pubblica?flash=error'); }
     res.redirect('/admin/mappa-pubblica?flash=deleted');

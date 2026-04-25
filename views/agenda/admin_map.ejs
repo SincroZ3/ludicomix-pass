@@ -390,8 +390,6 @@ ZONES.forEach(function(z) {
   adminMarkers[z.id] = m;
 });
 
-var selectedId = null;
-
 function selectZone(id) {
   var z = ZONES.find(function(x){return x.id===id;});
   if (!z) return;
@@ -498,7 +496,7 @@ function removeCoords() {
   if (!confirm('Rimuovere le coordinate di questa zona dalla mappa pubblica? (la zona rimane in elenco)')) return;
   var form = document.createElement('form');
   form.method = 'POST';
-  form.action = '/admin/mappa-pubblica/zone/'+selectedId+'/delete';
+  form.action = '/admin/mappa-pubblica/zone/'+selectedId+'/remove-coords';
   document.body.appendChild(form);
   form.submit();
 }
@@ -508,9 +506,7 @@ function confirmDelete() {
   if (!selectedId) return;
   var z = ZONES.find(function(x){return x.id===selectedId;});
   var nome = z ? z.name : 'questa zona';
-  if (!confirm('⚠️ Eliminare DEFINITIVAMENTE la zona "' + nome + '"?
-
-Tutti i dati saranno persi e questa azione non può essere annullata.')) return;
+  if (!confirm('⚠️ Eliminare DEFINITIVAMENTE la zona "' + nome + '"?\n\nQuesta azione è irreversibile.')) return;
   document.getElementById('deleteZoneForm').submit();
 }
 
