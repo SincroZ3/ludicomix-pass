@@ -184,6 +184,11 @@
               <option value="mostra">🖼️ Mostra</option>
               <option value="extra">⭐ Extra</option>
               <option value="parking">🅿️ Parcheggio</option>
+              <option value="bagni">🚻 Bagni</option>
+              <option value="biglietteria">🎟️ Biglietteria</option>
+              <option value="trasporti">🚌 Trasporti Pubblici</option>
+              <option value="shop">🛍️ Punti Shop Ludicomix</option>
+              <option value="palco">🎙️ Palchi &amp; Incontri</option>
             </select>
           </div>
           <div class="fgroup">
@@ -315,6 +320,11 @@
               <option value="mostra">🖼️ Mostra</option>
               <option value="extra">⭐ Extra</option>
               <option value="parking">🅿️ Parcheggio</option>
+              <option value="bagni">🚻 Bagni</option>
+              <option value="biglietteria">🎟️ Biglietteria</option>
+              <option value="trasporti">🚌 Trasporti Pubblici</option>
+              <option value="shop">🛍️ Punti Shop Ludicomix</option>
+              <option value="palco">🎙️ Palchi &amp; Incontri</option>
             </select>
           </div>
           <div class="fgroup">
@@ -358,7 +368,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 var ZONES = <%- JSON.stringify(zones) %>;
-var TYPE_COLORS = { area:'#e8372a', eventi:'#e05c00', sala:'#1a7a4a', mostra:'#1e2d4e', extra:'#6b3fa0', parking:'#1e7ed4', default:'#555' };
+var TYPE_COLORS = { area:'#e8372a', eventi:'#e05c00', sala:'#1a7a4a', mostra:'#1e2d4e', extra:'#6b3fa0', parking:'#1e7ed4', bagni:'#0e7490', biglietteria:'#b45309', trasporti:'#0369a1', shop:'#be185d', palco:'#7c3aed', default:'#555' };
 function zColor(z) { return z.map_color || TYPE_COLORS[z.map_type] || TYPE_COLORS.default; }
 
 /* ── MAPPA ADMIN ── */
