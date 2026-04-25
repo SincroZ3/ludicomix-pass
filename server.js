@@ -1737,9 +1737,11 @@ app.get('/home', requireAuth, (req, res) => {
     const id = parseInt(req.params.id, 10);
     const { max_passes, admin_password } = req.body;
     if (!admin_password) return res.status(400).send('Password amministratore obbligatoria.');
-    db.get("SELECT * FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1", [], (err, adminUser) => {
-      if (err || !adminUser) return res.status(500).send('Impossibile verificare password amministratore.');
-      if (!bcrypt.compareSync(admin_password, adminUser.password_hash)) {
+    db.all("SELECT * FROM users WHERE role = 'admin'", [], (err, adminUsers) => {
+      if (err || !adminUsers || !adminUsers.length) return res.status(500).send('Impossibile verificare password amministratore.');
+      // ✅ FIX: accetta la password di qualsiasi utente con ruolo 'admin'
+      const validAdmin = adminUsers.find(u => bcrypt.compareSync(admin_password, u.password_hash));
+      if (!validAdmin) {
         return res.status(403).send('Password amministratore non valida.');
       }
       let newMax = null;
@@ -1903,10 +1905,12 @@ app.get('/home', requireAuth, (req, res) => {
 
         if (force_over_limit === '1' && new_max_passes) {
           // Verifica password admin
-          db.get("SELECT * FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1", [], (err3, adminUser) => {
-            if (err3 || !adminUser) return res.status(500).json({ error: 'Impossibile verificare password' });
+          db.all("SELECT * FROM users WHERE role = 'admin'", [], (err3, adminUsers) => {
+            if (err3 || !adminUsers || !adminUsers.length) return res.status(500).json({ error: 'Impossibile verificare password' });
             const bcrypt = require('bcryptjs');
-            if (!bcrypt.compareSync(admin_password || '', adminUser.password_hash)) {
+            // ✅ FIX: accetta la password di qualsiasi utente con ruolo 'admin'
+            const validAdmin = adminUsers.find(u => bcrypt.compareSync(admin_password || '', u.password_hash));
+            if (!validAdmin) {
               return res.status(403).json({ error: 'Password amministratore non valida' });
             }
             const newMax = parseInt(new_max_passes, 10);
@@ -2585,7 +2589,7 @@ async function triggerBatchPassOnClose(groupId) {
 
       if (apply_to_all === '1') {
         await dbRun(
-          `UPDATE assignment_groups SET portal_open_from=?, portal_open_until=? WHERE portal_enabled=1${_currentEdition ? ' AND edition_id=' + _currentEdition.id : ''}`,
+          `UPDATE assignment_groups SET portal_open_from=?, portal_open_until=? WHERE portal_enabled=1 ${edFilter()}`,
           [fromVal || null, untilVal || null]
         );
         logAction(req.session.user.id, 'portal_window_all', 'settings', null,
@@ -3436,7 +3440,7 @@ async function triggerBatchPassOnClose(groupId) {
       // Trigger batch pass alla prima chiusura finestra
       if (group.portal_status !== 'scaduto') {
         triggerBatchPassOnClose(group.id).catch(e => console.error('[batchClose]', e.message));
-        try { await dbRun(`UPDATE assignment_groups SET portal_status='scaduto' WHERE id=?`, group.id); } catch(e2) {}
+        try { await dbRun(`UPDATE assignmentgroups SET portal_status='scaduto' WHERE id=?`, group.id); } catch(e2) {}
       }
       const dtC = new Date(group.portal_open_until).toLocaleString('it-IT', { dateStyle: 'long', timeStyle: 'short' });
       return res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
@@ -3560,10 +3564,6 @@ async function triggerBatchPassOnClose(groupId) {
       }
       // ── Fine CRM ─────────────────────────────────────────────
 
-      const _now2 = new Date().toISOString().slice(0, 16);
-      const windowClosed = !!(group.portal_open_until && _now2 > group.portal_open_until);
-      const windowUntil  = group.portal_open_until || null;
-
       res.render('portale', {
         group,
         parts:        parts       || [],
@@ -3577,8 +3577,6 @@ async function triggerBatchPassOnClose(groupId) {
         mapRefH:      (refHRow && refHRow.value) ? parseInt(refHRow.value,10) : null,
         portalDocs:   portalDocs  || [],
         tickets:      ticketsRaw  || [],
-        windowClosed,
-        windowUntil,
       });
     } catch(err) {
       console.error('Errore GET /portale/:token:', err);
@@ -3716,7 +3714,7 @@ const VISITOR_AREAS = {
 };
 
 // Registra un singolo tap (IN o OUT)
-app.post('/api/visitors/tap', requireAuth, requireCanScan, (req, res) => {
+app.post('/api/visitors/tap', requireAuth, requireNotViewer, (req, res) => {
   const { area, gate = 'main', direction } = req.body;
   if (!area || !['IN','OUT'].includes(direction)) {
     return res.status(400).json({ error: 'area e direction (IN/OUT) richiesti' });
@@ -3728,7 +3726,7 @@ app.post('/api/visitors/tap', requireAuth, requireCanScan, (req, res) => {
     [area, gate || 'main', direction, userId, edId],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
-      // tap già tracciato in visitor_counts — non duplicare su action_logs
+      logAction(userId, 'VISITOR_TAP', `${direction} area=${area} gate=${gate}`);
       // Ritorna il contatore aggiornato per l'area
       const since = todayMidnight();
       db.get(
@@ -3750,7 +3748,7 @@ app.post('/api/visitors/tap', requireAuth, requireCanScan, (req, res) => {
 });
 
 // Presenze live per tutte le aree
-app.get('/api/visitors/live', requireAuth, requireCanScan, (req, res) => {
+app.get('/api/visitors/live', requireAuth, (req, res) => {
   const since = todayMidnight();
   const edId  = (_currentEdition && _currentEdition.id) ? _currentEdition.id : null;
   db.all(
@@ -3791,7 +3789,7 @@ app.get('/api/visitors/live', requireAuth, requireCanScan, (req, res) => {
 });
 
 // Storico orario per una singola area
-app.get('/api/visitors/history/:area', requireAuth, requireCanScan, (req, res) => {
+app.get('/api/visitors/history/:area', requireAuth, (req, res) => {
   const since = todayMidnight();
   const edId  = (_currentEdition && _currentEdition.id) ? _currentEdition.id : null;
   db.all(
