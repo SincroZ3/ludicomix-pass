@@ -742,8 +742,12 @@ router.post('/admin/mappa-pubblica/zone/new', requireAuth, requireAdmin, (req, r
   const { name, sort_order, map_lat, map_lng, map_zoom, map_label, map_type, map_desc, map_address, map_tags, map_color } = req.body;
   if (!name || !name.trim()) return res.redirect('/admin/mappa-pubblica?flash=error');
   const sortVal = parseInt(sort_order) || 0;
-  // ✅ FIX: controlla sort_order duplicato prima di inserire
-  db.get('SELECT id FROM zones WHERE sort_order = ?', [sortVal], (errChk, existing) => {
+  // Controlla duplicato sort_order solo se > 0 (0 = "non assegnato", non univoco)
+  const doCheckNew = (cb) => {
+    if (sortVal <= 0) return cb(null, null);
+    db.get('SELECT id FROM zones WHERE sort_order = ?', [sortVal], cb);
+  };
+  doCheckNew((errChk, existing) => {
     if (errChk) return res.redirect('/admin/mappa-pubblica?flash=error');
     if (existing) return res.redirect('/admin/mappa-pubblica?flash=order_conflict&order=' + sortVal);
     db.run(
@@ -799,8 +803,12 @@ router.post('/admin/mappa-pubblica/zone/:id', requireAuth, requireAdmin, (req, r
   if (isNaN(id)) return res.redirect('/admin/mappa-pubblica?flash=error');
   const { name, sort_order, map_lat, map_lng, map_zoom, map_label, map_type, map_desc, map_address, map_tags, map_active, map_color } = req.body;
   const sortVal = parseInt(sort_order) || 0;
-  // ✅ FIX: controlla duplicato sort_order escludendo la zona stessa
-  db.get('SELECT id FROM zones WHERE sort_order = ? AND id != ?', [sortVal, id], (errChk, existing) => {
+  // Controlla duplicato sort_order solo se > 0 (0 = "non assegnato", non univoco)
+  const doCheckUpdate = (cb) => {
+    if (sortVal <= 0) return cb(null, null);
+    db.get('SELECT id FROM zones WHERE sort_order = ? AND id != ?', [sortVal, id], cb);
+  };
+  doCheckUpdate((errChk, existing) => {
     if (errChk) return res.redirect('/admin/mappa-pubblica?flash=error');
     if (existing) return res.redirect('/admin/mappa-pubblica?flash=order_conflict&order=' + sortVal + '&id=' + id);
     db.run(
