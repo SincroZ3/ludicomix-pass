@@ -411,6 +411,11 @@
     <button class="ftab" onclick="setFilter('mostra',this)">🖼️ Mostre</button>
     <button class="ftab" onclick="setFilter('extra',this)">⭐ Extra</button>
     <button class="ftab" onclick="setFilter('parking',this)">🅿️ Park</button>
+    <button class="ftab" onclick="setFilter('bagni',this)">🚻 Bagni</button>
+    <button class="ftab" onclick="setFilter('biglietteria',this)">🎟️ Bigliett.</button>
+    <button class="ftab" onclick="setFilter('trasporti',this)">🚌 Trasporti</button>
+    <button class="ftab" onclick="setFilter('shop',this)">🛍️ Shop</button>
+    <button class="ftab" onclick="setFilter('palco',this)">🎙️ Palchi &amp; Incontri</button>
   </div>
   <div class="zone-list" id="drawerZoneList"></div>
 </div>
@@ -448,12 +453,17 @@
 var ZONES = <%- zonesJson %>;
 
 var TYPE_COLORS = {
-  area:    '#e8372a',
-  eventi:  '#e05c00',
-  sala:    '#1a7a4a',
-  mostra:  '#1e2d4e',
-  extra:   '#6b3fa0',
-  parking: '#1e7ed4',
+  area:         '#e8372a',
+  eventi:       '#e05c00',
+  sala:         '#1a7a4a',
+  mostra:       '#1e2d4e',
+  extra:        '#6b3fa0',
+  parking:      '#1e7ed4',
+  bagni:        '#0e7490',
+  biglietteria: '#b45309',
+  trasporti:    '#0369a1',
+  shop:         '#be185d',
+  palco:        '#7c3aed',
   default: '#555'
 };
 function zColor(z) { return z.map_color || TYPE_COLORS[z.map_type] || TYPE_COLORS.default; }
