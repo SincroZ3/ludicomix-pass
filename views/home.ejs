@@ -24,6 +24,17 @@
 .icon-emoji{font-size:1.7rem}
 @keyframes kpi-bump{0%{transform:scale(1)}40%{transform:scale(1.12)}100%{transform:scale(1)}}
 .kpi-bump{animation:kpi-bump .35s ease}
+/* ── Live tabs ── */
+.live-tabs{display:flex;gap:.4rem;margin-bottom:.85rem;overflow-x:auto;scrollbar-width:none;padding-bottom:.1rem}
+.live-tabs::-webkit-scrollbar{display:none}
+.ltab{flex-shrink:0;padding:.35rem .9rem;border-radius:9999px;border:1.5px solid var(--border);background:var(--bg-section);font-size:.75rem;font-weight:700;color:var(--text-muted);cursor:pointer;white-space:nowrap;transition:all .15s}
+.ltab:hover{border-color:#1d6fa4;color:#1d6fa4}
+.ltab.active{background:#1d6fa4;color:#fff;border-color:#1d6fa4}
+.live-panel{display:none}.live-panel.active{display:block}
+/* ── Bottom grid: 2 colonne admin / full altri ── */
+.bottom-row{display:grid;gap:1rem;margin-top:1rem}
+.bottom-row.two-col{grid-template-columns:1fr 1fr}
+@media(max-width:680px){.bottom-row.two-col{grid-template-columns:1fr}}
 </style>
 <% var ps=(stats&&stats.passesByStatus)?stats.passesByStatus:{}; %>
 <% var totCons=(ps['CONSEGNATO']||0)+(ps['RICONSEGNATO']||0); %>
@@ -87,7 +98,69 @@
 </div>
 
 
-<div class="dash-row" style="grid-template-columns:<% if(currentUser&&currentUser.role==='admin'){ %>1fr 1fr<% }else{ %>1fr<% } %>;">
+<!-- Banner chiusura (appare solo quando siamo vicini a un orario critico) -->
+<div id="alert-closing-banner" style="display:none;margin-bottom:1rem;background:rgba(201,162,39,.12);border:1px solid #c9a227;border-radius:var(--radius-md);padding:.7rem 1rem;align-items:flex-start;gap:.5rem;font-size:.85rem;">
+  <span style="font-size:1.1rem;flex-shrink:0">⏰</span>
+  <div id="alert-closing-text"></div>
+</div>
+
+<!-- ── Tab bar LIVE ──────────────────────────────────────────────────── -->
+<div class="live-tabs">
+  <button class="ltab active" onclick="switchLiveTab('presenze',this)">🎡 Presenze live per area</button>
+  <button class="ltab" onclick="switchLiveTab('ingressi',this)">📊 Ingressi per ora</button>
+  <button class="ltab" onclick="switchLiveTab('alert',this)">⚠️ Alert intelligenti</button>
+</div>
+
+<!-- Panel: Presenze live per area -->
+<div class="live-panel active" id="tab-presenze">
+  <div class="dash-box">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.7rem">
+      <% [['mariambini','🎡','Mariambini'],['palazzetto','🏟️','Palazzetto'],['la_perla','🎬','La Perla'],['ludostria','🎲','Ludostria']].forEach(function(a){ %>
+      <div style="background:var(--bg-section);border:1px solid var(--border);border-radius:var(--radius-md);padding:.75rem 1rem;">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:.3rem"><%= a[1] %> <%= a[2] %></div>
+        <div id="pres-<%= a[0] %>" style="font-size:2rem;font-weight:800;color:#1d6fa4;line-height:1;font-variant-numeric:tabular-nums">–</div>
+        <div style="display:flex;gap:.6rem;margin-top:.2rem;font-size:.7rem;font-variant-numeric:tabular-nums">
+          <span style="color:#2d6a4f">↑ <span id="pres-in-<%= a[0] %>">–</span></span>
+          <span style="color:#c9a227">↓ <span id="pres-out-<%= a[0] %>">–</span></span>
+        </div>
+      </div>
+      <% }); %>
+    </div>
+  </div>
+</div>
+
+<!-- Panel: Ingressi per ora -->
+<div class="live-panel" id="tab-ingressi">
+  <div class="dash-box">
+    <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:.4rem;font-size:.65rem;color:var(--text-muted)">
+      <span><span style="display:inline-block;width:8px;height:8px;background:#1d6fa4;border-radius:2px;margin-right:2px"></span>Scan QR</span>
+      <span><span style="display:inline-block;width:8px;height:8px;background:#2d6a4f;border-radius:2px;margin-right:2px"></span>Contatore</span>
+      <span style="margin-left:auto">Totale oggi: <strong id="heatmap-totale">–</strong></span>
+    </div>
+    <div id="heatmap-bars" style="display:flex;align-items:flex-end;gap:2px;height:90px;margin-top:.25rem">
+      <span style="color:var(--text-muted);font-size:.8rem">Nessun dato ancora oggi</span>
+    </div>
+    <div style="font-size:.62rem;color:var(--text-muted);margin-top:.25rem;text-align:center">Ore (08–22)</div>
+  </div>
+</div>
+
+<!-- Panel: Alert intelligenti -->
+<div class="live-panel" id="tab-alert">
+  <div class="dash-box">
+    <div id="scan-anomali-wrap" style="display:none;margin-bottom:.75rem">
+      <div style="font-size:.68rem;font-weight:700;color:#c0392b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.4rem">Scan anomali (&gt;3 volte in 2h)</div>
+      <div id="scan-anomali-list"></div>
+    </div>
+    <div id="pass-nc-wrap" style="display:none">
+      <div style="font-size:.68rem;font-weight:700;color:#c9a227;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.4rem">Pass non ritirati</div>
+      <div id="pass-nc-list"></div>
+    </div>
+    <div id="alert-empty" style="color:var(--text-muted);font-size:.82rem">✅ Nessun alert attivo</div>
+  </div>
+</div>
+
+<!-- ── Sezione inferiore: Attenzione stand (+ Attività recente per admin) ─ -->
+<div class="bottom-row<% if(currentUser&&currentUser.role==='admin'){ %> two-col<% } %>">
   <div class="dash-box">
     <h3>&#128276; Attenzione stand</h3>
     <div id="alert-groups-container">
@@ -118,6 +191,7 @@
       </div>
     <% });} %>
     </div>
+  </div>
   <% if(currentUser&&currentUser.role==='admin'){ %>
   <div class="dash-box">
     <h3>&#128336; Attivit&agrave; recente</h3>
@@ -139,64 +213,18 @@
 </div>
 
 
-<!-- ── NUOVE SEZIONI DASHBOARD LIVE ────────────────────────────────── -->
-
-<!-- Banner chiusura (appare solo quando siamo vicini a un orario critico) -->
-<div id="alert-closing-banner" style="display:none;margin-bottom:1rem;background:rgba(201,162,39,.12);border:1px solid #c9a227;border-radius:var(--radius-md);padding:.7rem 1rem;display:none;align-items:flex-start;gap:.5rem;font-size:.85rem;">
-  <span style="font-size:1.1rem;flex-shrink:0">⏰</span>
-  <div id="alert-closing-text"></div>
-</div>
-
-<!-- Presenze live per area -->
-<div class="dash-box" style="margin-bottom:1rem;">
-  <h3>🎡 Presenze live per area</h3>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.7rem;margin-top:.25rem">
-    <% [['mariambini','🎡','Mariambini'],['palazzetto','🏟️','Palazzetto'],['la_perla','🎬','La Perla'],['ludostria','🎲','Ludostria']].forEach(function(a){ %>
-    <div style="background:var(--bg-section);border:1px solid var(--border);border-radius:var(--radius-md);padding:.75rem 1rem;">
-      <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:.3rem"><%= a[1] %> <%= a[2] %></div>
-      <div id="pres-<%= a[0] %>" style="font-size:2rem;font-weight:800;color:#1d6fa4;line-height:1;font-variant-numeric:tabular-nums">–</div>
-      <div style="display:flex;gap:.6rem;margin-top:.2rem;font-size:.7rem;font-variant-numeric:tabular-nums">
-        <span style="color:#2d6a4f">↑ <span id="pres-in-<%= a[0] %>">–</span></span>
-        <span style="color:#c9a227">↓ <span id="pres-out-<%= a[0] %>">–</span></span>
-      </div>
-    </div>
-    <% }); %>
-  </div>
-</div>
-
-<!-- Heatmap + Alert intelligenti -->
-<div class="dash-row">
-  <!-- Heatmap scan QR oggi -->
-  <div class="dash-box">
-    <h3>📊 Ingressi per ora — oggi</h3>
-    <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:.4rem;font-size:.65rem;color:var(--text-muted)">
-      <span><span style="display:inline-block;width:8px;height:8px;background:#1d6fa4;border-radius:2px;margin-right:2px"></span>Scan QR</span>
-      <span><span style="display:inline-block;width:8px;height:8px;background:#2d6a4f;border-radius:2px;margin-right:2px"></span>Contatore</span>
-      <span style="margin-left:auto">Totale oggi: <strong id="heatmap-totale">–</strong></span>
-    </div>
-    <div id="heatmap-bars" style="display:flex;align-items:flex-end;gap:2px;height:90px;margin-top:.25rem">
-      <span style="color:var(--text-muted);font-size:.8rem">Nessun dato ancora oggi</span>
-    </div>
-    <div style="font-size:.62rem;color:var(--text-muted);margin-top:.25rem;text-align:center">Ore (08–22)</div>
-  </div>
-  <!-- Alert intelligenti -->
-  <div class="dash-box">
-    <h3>⚠️ Alert intelligenti</h3>
-    <div id="scan-anomali-wrap" style="display:none;margin-bottom:.75rem">
-      <div style="font-size:.68rem;font-weight:700;color:#c0392b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.4rem">Scan anomali (&gt;3 volte in 2h)</div>
-      <div id="scan-anomali-list"></div>
-    </div>
-    <div id="pass-nc-wrap" style="display:none">
-      <div style="font-size:.68rem;font-weight:700;color:#c9a227;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.4rem">Pass non ritirati</div>
-      <div id="pass-nc-list"></div>
-    </div>
-    <div id="alert-empty" style="color:var(--text-muted);font-size:.82rem">✅ Nessun alert attivo</div>
-  </div>
-</div>
 
 
 
 <script>
+/* ── Tab switcher live dashboard ── */
+function switchLiveTab(name, btn) {
+  document.querySelectorAll('.live-panel').forEach(function(p){ p.classList.remove('active'); });
+  document.querySelectorAll('.ltab').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+
 (function(){
   var PILL_COLORS={GENERATO:'#6b3fa0',SCARICATO:'#1d6fa4',STAMPATO:'#c9a227',CONSEGNATO:'#2d6a4f',RICONSEGNATO:'#c0392b'};
   var STATI=['GENERATO','SCARICATO','STAMPATO','CONSEGNATO','RICONSEGNATO'];
