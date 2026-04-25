@@ -717,9 +717,9 @@ window.addEventListener('resize', function(){
 (function() {
   if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
 
-  var OVERLAP_PX   = 36;   // distanza pixel sotto cui i marker si considerano sovrapposti
+  var OVERLAP_PX   = 30;   // distanza pixel = overlap visivo reale (icon 32px → raggio 15px × 2)
   var SPIDER_R     = 58;   // raggio cerchio di apertura (pixel)
-  var RESTORE_MS   = 200;  // delay prima di ripristinare (ms)
+  var RESTORE_MS   = 750;  // delay prima di ripristinare — dà tempo di raggiungere i marker
 
   /* CSS: anima il transform dei divIcon — Leaflet usa translate3d */
   var sStyle = document.createElement('style');
@@ -811,10 +811,29 @@ window.addEventListener('resize', function(){
   }
 
   /* Agganciamo eventi dopo che ZONES.forEach ha già creato i marker */
+  /* Distanza pixel tra un punto L.Point e un marker (posizione spiderfied) */
+  function pxDistFromPoint(pt, id) {
+    var mp = map.latLngToContainerPoint(markers[id].getLatLng());
+    return Math.sqrt((pt.x-mp.x)*(pt.x-mp.x)+(pt.y-mp.y)*(pt.y-mp.y));
+  }
+
+  /* mousemove sulla mappa: se il cursore è vicino a un marker spiderfied,
+     annulla il timer di chiusura (permette di attraversare lo spazio vuoto) */
+  map.on('mousemove', function(e) {
+    if (!spideredIds || !restoreTimer) return;
+    var NEAR = SPIDER_R + 18; // margine extra intorno al ventaglio
+    var cursor = map.latLngToContainerPoint(e.latlng);
+    var inside = spideredIds.some(function(id) {
+      return pxDistFromPoint(cursor, id) < NEAR;
+    });
+    if (inside) { clearTimeout(restoreTimer); restoreTimer = null; }
+  });
+
   setTimeout(function() {
     Object.keys(markers).forEach(function(id) {
       markers[id].on('mouseover', function() {
         clearTimeout(restoreTimer);
+        restoreTimer = null;
         var group = findCluster(String(id));
         if (group.length < 2) return;
         spiderfy(group);
