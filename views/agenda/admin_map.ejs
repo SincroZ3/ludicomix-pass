@@ -33,10 +33,12 @@
 
     /* Flash */
     .flash { padding: .6rem 1.2rem; font-size: .82rem; font-weight: 700; text-align: center; }
-    .flash.saved   { background: #d4edda; color: #155724; }
-    .flash.created { background: #cce5ff; color: #004085; }
-    .flash.removed { background: #fff3cd; color: #856404; }
-    .flash.error   { background: #f8d7da; color: #721c24; }
+    .flash.saved         { background: #d4edda; color: #155724; }
+    .flash.created       { background: #cce5ff; color: #004085; }
+    .flash.removed       { background: #fff3cd; color: #856404; }
+    .flash.deleted       { background: #fce8e6; color: #7c1e1e; }
+    .flash.order_conflict{ background: #fff3cd; color: #856404; }
+    .flash.error         { background: #f8d7da; color: #721c24; }
 
     /* Layout a due colonne */
     .layout { display: flex; height: calc(100vh - 58px); }
@@ -143,6 +145,8 @@
   <% if (flash==='saved')   { %>✅ Zona aggiornata con successo.<% } %>
   <% if (flash==='created') { %>✅ Nuova zona creata.<% } %>
   <% if (flash==='removed') { %>⚠️ Coordinate mappa rimosse dalla zona.<% } %>
+  <% if (flash==='deleted') { %>🗑️ Zona eliminata definitivamente.<% } %>
+  <% if (flash==='order_conflict') { %>❌ Il valore <strong>Ordine</strong> è già usato da un'altra zona. Scegli un numero diverso.<% } %>
   <% if (flash==='error')   { %>❌ Errore durante il salvataggio.<% } %>
 </div>
 <% } %>
@@ -243,6 +247,7 @@
       <div class="zone-card-header">
         <div class="zc-badge" style="background:<%= color %>"><%= lbl %></div>
         <div class="zc-name"><%= z.name %></div>
+        <span style="font-size:.6rem;color:#8896ab;flex-shrink:0;margin-right:.2rem">#<%= z.sort_order %></span>
         <span class="badge-type badge-<%= z.map_active ? 'active' : 'inactive' %>">
           <%= z.map_active ? '✓ Vis.' : '✗ Nasc.' %>
         </span>
@@ -266,10 +271,14 @@
       <div class="edit-panel-header">
         <div class="edit-panel-title" id="editPanelTitle">Seleziona una zona</div>
         <div class="edit-panel-actions">
-          <button class="btn-sm btn-danger" id="btnRemoveCoords" onclick="removeCoords()" style="display:none">🗑️ Rimuovi coords</button>
+          <button class="btn-sm btn-success" id="btnSaveEdit" form="editForm" type="submit" style="display:none">💾 Salva</button>
+          <button class="btn-sm btn-danger" id="btnRemoveCoords" onclick="removeCoords()" style="display:none">📍 Rimuovi coords</button>
+          <button class="btn-sm" id="btnDeleteZone" onclick="confirmDelete()" style="display:none;background:#7c1e1e;color:#fff;border:none">🗑️ Elimina zona</button>
           <button class="btn-sm btn-secondary" style="background:#f0f2f7;color:#4a5568" onclick="closeEdit()">✕ Chiudi</button>
         </div>
       </div>
+      <!-- Form nascosto per eliminazione zona -->
+      <form id="deleteZoneForm" method="POST" action="" style="display:none"></form>
 
       <div class="coords-hint" id="coordsHint" style="display:none">
         💡 <strong>Trascina il marker</strong> sulla mappa per aggiornare le coordinate, oppure inseriscile manualmente qui sotto.
@@ -277,6 +286,14 @@
 
       <form id="editForm" method="POST" action="">
         <div class="edit-form-grid">
+          <div class="fgroup full">
+            <label>Nome zona *</label>
+            <input type="text" name="name" id="ef_name" required placeholder="Nome zona">
+          </div>
+          <div class="fgroup">
+            <label>Ordine</label>
+            <input type="number" name="sort_order" id="ef_sort_order" min="0" value="0">
+          </div>
           <div class="fgroup">
             <label>Latitudine</label>
             <input type="number" name="map_lat" id="ef_lat" step="0.000001" placeholder="43.719…">
@@ -440,7 +457,11 @@ function selectZone(id) {
 
   // Popola form edit
   document.getElementById('editPanelTitle').textContent = '✏️ ' + z.name;
-  document.getElementById('editForm').action = '/admin/mappa-pubblica/zone/' + id;
+  document.getElementById('editForm').action   = '/admin/mappa-pubblica/zone/' + id;
+  document.getElementById('deleteZoneForm').action = '/admin/mappa-pubblica/zone/' + id + '/delete';
+  // ✅ FIX: nome e ordine ora modificabili
+  document.getElementById('ef_name').value        = z.name || '';
+  document.getElementById('ef_sort_order').value  = (z.sort_order !== undefined && z.sort_order !== null) ? z.sort_order : 0;
   document.getElementById('ef_lat').value    = z.map_lat  || '';
   document.getElementById('ef_lng').value    = z.map_lng  || '';
   document.getElementById('ef_label').value  = z.map_label || '';
@@ -452,14 +473,17 @@ function selectZone(id) {
   document.getElementById('ef_tags').value   = z.map_tags  || '';
   var activeChk = document.getElementById('ef_active');
   activeChk.checked = z.map_active == 1;
-  // Fix checkbox: quando spuntata manda solo il value="1", altrimenti manda "0" dal hidden
-  activeChk.addEventListener('change', function() {
+  activeChk.onchange = function() {
     document.getElementById('ef_active_hidden').disabled = activeChk.checked;
-  });
+  };
   document.getElementById('ef_active_hidden').disabled = activeChk.checked;
 
+  // ✅ Mostra pulsanti azione (nascosti finché nessuna zona è selezionata)
+  document.getElementById('btnSaveEdit').style.display    = 'inline-flex';
+  document.getElementById('btnRemoveCoords').style.display = z.map_lat ? 'inline-flex' : 'none';
+  document.getElementById('btnDeleteZone').style.display  = 'inline-flex';
+
   document.getElementById('editPanel').classList.add('open');
-  document.getElementById('btnRemoveCoords').style.display = (z.map_lat ? 'inline-flex' : 'none');
   adminMap.invalidateSize();
 }
 
@@ -471,12 +495,23 @@ function closeEdit() {
 
 function removeCoords() {
   if (!selectedId) return;
-  if (!confirm('Rimuovere le coordinate di questa zona dalla mappa pubblica?')) return;
+  if (!confirm('Rimuovere le coordinate di questa zona dalla mappa pubblica? (la zona rimane in elenco)')) return;
   var form = document.createElement('form');
   form.method = 'POST';
   form.action = '/admin/mappa-pubblica/zone/'+selectedId+'/delete';
   document.body.appendChild(form);
   form.submit();
+}
+
+// ✅ NUOVO: eliminazione definitiva zona
+function confirmDelete() {
+  if (!selectedId) return;
+  var z = ZONES.find(function(x){return x.id===selectedId;});
+  var nome = z ? z.name : 'questa zona';
+  if (!confirm('⚠️ Eliminare DEFINITIVAMENTE la zona "' + nome + '"?
+
+Tutti i dati saranno persi e questa azione non può essere annullata.')) return;
+  document.getElementById('deleteZoneForm').submit();
 }
 
 function toggleNewForm() {
