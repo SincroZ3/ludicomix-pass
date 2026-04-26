@@ -1048,14 +1048,26 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
     <div class="sec-card-body">
       <p style="font-size:.82rem;color:var(--muted);margin:.0 0 .75rem">Seleziona il servizio di cui hai bisogno. La richiesta verrà inviata all'organizzazione.</p>
       <div class="srv-type-grid" id="srv-type-grid">
-        <button class="srv-type-btn" data-type="corrente"     onclick="selectSrvType(this)"><span class="ico">⚡</span>Corrente</button>
-        <button class="srv-type-btn" data-type="gazebo"       onclick="selectSrvType(this)"><span class="ico">⛺</span>Gazebo</button>
-        <button class="srv-type-btn" data-type="tavoli_extra" onclick="selectSrvType(this)"><span class="ico">🪑</span>Tavoli</button>
-        <button class="srv-type-btn" data-type="sedie_extra"  onclick="selectSrvType(this)"><span class="ico">🪑</span>Sedie</button>
-        <button class="srv-type-btn" data-type="transenne"    onclick="selectSrvType(this)"><span class="ico">🚧</span>Transenne</button>
-        <button class="srv-type-btn" data-type="altro"        onclick="selectSrvType(this)"><span class="ico">📦</span>Altro</button>
+        <% if(typeof logisticCategories !== 'undefined' && logisticCategories && logisticCategories.length){ %>
+          <% logisticCategories.forEach(function(cat){ %>
+            <button class="srv-type-btn" data-type="<%= cat.key_name %>" data-label="<%= cat.label %>" onclick="selectSrvType(this)">
+              <span class="ico"><%= cat.icon || '📦' %></span><%= cat.label %>
+            </button>
+          <% }); %>
+        <% } else { %>
+          <button class="srv-type-btn" data-type="corrente"     onclick="selectSrvType(this)"><span class="ico">⚡</span>Corrente</button>
+          <button class="srv-type-btn" data-type="gazebo"       onclick="selectSrvType(this)"><span class="ico">⛺</span>Gazebo</button>
+          <button class="srv-type-btn" data-type="tavoli_extra" onclick="selectSrvType(this)"><span class="ico">🪑</span>Tavoli</button>
+          <button class="srv-type-btn" data-type="sedie_extra"  onclick="selectSrvType(this)"><span class="ico">🪑</span>Sedie</button>
+          <button class="srv-type-btn" data-type="transenne"    onclick="selectSrvType(this)"><span class="ico">🚧</span>Transenne</button>
+          <button class="srv-type-btn" data-type="altro"        onclick="selectSrvType(this)"><span class="ico">📦</span>Altro</button>
+        <% } %>
       </div>
       <div class="srv-extra" id="srv-form-extra">
+        <div style="display:flex;flex-direction:column;gap:.3rem;margin-bottom:.6rem">
+          <span class="fld-label">Descrizione articolo <span style="color:#c0392b">*</span></span>
+          <input type="text" id="srv-item-name" placeholder="es. Fissa, Pieghevole, 3x3, Cavi…" class="fld-input" maxlength="80">
+        </div>
         <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end">
           <div style="display:flex;flex-direction:column;gap:.3rem">
             <span class="fld-label">Quantità</span>
@@ -1414,11 +1426,17 @@ var pct = parts.length > 0 ? Math.round(wp.length/parts.length*100) : 0;
 
 // ── Servizi ──────────────────────────────────────────────────────────────────
 var __SRV_TYPE = null;
-var __SRV_LABELS = {
-  corrente:'⚡ Corrente', gazebo:'⛺ Gazebo',
-  tavoli_extra:'🪑 Tavoli', sedie_extra:'🪑 Sedie',
-  transenne:'🚧 Transenne', altro:'📦 Altro'
-};
+var __SRV_LABELS = (function(){
+  var _db = <%- JSON.stringify(
+    (typeof logisticCategories !== 'undefined' && logisticCategories && logisticCategories.length)
+      ? logisticCategories.reduce(function(acc,c){ acc[c.key_name]=(c.icon||'')+(c.icon?' ':'')+c.label; return acc; },{})
+      : {}
+  ) %>;
+  var _leg = { corrente:'⚡ Corrente', gazebo:'⛺ Gazebo',
+               tavoli_extra:'🪑 Tavoli', sedie_extra:'🪑 Sedie',
+               transenne:'🚧 Transenne', altro:'📦 Altro' };
+  return Object.assign({}, _leg, _db);
+})();
 var __SRV_STATUS = {
   in_attesa:{label:'In attesa',cls:'srv-pill-wait'},
   approvato:{label:'Approvato', cls:'srv-pill-ok'},
@@ -1431,9 +1449,24 @@ function selectSrvType(btn) {
   __SRV_TYPE = btn.getAttribute('data-type');
   document.getElementById('srv-form-extra').style.display='block';
   document.getElementById('srv-msg').style.display='none';
+  var iname = document.getElementById('srv-item-name');
+  if(iname){
+    var lbl = btn.getAttribute('data-label') || '';
+    iname.placeholder = 'es. tipo di '+(lbl ? lbl.toLowerCase() : 'articolo')+'…';
+    iname.focus();
+  }
 }
 function submitSrvRequest() {
   if(!__SRV_TYPE) return;
+  var itemNameEl = document.getElementById('srv-item-name');
+  var itemName = itemNameEl ? itemNameEl.value.trim() : '';
+  if(!itemName){
+    var msg=document.getElementById('srv-msg');
+    msg.style.display='block'; msg.className='form-msg err';
+    msg.textContent='❌ Inserisci la descrizione dell'articolo richiesto.';
+    if(itemNameEl) itemNameEl.focus();
+    return;
+  }
   var qty=parseInt(document.getElementById('srv-qty').value,10)||1;
   var notes=document.getElementById('srv-notes').value.trim();
   var btn=document.getElementById('srv-submit-btn');
@@ -1441,7 +1474,7 @@ function submitSrvRequest() {
   btn.disabled=true; btn.textContent='⏳ Invio…';
   fetch('/api/portale/'+__SRV_TOKEN+'/service-request',{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({type:__SRV_TYPE,quantity:qty,notes:notes})
+    body:JSON.stringify({type:itemName, category:__SRV_TYPE, quantity:qty, notes:notes})
   })
   .then(function(r){return r.json();})
   .then(function(d){
@@ -1451,6 +1484,7 @@ function submitSrvRequest() {
       msg.className='form-msg ok'; msg.textContent='✅ Richiesta inviata!';
       document.querySelectorAll('.srv-type-btn').forEach(function(b){b.classList.remove('sel');});
       document.getElementById('srv-form-extra').style.display='none';
+      if(itemNameEl) itemNameEl.value='';
       document.getElementById('srv-notes').value='';
       document.getElementById('srv-qty').value='1';
       __SRV_TYPE=null; loadSrvHistory();

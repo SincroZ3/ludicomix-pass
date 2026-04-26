@@ -1699,13 +1699,12 @@ app.get('/home', requireAuth, (req, res) => {
               // ── CRM data ────────────────────────────────────────────────────
               const _crmQ = (sql, p) => new Promise((ok, ko) => db.all(sql, p, (e, r) => e ? ko(e) : ok(r)));
               Promise.all([
-                _crmQ('SELECT * FROM contacts              WHERE assignment_group_id=? ORDER BY is_primary DESC, name', [id]),
-                _crmQ('SELECT * FROM payments              WHERE assignment_group_id=? ORDER BY created_at DESC', [id]),
-                _crmQ('SELECT * FROM group_documents       WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [id]),
-                _crmQ('SELECT * FROM guest_profiles        WHERE assignment_group_id=? LIMIT 1', [id]),
+                _crmQ('SELECT * FROM contacts        WHERE assignment_group_id=? ORDER BY is_primary DESC, name', [id]),
+                _crmQ('SELECT * FROM payments        WHERE assignment_group_id=? ORDER BY created_at DESC', [id]),
+                _crmQ('SELECT * FROM group_documents WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [id]),
+                _crmQ('SELECT * FROM guest_profiles  WHERE assignment_group_id=? LIMIT 1', [id]),
                 new Promise((ok, ko) => db.get('SELECT * FROM fiscal_data WHERE assignment_group_id=?', [id], (e, r) => e ? ko(e) : ok(r))),
-                _crmQ('SELECT * FROM group_material_requests WHERE assignment_group_id=? ORDER BY category, item_name, id', [id]), // FIX: materials
-              ]).then(function([contacts, payments, groupDocs, gpRows, fiscalData, materials]) {
+              ]).then(function([contacts, payments, groupDocs, gpRows, fiscalData]) {
                 const guestProfile = gpRows && gpRows[0] ? gpRows[0] : null;
                 res.render('assignment_group_detail', {
                   groupInfo, types, participants, PASS_STATUSES,
@@ -1714,19 +1713,16 @@ app.get('/home', requireAuth, (req, res) => {
                   autoPasses: autoPasses || [],
                   contacts, payments, groupDocs,
                   guestProfile,
-                  fiscalData: fiscalData || null,
-                  materials: materials || []  // FIX: materials
+                  fiscalData: fiscalData || null
                 });
-              }).catch(function(err) {
-                console.error('[detail] Promise.all catch:', err && err.message);
+              }).catch(function() {
                 res.render('assignment_group_detail', {
                   groupInfo, types, participants, PASS_STATUSES,
                   dupSkipped, dupTotal, zones: zones || [],
                   importOk, importSkip, importErrs, replaceOk,
                   autoPasses: autoPasses || [],
                   contacts: [], payments: [], groupDocs: [],
-                  guestProfile: null,
-                  materials: []  // FIX: materials
+                  guestProfile: null
                 });
               });
             });
@@ -2952,196 +2948,6 @@ async function triggerBatchPassOnClose(groupId) {
     }
   });
 
-  // ════════════════════════════════════════════════════════════
-  // MODULO LOGISTICA MATERIALI
-  // ════════════════════════════════════════════════════════════
-  const MATERIAL_CATALOG = {
-    tavolo:   { label:'Tavolo',    icon:'🪑', subcats:['Pieghevole','Fisso','Espositore'] },
-    sedia:    { label:'Sedia',     icon:'🪑', subcats:['Pieghevole','Fissa'] },
-    prolunga: { label:'Prolunga',  icon:'🔌', subcats:['5m','10m','25m','Multipresa'] },
-    gazebo:   { label:'Gazebo',    icon:'⛺', subcats:['3x3','6x3','Con laterali'] },
-    pannello: { label:'Pannello',  icon:'🖼', subcats:['60x120','80x200','Bifacciale'] },
-    lavagna:  { label:'Lavagna',   icon:'📋', subcats:['Bianca','Magnetica'] },
-    altro:    { label:'Altro',     icon:'📦', subcats:[] }
-  };
-
-  // GET /assignment-groups/:id/materiali
-  app.get('/assignment-groups/:id/materiali', requireAuth, async (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    try {
-      const [group, materials] = await Promise.all([
-        dbGet(`SELECT ag.id, ag.name, ag.zone,
-                      ag.stand_code, ag.stand_name,
-                      g.name AS category_name
-               FROM assignment_groups ag
-               JOIN groups g ON g.id = ag.group_id
-               WHERE ag.id=?`, [id]),
-        dbAll(`SELECT * FROM group_material_requests
-               WHERE assignment_group_id=?
-               ORDER BY category, item_name, id`, [id])
-      ]);
-      if (!group) return res.status(404).send('Gruppo non trovato');
-      res.render('group-materiali', {
-        group, materials, MATERIAL_CATALOG,
-        saved: req.query.saved || null,
-        currentUser: req.session.user
-      });
-    } catch(err) {
-      console.error('GMR GET', err.message);
-      res.status(500).send('Errore: ' + err.message);
-    }
-  });
-
-  // POST /assignment-groups/:id/materiali
-  app.post('/assignment-groups/:id/materiali', requireAuth, requireNotViewer, async (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    const { category, itemname, itemname_custom, subcategory, quantity, notes } = req.body;
-    const finalItem = (itemname === '_custom' && itemname_custom)
-      ? itemname_custom.trim() : (itemname || '').trim();
-    if (!finalItem) return res.redirect(`/assignment-groups/${id}/materiali?saved=err`);
-    const edId = (typeof currentEdition !== 'undefined' && currentEdition) ? currentEdition.id : null;
-    try {
-      await dbRun(
-        `INSERT INTO group_material_requests
-         (assignment_group_id, category, item_name, subcategory, quantity, notes, source, edition_id)
-         VALUES (?,?,?,?,?,?,?,?)`,
-        [id, category||'altro', finalItem, subcategory||null,
-         parseInt(quantity,10)||1, notes||null, 'admin', edId]
-      );
-      logAction(req.session.user.id,'create_gmr','group_material_request',id,
-        `Materiale "${finalItem}" x${quantity||1} aggiunto al gruppo ${id}`);
-      res.redirect(`/assignment-groups/${id}/materiali?saved=ok`);
-    } catch(err) {
-      console.error('GMR POST', err.message);
-      res.redirect(`/assignment-groups/${id}/materiali?saved=err`);
-    }
-  });
-
-  // POST /assignment-groups/:id/materiali/:rid/status
-  app.post('/assignment-groups/:id/materiali/:rid/status', requireAuth, requireNotViewer, async (req, res) => {
-    const rid = parseInt(req.params.rid, 10);
-    const { status, confirmed_qty, delivered_qty } = req.body;
-    try {
-      await dbRun(
-        `UPDATE group_material_requests
-         SET status=?, confirmed_qty=?, delivered_qty=?,
-             updated_at=datetime('now','localtime')
-         WHERE id=?`,
-        [status||'richiesto', parseInt(confirmed_qty,10)||0, parseInt(delivered_qty,10)||0, rid]
-      );
-      res.json({ ok:true });
-    } catch(err) { res.status(500).json({ error:err.message }); }
-  });
-
-  // DELETE /assignment-groups/:id/materiali/:rid
-  app.delete('/assignment-groups/:id/materiali/:rid', requireAuth, requireNotViewer, async (req, res) => {
-    const rid = parseInt(req.params.rid, 10);
-    try {
-      await dbRun(`DELETE FROM group_material_requests WHERE id=?`, [rid]);
-      logAction(req.session.user.id,'delete_gmr','group_material_request',rid,
-        `Richiesta materiale ${rid} eliminata`);
-      res.json({ ok:true });
-    } catch(err) { res.status(500).json({ error:err.message }); }
-  });
-
-  // GET /admin/logistica/resoconto
-  app.get('/admin/logistica/resoconto', requireAuth, requireOrganizer, async (req, res) => {
-    try {
-      const [byItem, byGroup, inventory] = await Promise.all([
-        dbAll(`SELECT category, item_name, subcategory,
-                      COUNT(DISTINCT assignment_group_id) AS num_groups,
-                      SUM(quantity)      AS tot_requested,
-                      SUM(confirmed_qty) AS tot_confirmed,
-                      SUM(delivered_qty) AS tot_delivered
-               FROM group_material_requests
-               GROUP BY category, item_name, subcategory
-               ORDER BY category, item_name`),
-        dbAll(`SELECT ag.id, ag.name AS group_name, ag.zone, ag.stand_code,
-                      COUNT(gmr.id)         AS num_items,
-                      SUM(gmr.quantity)     AS tot_requested,
-                      SUM(gmr.confirmed_qty) AS tot_confirmed,
-                      GROUP_CONCAT(gmr.item_name||' x'||gmr.quantity, ', ') AS sommario
-               FROM assignment_groups ag
-               JOIN group_material_requests gmr ON gmr.assignment_group_id=ag.id
-               GROUP BY ag.id ORDER BY ag.name`),
-        dbAll(`SELECT name, category, total_qty FROM equipment ORDER BY category, name`)
-      ]);
-      const kpi = {
-        num_gruppi:    byGroup.length,
-        tot_richieste: byItem.reduce((s,r)=>s+(r.tot_requested||0),0),
-        tot_confermate:byItem.reduce((s,r)=>s+(r.tot_confirmed||0),0),
-        tot_consegnate:byItem.reduce((s,r)=>s+(r.tot_delivered||0),0)
-      };
-      res.render('logistica-resoconto', { byItem, byGroup, inventory, kpi, MATERIAL_CATALOG });
-    } catch(err) {
-      console.error('Resoconto GET', err.message);
-      res.status(500).send('Errore: '+err.message);
-    }
-  });
-
-  // GET /admin/logistica/resoconto/export.csv
-  app.get('/admin/logistica/resoconto/export.csv', requireAuth, requireOrganizer, async (req, res) => {
-    try {
-      const rows = await dbAll(
-        `SELECT ag.name AS gruppo, ag.zone AS zona, ag.stand_code AS stand,
-                gmr.category AS categoria, gmr.item_name AS articolo,
-                gmr.subcategory AS sottocategoria, gmr.quantity AS richiesti,
-                gmr.confirmed_qty AS confermati, gmr.delivered_qty AS consegnati,
-                gmr.status AS stato, gmr.notes AS note,
-                gmr.created_at AS data_richiesta
-         FROM group_material_requests gmr
-         JOIN assignment_groups ag ON ag.id=gmr.assignment_group_id
-         ORDER BY ag.name, gmr.category, gmr.item_name`
-      );
-      const esc = v => '"'+String(v||'').replace(/"/g,'""')+'"';
-      const hdr = 'Gruppo,Zona,Stand,Categoria,Articolo,Sottocategoria,Richiesti,Confermati,Consegnati,Stato,Note,Data\n';
-      const body = rows.map(r=>[r.gruppo,r.zona||'',r.stand||'',r.categoria,r.articolo,
-        r.sottocategoria||'',r.richiesti,r.confermati||0,r.consegnati||0,
-        r.stato,(r.note||'').replace(/,/g,';'),(r.data_richiesta||'').substring(0,16)]
-        .map(esc).join(',')).join('\n');
-      res.setHeader('Content-Type','text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition','attachment; filename="fabbisogni-logistica.csv"');
-      res.send('\uFEFF'+hdr+body);
-    } catch(err) { res.status(500).send('Errore export: '+err.message); }
-  });
-
-  // POST /admin/logistica/sync-service-requests
-  app.post('/admin/logistica/sync-service-requests', requireAuth, requireOrganizer, async (req, res) => {
-    try {
-      const pending = await dbAll(
-        `SELECT sr.* FROM service_requests sr
-         LEFT JOIN group_material_requests gmr ON gmr.source_request_id=sr.id
-         WHERE gmr.id IS NULL ORDER BY sr.requested_at DESC`
-      );
-      let synced = 0;
-      const edId = (typeof currentEdition!=='undefined'&&currentEdition) ? currentEdition.id : null;
-      for (const sr of pending) {
-        const rawType = sr.service_type||sr.type||'altro';
-        const cat      = MATERIAL_CATALOG[rawType] ? rawType : 'altro';
-        const itemname = MATERIAL_CATALOG[rawType]
-          ? MATERIAL_CATALOG[rawType].label : (rawType||'Richiesta portale');
-        const smap = { completato:'consegnato', confermato:'confermato' };
-        await dbRun(
-          `INSERT INTO group_material_requests
-           (assignment_group_id,category,item_name,quantity,notes,status,source,source_request_id,edition_id)
-           VALUES (?,?,?,?,?,?,?,?,?)`,
-          [sr.assignment_group_id, cat, itemname, sr.quantity||1, sr.notes||null,
-           smap[sr.status]||'richiesto','portale',sr.id, edId||sr.edition_id||null]
-        );
-        synced++;
-      }
-      logAction(req.session.user.id,'sync_gmr','group_material_request',null,
-        `Sincronizzate ${synced} richieste portale`);
-      res.json({ ok:true, synced, total:pending.length });
-    } catch(err) {
-      console.error('GMR SYNC', err.message);
-      res.status(500).json({ error:err.message });
-    }
-  });
-  // ════════════════════════════════════════════════════════════
-  // FINE MODULO LOGISTICA MATERIALI
-  // ════════════════════════════════════════════════════════════
-
   // ── Admin: aggiungi attrezzatura al catalogo ─────────────────
   app.post('/admin/logistica/equipment', requireAuth, requireOrganizer, async (req, res) => {
     const { name, category, total_qty, notes, location, location_custom } = req.body;
@@ -3498,7 +3304,7 @@ async function triggerBatchPassOnClose(groupId) {
     try {
       const group = await dbGet(`SELECT id FROM assignment_groups WHERE portal_token=?`, [token]);
       if (!group) return res.status(404).json({ error: 'Token non valido' });
-      const { type, quantity, notes } = req.body;
+      const { type, category, quantity, notes } = req.body;
       if (!type) return res.status(400).json({ error: 'Tipo obbligatorio' });
       const edId = _currentEdition ? _currentEdition.id : null;
       const _qty = parseInt(quantity, 10) || 1;
@@ -3507,13 +3313,13 @@ async function triggerBatchPassOnClose(groupId) {
          VALUES (?,?,?,?,?)`,
         [group.id, type, _qty, notes || null, edId]
       );
-      // FIX: sync automatico → scheda Materiali + resoconto fabbisogni
+      // FIX: sync → scheda Materiali + resoconto fabbisogni (con category corretta)
       try {
         await dbRun(
           `INSERT INTO group_material_requests
-             (assignment_group_id, item_name, quantity, notes, status, source, edition_id)
-           VALUES (?,?,?,?,?,?,?)`,
-          [group.id, type, _qty, notes || null, 'in_attesa', 'portale', edId]
+             (assignment_group_id, category, item_name, quantity, notes, status, source, edition_id)
+           VALUES (?,?,?,?,?,?,?,?)`,
+          [group.id, category || null, type, _qty, notes || null, 'in_attesa', 'portale', edId]
         );
       } catch(eSyncMat) {
         console.warn('[portale] sync group_material_requests:', eSyncMat.message);
@@ -3770,6 +3576,9 @@ async function triggerBatchPassOnClose(groupId) {
       }
       // ── Fine CRM ─────────────────────────────────────────────
 
+      // FIX: categorie logistiche per form servizi dinamico
+      const _logCats = await dbAll('SELECT * FROM logistic_categories ORDER BY sort_order, label').catch(() => []);
+
       res.render('portale', {
         group,
         parts:        parts       || [],
@@ -3783,6 +3592,7 @@ async function triggerBatchPassOnClose(groupId) {
         mapRefH:      (refHRow && refHRow.value) ? parseInt(refHRow.value,10) : null,
         portalDocs:   portalDocs  || [],
         tickets:      ticketsRaw  || [],
+        logisticCategories: _logCats || [],
       });
     } catch(err) {
       console.error('Errore GET /portale/:token:', err);
