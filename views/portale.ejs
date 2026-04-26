@@ -1463,7 +1463,7 @@ function submitSrvRequest() {
   if(!itemName){
     var msg=document.getElementById('srv-msg');
     msg.style.display='block'; msg.className='form-msg err';
-    msg.textContent='❌ Inserisci la descrizione dell'articolo richiesto.';
+    msg.textContent="❌ Inserisci la descrizione dell'articolo richiesto.";
     if(itemNameEl) itemNameEl.focus();
     return;
   }
