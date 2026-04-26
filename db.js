@@ -863,39 +863,6 @@ db.run(`ALTER TABLE equipment_loans  ADD COLUMN notes        TEXT`,             
 db.run(`ALTER TABLE service_requests ADD COLUMN edition_id    INTEGER`, () => {});
 db.run(`ALTER TABLE service_requests ADD COLUMN service_type  TEXT`,    () => {});
 
-// ── Tabella richieste materiali per gruppo ──────────────────────────────────
-db.run(`CREATE TABLE IF NOT EXISTS group_material_requests (
-  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-  assignment_group_id INTEGER NOT NULL REFERENCES assignment_groups(id) ON DELETE CASCADE,
-  category            TEXT,
-  item_name           TEXT NOT NULL,
-  subcategory         TEXT,
-  quantity            INTEGER DEFAULT 1,
-  notes               TEXT,
-  status              TEXT DEFAULT 'richiesto',
-  confirmed_qty       INTEGER DEFAULT 0,
-  delivered_qty       INTEGER DEFAULT 0,
-  source              TEXT DEFAULT 'admin',
-  edition_id          INTEGER,
-  created_at          TEXT DEFAULT (datetime('now','localtime')),
-  updated_at          TEXT DEFAULT (datetime('now','localtime'))
-)`, function(err){ if(err && !err.message.includes('already exists')) console.warn('DB group_material_requests:', err.message); });
-
-// Migrazioni group_material_requests (per DB già esistenti)
-[
-  'ADD COLUMN subcategory TEXT',
-  'ADD COLUMN confirmed_qty INTEGER DEFAULT 0',
-  'ADD COLUMN delivered_qty INTEGER DEFAULT 0',
-  "ADD COLUMN source TEXT DEFAULT 'admin'",
-  'ADD COLUMN edition_id INTEGER',
-  "ADD COLUMN updated_at TEXT DEFAULT (datetime('now','localtime'))",
-].forEach(function(col){
-  db.run('ALTER TABLE group_material_requests ' + col, function(){});
-});
-
-db.run(`CREATE INDEX IF NOT EXISTS idx_gmr_group ON group_material_requests(assignment_group_id)`,
-  function(err){ if(err && !err.message.includes('already exists')) console.warn('DB idx_gmr_group:', err.message); });
-
 
 db.run(`CREATE TABLE IF NOT EXISTS logistic_categories (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1028,5 +995,12 @@ db.run(`ALTER TABLE zones ADD COLUMN map_address  TEXT`,                    () =
 db.run(`ALTER TABLE zones ADD COLUMN map_tags     TEXT`,                    () => {});
 db.run(`ALTER TABLE zones ADD COLUMN map_active   INTEGER DEFAULT 1`,       () => {});
 db.run(`ALTER TABLE zones ADD COLUMN map_color    TEXT`,                    () => {});
+
+
+// Migrazione: source_request_id in group_material_requests
+db.run(`ALTER TABLE group_material_requests ADD COLUMN source_request_id INTEGER`, function(){});
+db.run(`CREATE INDEX IF NOT EXISTS idx_gmr_srcreq ON group_material_requests(source_request_id)`, function(){});
+// Migrazione: source_supplier_item_id in equipment (auto-sync fornitori)
+db.run(`ALTER TABLE equipment ADD COLUMN source_supplier_item_id INTEGER`, function(){});
 
 module.exports = db;
