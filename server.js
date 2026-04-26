@@ -1699,12 +1699,13 @@ app.get('/home', requireAuth, (req, res) => {
               // ── CRM data ────────────────────────────────────────────────────
               const _crmQ = (sql, p) => new Promise((ok, ko) => db.all(sql, p, (e, r) => e ? ko(e) : ok(r)));
               Promise.all([
-                _crmQ('SELECT * FROM contacts        WHERE assignment_group_id=? ORDER BY is_primary DESC, name', [id]),
-                _crmQ('SELECT * FROM payments        WHERE assignment_group_id=? ORDER BY created_at DESC', [id]),
-                _crmQ('SELECT * FROM group_documents WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [id]),
-                _crmQ('SELECT * FROM guest_profiles  WHERE assignment_group_id=? LIMIT 1', [id]),
+                _crmQ('SELECT * FROM contacts              WHERE assignment_group_id=? ORDER BY is_primary DESC, name', [id]),
+                _crmQ('SELECT * FROM payments              WHERE assignment_group_id=? ORDER BY created_at DESC', [id]),
+                _crmQ('SELECT * FROM group_documents       WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [id]),
+                _crmQ('SELECT * FROM guest_profiles        WHERE assignment_group_id=? LIMIT 1', [id]),
                 new Promise((ok, ko) => db.get('SELECT * FROM fiscal_data WHERE assignment_group_id=?', [id], (e, r) => e ? ko(e) : ok(r))),
-              ]).then(function([contacts, payments, groupDocs, gpRows, fiscalData]) {
+                _crmQ('SELECT * FROM group_material_requests WHERE assignment_group_id=? ORDER BY category, item_name, id', [id]), // FIX: materials
+              ]).then(function([contacts, payments, groupDocs, gpRows, fiscalData, materials]) {
                 const guestProfile = gpRows && gpRows[0] ? gpRows[0] : null;
                 res.render('assignment_group_detail', {
                   groupInfo, types, participants, PASS_STATUSES,
@@ -1713,16 +1714,19 @@ app.get('/home', requireAuth, (req, res) => {
                   autoPasses: autoPasses || [],
                   contacts, payments, groupDocs,
                   guestProfile,
-                  fiscalData: fiscalData || null
+                  fiscalData: fiscalData || null,
+                  materials: materials || []  // FIX: materials
                 });
-              }).catch(function() {
+              }).catch(function(err) {
+                console.error('[detail] Promise.all catch:', err && err.message);
                 res.render('assignment_group_detail', {
                   groupInfo, types, participants, PASS_STATUSES,
                   dupSkipped, dupTotal, zones: zones || [],
                   importOk, importSkip, importErrs, replaceOk,
                   autoPasses: autoPasses || [],
                   contacts: [], payments: [], groupDocs: [],
-                  guestProfile: null
+                  guestProfile: null,
+                  materials: []  // FIX: materials
                 });
               });
             });
@@ -3497,13 +3501,25 @@ async function triggerBatchPassOnClose(groupId) {
       const { type, quantity, notes } = req.body;
       if (!type) return res.status(400).json({ error: 'Tipo obbligatorio' });
       const edId = _currentEdition ? _currentEdition.id : null;
+      const _qty = parseInt(quantity, 10) || 1;
       await dbRun(
         `INSERT INTO service_requests (assignment_group_id, service_type, quantity, notes, edition_id)
          VALUES (?,?,?,?,?)`,
-        [group.id, type, parseInt(quantity, 10) || 1, notes || null, edId]
+        [group.id, type, _qty, notes || null, edId]
       );
+      // FIX: sync automatico → scheda Materiali + resoconto fabbisogni
+      try {
+        await dbRun(
+          `INSERT INTO group_material_requests
+             (assignment_group_id, item_name, quantity, notes, status, source, edition_id)
+           VALUES (?,?,?,?,?,?,?)`,
+          [group.id, type, _qty, notes || null, 'in_attesa', 'portale', edId]
+        );
+      } catch(eSyncMat) {
+        console.warn('[portale] sync group_material_requests:', eSyncMat.message);
+      }
       createNotification('service', 'Nuova richiesta servizio',
-        `Richiesta <strong>${type}</strong> (x${quantity||1}) da gruppo ID ${group.id}.`, null, null);
+        `Richiesta <strong>${type}</strong> (x${_qty}) da gruppo ID ${group.id}.`, null, null);
       res.json({ ok: true });
     } catch(err) {
       console.error('Errore richiesta servizio portale:', err);

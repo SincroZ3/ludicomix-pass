@@ -1289,6 +1289,56 @@ function maronnoForza() {
 </div>
 <% } %>
 </div><!-- /tab-documenti -->
+<div id="tab-materiali" class="crm-panel">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.8rem;margin-bottom:1rem">
+    <div>
+      <h3 style="font-size:1rem;font-weight:700;margin:0">📦 Materiali richiesti</h3>
+      <p style="font-size:.78rem;color:#64748b;margin:.2rem 0 0">Attrezzatura e materiali logistici assegnati a questo gruppo.</p>
+    </div>
+    <a href="/assignment-groups/<%= groupInfo.id %>/materiali"
+       style="display:inline-flex;align-items:center;gap:.4rem;background:#1d6fa4;color:#fff;padding:.42rem 1rem;border-radius:8px;font-size:.8rem;font-weight:700;text-decoration:none">
+      ✏️ Gestisci materiali →
+    </a>
+  </div>
+
+  <% if(typeof materials!=='undefined' && materials.length){ %>
+  <% var statColors={richiesto:'#e0f2fe|#0369a1',confermato:'#dcfce7|#15803d',consegnato:'#f0fdf4|#166534',annullato:'#fee2e2|#991b1b'}; %>
+  <div style="overflow-x:auto">
+  <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+    <thead>
+      <tr style="border-bottom:2px solid #e2e8f0">
+        <th style="text-align:left;padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:#64748b">Categoria</th>
+        <th style="text-align:left;padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:#64748b">Articolo</th>
+        <th style="text-align:right;padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:#64748b">Qtà</th>
+        <th style="text-align:center;padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:#64748b">Stato</th>
+        <th style="padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:#64748b">Note</th>
+      </tr>
+    </thead>
+    <tbody>
+    <% materials.forEach(function(m){ %>
+      <% var sc=(statColors[m.status]||'#f1f5f9|#475569').split('|'); %>
+      <tr style="border-bottom:1px solid #f1f5f9">
+        <td style="padding:.45rem .6rem;color:#64748b;font-size:.76rem"><%= m.category %></td>
+        <td style="padding:.45rem .6rem;font-weight:600"><%= m.itemname %><% if(m.subcategory){ %> <span style="font-size:.7rem;color:#94a3b8;font-weight:400">· <%= m.subcategory %></span><% } %></td>
+        <td style="padding:.45rem .6rem;text-align:right;font-weight:700;font-variant-numeric:tabular-nums"><%= m.quantity %></td>
+        <td style="padding:.45rem .6rem;text-align:center"><span style="display:inline-block;padding:.12rem .55rem;border-radius:9999px;font-size:.65rem;font-weight:700;text-transform:uppercase;background:<%= sc[0] %>;color:<%= sc[1] %>"><%= m.status %></span></td>
+        <td style="padding:.45rem .6rem;font-size:.75rem;color:#64748b"><%= m.notes||'—' %></td>
+      </tr>
+    <% }); %>
+    </tbody>
+  </table>
+  </div>
+  <% } else { %>
+  <div style="text-align:center;padding:2.5rem 1rem;color:#94a3b8">
+    <div style="font-size:2.5rem;margin-bottom:.5rem">📦</div>
+    <p style="font-size:.85rem">Nessun materiale richiesto per questo gruppo.</p>
+    <a href="/assignment-groups/<%= groupInfo.id %>/materiali"
+       style="display:inline-flex;align-items:center;gap:.4rem;margin-top:.8rem;background:#1d6fa4;color:#fff;padding:.42rem 1rem;border-radius:8px;font-size:.8rem;font-weight:700;text-decoration:none">
+      ➕ Aggiungi materiali
+    </a>
+  </div>
+  <% } %>
+</div>
 <script>
 /* ── Tab switching ── */
 function crmTab(tabId, btn) {
@@ -1863,53 +1913,3 @@ document.addEventListener('keydown', function(e) {
 
 </script>
 <%-include('partials/footer') %>
-<div id="tab-materiali" class="crm-panel">
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.8rem;margin-bottom:1rem">
-    <div>
-      <h3 style="font-size:1rem;font-weight:700;margin:0">📦 Materiali richiesti</h3>
-      <p style="font-size:.78rem;color:#64748b;margin:.2rem 0 0">Attrezzatura e materiali logistici assegnati a questo gruppo.</p>
-    </div>
-    <a href="/assignment-groups/<%= groupInfo.id %>/materiali"
-       style="display:inline-flex;align-items:center;gap:.4rem;background:#1d6fa4;color:#fff;padding:.42rem 1rem;border-radius:8px;font-size:.8rem;font-weight:700;text-decoration:none">
-      ✏️ Gestisci materiali →
-    </a>
-  </div>
-
-  <% if(typeof materials!=='undefined' && materials.length){ %>
-  <% var statColors={richiesto:'#e0f2fe|#0369a1',confermato:'#dcfce7|#15803d',consegnato:'#f0fdf4|#166534',annullato:'#fee2e2|#991b1b'}; %>
-  <div style="overflow-x:auto">
-  <table style="width:100%;border-collapse:collapse;font-size:.82rem">
-    <thead>
-      <tr style="border-bottom:2px solid #e2e8f0">
-        <th style="text-align:left;padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:#64748b">Categoria</th>
-        <th style="text-align:left;padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:#64748b">Articolo</th>
-        <th style="text-align:right;padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:#64748b">Qtà</th>
-        <th style="text-align:center;padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:#64748b">Stato</th>
-        <th style="padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:#64748b">Note</th>
-      </tr>
-    </thead>
-    <tbody>
-    <% materials.forEach(function(m){ %>
-      <% var sc=(statColors[m.status]||'#f1f5f9|#475569').split('|'); %>
-      <tr style="border-bottom:1px solid #f1f5f9">
-        <td style="padding:.45rem .6rem;color:#64748b;font-size:.76rem"><%= m.category %></td>
-        <td style="padding:.45rem .6rem;font-weight:600"><%= m.itemname %><% if(m.subcategory){ %> <span style="font-size:.7rem;color:#94a3b8;font-weight:400">· <%= m.subcategory %></span><% } %></td>
-        <td style="padding:.45rem .6rem;text-align:right;font-weight:700;font-variant-numeric:tabular-nums"><%= m.quantity %></td>
-        <td style="padding:.45rem .6rem;text-align:center"><span style="display:inline-block;padding:.12rem .55rem;border-radius:9999px;font-size:.65rem;font-weight:700;text-transform:uppercase;background:<%= sc[0] %>;color:<%= sc[1] %>"><%= m.status %></span></td>
-        <td style="padding:.45rem .6rem;font-size:.75rem;color:#64748b"><%= m.notes||'—' %></td>
-      </tr>
-    <% }); %>
-    </tbody>
-  </table>
-  </div>
-  <% } else { %>
-  <div style="text-align:center;padding:2.5rem 1rem;color:#94a3b8">
-    <div style="font-size:2.5rem;margin-bottom:.5rem">📦</div>
-    <p style="font-size:.85rem">Nessun materiale richiesto per questo gruppo.</p>
-    <a href="/assignment-groups/<%= groupInfo.id %>/materiali"
-       style="display:inline-flex;align-items:center;gap:.4rem;margin-top:.8rem;background:#1d6fa4;color:#fff;padding:.42rem 1rem;border-radius:8px;font-size:.8rem;font-weight:700;text-decoration:none">
-      ➕ Aggiungi materiali
-    </a>
-  </div>
-  <% } %>
-</div>
