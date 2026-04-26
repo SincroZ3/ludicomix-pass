@@ -113,6 +113,14 @@
       <% if(saved==='category'){%><span class="alert-banner alert-ok">✅ Tipologia aggiunta</span><%}%>
       <% if(saved==='location'){%><span class="alert-banner alert-ok">✅ Posizione aggiunta</span><%}%>
       <% if(saved==='err'){%><span class="alert-banner alert-err">❌ Errore — riprova</span><%}%>
+      <a href="/admin/logistica/resoconto"
+         style="display:inline-flex;align-items:center;gap:.35rem;background:#155724;color:#fff;padding:.38rem 1.1rem;border-radius:20px;font-size:.8rem;font-weight:700;text-decoration:none;white-space:nowrap">
+        📋 Resoconto fabbisogni
+      </a>
+      <button id="btn-sync-gmr" onclick="syncGMR()"
+         style="display:inline-flex;align-items:center;gap:.35rem;background:#1d6fa4;color:#fff;padding:.38rem 1.1rem;border-radius:20px;font-size:.8rem;font-weight:700;border:none;cursor:pointer;white-space:nowrap">
+        🔄 Sync richieste portale
+      </button>
     </div>
   </div>
 
@@ -632,5 +640,27 @@ function deleteCfgItem(type, id, label){
     .then(function(d){ if(d.ok) location.reload(); else alert('Errore eliminazione'); });
 }
 </script>
+
+<script>
+async function syncGMR(){
+  const btn=document.getElementById('btn-sync-gmr');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Sincronizzazione...';}
+  try{
+    const r=await fetch('/admin/logistica/sync-service-requests',
+      {method:'POST',headers:{'Content-Type':'application/json'}});
+    const d=await r.json();
+    if(d.ok){
+      alert('✅ Sincronizzazione completata: '+d.synced+' richieste importate su '+d.total+' trovate.');
+      if(d.synced>0) location.reload();
+    } else {
+      alert('❌ Errore: '+(d.error||'sconosciuto'));
+    }
+  }catch(e){ alert('❌ Errore di rete: '+e.message); }
+  finally{
+    if(btn){btn.disabled=false;btn.innerHTML='🔄 Sync richieste portale';}
+  }
+}
+</script>
+
 </body>
 </html>
