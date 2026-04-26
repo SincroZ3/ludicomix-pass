@@ -34,13 +34,34 @@ function edVal() { return _currentEdition ? _currentEdition.id : null; }
 refreshCurrentEdition();
 // ── Catalogo categorie materiali logistici ─────────────────────────────
 const MATERIAL_CATALOG = {
-  corrente:     { label: 'Corrente',   icon: '⚡' },
-  gazebo:       { label: 'Gazebo',     icon: '⛺' },
-  tavoli_extra: { label: 'Tavoli',     icon: '🪑' },
-  sedie_extra:  { label: 'Sedie',      icon: '🪑' },
-  transenne:    { label: 'Transenne',  icon: '🚧' },
-  palchi_incontri: { label: 'Palchi & Incontri', icon: '🎙️' },
-  altro:        { label: 'Altro',      icon: '📦' },
+  corrente: {
+    label: 'Corrente', icon: '⚡',
+    subcats: ['Presa 220V', 'Presa multipla', 'Multipresa 4 posti', 'Multipresa 6 posti', 'Prolunga 5m', 'Prolunga 10m', 'Prolunga 25m']
+  },
+  gazebo: {
+    label: 'Gazebo', icon: '⛺',
+    subcats: ['Gazebo 3x3', 'Gazebo 4x4', 'Gazebo 6x3', 'Laterale gazebo', 'Zavorra gazebo']
+  },
+  tavoli_extra: {
+    label: 'Tavoli', icon: '🪑',
+    subcats: ['Tavolo pieghevole', 'Tavolo 180x80', 'Tavolo 120x80', 'Banco accoglienza']
+  },
+  sedie_extra: {
+    label: 'Sedie', icon: '🪑',
+    subcats: ['Sedia pieghevole', 'Sedia fissa', 'Sgabello']
+  },
+  transenne: {
+    label: 'Transenne', icon: '🚧',
+    subcats: ['Transenna metallica', 'Nastro corsia', 'Colonnina con nastro']
+  },
+  palchi_incontri: {
+    label: 'Palchi & Incontri', icon: '🎙️',
+    subcats: ['Microfono', 'Asta microfono', 'Mixer audio', 'Cassa audio', 'Videoproiettore', 'Schermo', 'Pedana palco', 'Leggio']
+  },
+  altro: {
+    label: 'Altro', icon: '📦',
+    subcats: []
+  },
 };
 
 
