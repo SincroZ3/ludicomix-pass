@@ -34,13 +34,34 @@ function edVal() { return _currentEdition ? _currentEdition.id : null; }
 refreshCurrentEdition();
 // ── Catalogo categorie materiali logistici ─────────────────────────────
 const MATERIAL_CATALOG = {
-  corrente:     { label: 'Corrente',   icon: '⚡' },
-  gazebo:       { label: 'Gazebo',     icon: '⛺' },
-  tavoli_extra: { label: 'Tavoli',     icon: '🪑' },
-  sedie_extra:  { label: 'Sedie',      icon: '🪑' },
-  transenne:    { label: 'Transenne',  icon: '🚧' },
-  palchi_incontri: { label: 'Palchi & Incontri', icon: '🎙️' },
-  altro:        { label: 'Altro',      icon: '📦' },
+  corrente: {
+    label: 'Corrente', icon: '⚡',
+    subcats: ['Presa 220V', 'Presa multipla', 'Multipresa 4 posti', 'Multipresa 6 posti', 'Prolunga 5m', 'Prolunga 10m', 'Prolunga 25m']
+  },
+  gazebo: {
+    label: 'Gazebo', icon: '⛺',
+    subcats: ['Gazebo 3x3', 'Gazebo 4x4', 'Gazebo 6x3', 'Laterale gazebo', 'Zavorra gazebo']
+  },
+  tavoli_extra: {
+    label: 'Tavoli', icon: '🪑',
+    subcats: ['Tavolo pieghevole', 'Tavolo 180x80', 'Tavolo 120x80', 'Banco accoglienza']
+  },
+  sedie_extra: {
+    label: 'Sedie', icon: '🪑',
+    subcats: ['Sedia pieghevole', 'Sedia fissa', 'Sgabello']
+  },
+  transenne: {
+    label: 'Transenne', icon: '🚧',
+    subcats: ['Transenna metallica', 'Nastro corsia', 'Colonnina con nastro']
+  },
+  palchi_incontri: {
+    label: 'Palchi & Incontri', icon: '🎙️',
+    subcats: ['Microfono', 'Asta microfono', 'Mixer audio', 'Cassa audio', 'Videoproiettore', 'Schermo', 'Pedana palco', 'Leggio']
+  },
+  altro: {
+    label: 'Altro', icon: '📦',
+    subcats: []
+  },
 };
 
 
@@ -3313,24 +3334,14 @@ async function triggerBatchPassOnClose(groupId) {
         `INSERT INTO supplier_items (supplier_id,description,item_type,quantity,unit_cost,total_cost,edition_id,notes) VALUES (?,?,?,?,?,?,?,?)`,
         [sid,description.trim(),itype,qty,uc,qty*uc,edition_id||null,notes||null]
       );
-      // Auto-sync inventario: noleggio e acquisto diventano disponibili in equipment
+      // Auto-sync inventario: noleggio e acquisto entrano in equipment
       if (itype === 'noleggio' || itype === 'acquisto') {
         const sup = await dbGet(`SELECT name,category FROM suppliers WHERE id=?`,[sid]).catch(()=>null);
-        const eqNotes = (sup ? `[${itype === 'noleggio' ? 'Noleggio' : 'Acquisto'} da ${sup.name}] ` : '') + (notes||'');
+        const eqNotes = (sup ? `[${itype==='noleggio'?'Noleggio':'Acquisto'} da ${sup.name}] ` : '') + (notes||'');
         await dbRun(
-          `INSERT INTO equipment (name, category, total_qty, notes, source_supplier_item_id)
-           VALUES (?,?,?,?,?)
-           ON CONFLICT(source_supplier_item_id) DO UPDATE SET
-             name=excluded.name, total_qty=excluded.total_qty,
-             notes=excluded.notes, updated_at=datetime('now','localtime')`,
+          `INSERT INTO equipment (name,category,total_qty,notes,source_supplier_item_id) VALUES (?,?,?,?,?)`,
           [description.trim(), sup&&sup.category||null, qty, eqNotes.trim()||null, siInsert.lastID]
-        ).catch(async ()=>{
-          // fallback se ON CONFLICT non supportato (vecchio schema)
-          await dbRun(
-            `INSERT OR IGNORE INTO equipment (name,category,total_qty,notes,source_supplier_item_id) VALUES (?,?,?,?,?)`,
-            [description.trim(), sup&&sup.category||null, qty, eqNotes.trim()||null, siInsert.lastID]
-          ).catch(()=>{});
-        });
+        ).catch(()=>{});
       }
       res.redirect('/admin/fornitori?saved=ok&sup='+sid);
       logAction(req.session.user.id,'create_fornitore_item','fornitore',sid,`Voce aggiunta al fornitore #${sid}: ${description.trim()}`);
@@ -3339,7 +3350,6 @@ async function triggerBatchPassOnClose(groupId) {
   app.delete('/admin/fornitori/item/:id', requireAuth, requireOrganizer, async (req,res) => {
     const itemId = +req.params.id;
     try {
-      // Rimuovi anche dall'equipment se era auto-sincronizzato
       await dbRun(`DELETE FROM equipment WHERE source_supplier_item_id=?`,[itemId]).catch(()=>{});
       await dbRun(`DELETE FROM supplier_items WHERE id=?`,[itemId]);
       logAction(req.session.user.id,'delete_fornitore_item','fornitore',itemId,'Voce fornitore eliminata');
@@ -3362,7 +3372,7 @@ async function triggerBatchPassOnClose(groupId) {
          VALUES (?,?,?,?,?)`,
         [group.id, type, _qty, notes || null, edId]
       );
-      // Sync → scheda Materiali + resoconto fabbisogni (con source_request_id per sync bidirezionale)
+      // Sync → scheda Materiali + source_request_id per sync bidirezionale
       try {
         await dbRun(
           `INSERT INTO group_material_requests
@@ -4440,7 +4450,7 @@ app.get('/search', requireAuth, (req, res) => {
         `UPDATE group_material_requests SET status=?, confirmed_qty=?, delivered_qty=?, updated_at=datetime('now','localtime') WHERE id=?`,
         [newStatus, parseInt(confirmed_qty,10)||0, parseInt(delivered_qty,10)||0, rid]
       );
-      // Sync bidirezionale → aggiorna service_requests visibile nel portale espositore
+      // Sync bidirezionale → aggiorna service_requests visibile nel portale
       const srStatusMap = { richiesto:'in_attesa', confermato:'approvato', consegnato:'consegnato', annullato:'annullato' };
       const srStatus = srStatusMap[newStatus] || 'in_attesa';
       const gmr = await dbGet(`SELECT source_request_id FROM group_material_requests WHERE id=?`, [rid]).catch(()=>null);
