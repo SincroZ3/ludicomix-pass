@@ -2966,14 +2966,15 @@ async function triggerBatchPassOnClose(groupId) {
     const id = parseInt(req.params.id, 10);
     try {
       const [group, materials] = await Promise.all([
-        dbGet(`SELECT ag.id, ag.name, ag.zone, ag.standcode, ag.standname,
-                      g.name AS categoryname
+        dbGet(`SELECT ag.id, ag.name, ag.zone,
+                      ag.stand_code, ag.stand_name,
+                      g.name AS category_name
                FROM assignment_groups ag
                JOIN groups g ON g.id = ag.group_id
                WHERE ag.id=?`, [id]),
-        dbAll(`SELECT * FROM groupmaterialrequests
-               WHERE assignmentgroupid=?
-               ORDER BY category, itemname, id`, [id])
+        dbAll(`SELECT * FROM group_material_requests
+               WHERE assignment_group_id=?
+               ORDER BY category, item_name, id`, [id])
       ]);
       if (!group) return res.status(404).send('Gruppo non trovato');
       res.render('group-materiali', {
@@ -2997,13 +2998,13 @@ async function triggerBatchPassOnClose(groupId) {
     const edId = (typeof currentEdition !== 'undefined' && currentEdition) ? currentEdition.id : null;
     try {
       await dbRun(
-        `INSERT INTO groupmaterialrequests
-         (assignmentgroupid,category,itemname,subcategory,quantity,notes,source,editionid)
+        `INSERT INTO group_material_requests
+         (assignment_group_id, category, item_name, subcategory, quantity, notes, source, edition_id)
          VALUES (?,?,?,?,?,?,?,?)`,
         [id, category||'altro', finalItem, subcategory||null,
          parseInt(quantity,10)||1, notes||null, 'admin', edId]
       );
-      logAction(req.session.user.id,'create_gmr','groupmaterialrequest',id,
+      logAction(req.session.user.id,'create_gmr','group_material_request',id,
         `Materiale "${finalItem}" x${quantity||1} aggiunto al gruppo ${id}`);
       res.redirect(`/assignment-groups/${id}/materiali?saved=ok`);
     } catch(err) {
@@ -3018,9 +3019,9 @@ async function triggerBatchPassOnClose(groupId) {
     const { status, confirmed_qty, delivered_qty } = req.body;
     try {
       await dbRun(
-        `UPDATE groupmaterialrequests
-         SET status=?, confirmedqty=?, deliveredqty=?,
-             updatedat=datetime('now','localtime')
+        `UPDATE group_material_requests
+         SET status=?, confirmed_qty=?, delivered_qty=?,
+             updated_at=datetime('now','localtime')
          WHERE id=?`,
         [status||'richiesto', parseInt(confirmed_qty,10)||0, parseInt(delivered_qty,10)||0, rid]
       );
@@ -3032,8 +3033,8 @@ async function triggerBatchPassOnClose(groupId) {
   app.delete('/assignment-groups/:id/materiali/:rid', requireAuth, requireNotViewer, async (req, res) => {
     const rid = parseInt(req.params.rid, 10);
     try {
-      await dbRun(`DELETE FROM groupmaterialrequests WHERE id=?`, [rid]);
-      logAction(req.session.user.id,'delete_gmr','groupmaterialrequest',rid,
+      await dbRun(`DELETE FROM group_material_requests WHERE id=?`, [rid]);
+      logAction(req.session.user.id,'delete_gmr','group_material_request',rid,
         `Richiesta materiale ${rid} eliminata`);
       res.json({ ok:true });
     } catch(err) { res.status(500).json({ error:err.message }); }
@@ -3043,21 +3044,21 @@ async function triggerBatchPassOnClose(groupId) {
   app.get('/admin/logistica/resoconto', requireAuth, requireOrganizer, async (req, res) => {
     try {
       const [byItem, byGroup, inventory] = await Promise.all([
-        dbAll(`SELECT category, itemname AS item_name, subcategory,
-                      COUNT(DISTINCT assignmentgroupid) AS num_groups,
-                      SUM(quantity)     AS tot_requested,
-                      SUM(confirmedqty) AS tot_confirmed,
-                      SUM(deliveredqty) AS tot_delivered
-               FROM groupmaterialrequests
-               GROUP BY category, itemname, subcategory
-               ORDER BY category, itemname`),
-        dbAll(`SELECT ag.id, ag.name AS group_name, ag.zone, ag.standcode AS stand_code,
-                      COUNT(gmr.id)      AS num_items,
-                      SUM(gmr.quantity)  AS tot_requested,
-                      SUM(gmr.confirmedqty) AS tot_confirmed,
-                      GROUP_CONCAT(gmr.itemname||' x'||gmr.quantity, ', ') AS sommario
+        dbAll(`SELECT category, item_name, subcategory,
+                      COUNT(DISTINCT assignment_group_id) AS num_groups,
+                      SUM(quantity)      AS tot_requested,
+                      SUM(confirmed_qty) AS tot_confirmed,
+                      SUM(delivered_qty) AS tot_delivered
+               FROM group_material_requests
+               GROUP BY category, item_name, subcategory
+               ORDER BY category, item_name`),
+        dbAll(`SELECT ag.id, ag.name AS group_name, ag.zone, ag.stand_code,
+                      COUNT(gmr.id)         AS num_items,
+                      SUM(gmr.quantity)     AS tot_requested,
+                      SUM(gmr.confirmed_qty) AS tot_confirmed,
+                      GROUP_CONCAT(gmr.item_name||' x'||gmr.quantity, ', ') AS sommario
                FROM assignment_groups ag
-               JOIN groupmaterialrequests gmr ON gmr.assignmentgroupid=ag.id
+               JOIN group_material_requests gmr ON gmr.assignment_group_id=ag.id
                GROUP BY ag.id ORDER BY ag.name`),
         dbAll(`SELECT name, category, total_qty FROM equipment ORDER BY category, name`)
       ]);
@@ -3078,15 +3079,15 @@ async function triggerBatchPassOnClose(groupId) {
   app.get('/admin/logistica/resoconto/export.csv', requireAuth, requireOrganizer, async (req, res) => {
     try {
       const rows = await dbAll(
-        `SELECT ag.name AS gruppo, ag.zone AS zona, ag.standcode AS stand,
-                gmr.category AS categoria, gmr.itemname AS articolo,
+        `SELECT ag.name AS gruppo, ag.zone AS zona, ag.stand_code AS stand,
+                gmr.category AS categoria, gmr.item_name AS articolo,
                 gmr.subcategory AS sottocategoria, gmr.quantity AS richiesti,
-                gmr.confirmedqty AS confermati, gmr.deliveredqty AS consegnati,
+                gmr.confirmed_qty AS confermati, gmr.delivered_qty AS consegnati,
                 gmr.status AS stato, gmr.notes AS note,
-                gmr.createdat AS data_richiesta
-         FROM groupmaterialrequests gmr
-         JOIN assignment_groups ag ON ag.id=gmr.assignmentgroupid
-         ORDER BY ag.name, gmr.category, gmr.itemname`
+                gmr.created_at AS data_richiesta
+         FROM group_material_requests gmr
+         JOIN assignment_groups ag ON ag.id=gmr.assignment_group_id
+         ORDER BY ag.name, gmr.category, gmr.item_name`
       );
       const esc = v => '"'+String(v||'').replace(/"/g,'""')+'"';
       const hdr = 'Gruppo,Zona,Stand,Categoria,Articolo,Sottocategoria,Richiesti,Confermati,Consegnati,Stato,Note,Data\n';
@@ -3105,8 +3106,8 @@ async function triggerBatchPassOnClose(groupId) {
     try {
       const pending = await dbAll(
         `SELECT sr.* FROM service_requests sr
-         LEFT JOIN groupmaterialrequests gmr ON gmr.sourcerequestid=sr.id
-         WHERE gmr.id IS NULL ORDER BY sr.requestedat DESC`
+         LEFT JOIN group_material_requests gmr ON gmr.source_request_id=sr.id
+         WHERE gmr.id IS NULL ORDER BY sr.requested_at DESC`
       );
       let synced = 0;
       const edId = (typeof currentEdition!=='undefined'&&currentEdition) ? currentEdition.id : null;
@@ -3117,16 +3118,16 @@ async function triggerBatchPassOnClose(groupId) {
           ? MATERIAL_CATALOG[rawType].label : (rawType||'Richiesta portale');
         const smap = { completato:'consegnato', confermato:'confermato' };
         await dbRun(
-          `INSERT INTO groupmaterialrequests
-           (assignmentgroupid,category,itemname,quantity,notes,status,source,sourcerequestid,editionid)
+          `INSERT INTO group_material_requests
+           (assignment_group_id,category,item_name,quantity,notes,status,source,source_request_id,edition_id)
            VALUES (?,?,?,?,?,?,?,?,?)`,
-          [sr.assignmentgroupid, cat, itemname, sr.quantity||1, sr.notes||null,
-           smap[sr.status]||'richiesto','portale',sr.id, edId||sr.editionid||null]
+          [sr.assignment_group_id, cat, itemname, sr.quantity||1, sr.notes||null,
+           smap[sr.status]||'richiesto','portale',sr.id, edId||sr.edition_id||null]
         );
         synced++;
       }
-      logAction(req.session.user.id,'sync_gmr','groupmaterialrequest',null,
-        `Sincronizzate ${synced} richieste portale → logistica materiali`);
+      logAction(req.session.user.id,'sync_gmr','group_material_request',null,
+        `Sincronizzate ${synced} richieste portale`);
       res.json({ ok:true, synced, total:pending.length });
     } catch(err) {
       console.error('GMR SYNC', err.message);

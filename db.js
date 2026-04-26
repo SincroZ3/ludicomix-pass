@@ -998,38 +998,39 @@ db.run(`ALTER TABLE zones ADD COLUMN map_color    TEXT`,                    () =
 
 
 // ── MODULO LOGISTICA MATERIALI ──────────────────────────────────────────
-db.run(`CREATE TABLE IF NOT EXISTS groupmaterialrequests (
-  id               INTEGER PRIMARY KEY AUTOINCREMENT,
-  assignmentgroupid INTEGER NOT NULL REFERENCES assignmentgroups(id) ON DELETE CASCADE,
-  category          TEXT    NOT NULL DEFAULT 'altro',
-  itemname          TEXT    NOT NULL,
-  subcategory       TEXT,
-  quantity          INTEGER NOT NULL DEFAULT 1,
-  notes             TEXT,
-  status            TEXT    NOT NULL DEFAULT 'richiesto',
-  confirmedqty      INTEGER DEFAULT 0,
-  deliveredqty      INTEGER DEFAULT 0,
-  source            TEXT    DEFAULT 'admin',
-  sourcerequestid   INTEGER,
-  editionid         INTEGER,
-  createdat         TEXT    DEFAULT (datetime('now','localtime')),
-  updatedat         TEXT    DEFAULT (datetime('now','localtime'))
-)`, err => { if(err) console.warn('DB groupmaterialrequests:', err.message); });
+db.run(`CREATE TABLE IF NOT EXISTS group_material_requests (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  assignment_group_id INTEGER NOT NULL REFERENCES assignment_groups(id) ON DELETE CASCADE,
+  category            TEXT    NOT NULL DEFAULT 'altro',
+  item_name           TEXT    NOT NULL,
+  subcategory         TEXT,
+  quantity            INTEGER NOT NULL DEFAULT 1,
+  notes               TEXT,
+  status              TEXT    NOT NULL DEFAULT 'richiesto',
+  confirmed_qty       INTEGER DEFAULT 0,
+  delivered_qty       INTEGER DEFAULT 0,
+  source              TEXT    DEFAULT 'admin',
+  source_request_id   INTEGER,
+  edition_id          INTEGER,
+  created_at          TEXT    DEFAULT (datetime('now','localtime')),
+  updated_at          TEXT    DEFAULT (datetime('now','localtime'))
+)`, err => { if(err) console.warn('[DB] group_material_requests:', err.message); });
 
 [
-  'ALTER TABLE groupmaterialrequests ADD COLUMN subcategory TEXT',
-  'ALTER TABLE groupmaterialrequests ADD COLUMN confirmedqty INTEGER DEFAULT 0',
-  'ALTER TABLE groupmaterialrequests ADD COLUMN deliveredqty INTEGER DEFAULT 0',
-  "ALTER TABLE groupmaterialrequests ADD COLUMN source TEXT DEFAULT 'admin'",
-  'ALTER TABLE groupmaterialrequests ADD COLUMN sourcerequestid INTEGER',
-  'ALTER TABLE groupmaterialrequests ADD COLUMN editionid INTEGER',
+  'ALTER TABLE group_material_requests ADD COLUMN subcategory TEXT',
+  'ALTER TABLE group_material_requests ADD COLUMN confirmed_qty INTEGER DEFAULT 0',
+  'ALTER TABLE group_material_requests ADD COLUMN delivered_qty INTEGER DEFAULT 0',
+  "ALTER TABLE group_material_requests ADD COLUMN source TEXT DEFAULT 'admin'",
+  'ALTER TABLE group_material_requests ADD COLUMN source_request_id INTEGER',
+  'ALTER TABLE group_material_requests ADD COLUMN edition_id INTEGER',
 ].forEach(sql => db.run(sql, err => {
-  if(err && !err.message.includes('duplicate column')) console.warn('DB gmr alter:', err.message);
+  if(err && !err.message.includes('duplicate column')) console.warn('[DB] gmr alter:', err.message);
 }));
-['CREATE INDEX IF NOT EXISTS idx_gmr_group  ON groupmaterialrequests(assignmentgroupid)',
- 'CREATE INDEX IF NOT EXISTS idx_gmr_status ON groupmaterialrequests(status)'
+
+['CREATE INDEX IF NOT EXISTS idx_gmr_group  ON group_material_requests(assignment_group_id)',
+ 'CREATE INDEX IF NOT EXISTS idx_gmr_status ON group_material_requests(status)'
 ].forEach(sql => db.run(sql, err => {
-  if(err && !err.message.includes('already exists')) console.warn(err.message);
+  if(err && !err.message.includes('already exists')) console.warn('[DB] gmr idx:', err.message);
 }));
 // ────────────────────────────────────────────────────────────────────────
 
