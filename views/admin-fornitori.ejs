@@ -158,7 +158,10 @@
                       <tr id="sitem-<%= it.id %>">
                         <td><strong style="color:#1e2d4e"><%= it.description %></strong></td>
                         <td><span class="type-badge <%= typeCls[it.item_type]||'item-type-altro' %>"><%= typeLabel[it.item_type]||it.item_type %></span></td>
-                        <td style="font-size:.76rem;color:#475569"><%= it.material_category ? (MATERIAL_CATALOG[it.material_category]&&MATERIAL_CATALOG[it.material_category].icon||'') + ' ' + (MATERIAL_CATALOG[it.material_category]&&MATERIAL_CATALOG[it.material_category].label||it.material_category) : '—' %></td>
+                        <td style="font-size:.76rem;color:#475569"><%
+                          var mc = it.material_category;
+                          var ce = mc && MATERIAL_CATALOG[mc];
+                          %><%= ce ? ce.icon+' '+ce.label : (mc||'—') %></td>
                         <td style="text-align:center"><%= it.quantity %></td>
                         <td style="text-align:right;font-family:monospace"><%= it.unit_cost>0?'€ '+Number(it.unit_cost).toFixed(2):'—' %></td>
                         <td style="text-align:right;font-family:monospace;font-weight:700;color:#065f46"><%= it.total_cost>0?'€ '+Number(it.total_cost).toFixed(2):'—' %></td>
