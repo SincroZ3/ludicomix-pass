@@ -34,34 +34,13 @@ function edVal() { return _currentEdition ? _currentEdition.id : null; }
 refreshCurrentEdition();
 // ── Catalogo categorie materiali logistici ─────────────────────────────
 const MATERIAL_CATALOG = {
-  corrente: {
-    label: 'Corrente', icon: '⚡',
-    subcats: ['Presa 220V', 'Presa multipla', 'Multipresa 4 posti', 'Multipresa 6 posti', 'Prolunga 5m', 'Prolunga 10m', 'Prolunga 25m']
-  },
-  gazebo: {
-    label: 'Gazebo', icon: '⛺',
-    subcats: ['Gazebo 3x3', 'Gazebo 4x4', 'Gazebo 6x3', 'Laterale gazebo', 'Zavorra gazebo']
-  },
-  tavoli: {
-    label: 'Tavoli', icon: '🪑',
-    subcats: ['Tavolo pieghevole', 'Tavolo 180x80', 'Tavolo 120x80', 'Banco accoglienza']
-  },
-  sedie: {
-    label: 'Sedie', icon: '🪑',
-    subcats: ['Sedia pieghevole', 'Sedia fissa', 'Sgabello']
-  },
-  transenne: {
-    label: 'Transenne', icon: '🚧',
-    subcats: ['Transenna metallica', 'Nastro corsia', 'Colonnina con nastro']
-  },
-  palchi_incontri: {
-    label: 'Palchi & Incontri', icon: '🎙️',
-    subcats: ['Microfono', 'Asta microfono', 'Mixer audio', 'Cassa audio', 'Videoproiettore', 'Schermo', 'Pedana palco', 'Leggio']
-  },
-  altro: {
-    label: 'Altro', icon: '📦',
-    subcats: []
-  },
+  corrente:     { label: 'Corrente',   icon: '⚡' },
+  gazebo:       { label: 'Gazebo',     icon: '⛺' },
+  tavoli_extra: { label: 'Tavoli',     icon: '🪑' },
+  sedie_extra:  { label: 'Sedie',      icon: '🪑' },
+  transenne:    { label: 'Transenne',  icon: '🚧' },
+  palchi_incontri: { label: 'Palchi & Incontri', icon: '🎙️' },
+  altro:        { label: 'Altro',      icon: '📦' },
 };
 
 
@@ -2967,13 +2946,6 @@ async function triggerBatchPassOnClose(groupId) {
         `UPDATE service_requests SET status=?, updated_at=datetime('now','localtime') WHERE id=?`,
         [status, id]
       );
-      // Sync bidirezionale → aggiorna group_material_requests collegato
-      const gmrStatusMap = { in_attesa:'richiesto', approvato:'confermato', consegnato:'consegnato', annullato:'annullato' };
-      const gmrStatus = gmrStatusMap[status] || 'richiesto';
-      await dbRun(
-        `UPDATE group_material_requests SET status=?, updated_at=datetime('now','localtime') WHERE source_request_id=?`,
-        [gmrStatus, id]
-      ).catch(()=>{});
       logAction(req.session.user.id,'update_logistica_request','service_request',id,`Stato richiesta #${id} → ${status}`);
       res.json({ ok: true });
     } catch(err) {
@@ -3303,7 +3275,7 @@ async function triggerBatchPassOnClose(groupId) {
       const suppliers = await dbAll(`SELECT * FROM suppliers ORDER BY category,name`);
       const items     = await dbAll(`SELECT * FROM supplier_items ORDER BY supplier_id,created_at DESC`);
       const editions  = await dbAll(`SELECT * FROM editions ORDER BY year DESC`);
-      res.render('admin-fornitori',{suppliers,items,editions,saved:req.query.saved||null,MATERIAL_CATALOG});
+      res.render('admin-fornitori',{suppliers,items,editions,saved:req.query.saved||null});
     } catch(e){ res.status(500).send('Errore: '+e.message); }
   });
   app.post('/admin/fornitori', requireAuth, requireOrganizer, async (req,res) => {
@@ -3324,35 +3296,20 @@ async function triggerBatchPassOnClose(groupId) {
     } catch(e){ res.status(500).json({error:e.message}); }
   });
   app.post('/admin/fornitori/:id/item', requireAuth, requireOrganizer, async (req,res) => {
-    const {description,item_type,quantity,unit_cost,edition_id,notes,material_category}=req.body;
+    const {description,item_type,quantity,unit_cost,edition_id,notes}=req.body;
     const sid=+req.params.id;
     if(!description) return res.redirect('/admin/fornitori?saved=err');
     const qty=parseInt(quantity,10)||1; const uc=parseFloat(unit_cost)||0;
-    const itype = item_type||'noleggio';
     try {
-      const siInsert = await dbRun(
-        `INSERT INTO supplier_items (supplier_id,description,item_type,quantity,unit_cost,total_cost,edition_id,notes,material_category) VALUES (?,?,?,?,?,?,?,?,?)`,
-        [sid,description.trim(),itype,qty,uc,qty*uc,edition_id||null,notes||null,material_category||null]
-      );
-      // Auto-sync inventario: noleggio e acquisto entrano in equipment
-      if (itype === 'noleggio' || itype === 'acquisto') {
-        const sup = await dbGet(`SELECT name,category FROM suppliers WHERE id=?`,[sid]).catch(()=>null);
-        const eqNotes = (sup ? `[${itype==='noleggio'?'Noleggio':'Acquisto'} da ${sup.name}] ` : '') + (notes||'');
-        await dbRun(
-          `INSERT INTO equipment (name,category,total_qty,notes,source_supplier_item_id) VALUES (?,?,?,?,?)`,
-          [description.trim(), material_category||sup&&sup.category||null, qty, eqNotes.trim()||null, siInsert.lastID]
-        ).catch(()=>{});
-      }
+      await dbRun(`INSERT INTO supplier_items (supplier_id,description,item_type,quantity,unit_cost,total_cost,edition_id,notes) VALUES (?,?,?,?,?,?,?,?)`,[sid,description.trim(),item_type||'noleggio',qty,uc,qty*uc,edition_id||null,notes||null]);
       res.redirect('/admin/fornitori?saved=ok&sup='+sid);
       logAction(req.session.user.id,'create_fornitore_item','fornitore',sid,`Voce aggiunta al fornitore #${sid}: ${description.trim()}`);
     } catch(e){ res.redirect('/admin/fornitori?saved=err'); }
   });
   app.delete('/admin/fornitori/item/:id', requireAuth, requireOrganizer, async (req,res) => {
-    const itemId = +req.params.id;
     try {
-      await dbRun(`DELETE FROM equipment WHERE source_supplier_item_id=?`,[itemId]).catch(()=>{});
-      await dbRun(`DELETE FROM supplier_items WHERE id=?`,[itemId]);
-      logAction(req.session.user.id,'delete_fornitore_item','fornitore',itemId,'Voce fornitore eliminata');
+      await dbRun(`DELETE FROM supplier_items WHERE id=?`,[+req.params.id]);
+      logAction(req.session.user.id,'delete_fornitore_item','fornitore',+req.params.id,'Voce fornitore eliminata');
       res.json({ok:true});
     } catch(e){ res.status(500).json({error:e.message}); }
   });
@@ -3367,18 +3324,18 @@ async function triggerBatchPassOnClose(groupId) {
       if (!type) return res.status(400).json({ error: 'Tipo obbligatorio' });
       const edId = _currentEdition ? _currentEdition.id : null;
       const _qty = parseInt(quantity, 10) || 1;
-      const srInsert = await dbRun(
+      await dbRun(
         `INSERT INTO service_requests (assignment_group_id, service_type, quantity, notes, edition_id)
          VALUES (?,?,?,?,?)`,
         [group.id, type, _qty, notes || null, edId]
       );
-      // Sync → scheda Materiali + source_request_id per sync bidirezionale
+      // FIX: sync → scheda Materiali + resoconto fabbisogni (con category corretta)
       try {
         await dbRun(
           `INSERT INTO group_material_requests
-             (assignment_group_id, category, item_name, quantity, notes, status, source, edition_id, source_request_id)
-           VALUES (?,?,?,?,?,?,?,?,?)`,
-          [group.id, category || null, type, _qty, notes || null, 'in_attesa', 'portale', edId, srInsert.lastID]
+             (assignment_group_id, category, item_name, quantity, notes, status, source, edition_id)
+           VALUES (?,?,?,?,?,?,?,?)`,
+          [group.id, category || null, type, _qty, notes || null, 'in_attesa', 'portale', edId]
         );
       } catch(eSyncMat) {
         console.warn('[portale] sync group_material_requests:', eSyncMat.message);
@@ -4408,18 +4365,20 @@ app.get('/search', requireAuth, (req, res) => {
   app.get('/assignment-groups/:id/materiali', requireAuth, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     try {
-      const [group, materials] = await Promise.all([
+      const [group, materials, logisticCategories] = await Promise.all([
         dbGet(`SELECT ag.id, ag.name, ag.zone, ag.stand_code, ag.stand_name, g.name AS category_name
                FROM assignment_groups ag JOIN groups g ON g.id=ag.group_id WHERE ag.id=?`, [id]),
-        dbAll(`SELECT * FROM group_material_requests WHERE assignment_group_id=? ORDER BY category, item_name, id`, [id])
+        dbAll(`SELECT * FROM group_material_requests WHERE assignment_group_id=? ORDER BY category, item_name, id`, [id]),
+        dbAll(`SELECT * FROM logistic_categories ORDER BY sortorder, label`)
       ]);
       if (!group) return res.status(404).send('Gruppo non trovato');
-      res.render('group-materiali', { group, materials, MATERIAL_CATALOG, saved: req.query.saved || null, currentUser: req.session.user });
+      res.render('group-materiali', { group, materials, logisticCategories, saved: req.query.saved || null, currentUser: req.session.user });
     } catch(err) {
       console.error('GMR GET:', err.message);
       res.status(500).send('Errore: ' + err.message);
     }
   });
+
 
   app.post('/assignment-groups/:id/materiali', requireAuth, requireNotViewer, async (req, res) => {
     const id = parseInt(req.params.id, 10);
@@ -4445,21 +4404,10 @@ app.get('/search', requireAuth, (req, res) => {
     const rid = parseInt(req.params.rid, 10);
     const { status, confirmed_qty, delivered_qty } = req.body;
     try {
-      const newStatus = status || 'richiesto';
       await dbRun(
         `UPDATE group_material_requests SET status=?, confirmed_qty=?, delivered_qty=?, updated_at=datetime('now','localtime') WHERE id=?`,
-        [newStatus, parseInt(confirmed_qty,10)||0, parseInt(delivered_qty,10)||0, rid]
+        [status||'richiesto', parseInt(confirmed_qty,10)||0, parseInt(delivered_qty,10)||0, rid]
       );
-      // Sync bidirezionale → aggiorna service_requests visibile nel portale
-      const srStatusMap = { richiesto:'in_attesa', confermato:'approvato', consegnato:'consegnato', annullato:'annullato' };
-      const srStatus = srStatusMap[newStatus] || 'in_attesa';
-      const gmr = await dbGet(`SELECT source_request_id FROM group_material_requests WHERE id=?`, [rid]).catch(()=>null);
-      if (gmr && gmr.source_request_id) {
-        await dbRun(
-          `UPDATE service_requests SET status=?, updated_at=datetime('now','localtime') WHERE id=?`,
-          [srStatus, gmr.source_request_id]
-        ).catch(()=>{});
-      }
       res.json({ ok: true });
     } catch(err) {
       res.status(500).json({ error: err.message });
