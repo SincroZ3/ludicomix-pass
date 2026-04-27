@@ -2604,23 +2604,32 @@ async function triggerBatchPassOnClose(groupId) {
       await dbRun("INSERT OR REPLACE INTO app_settings(key,value) VALUES('portal_window_until',?)", [untilVal]);
 
       if (apply_to_all === '1') {
+        // Forza su tutti i gruppi abilitati (sovrascrive anche le finestre manuali)
         await dbRun(
-          `UPDATE assignment_groups SET portal_open_from=?, portal_open_until=? WHERE portal_enabled=1 ${edFilter()}`,
+          `UPDATE assignment_groups SET portal_open_from=?, portal_open_until=?, portal_status=NULL WHERE portal_enabled=1 ${edFilter()}`,
           [fromVal || null, untilVal || null]
         );
         logAction(req.session.user.id, 'portal_window_all', 'settings', null,
           `Finestra portali impostata globalmente: ${fromVal||'—'} → ${untilVal||'—'}`);
       } else if (groupIds.length > 0) {
+        // Aggiorna solo i gruppi selezionati esplicitamente
         const placeholders = groupIds.map(() => '?').join(',');
         await dbRun(
-          `UPDATE assignment_groups SET portal_open_from=?, portal_open_until=? WHERE id IN (${placeholders})`,
+          `UPDATE assignment_groups SET portal_open_from=?, portal_open_until=?, portal_status=NULL WHERE id IN (${placeholders})`,
           [fromVal || null, untilVal || null, ...groupIds]
         );
         logAction(req.session.user.id, 'portal_window_select', 'settings', null,
           `Finestra portali aggiornata per ${groupIds.length} stand: ${fromVal||'—'} → ${untilVal||'—'}`);
       } else {
+        // Salva globale: aggiorna i gruppi che NON hanno una finestra manuale impostata
+        const updated = await dbRun(
+          `UPDATE assignment_groups SET portal_open_from=?, portal_open_until=?, portal_status=NULL
+           WHERE portal_enabled=1 ${edFilter()}
+             AND (portal_open_from IS NULL AND portal_open_until IS NULL)`,
+          [fromVal || null, untilVal || null]
+        );
         logAction(req.session.user.id, 'portal_window_global', 'settings', null,
-          `Finestra globale aggiornata: ${fromVal||'—'} → ${untilVal||'—'}`);
+          `Finestra globale aggiornata (gruppi senza finestra manuale): ${fromVal||'—'} → ${untilVal||'—'}`);
       }
 
       res.redirect('/admin/settings/portal-window?saved=1');
@@ -3452,7 +3461,7 @@ async function triggerBatchPassOnClose(groupId) {
 
   // ── Controllo finestra temporale portale ────────────────────────────────
   if (group) {
-    const _now = new Date().toISOString().slice(0, 16);
+    const _now = new Date().toLocaleString('sv', { timeZone: 'Europe/Rome' }).replace(' ', 'T').slice(0, 16);
     if (group.portal_open_from && _now < group.portal_open_from) {
       const dtA = new Date(group.portal_open_from).toLocaleString('it-IT', { dateStyle: 'long', timeStyle: 'short' });
       return res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
