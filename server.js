@@ -3303,7 +3303,7 @@ async function triggerBatchPassOnClose(groupId) {
       const suppliers = await dbAll(`SELECT * FROM suppliers ORDER BY category,name`);
       const items     = await dbAll(`SELECT * FROM supplier_items ORDER BY supplier_id,created_at DESC`);
       const editions  = await dbAll(`SELECT * FROM editions ORDER BY year DESC`);
-      res.render('admin-fornitori',{suppliers,items,editions,saved:req.query.saved||null});
+      res.render('admin-fornitori',{suppliers,items,editions,saved:req.query.saved||null,MATERIAL_CATALOG});
     } catch(e){ res.status(500).send('Errore: '+e.message); }
   });
   app.post('/admin/fornitori', requireAuth, requireOrganizer, async (req,res) => {
@@ -3324,15 +3324,15 @@ async function triggerBatchPassOnClose(groupId) {
     } catch(e){ res.status(500).json({error:e.message}); }
   });
   app.post('/admin/fornitori/:id/item', requireAuth, requireOrganizer, async (req,res) => {
-    const {description,item_type,quantity,unit_cost,edition_id,notes}=req.body;
+    const {description,item_type,quantity,unit_cost,edition_id,notes,material_category}=req.body;
     const sid=+req.params.id;
     if(!description) return res.redirect('/admin/fornitori?saved=err');
     const qty=parseInt(quantity,10)||1; const uc=parseFloat(unit_cost)||0;
     const itype = item_type||'noleggio';
     try {
       const siInsert = await dbRun(
-        `INSERT INTO supplier_items (supplier_id,description,item_type,quantity,unit_cost,total_cost,edition_id,notes) VALUES (?,?,?,?,?,?,?,?)`,
-        [sid,description.trim(),itype,qty,uc,qty*uc,edition_id||null,notes||null]
+        `INSERT INTO supplier_items (supplier_id,description,item_type,quantity,unit_cost,total_cost,edition_id,notes,material_category) VALUES (?,?,?,?,?,?,?,?,?)`,
+        [sid,description.trim(),itype,qty,uc,qty*uc,edition_id||null,notes||null,material_category||null]
       );
       // Auto-sync inventario: noleggio e acquisto entrano in equipment
       if (itype === 'noleggio' || itype === 'acquisto') {
@@ -3340,7 +3340,7 @@ async function triggerBatchPassOnClose(groupId) {
         const eqNotes = (sup ? `[${itype==='noleggio'?'Noleggio':'Acquisto'} da ${sup.name}] ` : '') + (notes||'');
         await dbRun(
           `INSERT INTO equipment (name,category,total_qty,notes,source_supplier_item_id) VALUES (?,?,?,?,?)`,
-          [description.trim(), sup&&sup.category||null, qty, eqNotes.trim()||null, siInsert.lastID]
+          [description.trim(), material_category||sup&&sup.category||null, qty, eqNotes.trim()||null, siInsert.lastID]
         ).catch(()=>{});
       }
       res.redirect('/admin/fornitori?saved=ok&sup='+sid);

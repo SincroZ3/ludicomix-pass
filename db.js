@@ -1000,7 +1000,10 @@ db.run(`ALTER TABLE zones ADD COLUMN map_color    TEXT`,                    () =
 // Migrazione: source_request_id in group_material_requests
 db.run(`ALTER TABLE group_material_requests ADD COLUMN source_request_id INTEGER`, function(){});
 db.run(`CREATE INDEX IF NOT EXISTS idx_gmr_srcreq ON group_material_requests(source_request_id)`, function(){});
-// Migrazione: source_supplier_item_id in equipment (auto-sync fornitori)
+// Migrazione: source_supplier_item_id in equipment
 db.run(`ALTER TABLE equipment ADD COLUMN source_supplier_item_id INTEGER`, function(){});
+
+// Migrazione: material_category in supplier_items
+db.run(`ALTER TABLE supplier_items ADD COLUMN material_category TEXT`, function(){});
 
 module.exports = db;

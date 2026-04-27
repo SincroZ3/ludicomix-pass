@@ -117,11 +117,20 @@
                     <div class="field" style="flex:3;min-width:180px"><label>Descrizione *</label><input type="text" name="description" placeholder="Es. 10 tavoli 180cm" required></div>
                     <div class="field" style="min-width:110px">
                       <label>Tipo</label>
-                      <select name="item_type">
+                      <select name="item_type" onchange="toggleCat(this)">
                         <option value="noleggio">Noleggio</option>
                         <option value="acquisto">Acquisto</option>
                         <option value="servizio">Servizio</option>
                         <option value="altro">Altro</option>
+                      </select>
+                    </div>
+                    <div class="field mat-cat-field" style="min-width:145px">
+                      <label>Categoria materiale</label>
+                      <select name="material_category">
+                        <option value="">— nessuna —</option>
+                        <% Object.entries(MATERIAL_CATALOG).forEach(function([k,v]){ %>
+                          <option value="<%= k %>"><%= v.icon %> <%= v.label %></option>
+                        <% }); %>
                       </select>
                     </div>
                     <div class="field" style="width:75px"><label>Qtà</label><input type="number" name="quantity" value="1" min="1"></div>
@@ -143,12 +152,13 @@
               <% } else { %>
                 <div style="overflow-x:auto">
                   <table class="sr-table">
-                    <thead><tr><th>Descrizione</th><th>Tipo</th><th>Qtà</th><th>Costo unit.</th><th>Totale</th><th>Edizione</th><th>Note</th><th></th></tr></thead>
+                    <thead><tr><th>Descrizione</th><th>Tipo</th><th>Categoria mat.</th><th>Qtà</th><th>Costo unit.</th><th>Totale</th><th>Edizione</th><th>Note</th><th></th></tr></thead>
                     <tbody>
                     <% supItems.forEach(function(it){ %>
                       <tr id="sitem-<%= it.id %>">
                         <td><strong style="color:#1e2d4e"><%= it.description %></strong></td>
                         <td><span class="type-badge <%= typeCls[it.item_type]||'item-type-altro' %>"><%= typeLabel[it.item_type]||it.item_type %></span></td>
+                        <td style="font-size:.76rem;color:#475569"><%= it.material_category ? (MATERIAL_CATALOG[it.material_category]&&MATERIAL_CATALOG[it.material_category].icon||'') + ' ' + (MATERIAL_CATALOG[it.material_category]&&MATERIAL_CATALOG[it.material_category].label||it.material_category) : '—' %></td>
                         <td style="text-align:center"><%= it.quantity %></td>
                         <td style="text-align:right;font-family:monospace"><%= it.unit_cost>0?'€ '+Number(it.unit_cost).toFixed(2):'—' %></td>
                         <td style="text-align:right;font-family:monospace;font-weight:700;color:#065f46"><%= it.total_cost>0?'€ '+Number(it.total_cost).toFixed(2):'—' %></td>
@@ -158,7 +168,7 @@
                       </tr>
                     <% }); %>
                     <tr class="total-row">
-                      <td colspan="4" style="text-align:right;font-size:.78rem">Totale fornitore</td>
+                      <td colspan="5" style="text-align:right;font-size:.78rem">Totale fornitore</td>
                       <td style="text-align:right;font-family:monospace;color:#065f46">€ <%= supTotal.toFixed(2) %></td>
                       <td colspan="3"></td>
                     </tr>
@@ -240,5 +250,17 @@ function deleteItem(id){
   if(sid){ var f=document.getElementById('sup-form-'+sid); if(f) f.style.display='block'; }
 })();
 </script>
+
+<script>
+function toggleCat(sel) {
+  var itype = sel.value;
+  var catField = sel.closest('.form-row').querySelector('.mat-cat-field');
+  if (catField) {
+    catField.style.opacity = (itype === 'noleggio' || itype === 'acquisto') ? '1' : '0.4';
+    catField.querySelector('select').disabled = (itype !== 'noleggio' && itype !== 'acquisto');
+  }
+}
+</script>
+
 </body>
 </html>
