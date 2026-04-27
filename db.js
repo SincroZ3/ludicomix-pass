@@ -1006,4 +1006,30 @@ db.run(`ALTER TABLE equipment ADD COLUMN source_supplier_item_id INTEGER`, funct
 // Migrazione: material_category in supplier_items
 db.run(`ALTER TABLE supplier_items ADD COLUMN material_category TEXT`, function(){});
 
+
+// ── Normalizzazione categorie: unifica tutti i valori al MATERIAL_CATALOG key ──
+// equipment: vecchie label → nuove chiavi
+const catNormEq = [
+  ["UPDATE equipment SET category='corrente'      WHERE category IN ('Materiale Elettrico','elettrico','corrente_elettrica')"],
+  ["UPDATE equipment SET category='gazebo'        WHERE category IN ('Gazebo','gazebo_tenda')"],
+  ["UPDATE equipment SET category='tavoli'        WHERE category IN ('Tavolo','tavoli','Tavoli','tavoli_extra')"],
+  ["UPDATE equipment SET category='sedie'         WHERE category IN ('Sedia','sedie','Sedie','sedie_extra')"],
+  ["UPDATE equipment SET category='transenne'     WHERE category IN ('Transenna','transenne','Transenne')"],
+  ["UPDATE equipment SET category='palchi_incontri' WHERE category IN ('Materiale Audio','audio','Palchi','palchi','Palchi & Incontri','palchi_e_incontri')"],
+  ["UPDATE equipment SET category='altro'         WHERE category IN ('Altro','altro','Varie','varie','Generici')"],
+];
+catNormEq.forEach(([sql])=>{ db.run(sql, function(err){ if(err&&!err.message.includes('no such column')) console.warn('[cat-norm-eq]',err.message); }); });
+
+// group_material_requests: old _extra keys → new keys
+db.run("UPDATE group_material_requests SET category='sedie'  WHERE category='sedie_extra'",  function(){});
+db.run("UPDATE group_material_requests SET category='tavoli' WHERE category='tavoli_extra'",  function(){});
+
+// supplier_items: old _extra keys → new keys
+db.run("UPDATE supplier_items SET material_category='sedie'  WHERE material_category='sedie_extra'",  function(){});
+db.run("UPDATE supplier_items SET material_category='tavoli' WHERE material_category='tavoli_extra'",  function(){});
+
+// equipment da sync fornitori: stessa normalizzazione
+db.run("UPDATE equipment SET category='sedie'  WHERE category='sedie_extra'",  function(){});
+db.run("UPDATE equipment SET category='tavoli' WHERE category='tavoli_extra'",  function(){});
+
 module.exports = db;

@@ -42,11 +42,11 @@ const MATERIAL_CATALOG = {
     label: 'Gazebo', icon: '⛺',
     subcats: ['Gazebo 3x3', 'Gazebo 4x4', 'Gazebo 6x3', 'Laterale gazebo', 'Zavorra gazebo']
   },
-  tavoli_extra: {
+  tavoli: {
     label: 'Tavoli', icon: '🪑',
     subcats: ['Tavolo pieghevole', 'Tavolo 180x80', 'Tavolo 120x80', 'Banco accoglienza']
   },
-  sedie_extra: {
+  sedie: {
     label: 'Sedie', icon: '🪑',
     subcats: ['Sedia pieghevole', 'Sedia fissa', 'Sgabello']
   },
