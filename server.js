@@ -2910,6 +2910,28 @@ async function triggerBatchPassOnClose(groupId) {
     });
   });
 
+  app.post('/admin/groups/:id/portal/nom-toggle',requireAuth,requireNotViewer,function(req,res){
+    var id=parseInt(req.params.id,10);
+    db.get('SELECT portal_nom_enabled FROM assignment_groups WHERE id=?',[id],function(e,row){
+      if(!row)return res.status(404).json({error:'not found'});
+      var v=(row.portal_nom_enabled===0)?1:0;
+      db.run('UPDATE assignment_groups SET portal_nom_enabled=? WHERE id=?',[v,id],function(){
+        res.json({enabled:v});
+      });
+    });
+  });
+
+  app.post('/admin/groups/:id/portal/docs-toggle',requireAuth,requireNotViewer,function(req,res){
+    var id=parseInt(req.params.id,10);
+    db.get('SELECT portal_docs_enabled FROM assignment_groups WHERE id=?',[id],function(e,row){
+      if(!row)return res.status(404).json({error:'not found'});
+      var v=(row.portal_docs_enabled===0)?1:0;
+      db.run('UPDATE assignment_groups SET portal_docs_enabled=? WHERE id=?',[v,id],function(){
+        res.json({enabled:v});
+      });
+    });
+  });
+
   // ═══════════════════════════════════════════════════════════════
   // BACHECA COMUNICAZIONI
   // ═══════════════════════════════════════════════════════════════

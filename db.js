@@ -996,5 +996,16 @@ db.run(`ALTER TABLE zones ADD COLUMN map_tags     TEXT`,                    () =
 db.run(`ALTER TABLE zones ADD COLUMN map_active   INTEGER DEFAULT 1`,       () => {});
 db.run(`ALTER TABLE zones ADD COLUMN map_color    TEXT`,                    () => {});
 db.run(`ALTER TABLE assignment_groups ADD COLUMN portal_service_enabled INTEGER DEFAULT 1`, () => {});
+db.run(`ALTER TABLE assignment_groups ADD COLUMN portal_nom_enabled  INTEGER DEFAULT 1`, () => {});
+db.run(`ALTER TABLE assignment_groups ADD COLUMN portal_docs_enabled INTEGER DEFAULT 1`, () => {});
+
+// One-time: disabilita "Richiedi un servizio" su tutti i gruppi esistenti al primo avvio
+db.get("SELECT value FROM appsettings WHERE key='lc_svc_off_v1'", function(err, row) {
+  if (!row) {
+    db.run('UPDATE assignment_groups SET portal_service_enabled=0', function() {
+      db.run("INSERT OR IGNORE INTO appsettings(key,value) VALUES('lc_svc_off_v1','1')");
+    });
+  }
+});
 
 module.exports = db;
