@@ -3275,7 +3275,7 @@ async function triggerBatchPassOnClose(groupId) {
       const suppliers = await dbAll(`SELECT * FROM suppliers ORDER BY category,name`);
       const items     = await dbAll(`SELECT * FROM supplier_items ORDER BY supplier_id,created_at DESC`);
       const editions  = await dbAll(`SELECT * FROM editions ORDER BY year DESC`);
-      res.render('admin-fornitori',{suppliers,items,editions,saved:req.query.saved||null});
+      res.render('admin-fornitori',{suppliers,items,editions,MATERIAL_CATALOG,saved:req.query.saved||null});
     } catch(e){ res.status(500).send('Errore: '+e.message); }
   });
   app.post('/admin/fornitori', requireAuth, requireOrganizer, async (req,res) => {
@@ -4369,7 +4369,7 @@ app.get('/search', requireAuth, (req, res) => {
         dbGet(`SELECT ag.id, ag.name, ag.zone, ag.stand_code, ag.stand_name, g.name AS category_name
                FROM assignment_groups ag JOIN groups g ON g.id=ag.group_id WHERE ag.id=?`, [id]),
         dbAll(`SELECT * FROM group_material_requests WHERE assignment_group_id=? ORDER BY category, item_name, id`, [id]),
-        dbAll(`SELECT * FROM logistic_categories ORDER BY sortorder, label`)
+        dbAll(`SELECT * FROM logistic_categories ORDER BY label`)
       ]);
       if (!group) return res.status(404).send('Gruppo non trovato');
       res.render('group-materiali', { group, materials, logisticCategories, saved: req.query.saved || null, currentUser: req.session.user });
