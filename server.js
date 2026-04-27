@@ -2604,32 +2604,23 @@ async function triggerBatchPassOnClose(groupId) {
       await dbRun("INSERT OR REPLACE INTO app_settings(key,value) VALUES('portal_window_until',?)", [untilVal]);
 
       if (apply_to_all === '1') {
-        // Forza su tutti i gruppi abilitati (sovrascrive anche le finestre manuali)
         await dbRun(
-          `UPDATE assignment_groups SET portal_open_from=?, portal_open_until=?, portal_status=NULL WHERE portal_enabled=1 ${edFilter()}`,
+          `UPDATE assignment_groups SET portal_open_from=?, portal_open_until=? WHERE portal_enabled=1 ${edFilter()}`,
           [fromVal || null, untilVal || null]
         );
         logAction(req.session.user.id, 'portal_window_all', 'settings', null,
           `Finestra portali impostata globalmente: ${fromVal||'—'} → ${untilVal||'—'}`);
       } else if (groupIds.length > 0) {
-        // Aggiorna solo i gruppi selezionati esplicitamente
         const placeholders = groupIds.map(() => '?').join(',');
         await dbRun(
-          `UPDATE assignment_groups SET portal_open_from=?, portal_open_until=?, portal_status=NULL WHERE id IN (${placeholders})`,
+          `UPDATE assignment_groups SET portal_open_from=?, portal_open_until=? WHERE id IN (${placeholders})`,
           [fromVal || null, untilVal || null, ...groupIds]
         );
         logAction(req.session.user.id, 'portal_window_select', 'settings', null,
           `Finestra portali aggiornata per ${groupIds.length} stand: ${fromVal||'—'} → ${untilVal||'—'}`);
       } else {
-        // Salva globale: aggiorna i gruppi che NON hanno una finestra manuale impostata
-        const updated = await dbRun(
-          `UPDATE assignment_groups SET portal_open_from=?, portal_open_until=?, portal_status=NULL
-           WHERE portal_enabled=1 ${edFilter()}
-             AND (portal_open_from IS NULL AND portal_open_until IS NULL)`,
-          [fromVal || null, untilVal || null]
-        );
         logAction(req.session.user.id, 'portal_window_global', 'settings', null,
-          `Finestra globale aggiornata (gruppi senza finestra manuale): ${fromVal||'—'} → ${untilVal||'—'}`);
+          `Finestra globale aggiornata: ${fromVal||'—'} → ${untilVal||'—'}`);
       }
 
       res.redirect('/admin/settings/portal-window?saved=1');
@@ -2907,6 +2898,17 @@ async function triggerBatchPassOnClose(groupId) {
   });
   app.post('/admin/groups/:id/portal/token',requireAuth,requireNotViewer,function(req,res){var id=parseInt(req.params.id,10),token=require('crypto').randomBytes(24).toString('hex');db.run('UPDATE assignment_groups SET portal_token=?,portal_enabled=1 WHERE id=?',[token,id],function(err){if(err)return res.status(500).json({error:err.message});res.json({token});});});
   app.post('/admin/groups/:id/portal/toggle',requireAuth,requireNotViewer,function(req,res){var id=parseInt(req.params.id,10);db.get('SELECT portal_enabled FROM assignment_groups WHERE id=?',[id],function(e,row){if(!row)return res.status(404).json({error:'not found'});var v=row.portal_enabled?0:1;db.run('UPDATE assignment_groups SET portal_enabled=? WHERE id=?',[v,id],function(){res.json({enabled:v});});});});
+
+  app.post('/admin/groups/:id/portal/service-toggle',requireAuth,requireNotViewer,function(req,res){
+    var id=parseInt(req.params.id,10);
+    db.get('SELECT portal_service_enabled FROM assignment_groups WHERE id=?',[id],function(e,row){
+      if(!row)return res.status(404).json({error:'not found'});
+      var v=(row.portal_service_enabled===0)?1:0;
+      db.run('UPDATE assignment_groups SET portal_service_enabled=? WHERE id=?',[v,id],function(){
+        res.json({enabled:v});
+      });
+    });
+  });
 
   // ═══════════════════════════════════════════════════════════════
   // BACHECA COMUNICAZIONI
@@ -3284,7 +3286,7 @@ async function triggerBatchPassOnClose(groupId) {
       const suppliers = await dbAll(`SELECT * FROM suppliers ORDER BY category,name`);
       const items     = await dbAll(`SELECT * FROM supplier_items ORDER BY supplier_id,created_at DESC`);
       const editions  = await dbAll(`SELECT * FROM editions ORDER BY year DESC`);
-      res.render('admin-fornitori',{suppliers,items,editions,MATERIAL_CATALOG,saved:req.query.saved||null});
+      res.render('admin-fornitori',{suppliers,items,editions,saved:req.query.saved||null});
     } catch(e){ res.status(500).send('Errore: '+e.message); }
   });
   app.post('/admin/fornitori', requireAuth, requireOrganizer, async (req,res) => {
@@ -3461,7 +3463,7 @@ async function triggerBatchPassOnClose(groupId) {
 
   // ── Controllo finestra temporale portale ────────────────────────────────
   if (group) {
-    const _now = new Date().toLocaleString('sv', { timeZone: 'Europe/Rome' }).replace(' ', 'T').slice(0, 16);
+    const _now = new Date().toISOString().slice(0, 16);
     if (group.portal_open_from && _now < group.portal_open_from) {
       const dtA = new Date(group.portal_open_from).toLocaleString('it-IT', { dateStyle: 'long', timeStyle: 'short' });
       return res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
@@ -4374,20 +4376,18 @@ app.get('/search', requireAuth, (req, res) => {
   app.get('/assignment-groups/:id/materiali', requireAuth, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     try {
-      const [group, materials, logisticCategories] = await Promise.all([
+      const [group, materials] = await Promise.all([
         dbGet(`SELECT ag.id, ag.name, ag.zone, ag.stand_code, ag.stand_name, g.name AS category_name
                FROM assignment_groups ag JOIN groups g ON g.id=ag.group_id WHERE ag.id=?`, [id]),
-        dbAll(`SELECT * FROM group_material_requests WHERE assignment_group_id=? ORDER BY category, item_name, id`, [id]),
-        dbAll(`SELECT * FROM logistic_categories ORDER BY label`)
+        dbAll(`SELECT * FROM group_material_requests WHERE assignment_group_id=? ORDER BY category, item_name, id`, [id])
       ]);
       if (!group) return res.status(404).send('Gruppo non trovato');
-      res.render('group-materiali', { group, materials, logisticCategories, saved: req.query.saved || null, currentUser: req.session.user });
+      res.render('group-materiali', { group, materials, MATERIAL_CATALOG, saved: req.query.saved || null, currentUser: req.session.user });
     } catch(err) {
       console.error('GMR GET:', err.message);
       res.status(500).send('Errore: ' + err.message);
     }
   });
-
 
   app.post('/assignment-groups/:id/materiali', requireAuth, requireNotViewer, async (req, res) => {
     const id = parseInt(req.params.id, 10);

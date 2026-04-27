@@ -32,8 +32,6 @@
   <button type="button" class="crm-tab" data-tab="pagamenti" onclick="crmTab('pagamenti',this)">💳 Pagamenti<% if(typeof payments!=='undefined'&&payments.length){ %><% var _scad=payments.filter(function(p){return p.status==='scaduto';}).length; %><% if(_scad){ %> <span class="crm-badge crm-badge-danger"><%= _scad %> ⚠</span><% }else{ %> <span class="crm-badge"><%= payments.length %></span><% } %><% } %></button>
   <button type="button" class="crm-tab" data-tab="fiscale" onclick="crmTab('fiscale',this)">🧾 Dati Fiscali</button>
   <button type="button" class="crm-tab" data-tab="documenti" onclick="crmTab('documenti',this)">📁 Documenti<% if(typeof groupDocs!=='undefined'&&groupDocs.length){ %> <span class="crm-badge"><%= groupDocs.length %></span><% } %></button>
-
-  <button type="button" class="crm-tab" data-tab="materiali" onclick="crmTab('materiali',this)">📦 Materiali<% if(typeof materials!=='undefined'&&materials.length){ %> <span class="crm-badge"><%= materials.length %></span><% } %></button>
 <% } %>
 <% } %>
 </div>
@@ -957,6 +955,19 @@ function maronnoForza() {
     <button type="button" class="secondary" style="font-size:.82rem;background:<%= groupInfo.portal_enabled?'#c0392b':'#2d6a4f' %>;color:#fff;" onclick="togP(<%= groupInfo.id %>)"><%= groupInfo.portal_enabled?'🔒 Disabilita':'🔓 Abilita' %></button>
     <% } %>
   </div>
+
+  <!-- ── TOGGLE SEZIONE "RICHIEDI UN SERVIZIO" ─── -->
+  <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;padding:.6rem .85rem;
+              background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:.6rem;">
+    <span style="font-size:.82rem;color:#374151;">🛎️ <strong>Richiedi un servizio</strong> (sezione portale)</span>
+    <button id="btn-svc-toggle" onclick="togSvc(<%= groupInfo.id %>)"
+      style="font-size:.78rem;padding:.3rem .9rem;border-radius:20px;border:none;cursor:pointer;
+             font-weight:700;color:#fff;transition:background .18s;
+             background:<%= (groupInfo.portal_service_enabled===0)?'#9ca3af':'#01696f' %>;">
+      <%= (groupInfo.portal_service_enabled===0)?'🔴 Disabilitata':'🟢 Abilitata' %>
+    </button>
+    <span style="font-size:.73rem;color:#94a3b8;">Clicca per abilitare/disabilitare la sezione sul portale</span>
+  </div>
   <div style="border-top:1px solid #d1d9e6;padding-top:.85rem;">
     <div style="font-weight:700;font-size:.82rem;margin-bottom:.6rem;">⏱ Finestra inserimento nominativi</div>
     <% var _pof=groupInfo.portal_open_from; var _pou=groupInfo.portal_open_until; %>
@@ -1289,56 +1300,6 @@ function maronnoForza() {
 </div>
 <% } %>
 </div><!-- /tab-documenti -->
-<div id="tab-materiali" class="crm-panel">
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.8rem;margin-bottom:1rem">
-    <div>
-      <h3 style="font-size:1rem;font-weight:700;margin:0">📦 Materiali richiesti</h3>
-      <p style="font-size:.78rem;color:#64748b;margin:.2rem 0 0">Attrezzatura e materiali logistici assegnati a questo gruppo.</p>
-    </div>
-    <a href="/assignment-groups/<%= groupInfo.id %>/materiali"
-       style="display:inline-flex;align-items:center;gap:.4rem;background:#1d6fa4;color:#fff;padding:.42rem 1rem;border-radius:8px;font-size:.8rem;font-weight:700;text-decoration:none">
-      ✏️ Gestisci materiali →
-    </a>
-  </div>
-
-  <% if(typeof materials!=='undefined' && materials.length){ %>
-  <% var statColors={richiesto:'#e0f2fe|#0369a1',confermato:'#dcfce7|#15803d',consegnato:'#f0fdf4|#166534',annullato:'#fee2e2|#991b1b'}; %>
-  <div style="overflow-x:auto">
-  <table style="width:100%;border-collapse:collapse;font-size:.82rem">
-    <thead>
-      <tr style="border-bottom:2px solid #e2e8f0">
-        <th style="text-align:left;padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:#64748b">Categoria</th>
-        <th style="text-align:left;padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:#64748b">Articolo</th>
-        <th style="text-align:right;padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:#64748b">Qtà</th>
-        <th style="text-align:center;padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:#64748b">Stato</th>
-        <th style="padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:#64748b">Note</th>
-      </tr>
-    </thead>
-    <tbody>
-    <% materials.forEach(function(m){ %>
-      <% var sc=(statColors[m.status]||'#f1f5f9|#475569').split('|'); %>
-      <tr style="border-bottom:1px solid #f1f5f9">
-        <td style="padding:.45rem .6rem;color:#64748b;font-size:.76rem"><%= m.category %></td>
-        <td style="padding:.45rem .6rem;font-weight:600"><%= m.itemname %><% if(m.subcategory){ %> <span style="font-size:.7rem;color:#94a3b8;font-weight:400">· <%= m.subcategory %></span><% } %></td>
-        <td style="padding:.45rem .6rem;text-align:right;font-weight:700;font-variant-numeric:tabular-nums"><%= m.quantity %></td>
-        <td style="padding:.45rem .6rem;text-align:center"><span style="display:inline-block;padding:.12rem .55rem;border-radius:9999px;font-size:.65rem;font-weight:700;text-transform:uppercase;background:<%= sc[0] %>;color:<%= sc[1] %>"><%= m.status %></span></td>
-        <td style="padding:.45rem .6rem;font-size:.75rem;color:#64748b"><%= m.notes||'—' %></td>
-      </tr>
-    <% }); %>
-    </tbody>
-  </table>
-  </div>
-  <% } else { %>
-  <div style="text-align:center;padding:2.5rem 1rem;color:#94a3b8">
-    <div style="font-size:2.5rem;margin-bottom:.5rem">📦</div>
-    <p style="font-size:.85rem">Nessun materiale richiesto per questo gruppo.</p>
-    <a href="/assignment-groups/<%= groupInfo.id %>/materiali"
-       style="display:inline-flex;align-items:center;gap:.4rem;margin-top:.8rem;background:#1d6fa4;color:#fff;padding:.42rem 1rem;border-radius:8px;font-size:.8rem;font-weight:700;text-decoration:none">
-      ➕ Aggiungi materiali
-    </a>
-  </div>
-  <% } %>
-</div>
 <script>
 /* ── Tab switching ── */
 function crmTab(tabId, btn) {
@@ -1585,6 +1546,18 @@ function clearWindow() {
 
 /* genTok / togP / map */
 function genTok(id){if(!confirm('Generare nuovo token portale?'))return;fetch('/admin/groups/'+id+'/portal/token',{method:'POST'}).then(function(r){return r.json();}).then(function(d){if(d.token)location.reload();else alert('Errore:'+(d.error||'?'));});}
+
+function togSvc(id){
+  var btn=document.getElementById('btn-svc-toggle');
+  btn.disabled=true; btn.textContent='⏳';
+  fetch('/admin/groups/'+id+'/portal/service-toggle',{method:'POST'})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.enabled===0){btn.textContent='🔴 Disabilitata';btn.style.background='#9ca3af';}
+      else{btn.textContent='🟢 Abilitata';btn.style.background='#01696f';}
+      btn.disabled=false;
+    }).catch(function(){location.reload();});
+}
 function togP(id){fetch('/admin/groups/'+id+'/portal/toggle',{method:'POST'}).then(function(){location.reload();});}
 (function(){
   var mpf=document.getElementById('mpf');
