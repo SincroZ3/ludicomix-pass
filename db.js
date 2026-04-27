@@ -1032,4 +1032,43 @@ db.run("UPDATE supplier_items SET material_category='tavoli' WHERE material_cate
 db.run("UPDATE equipment SET category='sedie'  WHERE category='sedie_extra'",  function(){});
 db.run("UPDATE equipment SET category='tavoli' WHERE category='tavoli_extra'",  function(){});
 
+
+// ════════════════════════════════════════════════════════════════════
+// NORMALIZZAZIONE CATEGORIE — esegue sempre in sicurezza (idempotente)
+// Mappa tutti i vecchi valori (server-2.js, server.js, _extra, label)
+// al MATERIAL_CATALOG definitivo: corrente|gazebo|tavoli|sedie|
+//   transenne|palchi_incontri|altro
+// ════════════════════════════════════════════════════════════════════
+(function normCategories(){
+  var tables = ['group_material_requests','equipment','supplier_items'];
+  var colMap = {
+    group_material_requests: 'category',
+    equipment: 'category',
+    supplier_items: 'material_category'
+  };
+  var map = [
+    // vecchie chiavi server-2.js
+    ["sedie",         "('sedia','Sedia','sedie_extra','Sedie_extra')"],
+    ["tavoli",        "('tavolo','Tavolo','tavoli_extra','Tavoli_extra')"],
+    ["corrente",      "('prolunga','Prolunga','Materiale Elettrico','materiale_elettrico','elettrico','Corrente_ext')"],
+    ["palchi_incontri",["'Materiale Audio'","'materiale_audio'","'audio'","'Audio'","'palchi'","'Palchi'",
+                        "'palchi_e_incontri'","'Palchi_e_Incontri'"].join(',")"],
+    ["transenne",     "('transenna','Transenna','Transenne')"],
+    ["gazebo",        "('Gazebo')"],
+    ["altro",         "('pannello','Pannello','lavagna','Lavagna','Varie','varie','Generici','generici')"],
+  ];
+  tables.forEach(function(tbl){
+    var col = colMap[tbl];
+    db.run("ALTER TABLE "+tbl+" ADD COLUMN _cat_norm_v2 INTEGER DEFAULT 0", function(){});
+    map.forEach(function(pair){
+      var newKey = pair[0], inList = pair[1];
+      db.run(
+        "UPDATE "+tbl+" SET "+col+"='"+newKey+"' WHERE "+col+" IN "+inList,
+        function(err){ if(err && !err.message.includes('no such column') &&
+                          !err.message.includes('no such table'))
+          console.warn('[catNorm]['+tbl+']', err.message); }
+      );
+    });
+  });
+})();
 module.exports = db;

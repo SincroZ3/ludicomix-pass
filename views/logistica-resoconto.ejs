@@ -6,7 +6,7 @@
 .rk .l{font-size:.62rem;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-top:.2rem}
 .rbox{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:1.1rem 1.2rem;margin-bottom:1rem;box-shadow:0 1px 4px rgba(30,45,78,.06)}
 .rbox h3{font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700;margin:0 0 .8rem}
-.rtab{width:100%;border-collapse:collapse;font-size:.82rem;table-layout:fixed}
+.rtab{width:100%;border-collapse:collapse;font-size:.82rem}
 .rtab th{text-align:left;padding:.42rem .65rem;font-size:.65rem;text-transform:uppercase;letter-spacing:.4px;color:#64748b;border-bottom:2px solid #e2e8f0;font-weight:700;white-space:nowrap}
 .rtab td{padding:.46rem .65rem;border-bottom:1px solid #f1f5f9;vertical-align:middle}
 .rtab tr:hover td{background:#f8fafc}
@@ -95,13 +95,8 @@
          var catKeys=Object.keys(MATERIAL_CATALOG); %>
     <div style="overflow-x:auto">
     <table class="rtab">
-      <colgroup>
-        <col style="width:36%"><col style="width:9%">
-        <col style="width:11%"><col style="width:11%">
-        <col style="width:13%"><col style="width:20%">
-      </colgroup>
       <thead><tr>
-        <th>Articolo</th><th style="text-align:center">Gruppi</th>
+        <th>Articolo</th><th>Gruppi</th>
         <th class="qn">Richieste</th><th class="qn">Confermate</th>
         <th class="qn">Da reperire</th><th>Avanzamento</th>
       </tr></thead>
@@ -147,11 +142,6 @@
     <% } else { %>
     <div style="overflow-x:auto">
     <table class="rtab">
-      <colgroup>
-        <col style="width:22%"><col style="width:9%"><col style="width:8%">
-        <col style="width:7%"><col style="width:8%"><col style="width:7%">
-        <col style="width:28%"><col style="width:11%">
-      </colgroup>
       <thead><tr>
         <th>Gruppo</th><th>Zona</th><th>Stand</th>
         <th class="qn">Articoli</th><th class="qn">Qtà tot</th><th class="qn">Conf.</th>
@@ -195,11 +185,6 @@
     <% } else { %>
     <div style="overflow-x:auto">
     <table class="rtab">
-      <colgroup>
-        <col style="width:32%"><col style="width:18%">
-        <col style="width:12%"><col style="width:12%">
-        <col style="width:10%"><col style="width:16%">
-      </colgroup>
       <thead><tr>
         <th>Articolo inventario</th><th>Categoria</th>
         <th class="qn">Disponibili</th><th class="qn">Richiesti</th>
@@ -209,8 +194,10 @@
       <% inventory.forEach(function(iv){
            var totR=0;
            byItem.forEach(function(it){
-             if(it.item_name.toLowerCase().includes(iv.name.toLowerCase())
-             || iv.name.toLowerCase().includes(it.item_name.toLowerCase()))
+             var nameMatch = it.item_name.toLowerCase().includes(iv.name.toLowerCase())
+                          || iv.name.toLowerCase().includes(it.item_name.toLowerCase());
+             var catMatch  = iv.category && it.category && it.category===iv.category;
+             if(nameMatch || catMatch)
                totR += it.tot_requested||0;
            });
            var gap=iv.total_qty-totR;
