@@ -994,7 +994,7 @@ db.run(`ALTER TABLE zones ADD COLUMN map_desc     TEXT`,                    () =
 db.run(`ALTER TABLE zones ADD COLUMN map_address  TEXT`,                    () => {});
 db.run(`ALTER TABLE zones ADD COLUMN map_tags     TEXT`,                    () => {});
 db.run(`ALTER TABLE zones ADD COLUMN map_active   INTEGER DEFAULT 1`,       () => {});
-db.run(`ALTER TABLE zones ADD COLUMN map_color    TEXT`
-db.run(`ALTER TABLE assignment_groups ADD COLUMN portal_service_enabled INTEGER DEFAULT 1`, () => {});,                    () => {});
+db.run(`ALTER TABLE zones ADD COLUMN map_color    TEXT`,                    () => {});
+db.run(`ALTER TABLE assignment_groups ADD COLUMN portal_service_enabled INTEGER DEFAULT 1`, () => {});
 
 module.exports = db;
