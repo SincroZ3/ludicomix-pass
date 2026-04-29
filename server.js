@@ -2633,6 +2633,7 @@ async function triggerBatchPassOnClose(groupId) {
   app.post('/admin/zones', requireAuth, requireOrganizer, (req, res) => {
     const { name, sort_order } = req.body;
     if (!name || !name.trim()) return res.status(400).send('Nome zona obbligatorio');
+    console.log('[DEBUG] Creo zona:', name.trim(), '→ show_internal=1, show_public=0');
     db.run(
       'INSERT INTO zones (name, sort_order, show_internal, show_public) VALUES (?, ?, 1, 0)',
       [name.trim(), parseInt(sort_order || 0, 10)],
@@ -3653,30 +3654,38 @@ async function triggerBatchPassOnClose(groupId) {
 
 
 
-  // ── DEBUG TEMPORANEO — rimuovere dopo il debug ─────────────────────────────
+  // ── DEBUG — verifica stato zone e query filtrate ──────────────────────────
   app.get('/admin/debug-zones', requireAuth, requireAdmin, async (req, res) => {
     try {
-      const zones = await dbAll(
-        `SELECT id, name, show_internal, show_public,
-                (SELECT count(*) FROM pragma_table_info('zones') WHERE name='show_internal') as col_si,
-                (SELECT count(*) FROM pragma_table_info('zones') WHERE name='show_public') as col_sp,
-                (SELECT count(*) FROM pragma_table_info('zones') WHERE name='zone_scope') as col_zs
-         FROM zones ORDER BY id`
+      const allZones = await dbAll(
+        `SELECT id, name, show_internal, show_public FROM zones ORDER BY id`
       );
+      const internalZones = await dbAll(
+        `SELECT id, name FROM zones WHERE show_internal = 1 ORDER BY id`
+      );
+      const publicZones = await dbAll(
+        `SELECT id, name FROM zones WHERE show_public = 1 ORDER BY id`
+      );
+      const lastCreated = await dbAll(
+        `SELECT id, name, show_internal, show_public FROM zones ORDER BY id DESC LIMIT 5`
+      );
+      // Versione server: cerca la stringa univoca nel codice
       res.json({
-        colonne_presenti: {
-          show_internal: zones[0]?.col_si === 1,
-          show_public:   zones[0]?.col_sp === 1,
-          zone_scope:    zones[0]?.col_zs === 1
-        },
-        zone: zones.map(z => ({
-          id: z.id, name: z.name,
-          show_internal: z.show_internal,
-          show_public:   z.show_public
-        }))
+        server_version: 'show_internal+show_public v4',
+        totale_zone: allZones.length,
+        zone_interne_count: internalZones.length,
+        zone_pubbliche_count: publicZones.length,
+        ultime_5_create: lastCreated,
+        zone_interne: internalZones.map(z => z.name),
+        zone_pubbliche: publicZones.map(z => z.name),
+        tutte: allZones
       });
     } catch(err) { res.status(500).json({ error: err.message }); }
   });
+
+  // ── DEBUG POST zona — intercetta la creazione e mostra i valori inseriti ──
+  // ATTENZIONE: questo endpoint SOVRASCRIVE il POST /admin/zones originale
+  // aggiungendo log e redirect al debug. Rimuovere dopo il debug.
 
   // GET /admin/hub — hub con tutti i link admin importanti
   app.get('/admin/hub', requireAuth, requireAdmin, (req, res) => {
@@ -4106,6 +4115,7 @@ load();
       "SELECT * FROM zones WHERE show_public = 1 AND map_active = 1 ORDER BY sort_order, name",
       [], function(err, zones) {
         if (err) return res.status(500).send('Errore caricamento mappa');
+        console.log('[DEBUG] mappa-pubblica: restituisce', zones.length, 'zone:', zones.map(z=>z.name));
         res.render('public_map-2', { zonesJson: JSON.stringify(zones) });
       }
     );
