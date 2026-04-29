@@ -3651,30 +3651,249 @@ async function triggerBatchPassOnClose(groupId) {
 
 
 
-  // ── Endpoint una-tantum: ri-classifica zone esistenti ──────────────────────
-  // Da usare SE il db era già avviato prima della migration zone_scope
-  // GET /admin/fix-zone-scope → ri-classifica e restituisce report JSON
+
+  // ════════════════════════════════════════════════════════════════
+  // ZONE MANAGER — classifica manuale zone interne vs mappa pubblica
+  // ════════════════════════════════════════════════════════════════
+
+  // GET /admin/zone-manager — pagina di gestione
+  app.get('/admin/zone-manager', requireAuth, requireAdmin, (req, res) => {
+    res.send(`<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Zone Manager — Ludicomix Admin</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:14px;background:#f4f6f9;color:#1a2744}
+.header{background:#1e2d4e;color:#fff;padding:.75rem 1.5rem;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #f5c842}
+.header h1{font-size:1rem;font-weight:800}
+.back{color:#f5c842;text-decoration:none;font-size:.8rem;font-weight:700}
+.container{max-width:900px;margin:2rem auto;padding:0 1rem}
+.alert{background:#fff3cd;border:1px solid #f5c842;border-radius:8px;padding:1rem 1.2rem;margin-bottom:1.5rem;font-size:.85rem;line-height:1.6}
+.alert strong{color:#1e2d4e}
+.card{background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.08);overflow:hidden}
+.card-header{background:#f8f9fc;padding:.85rem 1.2rem;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between}
+.card-header h2{font-size:.9rem;font-weight:800;color:#1e2d4e}
+.btn-group{display:flex;gap:.5rem}
+.btn{padding:.35rem .9rem;border:none;border-radius:6px;font-size:.78rem;font-weight:700;cursor:pointer;transition:background .15s}
+.btn-primary{background:#f5c842;color:#1e2d4e}.btn-primary:hover{background:#f7d060}
+.btn-danger{background:#e8372a;color:#fff}.btn-danger:hover{background:#c42d21}
+.btn-success{background:#2e7d32;color:#fff}.btn-success:hover{background:#1b5e20}
+.btn-secondary{background:#e2e8f0;color:#1e2d4e}.btn-secondary:hover{background:#d1d9e6}
+table{width:100%;border-collapse:collapse}
+th{padding:.65rem 1rem;text-align:left;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#8896ab;background:#f8f9fc;border-bottom:1px solid #e2e8f0}
+td{padding:.7rem 1rem;border-bottom:1px solid #f0f2f7;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafbfc}
+.badge{display:inline-flex;align-items:center;gap:.3rem;padding:.25rem .65rem;border-radius:20px;font-size:.72rem;font-weight:700}
+.badge-internal{background:#dbeafe;color:#1e40af}
+.badge-public{background:#dcfce7;color:#166534}
+.zone-name{font-weight:700;color:#1a2744}
+.zone-meta{font-size:.72rem;color:#8896ab;margin-top:.15rem}
+.toggle-btn{padding:.3rem .8rem;border-radius:6px;font-size:.72rem;font-weight:700;border:none;cursor:pointer;transition:all .15s}
+.to-public{background:#dcfce7;color:#166534;border:1px solid #86efac}.to-public:hover{background:#bbf7d0}
+.to-internal{background:#dbeafe;color:#1e40af;border:1px solid #93c5fd}.to-internal:hover{background:#bfdbfe}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem}
+.stat-card{background:#fff;border-radius:8px;padding:1rem 1.2rem;box-shadow:0 1px 4px rgba(0,0,0,.06);text-align:center}
+.stat-num{font-size:2rem;font-weight:800;line-height:1}
+.stat-label{font-size:.75rem;color:#8896ab;margin-top:.3rem}
+.internal-num{color:#1e40af}.public-num{color:#166534}
+.save-bar{position:sticky;bottom:0;background:#1e2d4e;color:#fff;padding:.75rem 1.5rem;display:flex;align-items:center;justify-content:space-between;margin-top:1.5rem;border-radius:8px 8px 0 0}
+.save-bar span{font-size:.85rem}
+#toast{position:fixed;top:1rem;right:1rem;background:#2e7d32;color:#fff;padding:.75rem 1.2rem;border-radius:8px;font-size:.85rem;font-weight:700;display:none;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+#toast.error{background:#c62828}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🗂️ Zone Manager — Classifica Zone</h1>
+  <a href="/admin/settings" class="back">← Torna alle Impostazioni</a>
+</div>
+
+<div id="toast"></div>
+
+<div class="container">
+  <div class="alert">
+    <strong>⚠️ Usa questa pagina per classificare le zone esistenti.</strong><br>
+    <strong>🔵 Interno (Padiglione)</strong> = appare in Impostazioni Zone, Mappa Stand e dropdown gruppi.<br>
+    <strong>🟢 Mappa Pubblica (POI)</strong> = appare solo nella mappa pubblica visitatori.<br>
+    Clicca il pulsante accanto a ogni zona per cambiarle tipo, poi <strong>Salva tutto</strong>.
+  </div>
+
+  <div class="stats" id="stats">
+    <div class="stat-card"><div class="stat-num internal-num" id="count-internal">—</div><div class="stat-label">🔵 Zone Interne (Padiglioni)</div></div>
+    <div class="stat-card"><div class="stat-num public-num" id="count-public">—</div><div class="stat-label">🟢 POI Mappa Pubblica</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2>Tutte le Zone</h2>
+      <div class="btn-group">
+        <button class="btn btn-secondary" onclick="setAll('internal')">🔵 Tutte Interne</button>
+        <button class="btn btn-secondary" onclick="setAll('public')">🟢 Tutte Pubbliche</button>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th>Nome Zona</th><th>Tipo Attuale</th><th>Coordinate</th><th>Azione</th></tr></thead>
+      <tbody id="zone-tbody">
+        <tr><td colspan="4" style="text-align:center;color:#8896ab;padding:2rem">Caricamento…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="save-bar">
+    <span id="changes-label">Nessuna modifica in sospeso</span>
+    <button class="btn btn-success" onclick="saveAll()" id="save-btn" disabled>💾 Salva tutto</button>
+  </div>
+</div>
+
+<script>
+let zones = [];
+let pending = {}; // {id: 'internal'|'public'}
+
+async function load() {
+  const r = await fetch('/admin/zone-manager/data');
+  zones = await r.json();
+  render();
+}
+
+function render() {
+  const tbody = document.getElementById('zone-tbody');
+  tbody.innerHTML = '';
+  let ni = 0, np = 0;
+  zones.forEach(z => {
+    const scope = pending[z.id] !== undefined ? pending[z.id] : (z.zone_scope || 'internal');
+    if (scope === 'internal') ni++; else np++;
+    const hasCoords = z.map_lat ? \`\${parseFloat(z.map_lat).toFixed(4)}, \${parseFloat(z.map_lng).toFixed(4)}\` : '—';
+    const isInternal = scope === 'internal';
+    tbody.innerHTML += \`<tr id="row-\${z.id}">
+      <td>
+        <div class="zone-name">\${z.name}</div>
+        \${z.background_image ? '<div class="zone-meta">📋 Ha sfondo stand</div>' : ''}
+      </td>
+      <td><span class="badge \${isInternal ? 'badge-internal' : 'badge-public'}" id="badge-\${z.id}">
+        \${isInternal ? '🔵 Interno' : '🟢 Mappa Pubblica'}
+      </span></td>
+      <td style="font-size:.78rem;color:#8896ab">\${hasCoords}</td>
+      <td>
+        <button class="toggle-btn \${isInternal ? 'to-public' : 'to-internal'}"
+          onclick="toggle(\${z.id})" id="btn-\${z.id}">
+          \${isInternal ? '→ Sposta a Pubblica' : '→ Sposta a Interna'}
+        </button>
+      </td>
+    </tr>\`;
+  });
+  document.getElementById('count-internal').textContent = ni;
+  document.getElementById('count-public').textContent = np;
+  updateSaveBar();
+}
+
+function toggle(id) {
+  const z = zones.find(x => x.id === id);
+  const cur = pending[id] !== undefined ? pending[id] : (z.zone_scope || 'internal');
+  pending[id] = cur === 'internal' ? 'public' : 'internal';
+  render();
+}
+
+function setAll(scope) {
+  zones.forEach(z => { pending[z.id] = scope; });
+  render();
+}
+
+function updateSaveBar() {
+  const n = Object.keys(pending).length;
+  const lbl = document.getElementById('changes-label');
+  const btn = document.getElementById('save-btn');
+  if (n === 0) {
+    lbl.textContent = 'Nessuna modifica in sospeso';
+    btn.disabled = true;
+  } else {
+    lbl.textContent = \`\${n} modifica\${n > 1 ? 'he' : ''} in sospeso\`;
+    btn.disabled = false;
+  }
+}
+
+async function saveAll() {
+  if (!Object.keys(pending).length) return;
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Salvataggio…';
+  try {
+    const r = await fetch('/admin/zone-manager/save', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(pending)
+    });
+    const j = await r.json();
+    if (j.ok) {
+      showToast(\`✅ \${j.updated} zone salvate!\`);
+      // aggiorna i dati locali
+      zones.forEach(z => { if (pending[z.id] !== undefined) z.zone_scope = pending[z.id]; });
+      pending = {};
+      render();
+    } else {
+      showToast('❌ Errore: ' + j.error, true);
+    }
+  } catch(e) {
+    showToast('❌ Errore di rete', true);
+  }
+  btn.disabled = false;
+  btn.textContent = '💾 Salva tutto';
+}
+
+function showToast(msg, err) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = err ? 'error' : '';
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 3000);
+}
+
+load();
+</script>
+</body>
+</html>`);
+  });
+
+  // GET /admin/zone-manager/data — dati JSON di tutte le zone
+  app.get('/admin/zone-manager/data', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const zones = await dbAll(
+        `SELECT id, name, zone_scope, map_lat, map_lng, background_image FROM zones ORDER BY COALESCE(zone_scope,'internal'), sort_order, name`
+      );
+      res.json(zones);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /admin/zone-manager/save — salva le classificazioni
+  app.post('/admin/zone-manager/save', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const updates = req.body; // {id: 'internal'|'public', ...}
+      let updated = 0;
+      for (const [id, scope] of Object.entries(updates)) {
+        if (scope !== 'internal' && scope !== 'public') continue;
+        await dbRun(`UPDATE zones SET zone_scope = ? WHERE id = ?`, [scope, parseInt(id, 10)]);
+        updated++;
+      }
+      logAction(req.session.user.id, 'zone_scope_bulk', 'zones', null,
+        `Classificate ${updated} zone via Zone Manager`);
+      res.json({ ok: true, updated });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // GET /admin/fix-zone-scope — ripristino di emergenza: tutte interne
   app.get('/admin/fix-zone-scope', requireAuth, requireAdmin, async (req, res) => {
     try {
-      // Imposta 'public' per le zone con coordinate geografiche
-      const r1 = await dbRun(
-        `UPDATE zones SET zone_scope = 'public' WHERE map_lat IS NOT NULL`
-      );
-      // Imposta 'internal' per le zone senza coordinate
-      const r2 = await dbRun(
-        `UPDATE zones SET zone_scope = 'internal' WHERE map_lat IS NULL`
-      );
-      const allZones = await dbAll(
-        `SELECT id, name, zone_scope, map_lat, map_lng FROM zones ORDER BY zone_scope, name`
-      );
-      logAction(req.session.user.id, 'fix_zone_scope', 'zones', null,
-        `Ri-classificazione: ${r1.changes} public, ${r2.changes} internal`);
-      res.json({
-        ok: true,
-        set_public:   r1.changes,
-        set_internal: r2.changes,
-        zones: allZones
-      });
+      const r = await dbRun(`UPDATE zones SET zone_scope = 'internal'`);
+      logAction(req.session.user.id, 'fix_zone_scope_reset', 'zones', null,
+        `Reset: ${r.changes} zone → internal`);
+      res.json({ ok: true, reset: r.changes, message: 'Tutte le zone resettate a internal. Vai su /admin/zone-manager per riclassificarle.' });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
