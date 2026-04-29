@@ -997,16 +997,20 @@ db.run(`ALTER TABLE zones ADD COLUMN map_active   INTEGER DEFAULT 1`,       () =
 db.run(`ALTER TABLE zones ADD COLUMN map_color    TEXT`,                    () => {});
 
 // ── Separazione zone interne (padiglioni) da POI mappa pubblica ──────────
-// ── zone_scope: separazione zone interne da POI mappa pubblica ──────────────
-// ATTENZIONE: non classifichiamo automaticamente — l'admin lo fa via
-// /admin/zone-manager per evitare di perdere zone interne.
-// Default sicuro: tutte le zone rimangono 'internal' finché l'admin
-// non sposta esplicitamente quelle pubbliche.
-db.run(`ALTER TABLE zones ADD COLUMN zone_scope TEXT DEFAULT 'internal'`, function() {
-  // Idempotente: se la colonna esiste già l'ALTER fallisce silenziosamente.
-  // Non facciamo UPDATE automatico: l'admin usa /admin/zone-manager per classificare.
-  db.run(`UPDATE zones SET zone_scope = 'internal' WHERE zone_scope IS NULL`, function(err) {
-    if (err) console.warn('[DB] zone_scope init:', err.message);
+// ── Visibilità zone: show_internal e show_public (boolean) ──────────────────
+// Due colonne separate, nessuna ambiguità DEFAULT SQLite, nessun COALESCE.
+// show_internal = 1 → appare in Impostazioni, Mappa Stand, dropdown gruppi
+// show_public   = 1 → appare nella Mappa Pubblica visitatori
+// Le vecchie zone acquisiscono show_internal=1, show_public=0 tramite DEFAULT.
+db.run(`ALTER TABLE zones ADD COLUMN show_internal INTEGER DEFAULT 1`, function() {
+  db.run(`ALTER TABLE zones ADD COLUMN show_public INTEGER DEFAULT 0`, function() {
+    // Se zone_scope esiste già (db precedente), migra i valori
+    db.run(`UPDATE zones SET
+      show_internal = CASE WHEN zone_scope IN ('internal','both') OR zone_scope IS NULL THEN 1 ELSE 0 END,
+      show_public   = CASE WHEN zone_scope IN ('public','both') THEN 1 ELSE 0 END
+    WHERE show_internal IS NULL OR show_public IS NULL`, function(err) {
+      if (err) console.warn('[DB] show_internal/show_public migration:', err.message);
+    });
   });
 });
 
