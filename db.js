@@ -1002,15 +1002,25 @@ db.run(`ALTER TABLE zones ADD COLUMN map_color    TEXT`,                    () =
 // show_internal = 1 → appare in Impostazioni, Mappa Stand, dropdown gruppi
 // show_public   = 1 → appare nella Mappa Pubblica visitatori
 // Le vecchie zone acquisiscono show_internal=1, show_public=0 tramite DEFAULT.
-db.run(`ALTER TABLE zones ADD COLUMN show_internal INTEGER DEFAULT 1`, function() {
-  db.run(`ALTER TABLE zones ADD COLUMN show_public INTEGER DEFAULT 0`, function() {
-    // Se zone_scope esiste già (db precedente), migra i valori
-    db.run(`UPDATE zones SET
-      show_internal = CASE WHEN zone_scope IN ('internal','both') OR zone_scope IS NULL THEN 1 ELSE 0 END,
-      show_public   = CASE WHEN zone_scope IN ('public','both') THEN 1 ELSE 0 END
-    WHERE show_internal IS NULL OR show_public IS NULL`, function(err) {
-      if (err) console.warn('[DB] show_internal/show_public migration:', err.message);
-    });
+// ── show_internal / show_public — migration one-shot ────────────────────────
+// ALTER TABLE fallisce silenziosamente SE la colonna esiste già.
+// errA/errB = null  → colonna appena creata (prima esecuzione)
+// errA/errB = Error → colonna già esistente (esecuzioni successive)
+// → L'UPDATE massiccio gira SOLO alla prima esecuzione,
+//   così le classificazioni manuali non vengono mai azzerate ai restart.
+db.run(`ALTER TABLE zones ADD COLUMN show_internal INTEGER DEFAULT 1`, function(errA) {
+  db.run(`ALTER TABLE zones ADD COLUMN show_public INTEGER DEFAULT 0`, function(errB) {
+    if (!errA && !errB) {
+      // Prima esecuzione: forza valori espliciti su tutte le righe
+      db.run(`UPDATE zones SET show_internal=1, show_public=0`, function() {
+        // Rispetta eventuali zone_scope precedenti (da patch precedenti)
+        db.run(`UPDATE zones SET show_internal=0, show_public=1 WHERE zone_scope='public'`);
+        db.run(`UPDATE zones SET show_internal=1, show_public=1 WHERE zone_scope='both'`);
+        console.log('[DB] show_internal/show_public: colonne create e valori inizializzati');
+      });
+    } else {
+      console.log('[DB] show_internal/show_public: colonne già presenti, nessuna modifica');
+    }
   });
 });
 

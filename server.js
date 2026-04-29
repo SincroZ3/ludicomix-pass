@@ -3652,6 +3652,32 @@ async function triggerBatchPassOnClose(groupId) {
 
 
 
+
+  // ── DEBUG TEMPORANEO — rimuovere dopo il debug ─────────────────────────────
+  app.get('/admin/debug-zones', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const zones = await dbAll(
+        `SELECT id, name, show_internal, show_public,
+                (SELECT count(*) FROM pragma_table_info('zones') WHERE name='show_internal') as col_si,
+                (SELECT count(*) FROM pragma_table_info('zones') WHERE name='show_public') as col_sp,
+                (SELECT count(*) FROM pragma_table_info('zones') WHERE name='zone_scope') as col_zs
+         FROM zones ORDER BY id`
+      );
+      res.json({
+        colonne_presenti: {
+          show_internal: zones[0]?.col_si === 1,
+          show_public:   zones[0]?.col_sp === 1,
+          zone_scope:    zones[0]?.col_zs === 1
+        },
+        zone: zones.map(z => ({
+          id: z.id, name: z.name,
+          show_internal: z.show_internal,
+          show_public:   z.show_public
+        }))
+      });
+    } catch(err) { res.status(500).json({ error: err.message }); }
+  });
+
   // GET /admin/hub — hub con tutti i link admin importanti
   app.get('/admin/hub', requireAuth, requireAdmin, (req, res) => {
     res.send(`<!DOCTYPE html>
