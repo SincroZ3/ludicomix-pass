@@ -496,7 +496,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones ORDER BY sort_order, name')
+        dbAll("SELECT * FROM zones WHERE COALESCE(zone_scope,'internal') = 'internal' ORDER BY sort_order, name")
       ]);
       res.render('volunteers', { volunteers: volunteers||[], pending: pending||[], shifts: shifts||[], zones: zones||[] });
     } catch (err) {
@@ -671,7 +671,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones ORDER BY sort_order, name')
+        dbAll("SELECT * FROM zones WHERE COALESCE(zone_scope,'internal') = 'internal' ORDER BY sort_order, name")
       ]);
       res.render('volunteers', { volunteers: volunteers||[], pending: pending||[], shifts: shifts||[], zones: zones||[] });
     } catch (err) {
@@ -822,7 +822,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones ORDER BY sort_order, name')
+        dbAll("SELECT * FROM zones WHERE COALESCE(zone_scope,'internal') = 'internal' ORDER BY sort_order, name")
       ]);
       res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
@@ -1021,7 +1021,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones ORDER BY sort_order, name')
+        dbAll("SELECT * FROM zones WHERE COALESCE(zone_scope,'internal') = 'internal' ORDER BY sort_order, name")
       ]);
       res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
@@ -1293,7 +1293,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones ORDER BY sort_order, name')
+        dbAll("SELECT * FROM zones WHERE COALESCE(zone_scope,'internal') = 'internal' ORDER BY sort_order, name")
       ]);
       res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
@@ -1584,7 +1584,7 @@ app.get('/home', requireAuth, (req, res) => {
         `;
         db.all(sql, [], (err3, assignmentGroups) => {
           if (err3) return res.status(500).send('Errore DB gruppi assegnatari');
-          db.all('SELECT * FROM zones ORDER BY sort_order, name', [], (err4, zones) => {
+          db.all("SELECT * FROM zones WHERE COALESCE(zone_scope,'internal') = 'internal' ORDER BY sort_order, name", [], (err4, zones) => {
             if (err4) return res.status(500).send('Errore DB zone');
             res.render('participants', { categories, types, assignmentGroups, zones: zones || [] });
           });
@@ -1702,7 +1702,7 @@ app.get('/home', requireAuth, (req, res) => {
           if (err3) return res.status(500).send('Errore DB partecipanti');
           const dupSkipped = req.query.dup_skipped ? parseInt(req.query.dup_skipped, 10) : 0;
         const dupTotal   = req.query.dup_total   ? parseInt(req.query.dup_total,   10) : 0;
-        db.all('SELECT * FROM zones ORDER BY sort_order, name', [], (errZ, zones) => {
+        db.all("SELECT * FROM zones WHERE COALESCE(zone_scope,'internal') = 'internal' ORDER BY sort_order, name", [], (errZ, zones) => {
           const importOk   = req.query.import_ok   ? parseInt(req.query.import_ok,10)   : null;
           const importSkip = req.query.import_skip ? parseInt(req.query.import_skip,10) : null;
           const importErrs = req.query.import_errs ? decodeURIComponent(req.query.import_errs).split('|') : [];
@@ -2549,7 +2549,7 @@ async function triggerBatchPassOnClose(groupId) {
                FROM groups g LEFT JOIN pass_types pt ON pt.id = g.pass_type_id
                ORDER BY g.priority ASC, g.name ASC`),
         dbAll('SELECT * FROM pass_types ORDER BY id DESC'),
-        dbAll('SELECT * FROM zones ORDER BY sort_order, name'),
+        dbAll("SELECT * FROM zones WHERE COALESCE(zone_scope,'internal') = 'internal' ORDER BY sort_order, name"),
         dbAll('SELECT id, username, role, created_at FROM users ORDER BY username ASC'),
         dbAll("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'"),
         dbAll('SELECT sa.*, u.username FROM scan_attempts sa LEFT JOIN users u ON u.id=sa.user_id ORDER BY sa.id DESC LIMIT 500'),
@@ -2898,39 +2898,6 @@ async function triggerBatchPassOnClose(groupId) {
   });
   app.post('/admin/groups/:id/portal/token',requireAuth,requireNotViewer,function(req,res){var id=parseInt(req.params.id,10),token=require('crypto').randomBytes(24).toString('hex');db.run('UPDATE assignment_groups SET portal_token=?,portal_enabled=1 WHERE id=?',[token,id],function(err){if(err)return res.status(500).json({error:err.message});res.json({token});});});
   app.post('/admin/groups/:id/portal/toggle',requireAuth,requireNotViewer,function(req,res){var id=parseInt(req.params.id,10);db.get('SELECT portal_enabled FROM assignment_groups WHERE id=?',[id],function(e,row){if(!row)return res.status(404).json({error:'not found'});var v=row.portal_enabled?0:1;db.run('UPDATE assignment_groups SET portal_enabled=? WHERE id=?',[v,id],function(){res.json({enabled:v});});});});
-
-  app.post('/admin/groups/:id/portal/service-toggle',requireAuth,requireNotViewer,function(req,res){
-    var id=parseInt(req.params.id,10);
-    db.get('SELECT portal_service_enabled FROM assignment_groups WHERE id=?',[id],function(e,row){
-      if(!row)return res.status(404).json({error:'not found'});
-      var v=(row.portal_service_enabled===0)?1:0;
-      db.run('UPDATE assignment_groups SET portal_service_enabled=? WHERE id=?',[v,id],function(){
-        res.json({enabled:v});
-      });
-    });
-  });
-
-  app.post('/admin/groups/:id/portal/nom-toggle',requireAuth,requireNotViewer,function(req,res){
-    var id=parseInt(req.params.id,10);
-    db.get('SELECT portal_nom_enabled FROM assignment_groups WHERE id=?',[id],function(e,row){
-      if(!row)return res.status(404).json({error:'not found'});
-      var v=(row.portal_nom_enabled===0)?1:0;
-      db.run('UPDATE assignment_groups SET portal_nom_enabled=? WHERE id=?',[v,id],function(){
-        res.json({enabled:v});
-      });
-    });
-  });
-
-  app.post('/admin/groups/:id/portal/docs-toggle',requireAuth,requireNotViewer,function(req,res){
-    var id=parseInt(req.params.id,10);
-    db.get('SELECT portal_docs_enabled FROM assignment_groups WHERE id=?',[id],function(e,row){
-      if(!row)return res.status(404).json({error:'not found'});
-      var v=(row.portal_docs_enabled===0)?1:0;
-      db.run('UPDATE assignment_groups SET portal_docs_enabled=? WHERE id=?',[v,id],function(){
-        res.json({enabled:v});
-      });
-    });
-  });
 
   // ═══════════════════════════════════════════════════════════════
   // BACHECA COMUNICAZIONI
@@ -3682,8 +3649,125 @@ async function triggerBatchPassOnClose(groupId) {
     res.sendFile(path.join(process.env.DATA_DIR || __dirname, 'generated', path.basename(req.params.filename)));
   });
 
+
+  // ════════════════════════════════════════════════════════════════
+  // MAPPA PUBBLICA — gestione zone POI (zone_scope = 'public')
+  // ════════════════════════════════════════════════════════════════
+
+  // GET /admin/mappa-pubblica — pannello admin lista zone pubbliche
+  app.get('/admin/mappa-pubblica', requireAuth, requireOrganizer, function(req, res) {
+    db.all(
+      "SELECT * FROM zones WHERE COALESCE(zone_scope,'public') = 'public' ORDER BY sort_order, name",
+      [], function(err, zones) {
+        if (err) return res.status(500).send('Errore DB zone mappa pubblica');
+        res.render('admin_map', {
+          zones: zones,
+          flash: req.query.flash || null,
+          currentUser: req.session.user
+        });
+      }
+    );
+  });
+
+  // POST /admin/mappa-pubblica/zone/new — crea nuova zona pubblica
+  app.post('/admin/mappa-pubblica/zone/new', requireAuth, requireOrganizer, function(req, res) {
+    const { name, sort_order, map_lat, map_lng, map_label, map_type,
+            map_color, map_zoom, map_address, map_desc, map_tags } = req.body;
+    if (!name || !name.trim()) return res.redirect('/admin/mappa-pubblica?flash=error');
+    db.run(
+      `INSERT INTO zones
+         (name, sort_order, map_lat, map_lng, map_label, map_type,
+          map_color, map_zoom, map_address, map_desc, map_tags, map_active, zone_scope)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'public')`,
+      [
+        name.trim(),
+        parseInt(sort_order, 10) || 0,
+        map_lat  ? parseFloat(map_lat)  : null,
+        map_lng  ? parseFloat(map_lng)  : null,
+        map_label  || null,
+        map_type   || 'area',
+        map_color  || '#e8372a',
+        parseInt(map_zoom, 10) || 16,
+        map_address || null,
+        map_desc    || null,
+        map_tags    || null
+      ],
+      function(err) {
+        if (err) {
+          console.error('Errore creazione zona mappa pubblica:', err.message);
+          return res.redirect('/admin/mappa-pubblica?flash=error');
+        }
+        logAction(req.session.user.id, 'create_map_zone', 'zone', this.lastID, 'Zona pubblica creata: ' + name.trim());
+        res.redirect('/admin/mappa-pubblica?flash=created');
+      }
+    );
+  });
+
+  // POST /admin/mappa-pubblica/zone/:id — aggiorna zona pubblica
+  app.post('/admin/mappa-pubblica/zone/:id', requireAuth, requireOrganizer, function(req, res) {
+    const id = parseInt(req.params.id, 10);
+    const { name, sort_order, map_lat, map_lng, map_label, map_type,
+            map_color, map_zoom, map_address, map_desc, map_tags, map_active } = req.body;
+    if (!name || !name.trim()) return res.redirect('/admin/mappa-pubblica?flash=error');
+    db.run(
+      `UPDATE zones SET
+         name=?, sort_order=?, map_lat=?, map_lng=?, map_label=?, map_type=?,
+         map_color=?, map_zoom=?, map_address=?, map_desc=?, map_tags=?,
+         map_active=?, zone_scope='public'
+       WHERE id=?`,
+      [
+        name.trim(),
+        parseInt(sort_order, 10) || 0,
+        map_lat  ? parseFloat(map_lat)  : null,
+        map_lng  ? parseFloat(map_lng)  : null,
+        map_label  || null,
+        map_type   || 'area',
+        map_color  || '#e8372a',
+        parseInt(map_zoom, 10) || 16,
+        map_address || null,
+        map_desc    || null,
+        map_tags    || null,
+        (map_active === '1' || map_active === 1) ? 1 : 0,
+        id
+      ],
+      function(err) {
+        if (err) {
+          console.error('Errore aggiornamento zona mappa pubblica:', err.message);
+          return res.redirect('/admin/mappa-pubblica?flash=error');
+        }
+        logAction(req.session.user.id, 'edit_map_zone', 'zone', id, 'Zona pubblica aggiornata: ' + name.trim());
+        res.redirect('/admin/mappa-pubblica?flash=saved');
+      }
+    );
+  });
+
+  // POST /admin/mappa-pubblica/zone/:id/delete — elimina zona pubblica
+  app.post('/admin/mappa-pubblica/zone/:id/delete', requireAuth, requireOrganizer, function(req, res) {
+    const id = parseInt(req.params.id, 10);
+    db.run("DELETE FROM zones WHERE id=? AND zone_scope='public'", [id], function(err) {
+      if (err) {
+        console.error('Errore eliminazione zona mappa pubblica:', err.message);
+        return res.redirect('/admin/mappa-pubblica?flash=error');
+      }
+      logAction(req.session.user.id, 'delete_map_zone', 'zone', id, 'Zona pubblica eliminata');
+      res.redirect('/admin/mappa-pubblica?flash=deleted');
+    });
+  });
+
+  // GET /mappa-pubblica — pagina pubblica (no auth)
+  app.get('/mappa-pubblica', function(req, res) {
+    db.all(
+      "SELECT * FROM zones WHERE COALESCE(zone_scope,'public') = 'public' AND map_active = 1 ORDER BY sort_order, name",
+      [], function(err, zones) {
+        if (err) return res.status(500).send('Errore caricamento mappa');
+        res.render('public_map-2', { zones: zones });
+      }
+    );
+  });
+
+  // ── MAPPA STAND (interna) — mostra solo zone con zone_scope = 'internal' ──
   app.get('/mappa', requireAuth, function(req, res) {
-    db.all('SELECT * FROM zones ORDER BY sort_order, name', [], function(err, zones) {
+    db.all("SELECT * FROM zones WHERE COALESCE(zone_scope,'internal') = 'internal' ORDER BY sort_order, name", [], function(err, zones) {
       if (err) return res.status(500).send('Errore DB');
       db.all(`SELECT ag.id, ag.name AS stand_name, ag.stand_name AS stand_loc, ag.stand_code,
                 ag.zone, ag.map_x, ag.map_y, ag.map_w, ag.map_h, ag.map_shape,

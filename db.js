@@ -995,36 +995,9 @@ db.run(`ALTER TABLE zones ADD COLUMN map_address  TEXT`,                    () =
 db.run(`ALTER TABLE zones ADD COLUMN map_tags     TEXT`,                    () => {});
 db.run(`ALTER TABLE zones ADD COLUMN map_active   INTEGER DEFAULT 1`,       () => {});
 db.run(`ALTER TABLE zones ADD COLUMN map_color    TEXT`,                    () => {});
-db.run(`ALTER TABLE assignment_groups ADD COLUMN portal_service_enabled INTEGER DEFAULT 1`, () => {});
-db.run(`ALTER TABLE assignment_groups ADD COLUMN portal_nom_enabled  INTEGER DEFAULT 1`, () => {});
-db.run(`ALTER TABLE assignment_groups ADD COLUMN portal_docs_enabled INTEGER DEFAULT 1`, () => {});
 
-// One-time: disabilita "Richiedi un servizio" su tutti i gruppi esistenti al primo avvio
-db.run(`CREATE TABLE IF NOT EXISTS lc_flags (key TEXT PRIMARY KEY, value TEXT)`, function() {
-  // One-time: disabilita "Richiedi un servizio"
-  db.get("SELECT value FROM lc_flags WHERE key='svc_off_v1'", function(err, row) {
-    if (!row) {
-      db.run('UPDATE assignment_groups SET portal_service_enabled=0', function() {
-        db.run("INSERT OR IGNORE INTO lc_flags(key,value) VALUES('svc_off_v1','1')");
-      });
-    }
-  });
-  // One-time: disabilita "Gestione Nominativi"
-  db.get("SELECT value FROM lc_flags WHERE key='nom_off_v1'", function(err, row) {
-    if (!row) {
-      db.run('UPDATE assignment_groups SET portal_nom_enabled=0', function() {
-        db.run("INSERT OR IGNORE INTO lc_flags(key,value) VALUES('nom_off_v1','1')");
-      });
-    }
-  });
-  // One-time: disabilita "Documenti & Modulistica"
-  db.get("SELECT value FROM lc_flags WHERE key='docs_off_v1'", function(err, row) {
-    if (!row) {
-      db.run('UPDATE assignment_groups SET portal_docs_enabled=0', function() {
-        db.run("INSERT OR IGNORE INTO lc_flags(key,value) VALUES('docs_off_v1','1')");
-      });
-    }
-  });
-});
+// ── Separazione zone interne (padiglioni) da POI mappa pubblica ──────────
+db.run(`ALTER TABLE zones ADD COLUMN zone_scope TEXT DEFAULT 'internal'`, () => {});
+db.run(`UPDATE zones SET zone_scope = CASE WHEN map_lat IS NOT NULL THEN 'public' ELSE 'internal' END WHERE zone_scope IS NULL`, () => {});
 
 module.exports = db;
