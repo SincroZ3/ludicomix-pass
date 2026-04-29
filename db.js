@@ -997,7 +997,21 @@ db.run(`ALTER TABLE zones ADD COLUMN map_active   INTEGER DEFAULT 1`,       () =
 db.run(`ALTER TABLE zones ADD COLUMN map_color    TEXT`,                    () => {});
 
 // ── Separazione zone interne (padiglioni) da POI mappa pubblica ──────────
-db.run(`ALTER TABLE zones ADD COLUMN zone_scope TEXT DEFAULT 'internal'`, () => {});
-db.run(`UPDATE zones SET zone_scope = CASE WHEN map_lat IS NOT NULL THEN 'public' ELSE 'internal' END WHERE zone_scope IS NULL`, () => {});
+// ── zone_scope: catena garantita ALTER → UPDATE ─────────────────────────────
+// NOTA: in SQLite, ADD COLUMN con DEFAULT fa sì che le righe esistenti
+// restituiscano il default come se fosse stored → WHERE zone_scope IS NULL = 0 righe.
+// Perciò: no WHERE, cateniamo nell'unico callback e aggiorniamo solo le zone
+// che hanno coordinate geografiche (= POI mappa pubblica).
+db.run(`ALTER TABLE zones ADD COLUMN zone_scope TEXT DEFAULT 'internal'`, function() {
+  // Idempotente: se la colonna esiste già l'ALTER fallisce silenziosamente
+  // ma l'UPDATE viene eseguito lo stesso ad ogni avvio → sicuro
+  db.run(
+    `UPDATE zones SET zone_scope = 'public' WHERE map_lat IS NOT NULL`,
+    function(err) {
+      if (err) console.warn('[DB] zone_scope migration:', err.message);
+      else console.log('[DB] zone_scope classification OK');
+    }
+  );
+});
 
 module.exports = db;
