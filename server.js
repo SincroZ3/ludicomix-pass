@@ -2634,7 +2634,7 @@ async function triggerBatchPassOnClose(groupId) {
     const { name, sort_order } = req.body;
     if (!name || !name.trim()) return res.status(400).send('Nome zona obbligatorio');
     db.run(
-      'INSERT INTO zones (name, sort_order) VALUES (?, ?)',
+      'INSERT INTO zones (name, sort_order, zone_scope) VALUES (?, ?, \'internal\')',
       [name.trim(), parseInt(sort_order || 0, 10)],
       function(err) {
         if (err) {
