@@ -4068,7 +4068,7 @@ load();
       "SELECT * FROM zones WHERE zone_scope IN ('public','both') AND map_active = 1 ORDER BY sort_order, name",
       [], function(err, zones) {
         if (err) return res.status(500).send('Errore caricamento mappa');
-        res.render('public_map-2', { zones: zones });
+        res.render('public_map-2', { zonesJson: JSON.stringify(zones) });
       }
     );
   });
