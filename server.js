@@ -3652,6 +3652,82 @@ async function triggerBatchPassOnClose(groupId) {
 
 
 
+  // GET /admin/hub — hub con tutti i link admin importanti
+  app.get('/admin/hub', requireAuth, requireAdmin, (req, res) => {
+    res.send(`<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Hub — Ludicomix</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1a2744;min-height:100vh;display:flex;flex-direction:column}
+.header{background:#1e2d4e;color:#fff;padding:.85rem 1.5rem;border-bottom:3px solid #f5c842;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:1rem;font-weight:800}
+.back{color:#f5c842;text-decoration:none;font-size:.8rem;font-weight:700}
+.container{max-width:700px;margin:2.5rem auto;padding:0 1rem;width:100%}
+h2{font-size:.8rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#8896ab;margin-bottom:.75rem;margin-top:2rem}
+h2:first-of-type{margin-top:0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem}
+.tile{background:#fff;border-radius:10px;padding:1.2rem 1rem;box-shadow:0 1px 4px rgba(0,0,0,.07);text-decoration:none;color:#1a2744;display:flex;flex-direction:column;gap:.4rem;transition:box-shadow .15s,transform .15s;border:2px solid transparent}
+.tile:hover{box-shadow:0 4px 14px rgba(0,0,0,.12);transform:translateY(-2px)}
+.tile.highlight{border-color:#f5c842;background:#fffdf0}
+.tile-icon{font-size:1.6rem}
+.tile-label{font-size:.88rem;font-weight:800}
+.tile-desc{font-size:.73rem;color:#8896ab;line-height:1.4}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🏠 Admin Hub — Ludicomix</h1>
+  <a href="/home" class="back">← Torna al Portale</a>
+</div>
+<div class="container">
+  <h2>Gestione Zone</h2>
+  <div class="grid">
+    <a href="/admin/zone-manager" class="tile highlight">
+      <span class="tile-icon">🗂️</span>
+      <span class="tile-label">Zone Manager</span>
+      <span class="tile-desc">Classifica le zone come Interne, Pubbliche o Entrambi</span>
+    </a>
+    <a href="/admin/mappa-pubblica" class="tile">
+      <span class="tile-icon">🗺️</span>
+      <span class="tile-label">Mappa Pubblica</span>
+      <span class="tile-desc">Gestisci i POI visibili ai visitatori</span>
+    </a>
+    <a href="/mappa" class="tile">
+      <span class="tile-icon">📍</span>
+      <span class="tile-label">Mappa Stand</span>
+      <span class="tile-desc">Posiziona gli espositori sulle piante</span>
+    </a>
+  </div>
+  <h2>Configurazione</h2>
+  <div class="grid">
+    <a href="/admin/settings" class="tile">
+      <span class="tile-icon">⚙️</span>
+      <span class="tile-label">Impostazioni</span>
+      <span class="tile-desc">Zone, tipi pass, utenti, SMTP</span>
+    </a>
+    <a href="/admin/settings?tab=edizioni" class="tile">
+      <span class="tile-icon">📅</span>
+      <span class="tile-label">Edizioni</span>
+      <span class="tile-desc">Gestisci le edizioni dell'evento</span>
+    </a>
+  </div>
+  <h2>Strumenti</h2>
+  <div class="grid">
+    <a href="/admin/fix-zone-scope" class="tile" onclick="return confirm('Reset TUTTE le zone a Interno?')">
+      <span class="tile-icon">🔄</span>
+      <span class="tile-label">Reset Zone</span>
+      <span class="tile-desc">Emergenza: riporta tutte le zone a Interno</span>
+    </a>
+  </div>
+</div>
+</body>
+</html>`);
+  });
+
   // ════════════════════════════════════════════════════════════════
   // ZONE MANAGER — classifica: 'internal' | 'public' | 'both'
   // 'both' = appare in mappa stand/impostazioni E in mappa pubblica
@@ -3712,7 +3788,8 @@ tr:hover td{background:#fafbfc}
 <body>
 <div class="header">
   <h1>🗂️ Zone Manager — Classifica Zone</h1>
-  <a href="/admin/settings" class="back">← Torna alle Impostazioni</a>
+  <a href="/admin/settings" class="back">← Impostazioni</a>
+  <a href="/admin/hub" style="color:#f5c842;text-decoration:none;font-size:.8rem;font-weight:700;margin-left:1rem">🏠 Admin Hub</a>
 </div>
 <div id="toast"></div>
 <div class="container">
