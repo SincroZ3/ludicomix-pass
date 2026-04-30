@@ -4012,10 +4012,9 @@ load();
   // GET /admin/mappa-pubblica — pannello admin lista zone pubbliche
   app.get('/admin/mappa-pubblica', requireAuth, requireOrganizer, function(req, res) {
     db.all(
-      "SELECT * FROM zones WHERE show_public = 1 ORDER BY sort_order, name",
+      "SELECT * FROM map_points WHERE map_active = 1 ORDER BY sort_order, name",
       [], function(err, zones) {
-        if (err) return res.status(500).send('Errore DB zone mappa pubblica');
-        console.log('[DEBUG admin/mappa-pubblica] zone show_public=1:', zones.length, zones.map(z=>z.name+'('+z.show_public+')'));
+        if (err) return res.status(500).send('Errore DB mappa pubblica');
         res.render('admin_map', {
           zones: zones,
           flash: req.query.flash || null,
@@ -4031,10 +4030,10 @@ load();
             map_color, map_zoom, map_address, map_desc, map_tags } = req.body;
     if (!name || !name.trim()) return res.redirect('/admin/mappa-pubblica?flash=error');
     db.run(
-      `INSERT INTO zones
+      `INSERT INTO map_points
          (name, sort_order, map_lat, map_lng, map_label, map_type,
-          map_color, map_zoom, map_address, map_desc, map_tags, map_active, show_internal, show_public)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 1)`,
+          map_color, map_zoom, map_address, map_desc, map_tags, map_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       [
         name.trim(),
         parseInt(sort_order, 10) || 0,
@@ -4066,7 +4065,7 @@ load();
             map_color, map_zoom, map_address, map_desc, map_tags, map_active } = req.body;
     if (!name || !name.trim()) return res.redirect('/admin/mappa-pubblica?flash=error');
     db.run(
-      `UPDATE zones SET
+      `UPDATE map_points SET
          name=?, sort_order=?, map_lat=?, map_lng=?, map_label=?, map_type=?,
          map_color=?, map_zoom=?, map_address=?, map_desc=?, map_tags=?,
          map_active=?
@@ -4100,7 +4099,7 @@ load();
   // POST /admin/mappa-pubblica/zone/:id/delete — elimina zona pubblica
   app.post('/admin/mappa-pubblica/zone/:id/delete', requireAuth, requireOrganizer, function(req, res) {
     const id = parseInt(req.params.id, 10);
-    db.run("DELETE FROM zones WHERE id=? AND show_public = 1", [id], function(err) {
+    db.run("DELETE FROM map_points WHERE id=?", [id], function(err) {
       if (err) {
         console.error('Errore eliminazione zona mappa pubblica:', err.message);
         return res.redirect('/admin/mappa-pubblica?flash=error');
@@ -4113,7 +4112,7 @@ load();
   // GET /mappa-pubblica — pagina pubblica (no auth)
   app.get('/mappa-pubblica', function(req, res) {
     db.all(
-      "SELECT * FROM zones WHERE show_public = 1 AND map_active = 1 ORDER BY sort_order, name",
+      "SELECT * FROM map_points WHERE map_active = 1 ORDER BY sort_order, name",
       [], function(err, zones) {
         if (err) return res.status(500).send('Errore caricamento mappa');
         console.log('[DEBUG] mappa-pubblica: restituisce', zones.length, 'zone:', zones.map(z=>z.name));
