@@ -2676,6 +2676,24 @@ async function triggerBatchPassOnClose(groupId) {
 
   // -------- Gestione Mappa Pubblica --------
 
+
+  // ── Fix one-shot: ri-classifica tutte le zone esistenti ──────────────────
+  app.get('/admin/fix-zone-scope', requireAuth, requireAdmin, (req, res) => {
+    db.serialize(() => {
+      db.run(`UPDATE zones SET zone_scope = 'public'   WHERE map_lat IS NOT NULL`);
+      db.run(`UPDATE zones SET zone_scope = 'internal' WHERE map_lat IS NULL`, function(err) {
+        if (err) return res.status(500).json({ ok: false, error: err.message });
+        db.all(`SELECT id, name, map_lat, zone_scope FROM zones ORDER BY sort_order, name`, [], (e, rows) => {
+          res.json({
+            ok: true,
+            message: 'Zone riclassificate. Puoi chiudere questa pagina.',
+            zones: rows
+          });
+        });
+      });
+    });
+  });
+
   app.get('/admin/zone-manager', requireAuth, requireOrganizer, (req, res) => {
     db.all("SELECT * FROM zones WHERE zone_scope = 'public' ORDER BY sort_order, name", [], (err, zones) => {
       if (err) return res.status(500).send('Errore DB zone mappa pubblica');
