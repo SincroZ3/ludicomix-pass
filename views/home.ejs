@@ -81,18 +81,19 @@
     <a href="/participants"     class="icon-item"><span class="icon-emoji">&#128101;</span>Assegnatari Pass</a>
     <a href="/passes"           class="icon-item"><span class="icon-emoji">&#127931;</span>Pass Generati</a>
     <a href="/reports"          class="icon-item"><span class="icon-emoji">&#128202;</span>Reports</a>
-    <a href="/volunteers"       class="icon-item"><span class="icon-emoji">🙋</span>Volontari</a>
-    <a href="/admin/logistica"    class="icon-item"><span class="icon-emoji">📦</span>Logistica</a>
+    <a href="/volunteers"       class="icon-item"><span class="icon-emoji">&#128587;</span>Volontari</a>
+    <a href="/admin/logistica"  class="icon-item"><span class="icon-emoji">&#128230;</span>Logistica</a>
     <a href="/search"           class="icon-item"><span class="icon-emoji">&#128269;</span>Ricerca Pass</a>
     <a href="/account/password" class="icon-item"><span class="icon-emoji">&#128273;</span>Cambia Password</a>
     <a href="/account/security" class="icon-item"><span class="icon-emoji">&#128274;</span>Password Sicurezza</a>
     <% if(currentUser&&(currentUser.role==='admin'||currentUser.role==='organizer')){ %>
-      <a href="/admin/mappa-pubblica" class="icon-item"><span class="icon-emoji">🗺️</span>Gestione Mappa</a>
+      <a href="/admin/mappa-pubblica" class="icon-item"><span class="icon-emoji">&#128506;</span>Gestione Mappa</a>
     <% } %>
-    <% if(currentUser&&currentUser.role==='admin'){ %>
-        <a href="/admin/logs"     class="icon-item"><span class="icon-emoji">&#128203;</span>Log Azioni</a>
-      <a href="/admin/settings" class="icon-item"><span class="icon-emoji">&#9881;&#65039;</span>Impostazioni</a>
-      <a href="/admin/settings/portal-window" class="icon-item"><span class="icon-emoji">🗓</span>Finestra Portali</a>
+    <% if(currentUser&&(currentUser.role==='admin'||currentUser.role==='organizer')){ %>
+      <a href="/admin/hub" class="icon-item" style="border-color:#f5c842;background:rgba(245,200,66,.07)">
+        <span class="icon-emoji">&#9881;&#65039;</span>
+        <span style="color:#92400e;font-weight:800">Admin Hub</span>
+      </a>
     <% } %>
   </div>
 </div>

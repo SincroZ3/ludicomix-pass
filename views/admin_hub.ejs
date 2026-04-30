@@ -1,0 +1,144 @@
+<%- include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> &rsaquo; <strong>Admin Hub</strong></nav>
+
+<style>
+.hub-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:1.5rem}
+.hub-title{font-size:1.3rem;font-weight:800;color:var(--text-primary)}
+.hub-subtitle{font-size:.8rem;color:var(--text-muted);margin-top:.15rem}
+.hub-section{margin-bottom:2rem}
+.hub-section-title{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);margin-bottom:.75rem;padding-bottom:.4rem;border-bottom:2px solid var(--border)}
+.hub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:.75rem}
+.hub-card{display:flex;flex-direction:column;align-items:center;gap:.45rem;padding:1.1rem .75rem;background:var(--bg-white);border:1.5px solid var(--border);border-radius:var(--radius-md);text-decoration:none;color:var(--text-primary);font-size:.8rem;font-weight:700;text-align:center;transition:box-shadow .15s,border-color .15s,transform .1s;box-shadow:var(--shadow-sm);cursor:pointer}
+.hub-card:hover{box-shadow:var(--shadow-md);border-color:var(--accent-blue);color:var(--accent-blue);transform:translateY(-1px)}
+.hub-card.yellow{border-color:#f5c842;background:rgba(245,200,66,.06)}.hub-card.yellow:hover{border-color:#c9a227;color:#92400e}
+.hub-card.red{border-color:#e8372a;background:rgba(232,55,42,.05)}.hub-card.red:hover{border-color:#c42d21;color:#c42d21}
+.hub-card.green{border-color:#2d6a4f;background:rgba(45,106,79,.05)}.hub-card.green:hover{border-color:#2d6a4f;color:#2d6a4f}
+.hub-card.purple{border-color:#6b3fa0;background:rgba(107,63,160,.05)}.hub-card.purple:hover{border-color:#6b3fa0;color:#6b3fa0}
+.hub-emoji{font-size:2rem;line-height:1}
+.hub-desc{font-size:.68rem;font-weight:500;color:var(--text-muted);margin-top:.1rem;line-height:1.3}
+.hub-badge{display:inline-block;padding:.1rem .45rem;border-radius:999px;font-size:.62rem;font-weight:700;background:#fef3c7;color:#92400e;margin-top:.15rem}
+</style>
+
+<div class="hub-header">
+  <div>
+    <div class="hub-title">&#9881;&#65039; Admin Hub</div>
+    <div class="hub-subtitle">Pannello di controllo amministrativo &mdash; <%= currentUser && currentUser.username ? currentUser.username : '' %></div>
+  </div>
+  <a href="/home" style="font-size:.8rem;color:var(--text-muted);text-decoration:none">&larr; Torna alla Dashboard</a>
+</div>
+
+<!-- ── SEZIONE: Accreditamento & Pass ─────────────────────────── -->
+<div class="hub-section">
+  <div class="hub-section-title">&#127931; Accreditamento &amp; Pass</div>
+  <div class="hub-grid">
+    <a href="/admin/accreditamento" class="hub-card yellow">
+      <span class="hub-emoji">&#127931;</span>
+      Accreditamento
+      <span class="hub-desc">Gestione ingressi e accrediti</span>
+    </a>
+    <a href="/participants" class="hub-card">
+      <span class="hub-emoji">&#128101;</span>
+      Assegnatari Pass
+      <span class="hub-desc">Lista e gestione partecipanti</span>
+    </a>
+    <a href="/passes" class="hub-card">
+      <span class="hub-emoji">&#127931;</span>
+      Pass Generati
+      <span class="hub-desc">Tutti i pass emessi</span>
+    </a>
+    <a href="/admin/settings#groups" class="hub-card">
+      <span class="hub-emoji">&#128101;</span>
+      Raggruppamenti Pass
+      <span class="hub-desc">Gruppi e categorie pass</span>
+    </a>
+    <a href="/admin/settings#pass-types" class="hub-card purple">
+      <span class="hub-emoji">&#128196;</span>
+      Tipologie Pass PDF
+      <span class="hub-desc">Template PDF per tipologia</span>
+    </a>
+    <a href="/admin/pass-auto" class="hub-card green">
+      <span class="hub-emoji">&#9889;</span>
+      Pass Auto
+      <span class="hub-desc">Generazione automatica pass</span>
+      <span class="hub-badge">Auto</span>
+    </a>
+  </div>
+</div>
+
+<!-- ── SEZIONE: Mappe & Zone ──────────────────────────────────── -->
+<div class="hub-section">
+  <div class="hub-section-title">&#128506; Mappe &amp; Zone</div>
+  <div class="hub-grid">
+    <a href="/admin/zone-manager" class="hub-card yellow">
+      <span class="hub-emoji">&#128194;</span>
+      Zone Manager
+      <span class="hub-desc">Gestisci scope zone (interna/entrambe/pubblica)</span>
+    </a>
+    <a href="/admin/settings#zone" class="hub-card">
+      <span class="hub-emoji">&#127963;</span>
+      Zone / Padiglioni
+      <span class="hub-desc">Crea e modifica zone interne</span>
+    </a>
+    <a href="/mappa" class="hub-card">
+      <span class="hub-emoji">&#128204;</span>
+      Mappa Stand
+      <span class="hub-desc">Mappa espositori interna</span>
+    </a>
+    <a href="/admin/mappa-pubblica" class="hub-card green">
+      <span class="hub-emoji">&#127757;</span>
+      Mappa Pubblica
+      <span class="hub-desc">Gestionale Leaflet pubblico</span>
+    </a>
+  </div>
+</div>
+
+<!-- ── SEZIONE: Portale & Comunicazioni ──────────────────────── -->
+<div class="hub-section">
+  <div class="hub-section-title">&#128236; Portale &amp; Comunicazioni</div>
+  <div class="hub-grid">
+    <a href="/admin/settings/portal-window" class="hub-card yellow">
+      <span class="hub-emoji">&#128197;</span>
+      Finestra Portali
+      <span class="hub-desc">Orari apertura portale iscrizioni</span>
+    </a>
+    <a href="/admin/settings#smtp" class="hub-card">
+      <span class="hub-emoji">&#128140;</span>
+      Notifiche &amp; Email
+      <span class="hub-desc">Configurazione SMTP e template</span>
+    </a>
+  </div>
+</div>
+
+<!-- ── SEZIONE: Sistema & Sicurezza ──────────────────────────── -->
+<div class="hub-section">
+  <div class="hub-section-title">&#128274; Sistema &amp; Sicurezza</div>
+  <div class="hub-grid">
+    <a href="/admin/settings#users" class="hub-card">
+      <span class="hub-emoji">&#128119;</span>
+      Gestione Utenti
+      <span class="hub-desc">Ruoli e accessi admin</span>
+    </a>
+    <a href="/admin/logs" class="hub-card">
+      <span class="hub-emoji">&#128203;</span>
+      Log Azioni
+      <span class="hub-desc">Audit trail attivit&agrave; sistema</span>
+    </a>
+    <a href="/admin/scan-attempts" class="hub-card red">
+      <span class="hub-emoji">&#128247;</span>
+      Tentativi Scan
+      <span class="hub-desc">QR scan non validi e anomalie</span>
+    </a>
+    <a href="/admin/settings#backup" class="hub-card red">
+      <span class="hub-emoji">&#128190;</span>
+      Backup &amp; Restore
+      <span class="hub-desc">Esporta e ripristina dati</span>
+    </a>
+    <a href="/admin/settings" class="hub-card">
+      <span class="hub-emoji">&#9881;&#65039;</span>
+      Impostazioni
+      <span class="hub-desc">Configurazione generale</span>
+    </a>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

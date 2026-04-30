@@ -2696,6 +2696,12 @@ async function triggerBatchPassOnClose(groupId) {
       });
     });
   });
+
+  // ── Admin Hub ─────────────────────────────────────────────────────────────
+  app.get('/admin/hub', requireAuth, requireOrganizer, (req, res) => {
+    res.render('admin_hub', { currentUser: req.session.user, flash: req.query.flash || null });
+  });
+
   // ── Zone Manager: lista TUTTE le zone con scope e contatore stand assegnati ──
   app.get('/admin/zone-manager', requireAuth, requireOrganizer, (req, res) => {
     db.all(`SELECT z.*,
