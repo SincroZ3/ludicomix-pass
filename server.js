@@ -496,7 +496,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], pending: pending||[], shifts: shifts||[], zones: zones||[] });
     } catch (err) {
@@ -671,7 +671,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], pending: pending||[], shifts: shifts||[], zones: zones||[] });
     } catch (err) {
@@ -822,7 +822,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
@@ -1021,7 +1021,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
@@ -1293,7 +1293,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
@@ -1584,7 +1584,7 @@ app.get('/home', requireAuth, (req, res) => {
         `;
         db.all(sql, [], (err3, assignmentGroups) => {
           if (err3) return res.status(500).send('Errore DB gruppi assegnatari');
-          db.all('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\') ORDER BY sort_order, name', [], (err4, zones) => {
+          db.all('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name', [], (err4, zones) => {
             if (err4) return res.status(500).send('Errore DB zone');
             res.render('participants', { categories, types, assignmentGroups, zones: zones || [] });
           });
@@ -1702,7 +1702,7 @@ app.get('/home', requireAuth, (req, res) => {
           if (err3) return res.status(500).send('Errore DB partecipanti');
           const dupSkipped = req.query.dup_skipped ? parseInt(req.query.dup_skipped, 10) : 0;
         const dupTotal   = req.query.dup_total   ? parseInt(req.query.dup_total,   10) : 0;
-        db.all('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\') ORDER BY sort_order, name', [], (errZ, zones) => {
+        db.all('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name', [], (errZ, zones) => {
           const importOk   = req.query.import_ok   ? parseInt(req.query.import_ok,10)   : null;
           const importSkip = req.query.import_skip ? parseInt(req.query.import_skip,10) : null;
           const importErrs = req.query.import_errs ? decodeURIComponent(req.query.import_errs).split('|') : [];
@@ -2549,7 +2549,7 @@ async function triggerBatchPassOnClose(groupId) {
                FROM groups g LEFT JOIN pass_types pt ON pt.id = g.pass_type_id
                ORDER BY g.priority ASC, g.name ASC`),
         dbAll('SELECT * FROM pass_types ORDER BY id DESC'),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\') ORDER BY sort_order, name'),
+        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name'),
         dbAll('SELECT id, username, role, created_at FROM users ORDER BY username ASC'),
         dbAll("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'"),
         dbAll('SELECT sa.*, u.username FROM scan_attempts sa LEFT JOIN users u ON u.id=sa.user_id ORDER BY sa.id DESC LIMIT 500'),
@@ -2681,20 +2681,21 @@ async function triggerBatchPassOnClose(groupId) {
   // ── Fix one-shot: ri-classifica tutte le zone esistenti ──────────────────
   app.get('/admin/fix-zone-scope', requireAuth, requireAdmin, (req, res) => {
     db.serialize(() => {
-      db.run(`UPDATE zones SET zone_scope = 'public'   WHERE map_lat IS NOT NULL`);
-      db.run(`UPDATE zones SET zone_scope = 'internal' WHERE map_lat IS NULL`, function(err) {
+      // Parcheggi, bagni, biglietterie, trasporti → solo mappa pubblica Leaflet
+      db.run(`UPDATE zones SET zone_scope = 'public' WHERE map_type IN ('parking','bagni','biglietteria','trasporti')`);
+      // Aree evento / padiglioni con coordinate → sia interna (mappa stand) che pubblica (Leaflet)
+      db.run(`UPDATE zones SET zone_scope = 'both' WHERE map_type IN ('area','eventi','mostra','sala','shop','palco','extra') AND map_lat IS NOT NULL`);
+      // Zone senza coordinate → solo interne
+      db.run(`UPDATE zones SET zone_scope = 'internal' WHERE map_lat IS NULL`);
+      // Residue con coordinate senza classificazione → both
+      db.run(`UPDATE zones SET zone_scope = 'both' WHERE map_lat IS NOT NULL AND zone_scope IS NULL`, function(err) {
         if (err) return res.status(500).json({ ok: false, error: err.message });
-        db.all(`SELECT id, name, map_lat, zone_scope FROM zones ORDER BY sort_order, name`, [], (e, rows) => {
-          res.json({
-            ok: true,
-            message: 'Zone riclassificate. Puoi chiudere questa pagina.',
-            zones: rows
-          });
+        db.all(`SELECT id, name, map_type, map_lat, zone_scope FROM zones ORDER BY zone_scope, sort_order, name`, [], (_e, rows) => {
+          res.json({ ok: true, message: 'Zone riclassificate (internal / both / public).', zones: rows });
         });
       });
     });
   });
-
   // ── Zone Manager: lista TUTTE le zone con scope e contatore stand assegnati ──
   app.get('/admin/zone-manager', requireAuth, requireOrganizer, (req, res) => {
     db.all(`SELECT z.*,
@@ -2740,7 +2741,7 @@ async function triggerBatchPassOnClose(groupId) {
     const id = parseInt(req.params.id, 10);
     const action = req.body._action || 'save';
     if (action === 'delete') {
-      db.run('DELETE FROM zones WHERE id = ? AND zone_scope = \'public\'', [id], function(err) {
+      db.run('DELETE FROM zones WHERE id = ? AND zone_scope = \'public\' OR zone_scope = \'both\'', [id], function(err) {
         if (err) return res.status(500).send('Errore eliminazione zona mappa');
         logAction(req.session.user.id, 'delete_public_zone', 'zone', id, 'Zona mappa pubblica eliminata');
         res.redirect('/admin/zone-manager?flash=deleted');
@@ -3739,7 +3740,7 @@ async function triggerBatchPassOnClose(groupId) {
   });
 
   app.get('/mappa', requireAuth, function(req, res) {
-    db.all('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\') ORDER BY sort_order, name', [], function(err, zones) {
+    db.all('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name', [], function(err, zones) {
       if (err) return res.status(500).send('Errore DB');
       db.all(`SELECT ag.id, ag.name AS stand_name, ag.stand_name AS stand_loc, ag.stand_code,
                 ag.zone, ag.map_x, ag.map_y, ag.map_w, ag.map_h, ag.map_shape,

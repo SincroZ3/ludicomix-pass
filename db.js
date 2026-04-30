@@ -997,9 +997,11 @@ db.run(`ALTER TABLE zones ADD COLUMN map_active   INTEGER DEFAULT 1`,       () =
 db.run(`ALTER TABLE zones ADD COLUMN map_color    TEXT`,                    () => {});
 // Migrazione zone_scope: separa zone interne (padiglioni/stand) da zone mappa pubblica
 // Discriminante: solo le zone della mappa pubblica hanno coordinate geografiche (map_lat)
-db.run(`ALTER TABLE zones ADD COLUMN zone_scope TEXT`, () => {
-  db.run(`UPDATE zones SET zone_scope = 'public'   WHERE map_lat IS NOT NULL`);
-  db.run(`UPDATE zones SET zone_scope = 'internal' WHERE zone_scope IS NULL`);
+db.run(`ALTER TABLE zones ADD COLUMN zone_scope TEXT DEFAULT 'internal'`, () => {
+  // Classificazione iniziale
+  db.run(`UPDATE zones SET zone_scope = 'public'   WHERE map_type IN ('parking','bagni','biglietteria','trasporti') AND map_lat IS NOT NULL`);
+  db.run(`UPDATE zones SET zone_scope = 'both'     WHERE map_type IN ('area','eventi','mostra','sala','shop','palco','extra') AND map_lat IS NOT NULL`);
+  db.run(`UPDATE zones SET zone_scope = 'internal' WHERE zone_scope IS NULL OR (map_lat IS NULL AND zone_scope NOT IN ('internal','both','public'))`);
 });
 
   // ── Classificazione zone: idempotente, gira ogni boot (no flag guard)
@@ -1009,9 +1011,9 @@ db.run(`ALTER TABLE zones ADD COLUMN zone_scope TEXT`, () => {
     const names = cols.map(c => c.name);
     if (!names.includes('map_lat') || !names.includes('zone_scope')) return;
     // Le zone della mappa pubblica hanno map_lat: marcale 'public'
-    db.run("UPDATE zones SET zone_scope='public'   WHERE map_lat IS NOT NULL AND zone_scope IS NULL");
-    // Le zone interne non hanno map_lat: marcale 'internal'
-    db.run("UPDATE zones SET zone_scope='internal' WHERE map_lat IS NULL     AND zone_scope IS NULL");
+    db.run("UPDATE zones SET zone_scope='public'   WHERE map_type IN ('parking','bagni','biglietteria','trasporti') AND map_lat IS NOT NULL AND zone_scope IS NULL");
+    db.run("UPDATE zones SET zone_scope='both'     WHERE map_type IN ('area','eventi','mostra','sala','shop','palco','extra') AND map_lat IS NOT NULL AND zone_scope IS NULL");
+    db.run("UPDATE zones SET zone_scope='internal' WHERE map_lat IS NULL AND zone_scope IS NULL");
   });
 
 module.exports = db;
