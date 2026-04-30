@@ -21,16 +21,13 @@ body{font-family:-apple-system,Segoe UI,Arial,sans-serif;font-size:14px;backgrou
 .flash.deleted{background:#fce8e6;color:#7c1e1e}
 .container{max-width:1150px;margin:1.5rem auto;padding:0 1rem}
 .page-title{font-size:1.1rem;font-weight:800;color:#1e2d4e;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
-/* Badge scope */
 .badge{display:inline-flex;align-items:center;gap:.25rem;padding:.2rem .6rem;border-radius:999px;font-size:.7rem;font-weight:700;white-space:nowrap}
 .badge-internal{background:#dbeafe;color:#1e40af}
 .badge-both{background:#fef3c7;color:#92400e}
 .badge-public{background:#dcfce7;color:#166534}
-/* Legenda */
 .legend{display:flex;gap:.75rem;margin-bottom:1.2rem;flex-wrap:wrap;padding:1rem;background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
-.legend-item{display:flex;align-items:center;gap:.5rem;font-size:.78rem}
-.legend-item p{color:#4a5568;line-height:1.3}
-/* Tabella */
+.legend-item{display:flex;align-items:flex-start;gap:.5rem;font-size:.78rem;flex:1;min-width:200px}
+.legend-item p{color:#4a5568;line-height:1.4}
 .zones-table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)}
 .zones-table th{background:#f8f9fc;color:#4a5568;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:.6rem 1rem;text-align:left;border-bottom:1px solid #e2e8f0}
 .zones-table td{padding:.6rem 1rem;border-bottom:1px solid #f0f2f7;vertical-align:middle}
@@ -38,8 +35,7 @@ body{font-family:-apple-system,Segoe UI,Arial,sans-serif;font-size:14px;backgrou
 .zones-table tr:hover td{background:#fafbff}
 .zone-name{font-weight:700;color:#1a2744}
 .zone-meta{font-size:.7rem;color:#aaa;margin-top:.1rem}
-.scope-select{padding:.3rem .5rem;border:1px solid #d1d9e6;border-radius:6px;font-size:.78rem;background:#fff;color:#1a2744;cursor:pointer;min-width:130px}
-/* Form nuova zona */
+.scope-select{padding:.3rem .5rem;border:1px solid #d1d9e6;border-radius:6px;font-size:.78rem;background:#fff;color:#1a2744;cursor:pointer;min-width:150px}
 .new-zone-card{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:1.2rem;margin-bottom:1.2rem}
 .new-zone-card h2{font-size:.88rem;font-weight:800;color:#1e2d4e;margin-bottom:.85rem}
 .form-row{display:flex;gap:.7rem;flex-wrap:wrap;align-items:flex-end}
@@ -47,7 +43,6 @@ body{font-family:-apple-system,Segoe UI,Arial,sans-serif;font-size:14px;backgrou
 .fgroup label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8896ab}
 .fgroup input,.fgroup select{padding:.38rem .6rem;border:1px solid #d1d9e6;border-radius:6px;font-size:.82rem;color:#1a2744;background:#fff}
 .fgroup input:focus,.fgroup select:focus{outline:none;border-color:#1e2d4e}
-/* Filtri */
 .filters{display:flex;gap:.4rem;margin-bottom:1rem;flex-wrap:wrap}
 .filter-btn{padding:.28rem .85rem;border-radius:20px;font-size:.74rem;font-weight:700;cursor:pointer;border:2px solid #e2e8f0;background:#fff;color:#4a5568;transition:all .15s}
 .filter-btn:hover{border-color:#1e2d4e;color:#1e2d4e}
@@ -58,46 +53,48 @@ body{font-family:-apple-system,Segoe UI,Arial,sans-serif;font-size:14px;backgrou
 <body>
 
 <div class="header">
-  <h1>🗂️ Zone Manager</h1>
+  <h1>&#128194; Zone Manager</h1>
   <div class="header-actions">
-    <a href="/admin/zone-manager" class="btn btn-secondary btn-sm">🔄 Aggiorna</a>
-    <a href="/admin/mappa-pubblica" class="btn btn-secondary btn-sm">🗺️ Mappa Pubblica</a>
-    <a href="/mappa" class="btn btn-secondary btn-sm">📌 Mappa Stand</a>
-    <a href="/admin/settings" class="btn btn-secondary btn-sm">⚙️ Impostazioni</a>
-    <a href="/home" class="btn btn-secondary btn-sm">🏠 Admin</a>
+    <a href="/admin/zone-manager" class="btn btn-secondary btn-sm">&#128260; Aggiorna</a>
+    <a href="/admin/zone-manager" class="btn btn-secondary btn-sm">&#128506; Mappa Pubblica</a>
+    <a href="/mappa" class="btn btn-secondary btn-sm">&#128204; Mappa Stand</a>
+    <a href="/admin/settings" class="btn btn-secondary btn-sm">&#9881; Impostazioni</a>
+    <a href="/home" class="btn btn-secondary btn-sm">&#127968; Admin</a>
   </div>
 </div>
 
-<% if (locals.flash === 'saved') { %><div class="flash saved">✅ Zona aggiornata</div>
-<% } else if (locals.flash === 'created') { %><div class="flash created">✅ Nuova zona creata</div>
-<% } else if (locals.flash === 'deleted') { %><div class="flash deleted">🗑️ Zona eliminata</div><% } %>
+<% if (locals.flash === 'saved') { %>
+<div class="flash saved">&#10003; Zona aggiornata</div>
+<% } else if (locals.flash === 'created') { %>
+<div class="flash created">&#10003; Nuova zona creata</div>
+<% } else if (locals.flash === 'deleted') { %>
+<div class="flash deleted">&#128465; Zona eliminata</div>
+<% } %>
 
 <div class="container">
 
   <div class="page-title">
-    🗂️ Gestione Zone &amp; Scope
+    &#128194; Gestione Zone &amp; Visibilit&agrave;
     <span style="font-size:.72rem;font-weight:600;color:#718096"><%= zones.length %> zone totali</span>
   </div>
 
-  <!-- Legenda -->
   <div class="legend">
     <div class="legend-item">
-      <span class="badge badge-internal">🏛️ Solo interna</span>
-      <p>Visibile in <strong>Mappa Stand</strong> + menù <strong>Creazione Gruppi</strong><br>Non appare nella mappa pubblica</p>
+      <span class="badge badge-internal">&#127963; Solo interna</span>
+      <p>Menu <strong>Creazione Gruppi</strong> + <strong>Mappa Stand</strong><br>Non appare nella mappa pubblica</p>
     </div>
     <div class="legend-item" style="border-left:1px solid #e2e8f0;padding-left:.75rem">
-      <span class="badge badge-both">🔀 Entrambe</span>
-      <p>Visibile <strong>ovunque</strong>: Mappa Stand, Gruppi <em>e</em> Mappa Pubblica Leaflet<br><em>Usa per Palazzetto, Mariambini, Vanvere…</em></p>
+      <span class="badge badge-both">&#128257; Entrambe</span>
+      <p>Appare <strong>ovunque</strong>: Gruppi, Mappa Stand <em>e</em> Mappa Pubblica Leaflet<br><em>Usa per Palazzetto, Mariambini, Vanvere&hellip;</em></p>
     </div>
     <div class="legend-item" style="border-left:1px solid #e2e8f0;padding-left:.75rem">
-      <span class="badge badge-public">🌍 Solo pubblica</span>
-      <p>Visibile <strong>solo</strong> nel Gestionale Mappa Pubblica (Leaflet)<br><em>Usa per parcheggi, bagni, biglietterie…</em></p>
+      <span class="badge badge-public">&#127757; Solo pubblica</span>
+      <p>Solo nel Gestionale Mappa Pubblica (Leaflet)<br><em>Usa per parcheggi, bagni, biglietterie&hellip;</em></p>
     </div>
   </div>
 
-  <!-- Form nuova zona -->
   <div class="new-zone-card">
-    <h2>➕ Crea nuova zona</h2>
+    <h2>&#43; Crea nuova zona</h2>
     <form method="POST" action="/admin/zones">
       <div class="form-row">
         <div class="fgroup" style="flex:2;min-width:200px">
@@ -109,14 +106,14 @@ body{font-family:-apple-system,Segoe UI,Arial,sans-serif;font-size:14px;backgrou
           <input type="number" name="sort_order" value="0" min="0">
         </div>
         <div class="fgroup" style="max-width:180px">
-          <label>Visibilità</label>
+          <label>Visibilit&agrave;</label>
           <select name="zone_scope">
-            <option value="internal">🏛️ Solo interna</option>
-            <option value="both">🔀 Entrambe</option>
-            <option value="public">🌍 Solo pubblica</option>
+            <option value="internal">&#127963; Solo interna</option>
+            <option value="both">&#128257; Entrambe</option>
+            <option value="public">&#127757; Solo pubblica</option>
           </select>
         </div>
-        <div class="fgroup" style="max-width:100px;justify-content:flex-end">
+        <div class="fgroup" style="max-width:110px;justify-content:flex-end">
           <label>&nbsp;</label>
           <button type="submit" class="btn btn-primary">Crea zona</button>
         </div>
@@ -124,91 +121,98 @@ body{font-family:-apple-system,Segoe UI,Arial,sans-serif;font-size:14px;backgrou
     </form>
   </div>
 
-  <!-- Filtri -->
-  <% var cAll = zones.length;
-     var cInt = zones.filter(z => z.zone_scope === 'internal' || !z.zone_scope).length;
-     var cBoth = zones.filter(z => z.zone_scope === 'both').length;
-     var cPub = zones.filter(z => z.zone_scope === 'public').length; %>
+<%
+var cAll  = zones.length;
+var cInt  = 0;
+var cBoth = 0;
+var cPub  = 0;
+for (var i = 0; i < zones.length; i++) {
+  var sc = zones[i].zone_scope || 'internal';
+  if (sc === 'internal') cInt++;
+  else if (sc === 'both') cBoth++;
+  else if (sc === 'public') cPub++;
+}
+%>
+
   <div class="filters">
-    <button class="filter-btn active" id="fb-all"     onclick="filterScope('all',this)">Tutte (<%= cAll %>)</button>
-    <button class="filter-btn"       id="fb-internal" onclick="filterScope('internal',this)">🏛️ Solo interna (<%= cInt %>)</button>
-    <button class="filter-btn"       id="fb-both"     onclick="filterScope('both',this)">🔀 Entrambe (<%= cBoth %>)</button>
-    <button class="filter-btn"       id="fb-public"   onclick="filterScope('public',this)">🌍 Solo pubblica (<%= cPub %>)</button>
+    <button class="filter-btn active" onclick="filterScope('all',this)">Tutte (<%= cAll %>)</button>
+    <button class="filter-btn"        onclick="filterScope('internal',this)">&#127963; Solo interna (<%= cInt %>)</button>
+    <button class="filter-btn"        onclick="filterScope('both',this)">&#128257; Entrambe (<%= cBoth %>)</button>
+    <button class="filter-btn"        onclick="filterScope('public',this)">&#127757; Solo pubblica (<%= cPub %>)</button>
   </div>
 
-  <!-- Tabella -->
   <table class="zones-table">
     <thead>
       <tr>
         <th>Zona</th>
-        <th>Visibilità</th>
-        <th>Stand assegnati</th>
-        <th style="min-width:320px">Modifica</th>
+        <th>Visibilit&agrave;</th>
+        <th>Stand</th>
+        <th style="min-width:330px">Modifica</th>
         <th></th>
       </tr>
     </thead>
     <tbody>
-      <% if (!zones.length) { %>
-        <tr><td colspan="5" style="text-align:center;padding:3rem;color:#718096">Nessuna zona</td></tr>
-      <% } %>
-      <% zones.forEach(function(z) {
-           var scope = z.zone_scope || 'internal';
-           var badgeClass = scope === 'public' ? 'badge-public' : scope === 'both' ? 'badge-both' : 'badge-internal';
-           var badgeLabel = scope === 'public' ? '🌍 Solo pubblica' : scope === 'both' ? '🔀 Entrambe' : '🏛️ Solo interna';
-      %>
+<% if (!zones || zones.length === 0) { %>
+      <tr><td colspan="5" style="text-align:center;padding:3rem;color:#718096">Nessuna zona trovata</td></tr>
+<% } %>
+<% for (var j = 0; j < zones.length; j++) { %>
+<%   var z = zones[j]; %>
+<%   var scope = z.zone_scope || 'internal'; %>
+<%   var badgeClass = (scope === 'public') ? 'badge-public' : (scope === 'both') ? 'badge-both' : 'badge-internal'; %>
+<%   var badgeLabel = (scope === 'public') ? '&#127757; Solo pubblica' : (scope === 'both') ? '&#128257; Entrambe' : '&#127963; Solo interna'; %>
       <tr data-scope="<%= scope %>">
         <td>
-          <div class="zone-name"><%= z.name %></div>
-          <% if (z.map_lat) { %>
-            <div class="zone-meta">📍 <%= parseFloat(z.map_lat).toFixed(4) %>, <%= z.map_lng ? parseFloat(z.map_lng).toFixed(4) : '—' %></div>
-          <% } else { %>
-            <div class="zone-meta">No coordinate GPS</div>
-          <% } %>
+          <div class="zone-name"><%- z.name %></div>
+<% if (z.map_lat) { %>
+          <div class="zone-meta">&#128205; <%= parseFloat(z.map_lat).toFixed(4) %></div>
+<% } else { %>
+          <div class="zone-meta">No coordinate GPS</div>
+<% } %>
         </td>
         <td>
-          <form method="POST" action="/admin/zones/<%= z.id %>/set-scope">
+          <form method="POST" action="/admin/zones/<%= z.id %>/set-scope" style="margin:0">
             <select name="zone_scope" class="scope-select" onchange="this.form.submit()">
-              <option value="internal" <%= scope==='internal'?'selected':'' %>>🏛️ Solo interna</option>
-              <option value="both"     <%= scope==='both'    ?'selected':'' %>>🔀 Entrambe</option>
-              <option value="public"   <%= scope==='public'  ?'selected':'' %>>🌍 Solo pubblica</option>
+              <option value="internal" <%= (scope === 'internal') ? 'selected' : '' %>>&#127963; Solo interna</option>
+              <option value="both"     <%= (scope === 'both')     ? 'selected' : '' %>>&#128257; Entrambe</option>
+              <option value="public"   <%= (scope === 'public')   ? 'selected' : '' %>>&#127757; Solo pubblica</option>
             </select>
           </form>
         </td>
         <td>
-          <% if (z.stands_count > 0) { %>
-            <a href="/participants?zone=<%= encodeURIComponent(z.name) %>" style="font-weight:700;color:#1e2d4e"><%= z.stands_count %> stand</a>
-          <% } else { %>
-            <span style="color:#bbb">nessuno</span>
-          <% } %>
+<% if (z.stands_count > 0) { %>
+          <a href="/participants" style="font-weight:700;color:#1e2d4e"><%= z.stands_count %></a>
+<% } else { %>
+          <span style="color:#bbb">0</span>
+<% } %>
         </td>
         <td>
-          <form method="POST" action="/admin/zones/<%= z.id %>/edit" style="display:flex;gap:.35rem;align-items:center;flex-wrap:wrap">
-            <input type="text" name="name" value="<%= z.name %>" required class="edit-input" style="width:155px">
-            <input type="number" name="sort_order" value="<%= z.sort_order || 0 %>" class="edit-input" style="width:55px" title="Ordine">
-            <select name="zone_scope" class="edit-input" style="width:150px">
-              <option value="internal" <%= scope==='internal'?'selected':'' %>>🏛️ Solo interna</option>
-              <option value="both"     <%= scope==='both'    ?'selected':'' %>>🔀 Entrambe</option>
-              <option value="public"   <%= scope==='public'  ?'selected':'' %>>🌍 Solo pubblica</option>
+          <form method="POST" action="/admin/zones/<%= z.id %>/edit" style="display:flex;gap:.35rem;align-items:center;flex-wrap:wrap;margin:0">
+            <input type="text"   name="name"       value="<%- z.name %>"            required class="edit-input" style="width:150px">
+            <input type="number" name="sort_order" value="<%= z.sort_order || 0 %>" class="edit-input" style="width:52px" title="Ordine">
+            <select name="zone_scope" class="edit-input" style="width:155px">
+              <option value="internal" <%= (scope === 'internal') ? 'selected' : '' %>>&#127963; Solo interna</option>
+              <option value="both"     <%= (scope === 'both')     ? 'selected' : '' %>>&#128257; Entrambe</option>
+              <option value="public"   <%= (scope === 'public')   ? 'selected' : '' %>>&#127757; Solo pubblica</option>
             </select>
             <button type="submit" class="btn btn-primary btn-sm">Salva</button>
           </form>
         </td>
         <td>
-          <% if (!z.stands_count) { %>
-            <form method="POST" action="/admin/zones/<%= z.id %>/delete" onsubmit="return confirm('Eliminare «<%= z.name.replace(/'/g,'\\'') %>»?')">
-              <button type="submit" class="btn btn-danger btn-sm" title="Elimina">🗑</button>
-            </form>
-          <% } else { %>
-            <button class="btn btn-sm" style="background:#f0f2f7;color:#ccc;cursor:not-allowed" disabled title="Ha stand assegnati">🗑</button>
-          <% } %>
+<% if (!z.stands_count || z.stands_count === 0) { %>
+          <form method="POST" action="/admin/zones/<%= z.id %>/delete" style="margin:0" id="del-<%= z.id %>">
+            <button type="button" onclick="confirmDel(<%= z.id %>)" class="btn btn-danger btn-sm" title="Elimina">&#128465;</button>
+          </form>
+<% } else { %>
+          <button class="btn btn-sm" style="background:#f0f2f7;color:#ccc;cursor:not-allowed" disabled title="Ha stand assegnati">&#128465;</button>
+<% } %>
         </td>
       </tr>
-      <% }) %>
+<% } %>
     </tbody>
   </table>
 
   <p style="margin-top:1rem;font-size:.72rem;color:#aaa;text-align:right">
-    💡 Per riclassificare automaticamente tutte le zone:
+    &#128161; Riclassifica automatica tutte le zone:
     <a href="/admin/fix-zone-scope" target="_blank" style="color:#1e2d4e;font-weight:700">/admin/fix-zone-scope</a>
   </p>
 
@@ -216,16 +220,22 @@ body{font-family:-apple-system,Segoe UI,Arial,sans-serif;font-size:14px;backgrou
 
 <script>
 function filterScope(scope, btn) {
-  document.querySelectorAll('tbody tr[data-scope]').forEach(row => {
-    row.style.display = (scope === 'all' || row.dataset.scope === scope) ? '' : 'none';
-  });
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  var rows = document.querySelectorAll('tbody tr[data-scope]');
+  for (var i = 0; i < rows.length; i++) {
+    rows[i].style.display = (scope === 'all' || rows[i].getAttribute('data-scope') === scope) ? '' : 'none';
+  }
+  var btns = document.querySelectorAll('.filter-btn');
+  for (var k = 0; k < btns.length; k++) btns[k].classList.remove('active');
   btn.classList.add('active');
 }
-// Auto-hide flash
-setTimeout(() => {
-  const f = document.querySelector('.flash');
-  if (f) { f.style.transition='opacity .4s'; f.style.opacity=0; setTimeout(()=>f.remove(),400); }
+function confirmDel(id) {
+  if (confirm('Eliminare questa zona? L\'azione è irreversibile.')) {
+    document.getElementById('del-' + id).submit();
+  }
+}
+setTimeout(function() {
+  var f = document.querySelector('.flash');
+  if (f) { f.style.transition = 'opacity .4s'; f.style.opacity = 0; setTimeout(function(){ f.remove(); }, 400); }
 }, 4000);
 </script>
 </body>
