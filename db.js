@@ -1018,9 +1018,9 @@ db.all("PRAGMA table_info(zones)", [], function(_e, cols) {
     if (row) return; // già eseguita
     db.serialize(function() {
       // Zone con coordinate → pubbliche
-      db.run("UPDATE zones SET zone_scope='public'   WHERE maplat IS NOT NULL AND zone_scope IS NULL");
+      db.run("UPDATE zones SET zone_scope='public'   WHERE map_lat IS NOT NULL AND zone_scope IS NULL");
       // Zone senza coordinate → interne
-      db.run("UPDATE zones SET zone_scope='internal' WHERE maplat IS NULL     AND zone_scope IS NULL");
+      db.run("UPDATE zones SET zone_scope='internal' WHERE map_lat IS NULL     AND zone_scope IS NULL");
       db.run("INSERT OR IGNORE INTO lc_flags (flag_name) VALUES ('lc_zone_scope_v2')",
         function(e) { if (!e) console.log('[DB] zone_scope v2 migration OK'); });
     });
