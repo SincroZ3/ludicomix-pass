@@ -996,9 +996,14 @@ db.run(`ALTER TABLE zones ADD COLUMN map_tags     TEXT`,                    () =
 db.run(`ALTER TABLE zones ADD COLUMN map_active   INTEGER DEFAULT 1`,       () => {});
 db.run(`ALTER TABLE zones ADD COLUMN map_color    TEXT`,                    () => {});
 // Migrazione zone_scope: separa zone interne (padiglioni/stand) da zone mappa pubblica
+// Discriminante: solo le zone della mappa pubblica hanno coordinate geografiche (map_lat)
 db.run(`ALTER TABLE zones ADD COLUMN zone_scope TEXT`, () => {
-  db.run(`UPDATE zones SET zone_scope = 'public'   WHERE map_type IS NOT NULL AND map_type != ''`);
+  db.run(`UPDATE zones SET zone_scope = 'public'   WHERE map_lat IS NOT NULL`);
   db.run(`UPDATE zones SET zone_scope = 'internal' WHERE zone_scope IS NULL`);
 });
+// Fix idempotente: ri-classifica anche se la colonna esisteva già (migration già girata con bug)
+db.run(`UPDATE zones SET zone_scope = 'public'   WHERE map_lat IS NOT NULL AND (zone_scope IS NULL OR zone_scope != 'internal')`);
+db.run(`UPDATE zones SET zone_scope = 'internal' WHERE map_lat IS NULL AND zone_scope IS NULL`);
+db.run(`UPDATE zones SET zone_scope = 'internal' WHERE map_lat IS NULL AND zone_scope = 'public'`);
 
 module.exports = db;

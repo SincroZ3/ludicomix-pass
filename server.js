@@ -2673,6 +2673,58 @@ async function triggerBatchPassOnClose(groupId) {
   });
 
 
+
+  // -------- Gestione Mappa Pubblica --------
+
+  app.get('/admin/zone-manager', requireAuth, requireOrganizer, (req, res) => {
+    db.all("SELECT * FROM zones WHERE zone_scope = 'public' ORDER BY sort_order, name", [], (err, zones) => {
+      if (err) return res.status(500).send('Errore DB zone mappa pubblica');
+      res.render('admin_map', { zones: zones || [], flash: req.query.flash || null });
+    });
+  });
+
+  app.post('/admin/mappa-pubblica/zone/new', requireAuth, requireOrganizer, (req, res) => {
+    const { name, map_label, map_type, map_lat, map_lng, map_zoom, map_desc, map_address, map_tags, map_color, sort_order } = req.body;
+    if (!name || !name.trim()) return res.status(400).send('Nome zona obbligatorio');
+    db.run(
+      "INSERT INTO zones (name, sort_order, map_label, map_type, map_lat, map_lng, map_zoom, map_desc, map_address, map_tags, map_color, map_active, zone_scope) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'public')",
+      [name.trim(), parseInt(sort_order||0,10), map_label||null, map_type||'area',
+       map_lat ? parseFloat(map_lat) : null, map_lng ? parseFloat(map_lng) : null,
+       parseInt(map_zoom||16,10), map_desc||null, map_address||null, map_tags||null, map_color||null],
+      function(err) {
+        if (err) return res.status(500).send('Errore salvataggio zona mappa: ' + err.message);
+        logAction(req.session.user.id, 'create_public_zone', 'zone', this.lastID, 'Creata zona pubblica: ' + name.trim());
+        res.redirect('/admin/zone-manager?flash=created');
+      }
+    );
+  });
+
+  app.post('/admin/mappa-pubblica/zone/:id', requireAuth, requireOrganizer, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const action = req.body._action || 'save';
+    if (action === 'delete') {
+      db.run('DELETE FROM zones WHERE id = ? AND zone_scope = \'public\'', [id], function(err) {
+        if (err) return res.status(500).send('Errore eliminazione zona mappa');
+        logAction(req.session.user.id, 'delete_public_zone', 'zone', id, 'Zona mappa pubblica eliminata');
+        res.redirect('/admin/zone-manager?flash=deleted');
+      });
+    } else {
+      const { name, map_label, map_type, map_lat, map_lng, map_zoom, map_desc, map_address, map_tags, map_color, map_active, sort_order } = req.body;
+      db.run(
+        "UPDATE zones SET name=?, sort_order=?, map_label=?, map_type=?, map_lat=?, map_lng=?, map_zoom=?, map_desc=?, map_address=?, map_tags=?, map_color=?, map_active=? WHERE id=? AND zone_scope='public'",
+        [name, parseInt(sort_order||0,10), map_label||null, map_type||'area',
+         map_lat ? parseFloat(map_lat) : null, map_lng ? parseFloat(map_lng) : null,
+         parseInt(map_zoom||16,10), map_desc||null, map_address||null, map_tags||null,
+         map_color||null, map_active ? 1 : 0, id],
+        function(err) {
+          if (err) return res.status(500).send('Errore aggiornamento zona mappa');
+          logAction(req.session.user.id, 'edit_public_zone', 'zone', id, 'Zona mappa pubblica aggiornata');
+          res.redirect('/admin/zone-manager?flash=saved');
+        }
+      );
+    }
+  });
+
   // -------- Backup & Restore DB --------
 
   app.get('/admin/backup', requireAuth, requireAdmin, (req, res) => {
