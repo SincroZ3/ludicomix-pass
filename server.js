@@ -2650,11 +2650,12 @@ async function triggerBatchPassOnClose(groupId) {
 
   app.post('/admin/zones/:id/edit', requireAuth, requireAdmin, (req, res) => {
     const id = parseInt(req.params.id, 10);
-    const { name, sort_order } = req.body;
+    const { name, sort_order, zone_scope } = req.body;
     if (!name || !name.trim()) return res.status(400).send('Nome zona obbligatorio');
+    const scope = ['internal','public'].includes(zone_scope) ? zone_scope : 'internal';
     db.run(
-      'UPDATE zones SET name = ?, sort_order = ? WHERE id = ?',
-      [name.trim(), parseInt(sort_order || 0, 10), id],
+      'UPDATE zones SET name = ?, sort_order = ?, zone_scope = ? WHERE id = ?',
+      [name.trim(), parseInt(sort_order || 0, 10), scope, id],
       function(err) {
         if (err) return res.status(500).send('Errore aggiornamento zona');
         logAction(req.session.user.id, 'edit_zone', 'zone', id, 'Zona aggiornata: ' + name.trim());
@@ -2694,38 +2695,28 @@ async function triggerBatchPassOnClose(groupId) {
     });
   });
 
-
-  // ── Fix zone_scope per tipo: usa map_type per distinguere interne da pubbliche ──
-  app.get('/admin/fix-zone-scope-by-type', requireAuth, requireAdmin, (req, res) => {
-    db.serialize(() => {
-      // Padiglioni/aree evento → visibili in Mappa Stand E mappa pubblica
-      db.run(`UPDATE zones SET zone_scope = 'internal'
-              WHERE map_type IN ('area','mostra','sala','eventi','shop','palco','extra')
-                 OR map_type IS NULL`);
-      // Servizi/POI → solo gestionale mappa pubblica (Leaflet)
-      db.run(`UPDATE zones SET zone_scope = 'public'
-              WHERE map_type IN ('parking','bagni','biglietteria','trasporti')`
-      , function(err) {
-        if (err) return res.status(500).json({ ok: false, error: err.message });
-        db.all(`SELECT id, name, map_type, map_lat, zone_scope FROM zones ORDER BY sort_order, name`, [], (e, rows) => {
-          const internal = rows.filter(r => r.zone_scope === 'internal').map(r => r.name);
-          const pub      = rows.filter(r => r.zone_scope === 'public').map(r => r.name);
-          res.json({
-            ok: true,
-            message: 'Zone riclassificate per tipo. Puoi chiudere questa pagina e ricaricare la Mappa Stand.',
-            internal_zones: internal,
-            public_only_zones: pub
-          });
-        });
-      });
+  // ── Zone Manager: lista TUTTE le zone con scope e contatore stand assegnati ──
+  app.get('/admin/zone-manager', requireAuth, requireOrganizer, (req, res) => {
+    db.all(`SELECT z.*,
+              COUNT(ag.id) AS stands_count
+            FROM zones z
+            LEFT JOIN assignment_groups ag ON ag.zone = z.name
+            GROUP BY z.id
+            ORDER BY z.zone_scope DESC, z.sort_order, z.name`, [], (err, zones) => {
+      if (err) return res.status(500).send('Errore DB zone');
+      res.render('zone_manager', { zones: zones || [], flash: req.query.flash || null });
     });
   });
 
-
-  app.get('/admin/zone-manager', requireAuth, requireOrganizer, (req, res) => {
-    db.all("SELECT * FROM zones WHERE zone_scope = 'public' ORDER BY sort_order, name", [], (err, zones) => {
-      if (err) return res.status(500).send('Errore DB zone mappa pubblica');
-      res.render('admin_map', { zones: zones || [], flash: req.query.flash || null });
+  // Cambia zone_scope di una zona (internal ↔ public)
+  app.post('/admin/zones/:id/set-scope', requireAuth, requireAdmin, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { zone_scope } = req.body;
+    if (!['internal', 'public'].includes(zone_scope)) return res.status(400).send('Scope non valido');
+    db.run('UPDATE zones SET zone_scope = ? WHERE id = ?', [zone_scope, id], function(err) {
+      if (err) return res.status(500).send('Errore aggiornamento scope');
+      logAction(req.session.user.id, 'edit_zone_scope', 'zone', id, `zone_scope → ${zone_scope}`);
+      res.redirect('/admin/zone-manager?flash=saved');
     });
   });
 

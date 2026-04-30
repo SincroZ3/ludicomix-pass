@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zone Manager — Ludicomix</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,Segoe UI,Arial,sans-serif;font-size:14px;background:#f4f6f9;color:#1a2744}
+.header{background:#1e2d4e;color:#fff;padding:.75rem 1.5rem;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #f5c842}
+.header h1{font-size:1rem;font-weight:800}
+.header-actions{display:flex;gap:.5rem;align-items:center}
+.btn{padding:.35rem .9rem;border-radius:6px;font-size:.78rem;font-weight:700;cursor:pointer;border:none;text-decoration:none;display:inline-flex;align-items:center;gap:.3rem;transition:background .15s}
+.btn-primary{background:#f5c842;color:#1e2d4e}.btn-primary:hover{background:#f7d060}
+.btn-secondary{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)}.btn-secondary:hover{background:rgba(255,255,255,.25)}
+.btn-danger{background:#e8372a;color:#fff}.btn-danger:hover{background:#c42d21}
+.btn-sm{padding:.25rem .65rem;font-size:.72rem}
+.flash{padding:.5rem 1.2rem;font-size:.82rem;font-weight:700;text-align:center}
+.flash.saved{background:#d4edda;color:#155724}
+.flash.deleted{background:#fce8e6;color:#7c1e1e}
+.container{max-width:1100px;margin:1.5rem auto;padding:0 1rem}
+.page-title{font-size:1.1rem;font-weight:800;color:#1e2d4e;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+/* Legenda scope */
+.legend{display:flex;gap:1rem;margin-bottom:1.2rem;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:.4rem;font-size:.78rem;font-weight:600}
+.badge{display:inline-flex;align-items:center;gap:.25rem;padding:.18rem .55rem;border-radius:999px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+.badge-internal{background:#dbeafe;color:#1e40af}
+.badge-public{background:#dcfce7;color:#166534}
+/* Tabella zone */
+.zones-table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.zones-table th{background:#f8f9fc;color:#4a5568;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:.6rem 1rem;text-align:left;border-bottom:1px solid #e2e8f0}
+.zones-table td{padding:.65rem 1rem;border-bottom:1px solid #f0f2f7;vertical-align:middle}
+.zones-table tr:last-child td{border-bottom:none}
+.zones-table tr:hover td{background:#fafbff}
+.zone-name{font-weight:700;color:#1a2744}
+.zone-meta{font-size:.72rem;color:#718096;margin-top:.15rem}
+.scope-form{display:flex;align-items:center;gap:.4rem}
+.scope-select{padding:.28rem .5rem;border:1px solid #d1d9e6;border-radius:6px;font-size:.78rem;background:#fff;color:#1a2744;cursor:pointer}
+.stands-count{font-size:.82rem;color:#4a5568}
+.no-zones{text-align:center;padding:3rem;color:#718096;font-size:.9rem}
+/* Form nuova zona */
+.new-zone-card{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:1.2rem;margin-bottom:1.5rem}
+.new-zone-card h2{font-size:.88rem;font-weight:800;color:#1e2d4e;margin-bottom:.9rem}
+.form-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end}
+.fgroup{display:flex;flex-direction:column;gap:.25rem;flex:1;min-width:160px}
+.fgroup label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8896ab}
+.fgroup input,.fgroup select{padding:.38rem .65rem;border:1px solid #d1d9e6;border-radius:6px;font-size:.82rem;color:#1a2744;background:#fff}
+.fgroup input:focus,.fgroup select:focus{outline:none;border-color:#1e2d4e}
+/* Sezione filtri */
+.filters{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap}
+.filter-btn{padding:.3rem .9rem;border-radius:20px;font-size:.75rem;font-weight:700;cursor:pointer;border:2px solid #e2e8f0;background:#fff;color:#4a5568;transition:all .15s}
+.filter-btn.active{border-color:#1e2d4e;background:#1e2d4e;color:#fff}
+.section-label{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8896ab;padding:.5rem 1rem;background:#f8f9fc;border-bottom:1px solid #e2e8f0}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🗂️ Zone Manager</h1>
+  <div class="header-actions">
+    <a href="/admin/zone-manager?scope=all" class="btn btn-secondary btn-sm">Tutte le zone</a>
+    <a href="/admin/settings" class="btn btn-secondary btn-sm">← Impostazioni</a>
+    <a href="/home" class="btn btn-secondary btn-sm">Admin</a>
+  </div>
+</div>
+
+<% if (flash === 'saved') { %>
+  <div class="flash saved">✅ Zona aggiornata</div>
+<% } else if (flash === 'created') { %>
+  <div class="flash saved">✅ Zona creata</div>
+<% } else if (flash === 'deleted') { %>
+  <div class="flash deleted">🗑️ Zona eliminata</div>
+<% } %>
+
+<div class="container">
+
+  <div class="page-title">🗂️ Gestione Zone
+    <span style="font-size:.72rem;font-weight:600;color:#718096;margin-left:.5rem"><%= zones.length %> zone totali</span>
+  </div>
+
+  <!-- Legenda -->
+  <div class="legend">
+    <div class="legend-item">
+      <span class="badge badge-internal">🏛️ internal</span>
+      Visibile in Mappa Stand e Impostazioni (uso interno)
+    </div>
+    <div class="legend-item">
+      <span class="badge badge-public">🌍 public</span>
+      Visibile solo nel Gestionale Mappa Pubblica (Leaflet)
+    </div>
+  </div>
+
+  <!-- Form nuova zona -->
+  <div class="new-zone-card">
+    <h2>➕ Nuova zona interna</h2>
+    <form method="POST" action="/admin/zones">
+      <div class="form-row">
+        <div class="fgroup" style="flex:2">
+          <label>Nome zona</label>
+          <input type="text" name="name" required placeholder="es. Palazzetto dello Sport">
+        </div>
+        <div class="fgroup" style="max-width:100px">
+          <label>Ordine</label>
+          <input type="number" name="sort_order" value="0" min="0">
+        </div>
+        <div class="fgroup" style="max-width:140px">
+          <label>Scope</label>
+          <select name="zone_scope">
+            <option value="internal">🏛️ Internal</option>
+            <option value="public">🌍 Public</option>
+          </select>
+        </div>
+        <div class="fgroup" style="max-width:100px;justify-content:flex-end">
+          <button type="submit" class="btn btn-primary">Crea</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Filtri rapidi -->
+  <div class="filters">
+    <button class="filter-btn <%= !locals.scopeFilter || scopeFilter === 'all' ? 'active' : '' %>" onclick="filterScope('all')">Tutte (<%= zones.length %>)</button>
+    <button class="filter-btn <%= locals.scopeFilter === 'internal' ? 'active' : '' %>" onclick="filterScope('internal')">🏛️ Internal (<%= zones.filter(z=>z.zone_scope==='internal'||!z.zone_scope).length %>)</button>
+    <button class="filter-btn <%= locals.scopeFilter === 'public' ? 'active' : '' %>" onclick="filterScope('public')">🌍 Public (<%= zones.filter(z=>z.zone_scope==='public').length %>)</button>
+  </div>
+
+  <!-- Tabella zone -->
+  <table class="zones-table">
+    <thead>
+      <tr>
+        <th>Zona</th>
+        <th>Scope</th>
+        <th>Stands assegnati</th>
+        <th>Ordine</th>
+        <th>Azioni</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (zones.length === 0) { %>
+        <tr><td colspan="5" class="no-zones">Nessuna zona trovata</td></tr>
+      <% } %>
+      <% zones.forEach(function(z) { %>
+      <tr data-scope="<%= z.zone_scope || 'internal' %>">
+        <td>
+          <div class="zone-name"><%= z.name %></div>
+          <% if (z.map_lat) { %>
+            <div class="zone-meta">📍 <%= z.map_lat.toFixed(5) %>, <%= z.map_lng ? z.map_lng.toFixed(5) : '—' %></div>
+          <% } else { %>
+            <div class="zone-meta" style="color:#aaa">Nessuna coordinata GPS</div>
+          <% } %>
+        </td>
+        <td>
+          <form method="POST" action="/admin/zones/<%= z.id %>/set-scope" style="display:inline">
+            <div class="scope-form">
+              <select name="zone_scope" class="scope-select" onchange="this.form.submit()" title="Cambia scope">
+                <option value="internal" <%= (z.zone_scope === 'internal' || !z.zone_scope) ? 'selected' : '' %>>🏛️ Internal</option>
+                <option value="public" <%= z.zone_scope === 'public' ? 'selected' : '' %>>🌍 Public</option>
+              </select>
+            </div>
+          </form>
+        </td>
+        <td>
+          <span class="stands-count">
+            <% if (z.stands_count > 0) { %>
+              <a href="/admin/participants?zone=<%= encodeURIComponent(z.name) %>" style="color:#1e2d4e;font-weight:700"><%= z.stands_count %> stand</a>
+            <% } else { %>
+              <span style="color:#aaa">nessuno</span>
+            <% } %>
+          </span>
+        </td>
+        <td style="color:#718096;font-size:.82rem"><%= z.sort_order || 0 %></td>
+        <td>
+          <div style="display:flex;gap:.4rem;align-items:center">
+            <!-- Edit inline -->
+            <form method="POST" action="/admin/zones/<%= z.id %>/edit" style="display:flex;gap:.35rem;align-items:center">
+              <input type="text" name="name" value="<%= z.name %>" required style="padding:.25rem .5rem;border:1px solid #d1d9e6;border-radius:5px;font-size:.78rem;width:140px">
+              <input type="number" name="sort_order" value="<%= z.sort_order || 0 %>" style="padding:.25rem .4rem;border:1px solid #d1d9e6;border-radius:5px;font-size:.78rem;width:55px">
+              <input type="hidden" name="zone_scope" value="<%= z.zone_scope || 'internal' %>">
+              <button type="submit" class="btn btn-primary btn-sm">Salva</button>
+            </form>
+            <!-- Delete -->
+            <% if (z.stands_count === 0) { %>
+              <form method="POST" action="/admin/zones/<%= z.id %>/delete" onsubmit="return confirm('Eliminare «<%= z.name %>»?')">
+                <button type="submit" class="btn btn-danger btn-sm">🗑</button>
+              </form>
+            <% } else { %>
+              <button class="btn btn-sm" style="background:#f0f2f7;color:#aaa;cursor:not-allowed" title="Non eliminabile: ha stand assegnati" disabled>🗑</button>
+            <% } %>
+          </div>
+        </td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+
+</div>
+
+<script>
+function filterScope(scope) {
+  const rows = document.querySelectorAll('tbody tr[data-scope]');
+  rows.forEach(row => {
+    row.style.display = (scope === 'all' || row.dataset.scope === scope) ? '' : 'none';
+  });
+  document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>
