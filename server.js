@@ -4069,7 +4069,7 @@ load();
       `UPDATE zones SET
          name=?, sort_order=?, map_lat=?, map_lng=?, map_label=?, map_type=?,
          map_color=?, map_zoom=?, map_address=?, map_desc=?, map_tags=?,
-         map_active=?, show_internal=0, show_public=1
+         map_active=?
        WHERE id=?`,
       [
         name.trim(),
