@@ -4015,6 +4015,7 @@ load();
       "SELECT * FROM zones WHERE show_public = 1 ORDER BY sort_order, name",
       [], function(err, zones) {
         if (err) return res.status(500).send('Errore DB zone mappa pubblica');
+        console.log('[DEBUG admin/mappa-pubblica] zone show_public=1:', zones.length, zones.map(z=>z.name+'('+z.show_public+')'));
         res.render('admin_map', {
           zones: zones,
           flash: req.query.flash || null,
