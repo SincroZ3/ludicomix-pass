@@ -131,49 +131,6 @@ db.run(`CREATE TABLE IF NOT EXISTS zones (
   background_image TEXT
 )`);
 
-
-// ── map_points: tabella separata per i POI della mappa pubblica ─────────────
-// Separazione FISICA da 'zones' (padiglioni interni).
-// Le route /admin/mappa-pubblica e /mappa-pubblica usano SOLO questa tabella.
-db.run(`CREATE TABLE IF NOT EXISTS map_points (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL UNIQUE,
-  sort_order INTEGER DEFAULT 0,
-  map_lat REAL,
-  map_lng REAL,
-  map_label TEXT,
-  map_type TEXT DEFAULT 'area',
-  map_color TEXT DEFAULT '#e8372a',
-  map_zoom INTEGER DEFAULT 16,
-  map_address TEXT,
-  map_desc TEXT,
-  map_tags TEXT,
-  map_active INTEGER DEFAULT 1,
-  background_image TEXT,
-  created_at TEXT DEFAULT (datetime('now','localtime'))
-)`, function() {
-  // Esegui la migrazione SOLO se map_points è vuota (prima installazione di v5)
-  db.get(`SELECT count(*) as c FROM map_points`, [], function(e, row) {
-    if (e || (row && row.c > 0)) {
-      console.log('[DB] map_points: tabella già popolata (' + (row ? row.c : '?') + ' POI), skip migrazione');
-      return;
-    }
-    db.run(`INSERT OR IGNORE INTO map_points
-      (name, sort_order, map_lat, map_lng, map_label, map_type,
-       map_color, map_zoom, map_address, map_desc, map_tags, map_active, background_image)
-      SELECT name, sort_order, map_lat, map_lng, map_label, map_type,
-             map_color, map_zoom, map_address, map_desc, map_tags,
-             COALESCE(map_active,1), background_image
-      FROM zones
-      WHERE map_lat IS NOT NULL AND map_lng IS NOT NULL
-        AND (show_public = 1 OR zone_scope = 'public' OR zone_scope = 'both')`,
-    function(err2) {
-      if (err2) console.warn('[DB] map_points migration:', err2.message);
-      else console.log('[DB] map_points: migrazione eseguita');
-    });
-  });
-});
-
 db.run(`CREATE TABLE IF NOT EXISTS notifications (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   type TEXT NOT NULL,
@@ -1038,33 +995,10 @@ db.run(`ALTER TABLE zones ADD COLUMN map_address  TEXT`,                    () =
 db.run(`ALTER TABLE zones ADD COLUMN map_tags     TEXT`,                    () => {});
 db.run(`ALTER TABLE zones ADD COLUMN map_active   INTEGER DEFAULT 1`,       () => {});
 db.run(`ALTER TABLE zones ADD COLUMN map_color    TEXT`,                    () => {});
-
-// ── Separazione zone interne (padiglioni) da POI mappa pubblica ──────────
-// ── Visibilità zone: show_internal e show_public (boolean) ──────────────────
-// Due colonne separate, nessuna ambiguità DEFAULT SQLite, nessun COALESCE.
-// show_internal = 1 → appare in Impostazioni, Mappa Stand, dropdown gruppi
-// show_public   = 1 → appare nella Mappa Pubblica visitatori
-// Le vecchie zone acquisiscono show_internal=1, show_public=0 tramite DEFAULT.
-// ── show_internal / show_public — migration one-shot ────────────────────────
-// ALTER TABLE fallisce silenziosamente SE la colonna esiste già.
-// errA/errB = null  → colonna appena creata (prima esecuzione)
-// errA/errB = Error → colonna già esistente (esecuzioni successive)
-// → L'UPDATE massiccio gira SOLO alla prima esecuzione,
-//   così le classificazioni manuali non vengono mai azzerate ai restart.
-db.run(`ALTER TABLE zones ADD COLUMN show_internal INTEGER DEFAULT 1`, function(errA) {
-  db.run(`ALTER TABLE zones ADD COLUMN show_public INTEGER DEFAULT 0`, function(errB) {
-    if (!errA && !errB) {
-      // Prima esecuzione: forza valori espliciti su tutte le righe
-      db.run(`UPDATE zones SET show_internal=1, show_public=0`, function() {
-        // Rispetta eventuali zone_scope precedenti (da patch precedenti)
-        db.run(`UPDATE zones SET show_internal=0, show_public=1 WHERE zone_scope='public'`);
-        db.run(`UPDATE zones SET show_internal=1, show_public=1 WHERE zone_scope='both'`);
-        console.log('[DB] show_internal/show_public: colonne create e valori inizializzati');
-      });
-    } else {
-      console.log('[DB] show_internal/show_public: colonne già presenti, nessuna modifica');
-    }
-  });
+// Migrazione zone_scope: separa zone interne (padiglioni/stand) da zone mappa pubblica
+db.run(`ALTER TABLE zones ADD COLUMN zone_scope TEXT`, () => {
+  db.run(`UPDATE zones SET zone_scope = 'public'   WHERE map_type IS NOT NULL AND map_type != ''`);
+  db.run(`UPDATE zones SET zone_scope = 'internal' WHERE zone_scope IS NULL`);
 });
 
 module.exports = db;
