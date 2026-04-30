@@ -1001,29 +1001,17 @@ db.run(`ALTER TABLE zones ADD COLUMN zone_scope TEXT`, () => {
   db.run(`UPDATE zones SET zone_scope = 'public'   WHERE map_lat IS NOT NULL`);
   db.run(`UPDATE zones SET zone_scope = 'internal' WHERE zone_scope IS NULL`);
 });
-// Fix idempotente sicuro: gira solo se map_lat esiste già
-db.all("PRAGMA table_info(zones)", [], function(_e, cols) {
-  if (!cols) return;
-  const hasMapLat     = cols.some(c => c.name === 'map_lat');
-  const hasZoneScope  = cols.some(c => c.name === 'zone_scope');
-  if (!hasMapLat || !hasZoneScope) return; // colonne non ancora aggiunte
-  db.run(`UPDATE zones SET zone_scope = 'public'   WHERE map_lat IS NOT NULL AND (zone_scope IS NULL OR zone_scope != 'internal')`);
-  db.run(`UPDATE zones SET zone_scope = 'internal' WHERE map_lat IS NULL AND zone_scope IS NULL`);
-  db.run(`UPDATE zones SET zone_scope = 'internal' WHERE map_lat IS NULL AND zone_scope = 'public'`);
-});
 
-
-  // ── Migration v2: imposta zone_scope sui record esistenti (NULL → corretto)
-  db.get("SELECT 1 FROM lc_flags WHERE flag_name=?", ["lc_zone_scope_v2"], function(err, row) {
-    if (row) return; // già eseguita
-    db.serialize(function() {
-      // Zone con coordinate → pubbliche
-      db.run("UPDATE zones SET zone_scope='public'   WHERE map_lat IS NOT NULL AND zone_scope IS NULL");
-      // Zone senza coordinate → interne
-      db.run("UPDATE zones SET zone_scope='internal' WHERE map_lat IS NULL     AND zone_scope IS NULL");
-      db.run("INSERT OR IGNORE INTO lc_flags (flag_name) VALUES ('lc_zone_scope_v2')",
-        function(e) { if (!e) console.log('[DB] zone_scope v2 migration OK'); });
-    });
+  // ── Classificazione zone: idempotente, gira ogni boot (no flag guard)
+  // Sicuro solo dopo che map_lat e zone_scope esistono (aggiunti dalle ALTER TABLE sopra)
+  db.all("PRAGMA table_info(zones)", [], function(_e, cols) {
+    if (!Array.isArray(cols)) return;
+    const names = cols.map(c => c.name);
+    if (!names.includes('map_lat') || !names.includes('zone_scope')) return;
+    // Le zone della mappa pubblica hanno map_lat: marcale 'public'
+    db.run("UPDATE zones SET zone_scope='public'   WHERE map_lat IS NOT NULL AND zone_scope IS NULL");
+    // Le zone interne non hanno map_lat: marcale 'internal'
+    db.run("UPDATE zones SET zone_scope='internal' WHERE map_lat IS NULL     AND zone_scope IS NULL");
   });
 
 module.exports = db;
