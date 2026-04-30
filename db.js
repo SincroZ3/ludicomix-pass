@@ -1001,10 +1001,16 @@ db.run(`ALTER TABLE zones ADD COLUMN zone_scope TEXT`, () => {
   db.run(`UPDATE zones SET zone_scope = 'public'   WHERE map_lat IS NOT NULL`);
   db.run(`UPDATE zones SET zone_scope = 'internal' WHERE zone_scope IS NULL`);
 });
-// Fix idempotente: ri-classifica anche se la colonna esisteva già (migration già girata con bug)
-db.run(`UPDATE zones SET zone_scope = 'public'   WHERE map_lat IS NOT NULL AND (zone_scope IS NULL OR zone_scope != 'internal')`);
-db.run(`UPDATE zones SET zone_scope = 'internal' WHERE map_lat IS NULL AND zone_scope IS NULL`);
-db.run(`UPDATE zones SET zone_scope = 'internal' WHERE map_lat IS NULL AND zone_scope = 'public'`);
+// Fix idempotente sicuro: gira solo se map_lat esiste già
+db.all("PRAGMA table_info(zones)", [], function(_e, cols) {
+  if (!cols) return;
+  const hasMapLat     = cols.some(c => c.name === 'map_lat');
+  const hasZoneScope  = cols.some(c => c.name === 'zone_scope');
+  if (!hasMapLat || !hasZoneScope) return; // colonne non ancora aggiunte
+  db.run(`UPDATE zones SET zone_scope = 'public'   WHERE map_lat IS NOT NULL AND (zone_scope IS NULL OR zone_scope != 'internal')`);
+  db.run(`UPDATE zones SET zone_scope = 'internal' WHERE map_lat IS NULL AND zone_scope IS NULL`);
+  db.run(`UPDATE zones SET zone_scope = 'internal' WHERE map_lat IS NULL AND zone_scope = 'public'`);
+});
 
 
   // ── Migration v2: imposta zone_scope sui record esistenti (NULL → corretto)

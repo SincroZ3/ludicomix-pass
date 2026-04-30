@@ -496,7 +496,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope = \'internal\' OR (zone_scope IS NULL AND maplat IS NULL)) ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE zone_scope = \'internal\' ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], pending: pending||[], shifts: shifts||[], zones: zones||[] });
     } catch (err) {
@@ -671,7 +671,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope = \'internal\' OR (zone_scope IS NULL AND maplat IS NULL)) ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE zone_scope = \'internal\' ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], pending: pending||[], shifts: shifts||[], zones: zones||[] });
     } catch (err) {
@@ -822,7 +822,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope = \'internal\' OR (zone_scope IS NULL AND maplat IS NULL)) ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE zone_scope = \'internal\' ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
@@ -1021,7 +1021,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope = \'internal\' OR (zone_scope IS NULL AND maplat IS NULL)) ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE zone_scope = \'internal\' ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
@@ -1293,7 +1293,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope = \'internal\' OR (zone_scope IS NULL AND maplat IS NULL)) ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE zone_scope = \'internal\' ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
@@ -1584,7 +1584,7 @@ app.get('/home', requireAuth, (req, res) => {
         `;
         db.all(sql, [], (err3, assignmentGroups) => {
           if (err3) return res.status(500).send('Errore DB gruppi assegnatari');
-          db.all('SELECT * FROM zones WHERE (zone_scope = \'internal\' OR (zone_scope IS NULL AND maplat IS NULL)) ORDER BY sort_order, name', [], (err4, zones) => {
+          db.all('SELECT * FROM zones WHERE zone_scope = \'internal\' ORDER BY sort_order, name', [], (err4, zones) => {
             if (err4) return res.status(500).send('Errore DB zone');
             res.render('participants', { categories, types, assignmentGroups, zones: zones || [] });
           });
@@ -1702,7 +1702,7 @@ app.get('/home', requireAuth, (req, res) => {
           if (err3) return res.status(500).send('Errore DB partecipanti');
           const dupSkipped = req.query.dup_skipped ? parseInt(req.query.dup_skipped, 10) : 0;
         const dupTotal   = req.query.dup_total   ? parseInt(req.query.dup_total,   10) : 0;
-        db.all('SELECT * FROM zones WHERE (zone_scope = \'internal\' OR (zone_scope IS NULL AND maplat IS NULL)) ORDER BY sort_order, name', [], (errZ, zones) => {
+        db.all('SELECT * FROM zones WHERE zone_scope = \'internal\' ORDER BY sort_order, name', [], (errZ, zones) => {
           const importOk   = req.query.import_ok   ? parseInt(req.query.import_ok,10)   : null;
           const importSkip = req.query.import_skip ? parseInt(req.query.import_skip,10) : null;
           const importErrs = req.query.import_errs ? decodeURIComponent(req.query.import_errs).split('|') : [];
@@ -2549,7 +2549,7 @@ async function triggerBatchPassOnClose(groupId) {
                FROM groups g LEFT JOIN pass_types pt ON pt.id = g.pass_type_id
                ORDER BY g.priority ASC, g.name ASC`),
         dbAll('SELECT * FROM pass_types ORDER BY id DESC'),
-        dbAll('SELECT * FROM zones WHERE (zone_scope = \'internal\' OR (zone_scope IS NULL AND maplat IS NULL)) ORDER BY sort_order, name'),
+        dbAll('SELECT * FROM zones WHERE zone_scope = \'internal\' ORDER BY sort_order, name'),
         dbAll('SELECT id, username, role, created_at FROM users ORDER BY username ASC'),
         dbAll("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'"),
         dbAll('SELECT sa.*, u.username FROM scan_attempts sa LEFT JOIN users u ON u.id=sa.user_id ORDER BY sa.id DESC LIMIT 500'),
@@ -3702,7 +3702,7 @@ async function triggerBatchPassOnClose(groupId) {
   });
 
   app.get('/mappa', requireAuth, function(req, res) {
-    db.all('SELECT * FROM zones WHERE (zone_scope = \'internal\' OR (zone_scope IS NULL AND maplat IS NULL)) ORDER BY sort_order, name', [], function(err, zones) {
+    db.all('SELECT * FROM zones WHERE zone_scope = \'internal\' ORDER BY sort_order, name', [], function(err, zones) {
       if (err) return res.status(500).send('Errore DB');
       db.all(`SELECT ag.id, ag.name AS stand_name, ag.stand_name AS stand_loc, ag.stand_code,
                 ag.zone, ag.map_x, ag.map_y, ag.map_w, ag.map_h, ag.map_shape,
