@@ -2694,6 +2694,34 @@ async function triggerBatchPassOnClose(groupId) {
     });
   });
 
+
+  // ── Fix zone_scope per tipo: usa map_type per distinguere interne da pubbliche ──
+  app.get('/admin/fix-zone-scope-by-type', requireAuth, requireAdmin, (req, res) => {
+    db.serialize(() => {
+      // Padiglioni/aree evento → visibili in Mappa Stand E mappa pubblica
+      db.run(`UPDATE zones SET zone_scope = 'internal'
+              WHERE map_type IN ('area','mostra','sala','eventi','shop','palco','extra')
+                 OR map_type IS NULL`);
+      // Servizi/POI → solo gestionale mappa pubblica (Leaflet)
+      db.run(`UPDATE zones SET zone_scope = 'public'
+              WHERE map_type IN ('parking','bagni','biglietteria','trasporti')`
+      , function(err) {
+        if (err) return res.status(500).json({ ok: false, error: err.message });
+        db.all(`SELECT id, name, map_type, map_lat, zone_scope FROM zones ORDER BY sort_order, name`, [], (e, rows) => {
+          const internal = rows.filter(r => r.zone_scope === 'internal').map(r => r.name);
+          const pub      = rows.filter(r => r.zone_scope === 'public').map(r => r.name);
+          res.json({
+            ok: true,
+            message: 'Zone riclassificate per tipo. Puoi chiudere questa pagina e ricaricare la Mappa Stand.',
+            internal_zones: internal,
+            public_only_zones: pub
+          });
+        });
+      });
+    });
+  });
+
+
   app.get('/admin/zone-manager', requireAuth, requireOrganizer, (req, res) => {
     db.all("SELECT * FROM zones WHERE zone_scope = 'public' ORDER BY sort_order, name", [], (err, zones) => {
       if (err) return res.status(500).send('Errore DB zone mappa pubblica');
