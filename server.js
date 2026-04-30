@@ -2633,7 +2633,7 @@ async function triggerBatchPassOnClose(groupId) {
   app.post('/admin/zones', requireAuth, requireOrganizer, (req, res) => {
     const { name, sort_order } = req.body;
     if (!name || !name.trim()) return res.status(400).send('Nome zona obbligatorio');
-    console.log('[DEBUG] Creo zona:', name.trim(), '→ show_internal=1, show_public=0');
+    console.log('[DEBUG v6] INSERT INTO zones (NON map_points):', name.trim(), 'show_internal=1 show_public=0');
     db.run(
       'INSERT INTO zones (name, sort_order, show_internal, show_public) VALUES (?, ?, 1, 0)',
       [name.trim(), parseInt(sort_order || 0, 10)],
@@ -3654,38 +3654,24 @@ async function triggerBatchPassOnClose(groupId) {
 
 
 
-  // ── DEBUG — verifica stato zone e query filtrate ──────────────────────────
+  // ── DEBUG — verifica stato zone e map_points ──────────────────────────────
   app.get('/admin/debug-zones', requireAuth, requireAdmin, async (req, res) => {
     try {
-      const allZones = await dbAll(
-        `SELECT id, name, show_internal, show_public FROM zones ORDER BY id`
-      );
-      const internalZones = await dbAll(
-        `SELECT id, name FROM zones WHERE show_internal = 1 ORDER BY id`
-      );
-      const publicZones = await dbAll(
-        `SELECT id, name FROM zones WHERE show_public = 1 ORDER BY id`
-      );
-      const lastCreated = await dbAll(
-        `SELECT id, name, show_internal, show_public FROM zones ORDER BY id DESC LIMIT 5`
-      );
-      // Versione server: cerca la stringa univoca nel codice
+      const zones = await dbAll(`SELECT id, name, show_internal, show_public FROM zones ORDER BY id`);
+      const mapPoints = await dbAll(`SELECT id, name, map_lat, map_lng, map_active FROM map_points ORDER BY id`);
+      const lastZones = await dbAll(`SELECT id, name, show_internal, show_public FROM zones ORDER BY id DESC LIMIT 5`);
+      const lastMapPoints = await dbAll(`SELECT id, name FROM map_points ORDER BY id DESC LIMIT 5`);
       res.json({
-        server_version: 'show_internal+show_public v4',
-        totale_zone: allZones.length,
-        zone_interne_count: internalZones.length,
-        zone_pubbliche_count: publicZones.length,
-        ultime_5_create: lastCreated,
-        zone_interne: internalZones.map(z => z.name),
-        zone_pubbliche: publicZones.map(z => z.name),
-        tutte: allZones
+        server_version: 'v6-map_points-fix',
+        zones_count: zones.length,
+        map_points_count: mapPoints.length,
+        ultime_5_zone_create: lastZones,
+        ultime_5_map_points_create: lastMapPoints,
+        zones: zones,
+        map_points: mapPoints
       });
     } catch(err) { res.status(500).json({ error: err.message }); }
   });
-
-  // ── DEBUG POST zona — intercetta la creazione e mostra i valori inseriti ──
-  // ATTENZIONE: questo endpoint SOVRASCRIVE il POST /admin/zones originale
-  // aggiungendo log e redirect al debug. Rimuovere dopo il debug.
 
   // GET /admin/hub — hub con tutti i link admin importanti
   app.get('/admin/hub', requireAuth, requireAdmin, (req, res) => {

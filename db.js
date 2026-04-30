@@ -137,7 +137,7 @@ db.run(`CREATE TABLE IF NOT EXISTS zones (
 // Le route /admin/mappa-pubblica e /mappa-pubblica usano SOLO questa tabella.
 db.run(`CREATE TABLE IF NOT EXISTS map_points (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
+  name TEXT NOT NULL UNIQUE,
   sort_order INTEGER DEFAULT 0,
   map_lat REAL,
   map_lng REAL,
@@ -151,21 +151,26 @@ db.run(`CREATE TABLE IF NOT EXISTS map_points (
   map_active INTEGER DEFAULT 1,
   background_image TEXT,
   created_at TEXT DEFAULT (datetime('now','localtime'))
-)`, function(err) {
-  if (err) return console.warn('[DB] map_points create:', err.message);
-  // Prima esecuzione: migra i POI esistenti da zones (quelli con coordinate)
-  db.run(`INSERT OR IGNORE INTO map_points
-    (name, sort_order, map_lat, map_lng, map_label, map_type,
-     map_color, map_zoom, map_address, map_desc, map_tags, map_active, background_image)
-    SELECT name, sort_order, map_lat, map_lng, map_label, map_type,
-           map_color, map_zoom, map_address, map_desc, map_tags,
-           COALESCE(map_active,1), background_image
-    FROM zones
-    WHERE map_lat IS NOT NULL AND map_lng IS NOT NULL
-      AND (show_public = 1 OR zone_scope = 'public' OR zone_scope = 'both')`,
-  function(err2) {
-    if (err2) console.warn('[DB] map_points migration:', err2.message);
-    else console.log('[DB] map_points: tabella pronta');
+)`, function() {
+  // Esegui la migrazione SOLO se map_points è vuota (prima installazione di v5)
+  db.get(`SELECT count(*) as c FROM map_points`, [], function(e, row) {
+    if (e || (row && row.c > 0)) {
+      console.log('[DB] map_points: tabella già popolata (' + (row ? row.c : '?') + ' POI), skip migrazione');
+      return;
+    }
+    db.run(`INSERT OR IGNORE INTO map_points
+      (name, sort_order, map_lat, map_lng, map_label, map_type,
+       map_color, map_zoom, map_address, map_desc, map_tags, map_active, background_image)
+      SELECT name, sort_order, map_lat, map_lng, map_label, map_type,
+             map_color, map_zoom, map_address, map_desc, map_tags,
+             COALESCE(map_active,1), background_image
+      FROM zones
+      WHERE map_lat IS NOT NULL AND map_lng IS NOT NULL
+        AND (show_public = 1 OR zone_scope = 'public' OR zone_scope = 'both')`,
+    function(err2) {
+      if (err2) console.warn('[DB] map_points migration:', err2.message);
+      else console.log('[DB] map_points: migrazione eseguita');
+    });
   });
 });
 
