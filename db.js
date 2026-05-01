@@ -1016,4 +1016,10 @@ db.run(`ALTER TABLE zones ADD COLUMN zone_scope TEXT DEFAULT 'internal'`, () => 
     db.run("UPDATE zones SET zone_scope='internal' WHERE map_lat IS NULL AND zone_scope IS NULL");
   });
 
+
+// ── Migrazione sezioni portale espositore ────────────────────────────────────
+db.run(`ALTER TABLE assignment_groups ADD COLUMN portal_service_enabled INTEGER DEFAULT 1`, ()=>{});
+db.run(`ALTER TABLE assignment_groups ADD COLUMN portal_nom_enabled     INTEGER DEFAULT 1`, ()=>{});
+db.run(`ALTER TABLE assignment_groups ADD COLUMN portal_docs_enabled    INTEGER DEFAULT 1`, ()=>{});
+
 module.exports = db;
