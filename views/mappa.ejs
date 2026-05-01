@@ -678,8 +678,10 @@ function _sd(i,cx,cy){
   SS.startMx=SS.mx;SS.startMy=SS.my;SS.startMw=SS.mw;SS.startMh=SS.mh;
   SS.startShape=JSON.parse(JSON.stringify(SS.shape));
 }
-function _mv(cx,cy){
-  if(!SS.active||SS.dragging<0)return;
+function _mv(cx,cy,shiftKey){
+  if(!SS.active)return;
+  /* In modalità rotate gestiamo rotDragging indipendentemente da SS.dragging */
+  if(!SS.rotDragging&&SS.dragging<0)return;
   var el=document.getElementById('sbox-'+SS.gid);
   var ma=el?el.closest('.map-area'):null;if(!ma)return;
   var d=_md(ma);
@@ -694,7 +696,7 @@ function _mv(cx,cy){
       var angle=Math.atan2(cy-cyPx,cx-cxPx)*180/Math.PI+90;
       var delta=SS.origAngle+(angle-SS.rotStartAngle);
       /* Snap a 15° con Shift */
-      SS.rotAngle=(window.event&&window.event.shiftKey)?Math.round(delta/15)*15:delta;
+      SS.rotAngle=shiftKey?Math.round(delta/15)*15:delta;
       _updateBox(ma);_renderRotateHandle(ma);
     }
     return;
@@ -922,9 +924,9 @@ function _onModeChange(sel,ma){
   }
 }
 
-document.addEventListener('mousemove',function(e){_mv(e.clientX,e.clientY);});
+document.addEventListener('mousemove',function(e){_mv(e.clientX,e.clientY,e.shiftKey);});
 document.addEventListener('mouseup',function(){SS.dragging=-1;SS.rotDragging=false;});
-document.addEventListener('touchmove',function(e){if(SS.dragging>=0){e.preventDefault();_mv(e.touches[0].clientX,e.touches[0].clientY);}},{passive:false});
+document.addEventListener('touchmove',function(e){if(SS.dragging>=0||SS.rotDragging){e.preventDefault();_mv(e.touches[0].clientX,e.touches[0].clientY,false);}},{passive:false});
 document.addEventListener('touchend',function(){SS.dragging=-1;SS.rotDragging=false;});
 </script>
 <% } %>
