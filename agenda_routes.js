@@ -681,24 +681,30 @@ router.get('/programma', (req, res) => {
            ORDER BY gp.sort_order ASC, ag.name ASC`,
           [], (err4, featuredGuests) => {
 
-          const grouped = {};
-          (events || []).forEach(ev => {
-            if (!grouped[ev.date]) grouped[ev.date] = {};
-            if (!grouped[ev.date][ev.space_name]) grouped[ev.date][ev.space_name] = [];
-            grouped[ev.date][ev.space_name].push(ev);
-          });
+          // Tutti i relatori attivi (per modale click sul nome)
+          db.all(`SELECT id, name, bio, photo_url, social_url FROM speakers WHERE active=1 ORDER BY name`,
+            [], (err5, allSpeakers) => {
 
-          res.render('agenda/public_program', {
-            currentUser: null,
-            grouped,
-            events: events || [],
-            dates: dates || [],
-            spaces: spaces || [],
-            filters: { date: selectedDate, space: selectedSpace },
-            selectedDate,
-            selectedSpace,
-            featuredGuests: featuredGuests || [],
-            title: 'Programma Ludicomix'
+            const grouped = {};
+            (events || []).forEach(ev => {
+              if (!grouped[ev.date]) grouped[ev.date] = {};
+              if (!grouped[ev.date][ev.space_name]) grouped[ev.date][ev.space_name] = [];
+              grouped[ev.date][ev.space_name].push(ev);
+            });
+
+            res.render('agenda/public_program', {
+              currentUser: null,
+              grouped,
+              events: events || [],
+              dates: dates || [],
+              spaces: spaces || [],
+              filters: { date: selectedDate, space: selectedSpace },
+              selectedDate,
+              selectedSpace,
+              featuredGuests: featuredGuests || [],
+              allSpeakers: allSpeakers || [],
+              title: 'Programma Ludicomix'
+            });
           });
         });
       });

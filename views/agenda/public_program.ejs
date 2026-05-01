@@ -760,12 +760,34 @@
       <button class="modal-close" onclick="closeModal()">&#x2715;</button>
     </div>
     <div class="modal-body">
+      <div id="mImg" style="display:none;margin-bottom:.85rem;border-radius:10px;overflow:hidden;">
+        <img id="mImgTag" src="" alt="" style="width:100%;max-height:200px;object-fit:cover;display:block;">
+      </div>
       <div class="modal-meta" id="mMeta"></div>
       <div id="mDesc"></div>
       <div id="mSpk" style="margin-top:.6rem;font-size:.85rem;color:#4a5568"></div>
       <div id="mSeats" style="margin-top:.6rem;font-size:.82rem;color:#8896ab"></div>
     </div>
     <div class="modal-foot" id="mFoot" style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;"></div>
+  </div>
+</div>
+
+<!-- ── MODALE RELATORE ─────────────────────────────────────────────────── -->
+<div class="ev-modal-overlay" id="speakerModal" onclick="if(event.target===this)closeSpeakerModal()">
+  <div class="modal-box" style="max-width:440px">
+    <div class="modal-head">
+      <div class="mtype">RELATORE</div>
+      <button class="modal-close" onclick="closeSpeakerModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body" style="text-align:center">
+      <img id="spkPhoto" src="" alt="" style="width:100px;height:100px;border-radius:50%;object-fit:cover;margin:0 auto .85rem;display:block;border:3px solid #e8ecf3;">
+      <h3 id="spkName" style="font-size:1.15rem;font-weight:800;margin-bottom:.5rem;color:#1a2744"></h3>
+      <p id="spkBio" style="font-size:.85rem;color:#4a5568;line-height:1.55;text-align:left;margin-bottom:.75rem"></p>
+      <a id="spkLink" href="#" target="_blank" rel="noopener"
+         style="display:inline-block;padding:.35rem .9rem;background:#6b3fa0;color:#fff;border-radius:20px;font-size:.78rem;font-weight:700;text-decoration:none">
+        🔗 Profilo / Social
+      </a>
+    </div>
   </div>
 </div>
 
@@ -797,7 +819,9 @@ EVDATA[<%= e.id %>] = <%- JSON.stringify({
   seats_taken: e.seats_taken || 0,
   availability: e.availability || '',
   registrations_open: e.registrations_open || 0,
-  speakers_list: e.speakers_list || ''
+  speakers_list: e.speakers_list || '',
+  image_url: e.image_url || '',
+  speakers_data: (function() { try { return JSON.parse(e.speakers_json || '[]'); } catch(x) { return []; } })()
 }) %>;
 <% }); %>
 
@@ -809,20 +833,41 @@ function openModal(id) {
   document.getElementById('mTitle').textContent = ev.title;
   var dateStr = '';
   try { dateStr = new Date(ev.date + 'T12:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'long'}); } catch(x) {}
-  document.getElementById('mMeta').textContent = '📅 ' + dateStr + '   🕐 ' + ev.start_time + '–' + ev.end_time + '   📍 ' + ev.space_name;
+  document.getElementById('mMeta').textContent = '\u{1F4C5} ' + dateStr + '   \u{1F550} ' + ev.start_time + '\u2013' + ev.end_time + '   \u{1F4CD} ' + ev.space_name;
   var desc = document.getElementById('mDesc');
   desc.textContent = ev.description;
   desc.style.display = ev.description ? '' : 'none';
-  document.getElementById('mSpk').innerHTML = ev.speakers_list
-    ? 'con <strong style="color:#6b3fa0">' + ev.speakers_list + '</strong>' : '';
+  /* ── Immagine evento ── */
+  var imgWrap = document.getElementById('mImg');
+  var imgTag  = document.getElementById('mImgTag');
+  if (ev.image_url) {
+    imgTag.src = ev.image_url;
+    imgTag.alt = ev.title;
+    imgWrap.style.display = '';
+  } else {
+    imgWrap.style.display = 'none';
+    imgTag.src = '';
+  }
+  /* ── Relatori cliccabili ── */
+  var spkEl = document.getElementById('mSpk');
+  if (ev.speakers_data && ev.speakers_data.length > 0) {
+    var links = ev.speakers_data.map(function(sp) {
+      return '<a href="#" class="spk-link" onclick="openSpeakerModal(' + sp.id + ');return false;" style="color:#6b3fa0;font-weight:700;text-decoration:underline;cursor:pointer;">' + sp.name + '</a>';
+    });
+    spkEl.innerHTML = 'con ' + links.join(', ');
+  } else if (ev.speakers_list) {
+    spkEl.innerHTML = 'con <strong style="color:#6b3fa0">' + ev.speakers_list + '</strong>';
+  } else {
+    spkEl.innerHTML = '';
+  }
   document.getElementById('mSeats').textContent = ev.max_seats > 0
-    ? (isFull ? '⚠️ Posti esauriti (' + ev.seats_taken + '/' + ev.max_seats + ')'
-              : '🪑 ' + (ev.max_seats - ev.seats_taken) + ' posti disponibili su ' + ev.max_seats)
-    : '🎟 Ingresso libero';
+    ? (isFull ? '\u26A0\uFE0F Posti esauriti (' + ev.seats_taken + '/' + ev.max_seats + ')'
+              : '\u{1FA91} ' + (ev.max_seats - ev.seats_taken) + ' posti disponibili su ' + ev.max_seats)
+    : '\u{1F39F} Ingresso libero';
   var foot = document.getElementById('mFoot');
-  var shareBtn = '<button class="share-btn" data-share-id="' + ev.id + '" onclick="shareEvent(this)">🔗 Condividi</button>';
+  var shareBtn = '<button class="share-btn" data-share-id="' + ev.id + '" onclick="shareEvent(this)">\u{1F517} Condividi</button>';
   if (ev.registrations_open && !isFull) {
-    foot.innerHTML = '<a href="/programma/iscriviti/' + ev.id + '" class="btn-iscriviti">Iscriviti →</a>' + shareBtn;
+    foot.innerHTML = '<a href="/programma/iscriviti/' + ev.id + '" class="btn-iscriviti">Iscriviti \u2192</a>' + shareBtn;
   } else if (ev.registrations_open && isFull) {
     foot.innerHTML = '<button class="btn-iscriviti disabled" disabled>Posti esauriti</button>' + shareBtn;
   } else { foot.innerHTML = shareBtn; }
@@ -833,7 +878,37 @@ function closeModal() {
   document.getElementById('evModal').classList.remove('open');
   document.body.style.overflow = '';
 }
-document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeModal(); closeGuestModal(); } });
+
+/* ── Modale relatore ── */
+var SPEAKERDATA = {};
+<% if (typeof allSpeakers !== 'undefined') { allSpeakers.forEach(function(sp) { %>
+SPEAKERDATA[<%= sp.id %>] = <%- JSON.stringify({
+  id: sp.id, name: sp.name,
+  bio: sp.bio || '',
+  photo_url: sp.photo_url || '',
+  social_url: sp.social_url || ''
+}) %>;
+<% }); } %>
+
+function openSpeakerModal(id) {
+  var sp = SPEAKERDATA[id]; if (!sp) return;
+  var box = document.getElementById('speakerModal');
+  document.getElementById('spkPhoto').src = sp.photo_url || '';
+  document.getElementById('spkPhoto').style.display = sp.photo_url ? '' : 'none';
+  document.getElementById('spkName').textContent = sp.name;
+  document.getElementById('spkBio').textContent = sp.bio;
+  document.getElementById('spkBio').style.display = sp.bio ? '' : 'none';
+  var linkEl = document.getElementById('spkLink');
+  if (sp.social_url) { linkEl.href = sp.social_url; linkEl.style.display = ''; }
+  else { linkEl.style.display = 'none'; }
+  box.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeSpeakerModal() {
+  document.getElementById('speakerModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeModal(); closeGuestModal(); closeSpeakerModal(); } });
 
 /* ── FEATURED CAROUSEL ── */
 (function() {
