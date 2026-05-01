@@ -773,7 +773,7 @@
 </div>
 
 <!-- ── MODALE RELATORE ─────────────────────────────────────────────────── -->
-<div class="ev-modal-overlay" id="speakerModal" onclick="if(event.target===this)closeSpeakerModal()">
+<div class="modal-overlay" id="speakerModal" style="z-index:1001;" onclick="if(event.target===this)closeSpeakerModal()">
   <div class="modal-box" style="max-width:440px">
     <div class="modal-head">
       <div class="mtype">RELATORE</div>
@@ -858,7 +858,7 @@ function openModal(id) {
         if (SPEAKERDATA[k].name === name) found = SPEAKERDATA[k];
       });
       if (found) {
-        return '<a href="#" class="spk-link" onclick="event.stopPropagation();openSpeakerModal(' + found.id + ');return false;" style="color:#6b3fa0;font-weight:700;text-decoration:underline;cursor:pointer;">' + name + '</a>';
+        return '<span class="spk-link" onclick="event.stopPropagation();event.preventDefault();openSpeakerModal(' + found.id + ');" style="color:#6b3fa0;font-weight:700;text-decoration:underline;cursor:pointer;display:inline-block;">' + name + '</span>';
       }
       return '<strong style="color:#6b3fa0">' + name + '</strong>';
     });
@@ -898,7 +898,6 @@ SPEAKERDATA[<%= sp.id %>] = <%- JSON.stringify({
 
 function openSpeakerModal(id) {
   var sp = SPEAKERDATA[id]; if (!sp) return;
-  var box = document.getElementById('speakerModal');
   document.getElementById('spkPhoto').src = sp.photo_url || '';
   document.getElementById('spkPhoto').style.display = sp.photo_url ? '' : 'none';
   document.getElementById('spkName').textContent = sp.name;
@@ -907,7 +906,7 @@ function openSpeakerModal(id) {
   var linkEl = document.getElementById('spkLink');
   if (sp.social_url) { linkEl.href = sp.social_url; linkEl.style.display = ''; }
   else { linkEl.style.display = 'none'; }
-  box.classList.add('open');
+  document.getElementById('speakerModal').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
 function closeSpeakerModal() {
