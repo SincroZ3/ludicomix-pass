@@ -428,7 +428,7 @@ router.get('/agenda/events/new', requireAuth, (req, res) => {
 router.post('/agenda/events', requireAuth, (req, res) => {
   const { title, description, space_id, date, start_time, end_time,
           max_seats, event_type, is_public, published, registrations_open, featured, image_url, tags, notes,
-          location_type, location_text,
+          location_type, location_text, free_entry, ticketed_area,
           speaker_ids, speaker_roles } = req.body;
   const locationTextVal = ['espositore','associazione'].includes(location_type) ? (location_text || '').trim() || null : null;
 
@@ -450,12 +450,13 @@ router.post('/agenda/events', requireAuth, (req, res) => {
 
     db.run(
       `INSERT INTO events (title, description, space_id, date, start_time, end_time,
-        max_seats, event_type, is_public, published, registrations_open, featured, image_url, tags, notes, location_text)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        max_seats, event_type, is_public, published, registrations_open, featured, image_url, tags, notes, location_text, free_entry, ticketed_area)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [title.trim(), description || '', parseInt(space_id), date, start_time, end_time,
        parseInt(max_seats) || 0, event_type || 'panel',
        is_public ? 1 : 0, published ? 1 : 0, registrations_open ? 1 : 0, featured ? 1 : 0,
-       image_url || '', tags || '', notes || '', locationTextVal],
+       image_url || '', tags || '', notes || '', locationTextVal,
+       free_entry ? 1 : 0, ticketed_area ? 1 : 0],
       function(err2) {
         if (err2) {
           flash(req, 'error', 'Errore salvataggio evento.');
@@ -507,7 +508,7 @@ router.post('/agenda/events/:id', requireAuth, (req, res) => {
   const id = req.params.id;
   const { title, description, space_id, date, start_time, end_time,
           max_seats, event_type, is_public, published, registrations_open, featured, image_url, tags, notes,
-          location_type, location_text,
+          location_type, location_text, free_entry, ticketed_area,
           speaker_ids, speaker_roles } = req.body;
   const locationTextVal = ['espositore','associazione'].includes(location_type) ? (location_text || '').trim() || null : null;
 
@@ -530,12 +531,14 @@ router.post('/agenda/events/:id', requireAuth, (req, res) => {
     db.run(
       `UPDATE events SET title=?, description=?, space_id=?, date=?, start_time=?, end_time=?,
         max_seats=?, event_type=?, is_public=?, published=?, registrations_open=?, featured=?, image_url=?, tags=?, notes=?, location_text=?,
+        free_entry=?, ticketed_area=?,
         updated_at=datetime('now')
        WHERE id=?`,
       [title.trim(), description || '', parseInt(space_id), date, start_time, end_time,
        parseInt(max_seats) || 0, event_type || 'panel',
        is_public ? 1 : 0, published ? 1 : 0, registrations_open ? 1 : 0, featured ? 1 : 0,
        image_url || '', tags || '', notes || '', locationTextVal,
+       free_entry ? 1 : 0, ticketed_area ? 1 : 0,
        req.params.id],
       function(err2) {
         if (err2) {

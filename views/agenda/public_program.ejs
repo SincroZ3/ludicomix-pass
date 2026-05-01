@@ -698,6 +698,8 @@
             <span class="tag tag-space">📍 <%= e.space_name %></span>
             <% if (e.tags) { e.tags.split(',').forEach(t => { t = t.trim(); if (t) { %><span class="tag tag-other"><%= t %></span><% } }); } %>
             <% if (isFull) { %><span class="tag tag-full">⊗ Esaurito</span><% } %>
+            <% if (e.free_entry == 1) { %><span class="tag" style="background:#d4efdb;color:#1d6a39;border-color:#a7d9b2;">🎟 Ingresso libero</span><% } %>
+            <% if (e.ticketed_area == 1) { %><span class="tag" style="background:#dbeafe;color:#1e40af;border-color:#93c5fd;">🎫 Area a biglietto</span><% } %>
           </div>
           <div class="ev-title"><%= e.title %></div>
           <% if (e.description) { %><div class="ev-desc"><%= e.description.slice(0,200) %><%= e.description.length > 200 ? '…' : '' %></div><% } %>
@@ -767,6 +769,7 @@
       <div id="mDesc"></div>
       <div id="mSpk" style="margin-top:.6rem;font-size:.85rem;color:#4a5568"></div>
       <div id="mSeats" style="margin-top:.6rem;font-size:.82rem;color:#8896ab"></div>
+      <div id="mAccess" style="margin-top:.7rem;display:flex;gap:.45rem;flex-wrap:wrap;"></div>
     </div>
     <div class="modal-foot" id="mFoot" style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;"></div>
   </div>
@@ -820,7 +823,9 @@ EVDATA[<%= e.id %>] = <%- JSON.stringify({
   availability: e.availability || '',
   registrations_open: e.registrations_open || 0,
   speakers_list: e.speakers_list || '',
-  image_url: e.image_url || ''
+  image_url: e.image_url || '',
+  free_entry: e.free_entry || 0,
+  ticketed_area: e.ticketed_area || 0
 }) %>;
 <% }); %>
 
@@ -871,6 +876,13 @@ function openModal(id) {
     ? (isFull ? '\u26A0\uFE0F Posti esauriti (' + ev.seats_taken + '/' + ev.max_seats + ')'
               : '\u{1FA91} ' + (ev.max_seats - ev.seats_taken) + ' posti disponibili su ' + ev.max_seats)
     : '\u{1F39F} Ingresso libero';
+  /* ── Badge accesso ── */
+  var accessEl = document.getElementById('mAccess');
+  var badges = '';
+  if (ev.free_entry)    badges += '<span style="display:inline-flex;align-items:center;gap:.3rem;padding:.28rem .7rem;border-radius:99px;font-size:.75rem;font-weight:700;background:#d4efdb;color:#1d6a39;">\uD83C\uDFDF Ingresso libero</span>';
+  if (ev.ticketed_area) badges += '<span style="display:inline-flex;align-items:center;gap:.3rem;padding:.28rem .7rem;border-radius:99px;font-size:.75rem;font-weight:700;background:#dbeafe;color:#1e40af;">\uD83C\uDFAB Area a biglietto</span>';
+  accessEl.innerHTML = badges;
+  accessEl.style.display = badges ? 'flex' : 'none';
   var foot = document.getElementById('mFoot');
   var shareBtn = '<button class="share-btn" data-share-id="' + ev.id + '" onclick="shareEvent(this)">\u{1F517} Condividi</button>';
   if (ev.registrations_open && !isFull) {

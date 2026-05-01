@@ -37,7 +37,7 @@
             <div>
               <label>Tipo evento</label>
               <select name="event_type">
-                <% ['panel','workshop','talk','mostra','firma copie','gaming','meet&greet','proiezione','torneo','tcg','cosplay','quiz','altro'].forEach(t => { %>
+                <% ['panel','workshop','talk','mostra','firma copie','gaming','altro'].forEach(t => { %>
                   <option value="<%= t %>" <%= event.event_type === t ? 'selected' : '' %>>
                     <%= t.charAt(0).toUpperCase() + t.slice(1) %>
                   </option>
@@ -223,6 +223,53 @@
             </label>
           </div>
 
+          <!-- Toggle accesso evento -->
+          <div style="margin-bottom:1rem;padding:.85rem;background:#f7f8fb;border-radius:4px;border:1px solid var(--border)">
+            <div style="font-size:.73rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-secondary,#718096);margin-bottom:.65rem">
+              Accesso all'evento
+            </div>
+
+            <!-- Toggle: Ingresso libero -->
+            <label style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;cursor:pointer;user-select:none;margin-bottom:.75rem">
+              <div>
+                <div style="font-size:.88rem;font-weight:600">🎟 Ingresso libero</div>
+                <div style="font-size:.78rem;color:var(--text-muted,#718096);margin-top:.15rem">
+                  Zona non soggetta a bigliettazione, accesso gratuito.
+                </div>
+              </div>
+              <div style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0">
+                <input type="checkbox" name="free_entry" value="1"
+                       id="chk-free-entry"
+                       <%= event.free_entry == 1 ? 'checked' : '' %>
+                       style="position:absolute;opacity:0;width:0;height:0">
+                <span id="toggle-free-slider"
+                      style="position:absolute;cursor:pointer;inset:0;background:<%= event.free_entry == 1 ? '#437a22' : '#cbd5e0' %>;border-radius:9999px;transition:background .2s"></span>
+                <span id="toggle-free-knob"
+                      style="position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:3px;left:<%= event.free_entry == 1 ? '23px' : '3px' %>;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);pointer-events:none"></span>
+              </div>
+            </label>
+
+            <!-- Toggle: Area a biglietto -->
+            <label style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;cursor:pointer;user-select:none">
+              <div>
+                <div style="font-size:.88rem;font-weight:600">🎫 Area a biglietto</div>
+                <div style="font-size:.78rem;color:var(--text-muted,#718096);margin-top:.15rem">
+                  Zona soggetta a bigliettazione, accesso a pagamento.
+                </div>
+              </div>
+              <div style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0">
+                <input type="checkbox" name="ticketed_area" value="1"
+                       id="chk-ticketed"
+                       <%= event.ticketed_area == 1 ? 'checked' : '' %>
+                       style="position:absolute;opacity:0;width:0;height:0">
+                <span id="toggle-ticketed-slider"
+                      style="position:absolute;cursor:pointer;inset:0;background:<%= event.ticketed_area == 1 ? '#006494' : '#cbd5e0' %>;border-radius:9999px;transition:background .2s"></span>
+                <span id="toggle-ticketed-knob"
+                      style="position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:3px;left:<%= event.ticketed_area == 1 ? '23px' : '3px' %>;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);pointer-events:none"></span>
+              </div>
+            </label>
+          </div>
+
           <div style="display:flex;flex-direction:column;gap:.5rem">
             <button type="submit" class="primary" style="width:100%;justify-content:center">
               <%= event.id ? 'Salva modifiche' : 'Crea evento' %>
@@ -273,6 +320,32 @@ function toggleRole(id, checked) {
   if (!chk) return;
   function update() {
     slider.style.background = chk.checked ? '#437a22' : '#cbd5e0';
+    knob.style.left          = chk.checked ? '23px'   : '3px';
+  }
+  chk.addEventListener('change', update);
+})();
+</script>
+<script>
+(function() {
+  var chk    = document.getElementById('chk-free-entry');
+  var slider = document.getElementById('toggle-free-slider');
+  var knob   = document.getElementById('toggle-free-knob');
+  if (!chk) return;
+  function update() {
+    slider.style.background = chk.checked ? '#437a22' : '#cbd5e0';
+    knob.style.left          = chk.checked ? '23px'   : '3px';
+  }
+  chk.addEventListener('change', update);
+})();
+</script>
+<script>
+(function() {
+  var chk    = document.getElementById('chk-ticketed');
+  var slider = document.getElementById('toggle-ticketed-slider');
+  var knob   = document.getElementById('toggle-ticketed-knob');
+  if (!chk) return;
+  function update() {
+    slider.style.background = chk.checked ? '#006494' : '#cbd5e0';
     knob.style.left          = chk.checked ? '23px'   : '3px';
   }
   chk.addEventListener('change', update);

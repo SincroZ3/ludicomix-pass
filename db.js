@@ -448,6 +448,9 @@ db.run(`ALTER TABLE events ADD COLUMN location_text TEXT`, () => {});
 
 // Migration: aggiungi photo_url a speakers se non esiste
 db.run(`ALTER TABLE speakers ADD COLUMN photo_url TEXT`, () => {});
+// Migration: accesso evento
+db.run(`ALTER TABLE events ADD COLUMN free_entry INTEGER NOT NULL DEFAULT 0`, () => {});
+db.run(`ALTER TABLE events ADD COLUMN ticketed_area INTEGER NOT NULL DEFAULT 0`, () => {});
 
 db.run(`CREATE INDEX IF NOT EXISTS idx_events_date ON events(date)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_events_space_date ON events(space_id, date, start_time)`);
@@ -526,6 +529,8 @@ db.run(`DROP VIEW IF EXISTS v_public_program`, () => {
       e.featured,
       e.featured AS isfeatured,
       e.location_text,
+      e.free_entry,
+      e.ticketed_area,
       COALESCE(e.location_text, s.name) AS space_name,
       s.color AS space_color,
       s.capacity AS space_capacity,
