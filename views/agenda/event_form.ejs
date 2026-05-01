@@ -37,7 +37,7 @@
             <div>
               <label>Tipo evento</label>
               <select name="event_type">
-                <% ['panel','workshop','talk','mostra','firma copie','gaming','altro'].forEach(t => { %>
+                <% ['panel','workshop','talk','mostra','firma copie','gaming','meet&greet','proiezione','torneo','tcg','cosplay','quiz','altro'].forEach(t => { %>
                   <option value="<%= t %>" <%= event.event_type === t ? 'selected' : '' %>>
                     <%= t.charAt(0).toUpperCase() + t.slice(1) %>
                   </option>
