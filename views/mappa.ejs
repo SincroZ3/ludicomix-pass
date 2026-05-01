@@ -60,6 +60,21 @@
 .tb-save{background:#2d6a4f;color:#fff}.tb-save:hover{background:#1a4a35}
 .tb-cancel{background:rgba(255,255,255,.18);color:#fff}.tb-cancel:hover{background:rgba(255,255,255,.32)}
 .tb-reset{background:rgba(255,160,0,.7);color:#fff}.tb-reset:hover{background:rgba(255,140,0,.9)}
+/* Maniglia rotazione */
+.rotate-handle{position:absolute;width:15px;height:15px;border-radius:50%;background:#f5c842;
+  border:2.5px solid #1e2d4e;z-index:65;transform:translate(-50%,-50%);
+  cursor:grab;box-shadow:0 1px 6px rgba(0,0,0,.4);touch-action:none}
+.rotate-handle:active{cursor:grabbing}
+/* Linea dal centro al manubrio rotazione */
+.rotate-line{position:absolute;pointer-events:none;z-index:64;
+  transform-origin:0 0;height:1px;background:rgba(245,200,66,.6)}
+/* Overlay polilinea */
+.poly-overlay{position:absolute;inset:0;z-index:70;cursor:crosshair;
+  background:rgba(20,35,65,.08);border:2px dashed rgba(245,200,66,.6);border-radius:6px}
+.poly-overlay canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.poly-hint{position:absolute;bottom:2.8rem;left:50%;transform:translateX(-50%);
+  background:rgba(30,45,78,.88);color:#f5c842;border-radius:6px;padding:.28rem .75rem;
+  font-size:.71rem;font-weight:700;pointer-events:none;white-space:nowrap;z-index:75}
 .stand-box .sn{font-size:.67rem;font-weight:800;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:100px}
 .stand-box .sp{font-size:.57rem;opacity:.85;margin-top:.1rem}
 .map-sidebar{display:none} /* compatibilità — non più usata */
@@ -139,6 +154,8 @@ var noZoneGroups=groups.filter(function(g){return !g.zone||zoneNames.indexOf(g.z
           <select class="stb-mode" style="padding:.18rem .35rem;border-radius:4px;border:none;font-size:.73rem;background:#fff;color:#1e2d4e;font-weight:700" title="Modalita">
             <option value="resize">&#8597; Ridimensiona</option>
             <option value="polygon">&#9699; Poligono libero</option>
+            <option value="rotate">&#8635; Ruota</option>
+            <option value="polyline">&#9998; Polilinea</option>
           </select>
           <button class="tb-reset" onclick="resetShape()">&#8635; Reset</button>
           <button class="tb-save" onclick="saveShape()">&#10003; Salva</button>
@@ -530,7 +547,11 @@ var SS={active:false,gid:null,mx:0,my:0,mw:8,mh:5,
   shape:[[0,0],[100,0],[100,100],[0,100]],
   origMx:0,origMy:0,origMw:0,origMh:0,origShape:null,
   dragging:-1,startCx:0,startCy:0,
-  startMx:0,startMy:0,startMw:0,startMh:0,startShape:null};
+  startMx:0,startMy:0,startMw:0,startMh:0,startShape:null,
+  /* rotazione */
+  rotAngle:0,origAngle:0,rotDragging:false,rotStartAngle:0,
+  /* polilinea */
+  polyMode:false,polyPts:[],polyPreview:null};
 
 function enterShapeMode(gid){
   closeStandPopup();
@@ -543,13 +564,26 @@ function enterShapeMode(gid){
   SS.shape=g.map_shape?JSON.parse(g.map_shape):[[0,0],[100,0],[100,100],[0,100]];
   SS.origMx=SS.mx;SS.origMy=SS.my;SS.origMw=SS.mw;SS.origMh=SS.mh;
   SS.origShape=JSON.parse(JSON.stringify(SS.shape));
+  /* legge rotazione attuale dall'attributo data-rot se presente */
   var el=document.getElementById('sbox-'+gid);
+  SS.rotAngle=parseFloat(el.getAttribute('data-rot')||'0');
+  SS.origAngle=SS.rotAngle;
   if(!el)return;
   el.classList.add('shape-editing');
   // draggable resta true: l'utente può spostare lo stand anche in modalità modifica forma
   var ma=el.closest('.map-area');
   var tb=ma.querySelector('.shape-toolbar');
-  if(tb){tb.querySelector('.stb-name').textContent=g.stand_name||'';tb.classList.add('active');}
+  if(tb){
+    tb.querySelector('.stb-name').textContent=g.stand_name||'';
+    tb.classList.add('active');
+    var selEl=tb.querySelector('.stb-mode');
+    if(selEl&&!selEl._modeListened){
+      selEl._modeListened=true;
+      selEl.addEventListener('change',function(){_onModeChange(selEl,ma);});
+    }
+    /* reset al select di default (resize) ad ogni entrata in modalità */
+    if(selEl)selEl.value='resize';
+  }
   _renderHandles(ma);
 }
 function exitShapeMode(cancel){
@@ -565,17 +599,22 @@ function exitShapeMode(cancel){
       var os=SS.origShape;
       var ir=_isRect(os);
       el.style.clipPath=ir?'':'polygon('+os.map(function(p){return p[0]+'% '+p[1]+'%';}).join(',')+')';
+      el.style.transform='translate(-50%,-50%) rotate('+SS.origAngle+'deg)';
+      SS.rotAngle=SS.origAngle;
     }
-    if(ma){ma.querySelectorAll('.shape-handle').forEach(function(h){h.remove();});
+    if(ma){ma.querySelectorAll('.shape-handle,.rotate-handle,.rotate-line,.poly-overlay').forEach(function(h){h.remove();});
       var tb=ma.querySelector('.shape-toolbar');if(tb)tb.classList.remove('active');}
+  _polyExit();
   }
   SS.active=false;SS.gid=null;SS.dragging=-1;
 }
 function resetShape(){
   if(!SS.active)return;
   SS.shape=[[0,0],[100,0],[100,100],[0,100]];
+  SS.rotAngle=0;
   var el=document.getElementById('sbox-'+SS.gid);
   var ma=el.closest('.map-area');
+  el.style.transform='translate(-50%,-50%)';
   _updateBox(ma);_renderHandles(ma);
 }
 function saveShape(){
@@ -585,16 +624,19 @@ function saveShape(){
   var rshape=SS.shape.map(function(p){return[Math.round(p[0]*10)/10,Math.round(p[1]*10)/10];});
   var body='map_x='+SS.mx.toFixed(3)+'&map_y='+SS.my.toFixed(3)+
     '&map_w='+SS.mw.toFixed(3)+'&map_h='+SS.mh.toFixed(3)+
-    '&map_shape='+(ir?'':encodeURIComponent(JSON.stringify(rshape)));
+    '&map_shape='+(ir?'':encodeURIComponent(JSON.stringify(rshape)))+
+    '&map_rot='+SS.rotAngle.toFixed(2);
   fetch('/admin/groups/'+gid+'/map-xy',{method:'POST',
     headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body})
   .then(function(r){return r.json();}).then(function(d){
     if(!d.ok)return;
     var g=GDATA.find(function(x){return x.id==gid;});
-    if(g){g.map_x=SS.mx;g.map_y=SS.my;g.map_w=SS.mw;g.map_h=SS.mh;g.map_shape=ir?null:JSON.stringify(rshape);}
+    if(g){g.map_x=SS.mx;g.map_y=SS.my;g.map_w=SS.mw;g.map_h=SS.mh;g.map_shape=ir?null:JSON.stringify(rshape);g.map_rot=SS.rotAngle;}
     var el=document.getElementById('sbox-'+gid);
     if(el){el.setAttribute('data-mw',SS.mw.toFixed(2));el.setAttribute('data-mh',SS.mh.toFixed(2));
-      if(ir)el.removeAttribute('data-map-shape');else el.setAttribute('data-map-shape',JSON.stringify(rshape));}
+      if(ir)el.removeAttribute('data-map-shape');else el.setAttribute('data-map-shape',JSON.stringify(rshape));
+      el.setAttribute('data-rot',SS.rotAngle.toFixed(2));
+      el.style.transform='translate(-50%,-50%) rotate('+SS.rotAngle+'deg)';}
     if(typeof showSaved==='function')showSaved();
     exitShapeMode(false);
   });
@@ -609,7 +651,10 @@ function _hp(ma){
   return SS.shape.map(function(pt){return[bx+pt[0]/100*bw,by+pt[1]/100*bh];});
 }
 function _renderHandles(ma){
-  ma.querySelectorAll('.shape-handle').forEach(function(h){h.remove();});
+  ma.querySelectorAll('.shape-handle,.rotate-handle,.rotate-line').forEach(function(h){h.remove();});
+  var mode=ma.querySelector('.stb-mode')?ma.querySelector('.stb-mode').value:'resize';
+  if(mode==='rotate'){_renderRotateHandle(ma);return;}
+  if(mode==='polyline')return; /* polilinea ha il suo overlay canvas */
   _hp(ma).forEach(function(p,i){
     var h=document.createElement('div');
     h.className='shape-handle';h.style.left=p[0]+'px';h.style.top=p[1]+'px';
@@ -624,6 +669,7 @@ function _updateBox(ma){
   var d=_md(ma);
   el.style.width=(SS.mw/100*d.w)+'px';el.style.height=(SS.mh/100*d.h)+'px';
   el.style.left=SS.mx.toFixed(2)+'%';el.style.top=SS.my.toFixed(2)+'%';
+  el.style.transform='translate(-50%,-50%) rotate('+SS.rotAngle+'deg)';
   var ir=_isRect(SS.shape);
   el.style.clipPath=ir?'':'polygon('+SS.shape.map(function(p){return p[0].toFixed(1)+'% '+p[1].toFixed(1)+'%';}).join(',')+')';
 }
@@ -640,6 +686,19 @@ function _mv(cx,cy){
   var dx=cx-SS.startCx,dy=cy-SS.startCy;
   var dxP=dx/d.w*100,dyP=dy/d.h*100;
   var mode=ma.querySelector('.stb-mode')?ma.querySelector('.stb-mode').value:'resize';
+  if(mode==='rotate'){
+    if(SS.rotDragging){
+      var maRect=ma.getBoundingClientRect();
+      var cxPx=SS.mx/100*maRect.width+maRect.left;
+      var cyPx=SS.my/100*maRect.height+maRect.top;
+      var angle=Math.atan2(cy-cyPx,cx-cxPx)*180/Math.PI+90;
+      var delta=SS.origAngle+(angle-SS.rotStartAngle);
+      /* Snap a 15° con Shift */
+      SS.rotAngle=(window.event&&window.event.shiftKey)?Math.round(delta/15)*15:delta;
+      _updateBox(ma);_renderRotateHandle(ma);
+    }
+    return;
+  }
   var i=SS.dragging;
   if(mode==='resize'){
     var nw=SS.startMw,nh=SS.startMh,nx=SS.startMx,ny=SS.startMy;
@@ -662,10 +721,211 @@ function _mv(cx,cy){
     h.style.left=pos[pi][0]+'px';h.style.top=pos[pi][1]+'px';
   });
 }
+// ── RUOTA ────────────────────────────────────────────────────────
+function _renderRotateHandle(ma){
+  ma.querySelectorAll('.rotate-handle,.rotate-line').forEach(function(h){h.remove();});
+  if(!SS.active)return;
+  var d=_md(ma);
+  /* centro stand in pixel relativi alla mappa */
+  var cx=SS.mx/100*d.w;
+  var cy=SS.my/100*d.h;
+  /* il manubrio sta a 42px sopra il centro, poi ruotato dell'angolo corrente */
+  var armLen=Math.max(SS.mh/100*d.h/2+20,38);
+  var rad=(SS.rotAngle-90)*Math.PI/180;
+  var hx=cx+Math.cos(rad)*armLen;
+  var hy=cy+Math.sin(rad)*armLen;
+  /* linea */
+  var line=document.createElement('div');
+  line.className='rotate-line';
+  var dist=Math.sqrt((hx-cx)*(hx-cx)+(hy-cy)*(hy-cy));
+  var ang=Math.atan2(hy-cy,hx-cx)*180/Math.PI;
+  line.style.width=dist+'px';
+  line.style.left=cx+'px';line.style.top=cy+'px';
+  line.style.transform='rotate('+ang+'deg)';
+  ma.appendChild(line);
+  /* manubrio */
+  var h=document.createElement('div');
+  h.className='rotate-handle';
+  h.title='Trascina per ruotare (Shift = snap 15°)';
+  h.style.left=hx+'px';h.style.top=hy+'px';
+  h.addEventListener('mousedown',function(e){
+    e.stopPropagation();e.preventDefault();
+    SS.rotDragging=true;
+    var maRect=ma.getBoundingClientRect();
+    var ccx=SS.mx/100*maRect.width+maRect.left;
+    var ccy=SS.my/100*maRect.height+maRect.top;
+    SS.rotStartAngle=Math.atan2(e.clientY-ccy,e.clientX-ccx)*180/Math.PI+90;
+    SS.origAngle=SS.rotAngle;
+  });
+  h.addEventListener('touchstart',function(e){
+    e.stopPropagation();e.preventDefault();
+    SS.rotDragging=true;
+    var t=e.touches[0];
+    var maRect=ma.getBoundingClientRect();
+    var ccx=SS.mx/100*maRect.width+maRect.left;
+    var ccy=SS.my/100*maRect.height+maRect.top;
+    SS.rotStartAngle=Math.atan2(t.clientY-ccy,t.clientX-ccx)*180/Math.PI+90;
+    SS.origAngle=SS.rotAngle;
+  },{passive:false});
+  ma.appendChild(h);
+}
+
+/* Snap a 15° con Shift (gestito in _mv tramite evento) */
+document.addEventListener('keydown',function(e){
+  if(!SS.active||!SS.rotDragging)return;
+  /* handled inline in mousemove natively via event.shiftKey */
+});
+
+// ── POLILINEA ─────────────────────────────────────────────────────
+var _polyMA=null;
+function _polyEnter(ma){
+  _polyExit();
+  _polyMA=ma;
+  SS.polyMode=true;
+  /* Recupera forma corrente come punti di partenza (opzionale) */
+  SS.polyPts=[];
+  /* Crea overlay canvas */
+  var ov=document.createElement('div');
+  ov.className='poly-overlay';
+  var cvs=document.createElement('canvas');
+  ov.appendChild(cvs);
+  var hint=document.createElement('div');
+  hint.className='poly-hint';
+  hint.textContent='Click: aggiungi vertice  •  Doppio click / Enter: chiudi  •  Esc: annulla  •  Destra: rimuovi ultimo';
+  ov.appendChild(hint);
+  ma.appendChild(ov);
+  SS.polyPreview=ov;
+  /* Ridimensiona canvas all'area */
+  function resize(){
+    var r=ma.getBoundingClientRect();
+    cvs.width=r.width;cvs.height=r.height;
+    _polyDraw(cvs,null);
+  }
+  resize();
+  window._polyResizeObs=new ResizeObserver(resize);
+  window._polyResizeObs.observe(ma);
+  /* click su overlay */
+  ov.addEventListener('click',function(e){
+    if(e.detail>=2)return; /* gestito da dblclick */
+    var r=ma.getBoundingClientRect();
+    var px=(e.clientX-r.left)/r.width*100;
+    var py=(e.clientY-r.top)/r.height*100;
+    /* converti da coordinate mappa a coordinate stand-relative */
+    var sx=(px-SS.mx)/SS.mw*100+50;
+    var sy=(py-SS.my)/SS.mh*100+50;
+    SS.polyPts.push([Math.round(sx*10)/10,Math.round(sy*10)/10]);
+    _polyDraw(cvs,null);
+    e.stopPropagation();
+  });
+  ov.addEventListener('dblclick',function(e){
+    e.stopPropagation();
+    _polyClose(ma,cvs);
+  });
+  ov.addEventListener('mousemove',function(e){
+    var r=ma.getBoundingClientRect();
+    var px=(e.clientX-r.left)/r.width*100;
+    var py=(e.clientY-r.top)/r.height*100;
+    var sx=(px-SS.mx)/SS.mw*100+50;
+    var sy=(py-SS.my)/SS.mh*100+50;
+    _polyDraw(cvs,[sx,sy]);
+  });
+  ov.addEventListener('mouseleave',function(){_polyDraw(cvs,null);});
+}
+function _polyExit(){
+  if(!SS.polyMode)return;
+  SS.polyMode=false;
+  if(SS.polyPreview){SS.polyPreview.remove();SS.polyPreview=null;}
+  if(window._polyResizeObs){window._polyResizeObs.disconnect();window._polyResizeObs=null;}
+  _polyMA=null;
+}
+function _polyClose(ma,cvs){
+  if(SS.polyPts.length<2){alert('Aggiungi almeno 2 vertici');return;}
+  /* Aggiorna la shape con i nuovi punti */
+  SS.shape=SS.polyPts.slice();
+  _polyExit();
+  _updateBox(ma);
+  _renderHandles(ma); /* torna a mostrare i vertici modificabili */
+  /* Switcha il mode su polygon libero così i vertici sono draggabili */
+  var sel=ma.querySelector('.stb-mode');
+  if(sel){sel.value='polygon';_onModeChange(sel,ma);}
+}
+function _polyDraw(cvs,cursor){
+  var ctx=cvs.getContext('2d');
+  ctx.clearRect(0,0,cvs.width,cvs.height);
+  if(!SS.polyPts.length&&!cursor)return;
+  /* Converti punti stand-relative → pixel canvas */
+  var d={w:cvs.width,h:cvs.height};
+  function toPixel(p){
+    var px=(p[0]-50)/100*SS.mw/100*d.w+SS.mx/100*d.w;
+    var py=(p[1]-50)/100*SS.mh/100*d.h+SS.my/100*d.h;
+    return[px,py];
+  }
+  var pts=SS.polyPts.map(toPixel);
+  /* Preview con cursore */
+  var allPts=cursor?pts.concat([toPixel(cursor)]):pts;
+  if(allPts.length<2){
+    /* Solo un punto: disegna un pallino */
+    if(allPts.length===1){
+      ctx.beginPath();ctx.arc(allPts[0][0],allPts[0][1],5,0,Math.PI*2);
+      ctx.fillStyle='rgba(245,200,66,.9)';ctx.fill();
+    }
+    return;
+  }
+  /* Linee */
+  ctx.beginPath();ctx.moveTo(allPts[0][0],allPts[0][1]);
+  for(var i=1;i<allPts.length;i++)ctx.lineTo(allPts[i][0],allPts[i][1]);
+  if(!cursor)ctx.closePath();
+  ctx.strokeStyle='rgba(245,200,66,.85)';ctx.lineWidth=2;ctx.setLineDash([5,3]);ctx.stroke();
+  /* Fill semi-trasparente */
+  if(!cursor&&pts.length>=3){
+    ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+    for(var j=1;j<pts.length;j++)ctx.lineTo(pts[j][0],pts[j][1]);
+    ctx.closePath();ctx.fillStyle='rgba(245,200,66,.12)';ctx.fill();
+  }
+  /* Vertici */
+  pts.forEach(function(p,idx){
+    ctx.beginPath();ctx.arc(p[0],p[1],5,0,Math.PI*2);
+    ctx.fillStyle=idx===0?'rgba(245,200,66,1)':'rgba(255,255,255,.9)';
+    ctx.strokeStyle='#1e2d4e';ctx.lineWidth=2;ctx.fill();ctx.stroke();
+  });
+  /* Cursore */
+  if(cursor){
+    var cp=toPixel(cursor);
+    ctx.beginPath();ctx.arc(cp[0],cp[1],4,0,Math.PI*2);
+    ctx.fillStyle='rgba(100,180,255,.8)';ctx.fill();
+  }
+}
+
+/* Tasto Enter per chiudere, Backspace per rimuovere ultimo vertice */
+document.addEventListener('keydown',function(e){
+  if(!SS.polyMode)return;
+  if(e.key==='Enter'){
+    var ma=_polyMA;if(!ma)return;
+    var cvs=ma.querySelector('.poly-overlay canvas');
+    _polyClose(ma,cvs);
+  } else if(e.key==='Backspace'||e.key==='Delete'){
+    SS.polyPts.pop();
+    var cvs2=_polyMA?_polyMA.querySelector('.poly-overlay canvas'):null;
+    if(cvs2)_polyDraw(cvs2,null);
+  }
+});
+
+/* Listener change sul select modalità — aggiorna handle al cambio */
+function _onModeChange(sel,ma){
+  var mode=sel.value;
+  if(mode==='polyline'){
+    _polyEnter(ma);
+    ma.querySelectorAll('.shape-handle,.rotate-handle,.rotate-line').forEach(function(h){h.remove();});
+  } else {
+    _polyExit();
+    _renderHandles(ma);
+  }
+}
+
 document.addEventListener('mousemove',function(e){_mv(e.clientX,e.clientY);});
-document.addEventListener('mouseup',function(){SS.dragging=-1;});
+document.addEventListener('mouseup',function(){SS.dragging=-1;SS.rotDragging=false;});
 document.addEventListener('touchmove',function(e){if(SS.dragging>=0){e.preventDefault();_mv(e.touches[0].clientX,e.touches[0].clientY);}},{passive:false});
-document.addEventListener('touchend',function(){SS.dragging=-1;});
+document.addEventListener('touchend',function(){SS.dragging=-1;SS.rotDragging=false;});
 </script>
 <% } %>
 
