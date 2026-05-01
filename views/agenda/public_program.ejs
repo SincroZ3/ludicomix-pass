@@ -820,8 +820,7 @@ EVDATA[<%= e.id %>] = <%- JSON.stringify({
   availability: e.availability || '',
   registrations_open: e.registrations_open || 0,
   speakers_list: e.speakers_list || '',
-  image_url: e.image_url || '',
-  speakers_data: (function() { try { return JSON.parse(e.speakers_json || '[]'); } catch(x) { return []; } })()
+  image_url: e.image_url || ''
 }) %>;
 <% }); %>
 
@@ -850,13 +849,20 @@ function openModal(id) {
   }
   /* ── Relatori cliccabili ── */
   var spkEl = document.getElementById('mSpk');
-  if (ev.speakers_data && ev.speakers_data.length > 0) {
-    var links = ev.speakers_data.map(function(sp) {
-      return '<a href="#" class="spk-link" onclick="openSpeakerModal(' + sp.id + ');return false;" style="color:#6b3fa0;font-weight:700;text-decoration:underline;cursor:pointer;">' + sp.name + '</a>';
+  if (ev.speakers_list) {
+    var names = ev.speakers_list.split(', ');
+    var links = names.map(function(name) {
+      // cerca il relatore per nome in SPEAKERDATA
+      var found = null;
+      Object.keys(SPEAKERDATA).forEach(function(k) {
+        if (SPEAKERDATA[k].name === name) found = SPEAKERDATA[k];
+      });
+      if (found) {
+        return '<a href="#" class="spk-link" onclick="event.stopPropagation();openSpeakerModal(' + found.id + ');return false;" style="color:#6b3fa0;font-weight:700;text-decoration:underline;cursor:pointer;">' + name + '</a>';
+      }
+      return '<strong style="color:#6b3fa0">' + name + '</strong>';
     });
     spkEl.innerHTML = 'con ' + links.join(', ');
-  } else if (ev.speakers_list) {
-    spkEl.innerHTML = 'con <strong style="color:#6b3fa0">' + ev.speakers_list + '</strong>';
   } else {
     spkEl.innerHTML = '';
   }
