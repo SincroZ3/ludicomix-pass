@@ -439,6 +439,85 @@ function openStandPopup(e,el){
 }
 function closeStandPopup(){var p=document.getElementById('stand-popup');if(p)p.style.display='none';_cpGid=null;}
 function _esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ── TOOLTIP HOVER STAND ──────────────────────────────────────────────────────
+(function(){
+  /* Crea il div tooltip una sola volta */
+  var tt=document.createElement("div");
+  tt.id="stand-hover-tt";
+  document.body.appendChild(tt);
+  var sty=document.createElement("style");
+  sty.textContent=
+    "#stand-hover-tt{position:fixed;z-index:9995;pointer-events:none;"+
+    "background:rgba(30,45,78,.93);color:#f5f4f0;border-radius:8px;"+
+    "padding:.38rem .8rem;font-size:.77rem;font-weight:600;font-family:inherit;"+
+    "box-shadow:0 4px 18px rgba(0,0,0,.28);border:1px solid rgba(200,210,230,.25);"+
+    "max-width:230px;line-height:1.4;opacity:0;transition:opacity .12s;display:none;}"+
+    "#stand-hover-tt .tt-n{font-weight:800;font-size:.82rem;color:#f5c842;}"+
+    "#stand-hover-tt .tt-s{font-size:.71rem;color:rgba(245,244,240,.65);margin-top:.1rem;}";
+  document.head.appendChild(sty);
+
+  function esc(s){return String(s).replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">");}
+
+  function show(e,el){
+    /* Non aprire se il popup click è già aperto su QUESTO stand */
+    if(_cpGid && _cpGid===el.getAttribute("data-gid"))return;
+    var name=esc(el.getAttribute("data-name")||"");
+    var code=el.getAttribute("data-code")||"";
+    var loc=el.getAttribute("data-loc")||"";
+    var cs=el.getAttribute("data-cs")||"0";
+    var pc=el.getAttribute("data-pc")||"0";
+    var parts=[];
+    if(code)parts.push("Cod. "+esc(code));
+    if(loc)parts.push(esc(loc));
+    parts.push("Pass: "+cs+"/"+pc);
+    tt.innerHTML="<div class=\"tt-n\">"+name+"</div><div class=\"tt-s\">"+parts.join(" &bull; ")+"</div>";
+    var tx=e.clientX+14, ty=e.clientY-12;
+    if(tx+240>window.innerWidth)tx=e.clientX-248;
+    if(ty+70>window.innerHeight)ty=e.clientY-68;
+    tt.style.left=tx+"px"; tt.style.top=ty+"px";
+    tt.style.display="block";
+    requestAnimationFrame(function(){tt.style.opacity="1";});
+  }
+
+  function hide(){
+    tt.style.opacity="0";
+    setTimeout(function(){if(tt.style.opacity==="0")tt.style.display="none";},130);
+  }
+
+  function move(e){
+    if(tt.style.display==="none")return;
+    var tx=e.clientX+14, ty=e.clientY-12;
+    if(tx+240>window.innerWidth)tx=e.clientX-248;
+    if(ty+70>window.innerHeight)ty=e.clientY-68;
+    tt.style.left=tx+"px"; tt.style.top=ty+"px";
+  }
+
+  /* Attacca agli stand già presenti E a quelli aggiunti dinamicamente */
+  function attach(el){
+    if(el._ttOk)return; el._ttOk=true;
+    el.addEventListener("mouseenter",function(e){show(e,el);});
+    el.addEventListener("mouseleave",hide);
+    el.addEventListener("mousemove",move);
+    /* Nasconde tooltip al momento del click (il popup prende il posto) */
+    el.addEventListener("click",hide,true);
+  }
+
+  document.querySelectorAll(".stand-box").forEach(attach);
+
+  /* MutationObserver per stand aggiunti/spostati via drag */
+  var obs=new MutationObserver(function(muts){
+    muts.forEach(function(m){
+      m.addedNodes.forEach(function(n){
+        if(n.classList&&n.classList.contains("stand-box"))attach(n);
+      });
+    });
+  });
+  document.querySelectorAll(".map-area").forEach(function(ma){
+    obs.observe(ma,{childList:true});
+  });
+})();
+// ── FINE TOOLTIP HOVER ───────────────────────────────────────────────────────
 document.addEventListener('click',function(e){
   if(!e.target.closest('#stand-popup')&&!e.target.closest('.stand-box'))closeStandPopup();
 });
