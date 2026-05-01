@@ -31,10 +31,20 @@
         <% speakers.forEach(s => { %>
           <tr>
             <td>
-              <strong><%= s.name %></strong>
-              <% if(s.bio) { %>
-                <br><small style="color:var(--text-muted)"><%= s.bio.slice(0,60) %><%= s.bio.length > 60 ? '…' : '' %></small>
-              <% } %>
+              <div style="display:flex;align-items:center;gap:.6rem;">
+                <% if(s.photo_url) { %>
+                  <img src="<%= s.photo_url %>" alt="<%= s.name %>"
+                       style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid #e2e8f0;">
+                <% } else { %>
+                  <div style="width:36px;height:36px;border-radius:50%;background:#e8ecf3;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1rem;">🎤</div>
+                <% } %>
+                <div>
+                  <strong><%= s.name %></strong>
+                  <% if(s.bio) { %>
+                    <br><small style="color:var(--text-muted)"><%= s.bio.slice(0,60) %><%= s.bio.length > 60 ? '…' : '' %></small>
+                  <% } %>
+                </div>
+              </div>
             </td>
             <td><%= s.email || '—' %></td>
             <td><%= s.phone || '—' %></td>
@@ -61,7 +71,8 @@
                 data-phone="<%= encodeURIComponent(s.phone || '') %>"
                 data-social="<%= encodeURIComponent(s.social_url || '') %>"
                 data-notes="<%= encodeURIComponent(s.notes || '') %>"
-                data-active="<%= s.active ? '1' : '0' %>">
+                data-active="<%= s.active ? '1' : '0' %>"
+                data-photo="<%= encodeURIComponent(s.photo_url || '') %>">
                 Modifica
               </button>
               <form method="POST" action="/agenda/speakers/<%= s.id %>/delete" style="display:inline;"
@@ -106,6 +117,10 @@
           </div>
         </div>
         <div>
+          <label>URL Foto (opzionale)</label>
+          <input type="url" name="photo_url" placeholder="https://… (link immagine profilo)">
+        </div>
+        <div>
           <label>Link / Social</label>
           <input type="url" name="social_url" placeholder="https://…">
         </div>
@@ -137,6 +152,7 @@
           <div><label>Email</label><input type="email" name="email" id="espk-email"></div>
           <div><label>Telefono</label><input type="text" name="phone" id="espk-phone"></div>
         </div>
+        <div><label>URL Foto (opzionale)</label><input type="url" name="photo_url" id="espk-photo" placeholder="https://… (link immagine profilo)"></div>
         <div><label>Link / Social</label><input type="url" name="social_url" id="espk-social"></div>
         <div><label>Note interne</label><textarea name="notes" id="espk-notes" rows="2"></textarea></div>
         <div>
@@ -163,6 +179,7 @@ document.querySelectorAll('.btn-edit-spk').forEach(function(btn) {
     document.getElementById('espk-bio').value          = decodeURIComponent(d.bio);
     document.getElementById('espk-email').value        = decodeURIComponent(d.email);
     document.getElementById('espk-phone').value        = decodeURIComponent(d.phone);
+    document.getElementById('espk-photo').value        = decodeURIComponent(d.photo || '');
     document.getElementById('espk-social').value       = decodeURIComponent(d.social);
     document.getElementById('espk-notes').value        = decodeURIComponent(d.notes);
     document.getElementById('espk-active').checked     = d.active === '1';
