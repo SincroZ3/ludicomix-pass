@@ -195,14 +195,14 @@ router.get('/agenda/speakers', requireAuth, (req, res) => {
 });
 
 router.post('/agenda/speakers', requireAuth, (req, res) => {
-  const { name, bio, email, phone, social_url, notes } = req.body;
+  const { name, bio, photo_url, email, phone, social_url, notes } = req.body;
   if (!name) {
     flash(req, 'error', 'Il nome è obbligatorio.');
     return res.redirect('/agenda/speakers');
   }
   db.run(
-    `INSERT INTO speakers (name, bio, email, phone, social_url, notes) VALUES (?,?,?,?,?,?)`,
-    [name.trim(), bio || '', email || '', phone || '', social_url || '', notes || ''],
+    `INSERT INTO speakers (name, bio, photo_url, email, phone, social_url, notes) VALUES (?,?,?,?,?,?,?)`,
+    [name.trim(), bio || '', photo_url || '', email || '', phone || '', social_url || '', notes || ''],
     function(err) {
       if(!err) logAction(req.session.user?.id,'create_speaker','speaker',this.lastID,`Speaker aggiunto: ${name.trim()}`);
       flash(req, err ? 'error' : 'success', err ? 'Errore salvataggio.' : `Speaker "${name}" aggiunto.`);
@@ -212,10 +212,10 @@ router.post('/agenda/speakers', requireAuth, (req, res) => {
 });
 
 router.post('/agenda/speakers/:id', requireAuth, (req, res) => {
-  const { name, bio, email, phone, social_url, notes, active } = req.body;
+  const { name, bio, photo_url, email, phone, social_url, notes, active } = req.body;
   db.run(
-    `UPDATE speakers SET name=?, bio=?, email=?, phone=?, social_url=?, notes=?, active=? WHERE id=?`,
-    [name.trim(), bio || '', email || '', phone || '', social_url || '', notes || '', active ? 1 : 0, req.params.id],
+    `UPDATE speakers SET name=?, bio=?, photo_url=?, email=?, phone=?, social_url=?, notes=?, active=? WHERE id=?`,
+    [name.trim(), bio || '', photo_url || '', email || '', phone || '', social_url || '', notes || '', active ? 1 : 0, req.params.id],
     function(err) {
       if(!err) logAction(req.session.user?.id,'edit_speaker','speaker',req.params.id,`Speaker #${req.params.id} aggiornato`);
       flash(req, err ? 'error' : 'success', err ? 'Errore aggiornamento.' : 'Speaker aggiornato.');

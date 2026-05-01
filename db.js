@@ -446,6 +446,9 @@ db.run(`ALTER TABLE events ADD COLUMN registrations_open INTEGER NOT NULL DEFAUL
 db.run(`ALTER TABLE events ADD COLUMN featured INTEGER NOT NULL DEFAULT 0`, () => {});
 db.run(`ALTER TABLE events ADD COLUMN location_text TEXT`, () => {});
 
+// Migration: aggiungi photo_url a speakers se non esiste
+db.run(`ALTER TABLE speakers ADD COLUMN photo_url TEXT`, () => {});
+
 db.run(`CREATE INDEX IF NOT EXISTS idx_events_date ON events(date)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_events_space_date ON events(space_id, date, start_time)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_events_published ON events(published, is_public)`);
@@ -535,7 +538,17 @@ db.run(`DROP VIEW IF EXISTS v_public_program`, () => {
       (SELECT GROUP_CONCAT(sp2.name, ', ')
        FROM event_speakers es2
        JOIN speakers sp2 ON sp2.id = es2.speaker_id
-       WHERE es2.event_id = e.id) AS speakers_list
+       WHERE es2.event_id = e.id) AS speakers_list,
+      (SELECT JSON_GROUP_ARRAY(JSON_OBJECT(
+         'id', sp3.id,
+         'name', sp3.name,
+         'bio', COALESCE(sp3.bio, ''),
+         'photo_url', COALESCE(sp3.photo_url, ''),
+         'social_url', COALESCE(sp3.social_url, '')
+       ))
+       FROM event_speakers es3
+       JOIN speakers sp3 ON sp3.id = es3.speaker_id
+       WHERE es3.event_id = e.id) AS speakers_json
     FROM events e
     JOIN spaces s ON s.id = e.space_id
     LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'confirmed'
