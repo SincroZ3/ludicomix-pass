@@ -999,9 +999,9 @@ db.run(`ALTER TABLE zones ADD COLUMN map_color    TEXT`,                    () =
 // Discriminante: solo le zone della mappa pubblica hanno coordinate geografiche (map_lat)
 db.run(`ALTER TABLE zones ADD COLUMN zone_scope TEXT DEFAULT 'internal'`, () => {
   // Classificazione iniziale
-  db.run(`UPDATE zones SET zone_scope = 'public'   WHERE map_type IN ('parking','bagni','biglietteria','trasporti') AND map_lat IS NOT NULL`);
-  db.run(`UPDATE zones SET zone_scope = 'both'     WHERE map_type IN ('area','eventi','mostra','sala','shop','palco','extra') AND map_lat IS NOT NULL`);
-  db.run(`UPDATE zones SET zone_scope = 'internal' WHERE zone_scope IS NULL OR (map_lat IS NULL AND zone_scope NOT IN ('internal','both','public'))`);
+  db.run(`UPDATE zones SET zone_scope = 'public'   WHERE map_type IN ('parking','bagni','biglietteria','trasporti') AND map_lat IS NOT NULL AND zone_scope IS NULL`);
+  db.run(`UPDATE zones SET zone_scope = 'both'     WHERE map_type IN ('area','eventi','mostra','sala','shop','palco','extra') AND map_lat IS NOT NULL AND zone_scope IS NULL`);
+  db.run(`UPDATE zones SET zone_scope = 'internal' WHERE map_lat IS NULL AND zone_scope IS NULL`);
 });
 
   // ── Classificazione zone: idempotente, gira ogni boot (no flag guard)

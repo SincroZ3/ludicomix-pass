@@ -2680,22 +2680,25 @@ async function triggerBatchPassOnClose(groupId) {
 
   // ── Fix one-shot: ri-classifica tutte le zone esistenti ──────────────────
   app.get('/admin/fix-zone-scope', requireAuth, requireAdmin, (req, res) => {
+    // ?force=1 → reset completo, sovrascrive tutto
+    // default  → tocca SOLO le zone con zone_scope NULL (preserva modifiche manuali)
+    const force = req.query.force === '1';
+    const guard = force ? '' : ' AND zone_scope IS NULL';
     db.serialize(() => {
-      // Parcheggi, bagni, biglietterie, trasporti → solo mappa pubblica Leaflet
-      db.run(`UPDATE zones SET zone_scope = 'public' WHERE map_type IN ('parking','bagni','biglietteria','trasporti')`);
-      // Aree evento / padiglioni con coordinate → sia interna (mappa stand) che pubblica (Leaflet)
-      db.run(`UPDATE zones SET zone_scope = 'both' WHERE map_type IN ('area','eventi','mostra','sala','shop','palco','extra') AND map_lat IS NOT NULL`);
-      // Zone senza coordinate → solo interne
-      db.run(`UPDATE zones SET zone_scope = 'internal' WHERE map_lat IS NULL`);
-      // Residue con coordinate senza classificazione → both
-      db.run(`UPDATE zones SET zone_scope = 'both' WHERE map_lat IS NOT NULL AND zone_scope IS NULL`, function(err) {
+      db.run(`UPDATE zones SET zone_scope = 'public'   WHERE map_type IN ('parking','bagni','biglietteria','trasporti') AND map_lat IS NOT NULL${guard}`);
+      db.run(`UPDATE zones SET zone_scope = 'both'     WHERE map_type IN ('area','eventi','mostra','sala','shop','palco','extra') AND map_lat IS NOT NULL${guard}`);
+      db.run(`UPDATE zones SET zone_scope = 'internal' WHERE map_lat IS NULL${guard}`, function(err) {
         if (err) return res.status(500).json({ ok: false, error: err.message });
         db.all(`SELECT id, name, map_type, map_lat, zone_scope FROM zones ORDER BY zone_scope, sort_order, name`, [], (_e, rows) => {
-          res.json({ ok: true, message: 'Zone riclassificate (internal / both / public).', zones: rows });
+          const msg = force
+            ? 'Reset completo: tutte le zone riclassificate (modifiche manuali sovrascritte).'
+            : 'OK: solo le zone senza scope sono state classificate. Modifiche manuali preservate.';
+          res.json({ ok: true, force: force, message: msg, zones: rows });
         });
       });
     });
   });
+
 
   // ── Admin Hub ─────────────────────────────────────────────────────────────
   app.get('/admin/hub', requireAuth, requireOrganizer, (req, res) => {
