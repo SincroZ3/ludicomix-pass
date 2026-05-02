@@ -32,18 +32,6 @@ function edFilter() {
 }
 function edVal() { return _currentEdition ? _currentEdition.id : null; }
 refreshCurrentEdition();
-// ── Catalogo categorie materiali logistici ─────────────────────────────
-const MATERIAL_CATALOG = {
-  corrente:     { label: 'Corrente',   icon: '⚡' },
-  gazebo:       { label: 'Gazebo',     icon: '⛺' },
-  tavoli_extra: { label: 'Tavoli',     icon: '🪑' },
-  sedie_extra:  { label: 'Sedie',      icon: '🪑' },
-  transenne:    { label: 'Transenne',  icon: '🚧' },
-  palchi_incontri: { label: 'Palchi & Incontri', icon: '🎙️' },
-  altro:        { label: 'Altro',      icon: '📦' },
-};
-
-
 
 
 
@@ -496,7 +484,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], pending: pending||[], shifts: shifts||[], zones: zones||[] });
     } catch (err) {
@@ -671,7 +659,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], pending: pending||[], shifts: shifts||[], zones: zones||[] });
     } catch (err) {
@@ -822,7 +810,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
@@ -1021,7 +1009,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
@@ -1293,7 +1281,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
@@ -1584,7 +1572,7 @@ app.get('/home', requireAuth, (req, res) => {
         `;
         db.all(sql, [], (err3, assignmentGroups) => {
           if (err3) return res.status(500).send('Errore DB gruppi assegnatari');
-          db.all('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name', [], (err4, zones) => {
+          db.all('SELECT * FROM zones ORDER BY sort_order, name', [], (err4, zones) => {
             if (err4) return res.status(500).send('Errore DB zone');
             res.render('participants', { categories, types, assignmentGroups, zones: zones || [] });
           });
@@ -1702,7 +1690,7 @@ app.get('/home', requireAuth, (req, res) => {
           if (err3) return res.status(500).send('Errore DB partecipanti');
           const dupSkipped = req.query.dup_skipped ? parseInt(req.query.dup_skipped, 10) : 0;
         const dupTotal   = req.query.dup_total   ? parseInt(req.query.dup_total,   10) : 0;
-        db.all('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name', [], (errZ, zones) => {
+        db.all('SELECT * FROM zones ORDER BY sort_order, name', [], (errZ, zones) => {
           const importOk   = req.query.import_ok   ? parseInt(req.query.import_ok,10)   : null;
           const importSkip = req.query.import_skip ? parseInt(req.query.import_skip,10) : null;
           const importErrs = req.query.import_errs ? decodeURIComponent(req.query.import_errs).split('|') : [];
@@ -1716,8 +1704,7 @@ app.get('/home', requireAuth, (req, res) => {
                 _crmQ('SELECT * FROM group_documents WHERE assignment_group_id=? ORDER BY uploaded_at DESC', [id]),
                 _crmQ('SELECT * FROM guest_profiles  WHERE assignment_group_id=? LIMIT 1', [id]),
                 new Promise((ok, ko) => db.get('SELECT * FROM fiscal_data WHERE assignment_group_id=?', [id], (e, r) => e ? ko(e) : ok(r))),
-                _crmQ('SELECT * FROM group_material_requests WHERE assignment_group_id=? ORDER BY category, item_name, id', [id]),  // FIX: materials
-              ]).then(function([contacts, payments, groupDocs, gpRows, fiscalData, materials]) {
+              ]).then(function([contacts, payments, groupDocs, gpRows, fiscalData]) {
                 const guestProfile = gpRows && gpRows[0] ? gpRows[0] : null;
                 res.render('assignment_group_detail', {
                   groupInfo, types, participants, PASS_STATUSES,
@@ -1726,19 +1713,16 @@ app.get('/home', requireAuth, (req, res) => {
                   autoPasses: autoPasses || [],
                   contacts, payments, groupDocs,
                   guestProfile,
-                  fiscalData: fiscalData || null,
-                  materials: materials || [],  // FIX: materials
+                  fiscalData: fiscalData || null
                 });
-              }).catch(function(err) {
-                console.error('detail CRM catch:', err && err.message);
+              }).catch(function() {
                 res.render('assignment_group_detail', {
                   groupInfo, types, participants, PASS_STATUSES,
                   dupSkipped, dupTotal, zones: zones || [],
                   importOk, importSkip, importErrs, replaceOk,
                   autoPasses: autoPasses || [],
                   contacts: [], payments: [], groupDocs: [],
-                  guestProfile: null,
-                  materials: [],  // FIX: materials
+                  guestProfile: null
                 });
               });
             });
@@ -2549,7 +2533,7 @@ async function triggerBatchPassOnClose(groupId) {
                FROM groups g LEFT JOIN pass_types pt ON pt.id = g.pass_type_id
                ORDER BY g.priority ASC, g.name ASC`),
         dbAll('SELECT * FROM pass_types ORDER BY id DESC'),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name'),
+        dbAll('SELECT * FROM zones ORDER BY sort_order, name'),
         dbAll('SELECT id, username, role, created_at FROM users ORDER BY username ASC'),
         dbAll("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'"),
         dbAll('SELECT sa.*, u.username FROM scan_attempts sa LEFT JOIN users u ON u.id=sa.user_id ORDER BY sa.id DESC LIMIT 500'),
@@ -2634,7 +2618,7 @@ async function triggerBatchPassOnClose(groupId) {
     const { name, sort_order } = req.body;
     if (!name || !name.trim()) return res.status(400).send('Nome zona obbligatorio');
     db.run(
-      'INSERT INTO zones (name, sort_order, zone_scope) VALUES (?, ?, \'internal\')',
+      'INSERT INTO zones (name, sort_order) VALUES (?, ?)',
       [name.trim(), parseInt(sort_order || 0, 10)],
       function(err) {
         if (err) {
@@ -2650,12 +2634,11 @@ async function triggerBatchPassOnClose(groupId) {
 
   app.post('/admin/zones/:id/edit', requireAuth, requireAdmin, (req, res) => {
     const id = parseInt(req.params.id, 10);
-    const { name, sort_order, zone_scope } = req.body;
+    const { name, sort_order } = req.body;
     if (!name || !name.trim()) return res.status(400).send('Nome zona obbligatorio');
-    const scope = ['internal','public'].includes(zone_scope) ? zone_scope : 'internal';
     db.run(
-      'UPDATE zones SET name = ?, sort_order = ?, zone_scope = ? WHERE id = ?',
-      [name.trim(), parseInt(sort_order || 0, 10), scope, id],
+      'UPDATE zones SET name = ?, sort_order = ? WHERE id = ?',
+      [name.trim(), parseInt(sort_order || 0, 10), id],
       function(err) {
         if (err) return res.status(500).send('Errore aggiornamento zona');
         logAction(req.session.user.id, 'edit_zone', 'zone', id, 'Zona aggiornata: ' + name.trim());
@@ -2673,104 +2656,6 @@ async function triggerBatchPassOnClose(groupId) {
     });
   });
 
-
-
-  // -------- Gestione Mappa Pubblica --------
-
-
-  // ── Fix one-shot: ri-classifica tutte le zone esistenti ──────────────────
-  app.get('/admin/fix-zone-scope', requireAuth, requireAdmin, (req, res) => {
-    // ?force=1 → reset completo, sovrascrive tutto
-    // default  → tocca SOLO le zone con zone_scope NULL (preserva modifiche manuali)
-    const force = req.query.force === '1';
-    const guard = force ? '' : ' AND zone_scope IS NULL';
-    db.serialize(() => {
-      db.run(`UPDATE zones SET zone_scope = 'public'   WHERE map_type IN ('parking','bagni','biglietteria','trasporti') AND map_lat IS NOT NULL${guard}`);
-      db.run(`UPDATE zones SET zone_scope = 'both'     WHERE map_type IN ('area','eventi','mostra','sala','shop','palco','extra') AND map_lat IS NOT NULL${guard}`);
-      db.run(`UPDATE zones SET zone_scope = 'internal' WHERE map_lat IS NULL${guard}`, function(err) {
-        if (err) return res.status(500).json({ ok: false, error: err.message });
-        db.all(`SELECT id, name, map_type, map_lat, zone_scope FROM zones ORDER BY zone_scope, sort_order, name`, [], (_e, rows) => {
-          const msg = force
-            ? 'Reset completo: tutte le zone riclassificate (modifiche manuali sovrascritte).'
-            : 'OK: solo le zone senza scope sono state classificate. Modifiche manuali preservate.';
-          res.json({ ok: true, force: force, message: msg, zones: rows });
-        });
-      });
-    });
-  });
-
-
-  // ── Admin Hub ─────────────────────────────────────────────────────────────
-  app.get('/admin/hub', requireAuth, requireOrganizer, (req, res) => {
-    res.render('admin_hub', { currentUser: req.session.user, flash: req.query.flash || null });
-  });
-
-  // ── Zone Manager: lista TUTTE le zone con scope e contatore stand assegnati ──
-  app.get('/admin/zone-manager', requireAuth, requireOrganizer, (req, res) => {
-    db.all(`SELECT z.*,
-              COUNT(ag.id) AS stands_count
-            FROM zones z
-            LEFT JOIN assignment_groups ag ON ag.zone = z.name
-            GROUP BY z.id
-            ORDER BY z.zone_scope DESC, z.sort_order, z.name`, [], (err, zones) => {
-      if (err) return res.status(500).send('Errore DB zone');
-      res.render('zone_manager', { zones: zones || [], flash: req.query.flash || null });
-    });
-  });
-
-  // Cambia zone_scope di una zona (internal ↔ public)
-  app.post('/admin/zones/:id/set-scope', requireAuth, requireAdmin, (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    const { zone_scope } = req.body;
-    if (!['internal', 'public'].includes(zone_scope)) return res.status(400).send('Scope non valido');
-    db.run('UPDATE zones SET zone_scope = ? WHERE id = ?', [zone_scope, id], function(err) {
-      if (err) return res.status(500).send('Errore aggiornamento scope');
-      logAction(req.session.user.id, 'edit_zone_scope', 'zone', id, `zone_scope → ${zone_scope}`);
-      res.redirect('/admin/zone-manager?flash=saved');
-    });
-  });
-
-  app.post('/admin/mappa-pubblica/zone/new', requireAuth, requireOrganizer, (req, res) => {
-    const { name, map_label, map_type, map_lat, map_lng, map_zoom, map_desc, map_address, map_tags, map_color, sort_order } = req.body;
-    if (!name || !name.trim()) return res.status(400).send('Nome zona obbligatorio');
-    db.run(
-      "INSERT INTO zones (name, sort_order, map_label, map_type, map_lat, map_lng, map_zoom, map_desc, map_address, map_tags, map_color, map_active, zone_scope) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'public')",
-      [name.trim(), parseInt(sort_order||0,10), map_label||null, map_type||'area',
-       map_lat ? parseFloat(map_lat) : null, map_lng ? parseFloat(map_lng) : null,
-       parseInt(map_zoom||16,10), map_desc||null, map_address||null, map_tags||null, map_color||null],
-      function(err) {
-        if (err) return res.status(500).send('Errore salvataggio zona mappa: ' + err.message);
-        logAction(req.session.user.id, 'create_public_zone', 'zone', this.lastID, 'Creata zona pubblica: ' + name.trim());
-        res.redirect('/admin/zone-manager?flash=created');
-      }
-    );
-  });
-
-  app.post('/admin/mappa-pubblica/zone/:id', requireAuth, requireOrganizer, (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    const action = req.body._action || 'save';
-    if (action === 'delete') {
-      db.run('DELETE FROM zones WHERE id = ? AND zone_scope = \'public\' OR zone_scope = \'both\'', [id], function(err) {
-        if (err) return res.status(500).send('Errore eliminazione zona mappa');
-        logAction(req.session.user.id, 'delete_public_zone', 'zone', id, 'Zona mappa pubblica eliminata');
-        res.redirect('/admin/zone-manager?flash=deleted');
-      });
-    } else {
-      const { name, map_label, map_type, map_lat, map_lng, map_zoom, map_desc, map_address, map_tags, map_color, map_active, sort_order } = req.body;
-      db.run(
-        "UPDATE zones SET name=?, sort_order=?, map_label=?, map_type=?, map_lat=?, map_lng=?, map_zoom=?, map_desc=?, map_address=?, map_tags=?, map_color=?, map_active=? WHERE id=? AND zone_scope='public'",
-        [name, parseInt(sort_order||0,10), map_label||null, map_type||'area',
-         map_lat ? parseFloat(map_lat) : null, map_lng ? parseFloat(map_lng) : null,
-         parseInt(map_zoom||16,10), map_desc||null, map_address||null, map_tags||null,
-         map_color||null, map_active ? 1 : 0, id],
-        function(err) {
-          if (err) return res.status(500).send('Errore aggiornamento zona mappa');
-          logAction(req.session.user.id, 'edit_public_zone', 'zone', id, 'Zona mappa pubblica aggiornata');
-          res.redirect('/admin/zone-manager?flash=saved');
-        }
-      );
-    }
-  });
 
   // -------- Backup & Restore DB --------
 
@@ -2997,42 +2882,6 @@ async function triggerBatchPassOnClose(groupId) {
   });
   app.post('/admin/groups/:id/portal/token',requireAuth,requireNotViewer,function(req,res){var id=parseInt(req.params.id,10),token=require('crypto').randomBytes(24).toString('hex');db.run('UPDATE assignment_groups SET portal_token=?,portal_enabled=1 WHERE id=?',[token,id],function(err){if(err)return res.status(500).json({error:err.message});res.json({token});});});
   app.post('/admin/groups/:id/portal/toggle',requireAuth,requireNotViewer,function(req,res){var id=parseInt(req.params.id,10);db.get('SELECT portal_enabled FROM assignment_groups WHERE id=?',[id],function(e,row){if(!row)return res.status(404).json({error:'not found'});var v=row.portal_enabled?0:1;db.run('UPDATE assignment_groups SET portal_enabled=? WHERE id=?',[v,id],function(){res.json({enabled:v});});});});
-
-  // ── Toggle sezioni portale: service / nominativi / documenti ─────────────
-  app.post('/admin/groups/:id/portal/service-toggle', requireAuth, requireNotViewer, function(req, res) {
-    var id = parseInt(req.params.id, 10);
-    db.get('SELECT portal_service_enabled FROM assignment_groups WHERE id=?', [id], function(e, row) {
-      if (!row) return res.status(404).json({ error: 'not found' });
-      var v = (row.portal_service_enabled === 0) ? 1 : 0;
-      db.run('UPDATE assignment_groups SET portal_service_enabled=? WHERE id=?', [v, id], function() {
-        res.json({ enabled: v });
-      });
-    });
-  });
-
-  app.post('/admin/groups/:id/portal/nom-toggle', requireAuth, requireNotViewer, function(req, res) {
-    var id = parseInt(req.params.id, 10);
-    db.get('SELECT portal_nom_enabled FROM assignment_groups WHERE id=?', [id], function(e, row) {
-      if (!row) return res.status(404).json({ error: 'not found' });
-      var v = (row.portal_nom_enabled === 0) ? 1 : 0;
-      db.run('UPDATE assignment_groups SET portal_nom_enabled=? WHERE id=?', [v, id], function() {
-        res.json({ enabled: v });
-      });
-    });
-  });
-
-  app.post('/admin/groups/:id/portal/docs-toggle', requireAuth, requireNotViewer, function(req, res) {
-    var id = parseInt(req.params.id, 10);
-    db.get('SELECT portal_docs_enabled FROM assignment_groups WHERE id=?', [id], function(e, row) {
-      if (!row) return res.status(404).json({ error: 'not found' });
-      var v = (row.portal_docs_enabled === 0) ? 1 : 0;
-      db.run('UPDATE assignment_groups SET portal_docs_enabled=? WHERE id=?', [v, id], function() {
-        res.json({ enabled: v });
-      });
-    });
-  });
-
-
 
   // ═══════════════════════════════════════════════════════════════
   // BACHECA COMUNICAZIONI
@@ -3455,28 +3304,16 @@ async function triggerBatchPassOnClose(groupId) {
     try {
       const group = await dbGet(`SELECT id FROM assignment_groups WHERE portal_token=?`, [token]);
       if (!group) return res.status(404).json({ error: 'Token non valido' });
-      const { type, category, quantity, notes } = req.body;
+      const { type, quantity, notes } = req.body;
       if (!type) return res.status(400).json({ error: 'Tipo obbligatorio' });
       const edId = _currentEdition ? _currentEdition.id : null;
-      const _qty = parseInt(quantity, 10) || 1;
       await dbRun(
         `INSERT INTO service_requests (assignment_group_id, service_type, quantity, notes, edition_id)
          VALUES (?,?,?,?,?)`,
-        [group.id, type, _qty, notes || null, edId]
+        [group.id, type, parseInt(quantity, 10) || 1, notes || null, edId]
       );
-      // FIX: sync → scheda Materiali + resoconto fabbisogni (con category corretta)
-      try {
-        await dbRun(
-          `INSERT INTO group_material_requests
-             (assignment_group_id, category, item_name, quantity, notes, status, source, edition_id)
-           VALUES (?,?,?,?,?,?,?,?)`,
-          [group.id, category || null, type, _qty, notes || null, 'in_attesa', 'portale', edId]
-        );
-      } catch(eSyncMat) {
-        console.warn('[portale] sync group_material_requests:', eSyncMat.message);
-      }
       createNotification('service', 'Nuova richiesta servizio',
-        `Richiesta <strong>${type}</strong> (x${_qty}) da gruppo ID ${group.id}.`, null, null);
+        `Richiesta <strong>${type}</strong> (x${quantity||1}) da gruppo ID ${group.id}.`, null, null);
       res.json({ ok: true });
     } catch(err) {
       console.error('Errore richiesta servizio portale:', err);
@@ -3785,9 +3622,6 @@ async function triggerBatchPassOnClose(groupId) {
       }
       // ── Fine CRM ─────────────────────────────────────────────
 
-      // FIX: categorie logistiche per form servizi dinamico
-      const _logCats = await dbAll('SELECT * FROM logistic_categories ORDER BY sort_order, label').catch(() => []);
-
       res.render('portale', {
         group,
         parts:        parts       || [],
@@ -3801,7 +3635,6 @@ async function triggerBatchPassOnClose(groupId) {
         mapRefH:      (refHRow && refHRow.value) ? parseInt(refHRow.value,10) : null,
         portalDocs:   portalDocs  || [],
         tickets:      ticketsRaw  || [],
-        logisticCategories: _logCats || [],
       });
     } catch(err) {
       console.error('Errore GET /portale/:token:', err);
@@ -3843,7 +3676,7 @@ async function triggerBatchPassOnClose(groupId) {
   });
 
   app.get('/mappa', requireAuth, function(req, res) {
-    db.all('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name', [], function(err, zones) {
+    db.all('SELECT * FROM zones ORDER BY sort_order, name', [], function(err, zones) {
       if (err) return res.status(500).send('Errore DB');
       db.all(`SELECT ag.id, ag.name AS stand_name, ag.stand_name AS stand_loc, ag.stand_code,
                 ag.zone, ag.map_x, ag.map_y, ag.map_w, ag.map_h, ag.map_shape,
@@ -4550,129 +4383,6 @@ app.get('/search', requireAuth, (req, res) => {
       }
       res.redirect('/admin/settings#utenti');
     });
-  });
-
-
-  // ── Gestione Materiali per Gruppo ────────────────────────────────────
-
-  app.get('/assignment-groups/:id/materiali', requireAuth, async (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    try {
-      const [group, materials] = await Promise.all([
-        dbGet(`SELECT ag.id, ag.name, ag.zone, ag.stand_code, ag.stand_name, g.name AS category_name
-               FROM assignment_groups ag JOIN groups g ON g.id=ag.group_id WHERE ag.id=?`, [id]),
-        dbAll(`SELECT * FROM group_material_requests WHERE assignment_group_id=? ORDER BY category, item_name, id`, [id])
-      ]);
-      if (!group) return res.status(404).send('Gruppo non trovato');
-      res.render('group-materiali', { group, materials, MATERIAL_CATALOG, saved: req.query.saved || null, currentUser: req.session.user });
-    } catch(err) {
-      console.error('GMR GET:', err.message);
-      res.status(500).send('Errore: ' + err.message);
-    }
-  });
-
-  app.post('/assignment-groups/:id/materiali', requireAuth, requireNotViewer, async (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    const { category, item_name, item_name_custom, subcategory, quantity, notes } = req.body;
-    const finalItem = (item_name === 'custom' ? item_name_custom : item_name)?.trim();
-    if (!finalItem) return res.redirect(`/assignment-groups/${id}/materiali?saved=err`);
-    const edId = (_currentEdition) ? _currentEdition.id : null;
-    try {
-      await dbRun(
-        `INSERT INTO group_material_requests (assignment_group_id, category, item_name, subcategory, quantity, notes, source, edition_id)
-         VALUES (?,?,?,?,?,?,?,?)`,
-        [id, category||'altro', finalItem, subcategory||null, parseInt(quantity,10)||1, notes||null, 'admin', edId]
-      );
-      logAction(req.session.user.id, 'create_gmr', 'group_material_request', id, `Materiale ${finalItem} x${quantity||1} aggiunto al gruppo ${id}`);
-      res.redirect(`/assignment-groups/${id}/materiali?saved=ok`);
-    } catch(err) {
-      console.error('GMR POST:', err.message);
-      res.redirect(`/assignment-groups/${id}/materiali?saved=err`);
-    }
-  });
-
-  app.post('/assignment-groups/:id/materiali/:rid/status', requireAuth, requireNotViewer, async (req, res) => {
-    const rid = parseInt(req.params.rid, 10);
-    const { status, confirmed_qty, delivered_qty } = req.body;
-    try {
-      await dbRun(
-        `UPDATE group_material_requests SET status=?, confirmed_qty=?, delivered_qty=?, updated_at=datetime('now','localtime') WHERE id=?`,
-        [status||'richiesto', parseInt(confirmed_qty,10)||0, parseInt(delivered_qty,10)||0, rid]
-      );
-      res.json({ ok: true });
-    } catch(err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.delete('/assignment-groups/:id/materiali/:rid', requireAuth, requireNotViewer, async (req, res) => {
-    const rid = parseInt(req.params.rid, 10);
-    try {
-      await dbRun(`DELETE FROM group_material_requests WHERE id=?`, [rid]);
-      logAction(req.session.user.id, 'delete_gmr', 'group_material_request', rid, `Richiesta materiale ${rid} eliminata`);
-      res.json({ ok: true });
-    } catch(err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // ── Resoconto Fabbisogni Logistica ────────────────────────────────────
-
-  app.get('/admin/logistica/resoconto', requireAuth, requireOrganizer, async (req, res) => {
-    try {
-      const [byItem, byGroup, inventory] = await Promise.all([
-        dbAll(`SELECT category, item_name, subcategory,
-                      COUNT(DISTINCT assignment_group_id) AS num_groups,
-                      SUM(quantity)       AS tot_requested,
-                      SUM(confirmed_qty)  AS tot_confirmed,
-                      SUM(delivered_qty)  AS tot_delivered
-               FROM group_material_requests
-               GROUP BY category, item_name, subcategory
-               ORDER BY category, item_name`),
-        dbAll(`SELECT ag.id, ag.name AS group_name, ag.zone, ag.stand_code,
-                      COUNT(gmr.id)           AS num_items,
-                      SUM(gmr.quantity)       AS tot_requested,
-                      SUM(gmr.confirmed_qty)  AS tot_confirmed,
-                      GROUP_CONCAT(gmr.item_name||' x'||gmr.quantity, ', ') AS sommario
-               FROM assignment_groups ag
-               JOIN group_material_requests gmr ON gmr.assignment_group_id=ag.id
-               GROUP BY ag.id ORDER BY ag.name`),
-        dbAll(`SELECT name, category, total_qty FROM equipment ORDER BY category, name`)
-      ]);
-      const kpi = {
-        num_gruppi:    byGroup.length,
-        tot_richieste: byItem.reduce((s,r) => s+(r.tot_requested||0), 0),
-        tot_confermate:byItem.reduce((s,r) => s+(r.tot_confirmed||0), 0),
-        tot_consegnate:byItem.reduce((s,r) => s+(r.tot_delivered||0), 0),
-      };
-      res.render('logistica-resoconto', { byItem, byGroup, inventory, kpi, MATERIAL_CATALOG });
-    } catch(err) {
-      console.error('Resoconto GET:', err.message);
-      res.status(500).send('Errore: ' + err.message);
-    }
-  });
-
-  app.get('/admin/logistica/resoconto/export.csv', requireAuth, requireOrganizer, async (req, res) => {
-    try {
-      const rows = await dbAll(`
-        SELECT ag.name AS gruppo, ag.zone AS zona, ag.stand_code AS stand,
-               gmr.category AS categoria, gmr.item_name AS articolo, gmr.subcategory AS sottocategoria,
-               gmr.quantity AS richiesti, gmr.confirmed_qty AS confermati, gmr.delivered_qty AS consegnati,
-               gmr.status AS stato, gmr.notes AS note, gmr.created_at AS data_richiesta
-        FROM group_material_requests gmr
-        JOIN assignment_groups ag ON ag.id=gmr.assignment_group_id
-        ORDER BY ag.name, gmr.category, gmr.item_name`);
-      const esc = v => '"'+String(v||'').replace(/"/g,'""')+'"';
-      const hdr = 'Gruppo,Zona,Stand,Categoria,Articolo,Sottocategoria,Richiesti,Confermati,Consegnati,Stato,Note,Data';
-      const body = rows.map(r => [r.gruppo,r.zona,r.stand,r.categoria,r.articolo,
-        r.sottocategoria,r.richiesti,r.confermati||0,r.consegnati||0,
-        r.stato,r.note||'',r.data_richiesta?r.data_richiesta.substring(0,16):''].map(esc).join(',')).join('\n');
-      res.setHeader('Content-Type','text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition','attachment; filename=fabbisogni-logistica.csv');
-      res.send(hdr+'\n'+body);
-    } catch(err) {
-      res.status(500).send('Errore export: '+err.message);
-    }
   });
 
   app.get('/admin/logs', requireAdmin, (req, res) => {
