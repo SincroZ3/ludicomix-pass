@@ -1592,7 +1592,7 @@ function addNominativo(e) {
   btn.disabled = true; btn.textContent = "Salvataggio...";
   msg.textContent = ''; msg.className = 'form-msg';
 
-  fetch('/api/portale/' + token + '/participants', {
+  fetch('/api/portale/' + window.__SRV_TOKEN + '/participants', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ first_name: fn, last_name: ln, role: role })
@@ -1640,7 +1640,7 @@ function removeNominativo(pid, btnEl) {
   if (msgEl) { msgEl.style.display = 'none'; }
   btnEl.disabled = true;
 
-  fetch('/api/portale/' + token + '/participants/' + pid + '/delete', { method: 'POST' })
+  fetch('/api/portale/' + window.__SRV_TOKEN + '/participants/' + pid + '/delete', { method: 'POST' })
   .then(function(r){ return r.json().then(function(d){ return {ok:r.ok,data:d}; }); })
   .then(function(result) {
     if (!result.ok) {
