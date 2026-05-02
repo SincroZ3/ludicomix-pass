@@ -3631,6 +3631,64 @@ async function triggerBatchPassOnClose(groupId) {
     }
   });
 
+
+  // POST /api/portale/:token/participants — aggiunge nominativo dal portale espositore
+  app.post('/api/portale/:token/participants', async (req, res) => {
+    const token = req.params.token;
+    const { first_name, last_name, role } = req.body;
+    if (!first_name || !last_name) return res.status(400).json({ error: 'Nome e cognome obbligatori' });
+    try {
+      const group = await dbGet(
+        'SELECT id, max_passes FROM assignment_groups WHERE portal_token=? AND portal_enabled=1', [token]
+      );
+      if (!group) return res.status(404).json({ error: 'Portale non disponibile' });
+      if (group.max_passes != null) {
+        const cnt = await dbGet('SELECT COUNT(*) AS c FROM participants WHERE assignment_group_id=?', [group.id]);
+        if (cnt && cnt.c >= group.max_passes) return res.status(400).json({ error: 'Limite massimo di pass raggiunto' });
+      }
+      const dup = await dbGet(
+        'SELECT id FROM participants WHERE LOWER(first_name)=? AND LOWER(last_name)=? AND assignment_group_id=?',
+        [first_name.toLowerCase(), last_name.toLowerCase(), group.id]
+      );
+      if (dup) return res.status(409).json({ error: 'Nominativo già presente' });
+      const result = await dbRun(
+        'INSERT INTO participants (first_name, last_name, role, assignment_group_id) VALUES (?,?,?,?)',
+        [first_name.trim(), last_name.trim(), role || null, group.id]
+      );
+      logAction(null, 'portal_add_participant', 'participant', result.lastID,
+        'Nominativo aggiunto dal portale: ' + first_name + ' ' + last_name);
+      res.json({ ok: true, id: result.lastID });
+    } catch(err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/portale/:token/participants/:pid/delete — rimuove nominativo dal portale espositore
+  app.post('/api/portale/:token/participants/:pid/delete', async (req, res) => {
+    const token = req.params.token;
+    const pid = parseInt(req.params.pid, 10);
+    try {
+      const group = await dbGet(
+        'SELECT id FROM assignment_groups WHERE portal_token=? AND portal_enabled=1', [token]
+      );
+      if (!group) return res.status(404).json({ error: 'Portale non disponibile' });
+      const part = await dbGet(
+        'SELECT id FROM participants WHERE id=? AND assignment_group_id=?', [pid, group.id]
+      );
+      if (!part) return res.status(404).json({ error: 'Nominativo non trovato' });
+      const hasPass = await dbGet(
+        "SELECT id FROM passes WHERE participant_id=? AND status!='INVALIDATO' LIMIT 1", [pid]
+      );
+      if (hasPass) return res.status(400).json({ error: 'Impossibile rimuovere: il nominativo ha già un pass assegnato' });
+      await dbRun('DELETE FROM participants WHERE id=?', [pid]);
+      logAction(null, 'portal_remove_participant', 'participant', pid,
+        'Nominativo rimosso dal portale (token: ' + token + ')');
+      res.json({ ok: true });
+    } catch(err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // GET /api/portale/:token/unread — badge count per polling JS
   app.get('/api/portale/:token/unread', async (req, res) => {
     const token = req.params.token;
