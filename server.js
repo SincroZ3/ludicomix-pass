@@ -46,6 +46,17 @@ refreshCurrentEdition();
     }
   });
 });
+
+// ── Migration: aggiungi zone_scope a zones se non esiste ─────────────
+db.run("ALTER TABLE zones ADD COLUMN zone_scope TEXT DEFAULT 'internal'", function(err) {
+  if (err && !err.message.includes('duplicate column')) {
+    console.warn('Migration zone_scope:', err.message);
+  } else {
+    db.run("UPDATE zones SET zone_scope='internal' WHERE zone_scope IS NULL", function(e2) {
+      if (e2) console.warn('Migration zone_scope UPDATE:', e2.message);
+    });
+  }
+});
 // ── Catalogo categorie materiali logistici ─────────────────────────────
 const MATERIAL_CATALOG = {
   corrente:     { label: 'Corrente',   icon: '⚡' },
@@ -2662,6 +2673,17 @@ async function triggerBatchPassOnClose(groupId) {
     );
   });
 
+  app.post('/admin/zones/:id/set-scope', requireAuth, requireOrganizer, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { zone_scope } = req.body;
+    const validScopes = ['internal', 'public', 'both'];
+    if (!validScopes.includes(zone_scope)) return res.status(400).send('Scope non valido');
+    db.run('UPDATE zones SET zone_scope=? WHERE id=?', [zone_scope, id], function(err) {
+      if (err) return res.status(500).send('Errore aggiornamento scope');
+      res.redirect('/admin/zone-manager?flash=Scope+aggiornato');
+    });
+  });
+
   app.post('/admin/zones/:id/edit', requireAuth, requireAdmin, (req, res) => {
     const id = parseInt(req.params.id, 10);
     const { name, sort_order } = req.body;
@@ -2691,10 +2713,14 @@ async function triggerBatchPassOnClose(groupId) {
   // -------- Gestione Mappa Pubblica --------
 
   app.get('/admin/zone-manager', requireAuth, requireOrganizer, (req, res) => {
-    db.all("SELECT * FROM zones WHERE zone_scope = 'public' ORDER BY sort_order, name", [], (err, zones) => {
-      if (err) return res.status(500).send('Errore DB zone mappa pubblica');
-      res.render('admin_map', { zones: zones || [], flash: req.query.flash || null });
-    });
+    db.all(
+      "SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope='internal') ORDER BY sort_order, name",
+      [],
+      (err, zones) => {
+        if (err) return res.status(500).send('Errore DB zone');
+        res.render('zone_manager', { zones: zones || [], flash: req.query.flash || null, currentUser: req.session.user });
+      }
+    );
   });
 
   app.post('/admin/mappa-pubblica/zone/new', requireAuth, requireOrganizer, (req, res) => {

@@ -1,9 +1,5 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Zone Manager — Ludicomix</title>
+<%- include('partials/header') %>
+
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,Segoe UI,Arial,sans-serif;font-size:14px;background:#f4f6f9;color:#1a2744}
@@ -49,8 +45,10 @@ body{font-family:-apple-system,Segoe UI,Arial,sans-serif;font-size:14px;backgrou
 .filter-btn.active{border-color:#1e2d4e;background:#1e2d4e;color:#fff}
 .edit-input{padding:.25rem .45rem;border:1px solid #d1d9e6;border-radius:5px;font-size:.78rem;color:#1a2744}
 </style>
-</head>
-<body>
+
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> &rsaquo; <a href="/admin/hub">Admin Hub</a> &rsaquo; <strong>Zone / Padiglioni</strong></nav>
+
+
 
 <div class="header">
   <h1>&#128194; Zone Manager</h1>
@@ -238,5 +236,6 @@ setTimeout(function() {
   if (f) { f.style.transition = 'opacity .4s'; f.style.opacity = 0; setTimeout(function(){ f.remove(); }, 400); }
 }, 4000);
 </script>
-</body>
-</html>
+
+
+<%- include('partials/footer') %>
