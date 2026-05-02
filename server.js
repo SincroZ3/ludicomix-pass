@@ -2714,7 +2714,7 @@ async function triggerBatchPassOnClose(groupId) {
 
   app.get('/admin/zone-manager', requireAuth, requireOrganizer, (req, res) => {
     db.all(
-      "SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope='internal') ORDER BY sort_order, name",
+      'SELECT * FROM zones ORDER BY sort_order, name',
       [],
       (err, zones) => {
         if (err) return res.status(500).send('Errore DB zone');
