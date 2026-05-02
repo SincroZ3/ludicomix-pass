@@ -32,6 +32,15 @@ function edFilter() {
 }
 function edVal() { return _currentEdition ? _currentEdition.id : null; }
 refreshCurrentEdition();
+
+// ── Migration: aggiungi colonne sezioni portale se non esistono ──────
+['portal_nom_enabled','portal_docs_enabled','portal_service_enabled'].forEach(function(col) {
+  db.run('ALTER TABLE assignment_groups ADD COLUMN ' + col + ' INTEGER NOT NULL DEFAULT 1', function(err) {
+    if (err && !err.message.includes('duplicate column')) {
+      console.warn('Migration ' + col + ':', err.message);
+    }
+  });
+});
 // ── Catalogo categorie materiali logistici ─────────────────────────────
 const MATERIAL_CATALOG = {
   corrente:     { label: 'Corrente',   icon: '⚡' },
@@ -2951,6 +2960,40 @@ async function triggerBatchPassOnClose(groupId) {
   app.post('/admin/groups/:id/portal/token',requireAuth,requireNotViewer,function(req,res){var id=parseInt(req.params.id,10),token=require('crypto').randomBytes(24).toString('hex');db.run('UPDATE assignment_groups SET portal_token=?,portal_enabled=1 WHERE id=?',[token,id],function(err){if(err)return res.status(500).json({error:err.message});res.json({token});});});
   app.post('/admin/groups/:id/portal/toggle',requireAuth,requireNotViewer,function(req,res){var id=parseInt(req.params.id,10);db.get('SELECT portal_enabled FROM assignment_groups WHERE id=?',[id],function(e,row){if(!row)return res.status(404).json({error:'not found'});var v=row.portal_enabled?0:1;db.run('UPDATE assignment_groups SET portal_enabled=? WHERE id=?',[v,id],function(){res.json({enabled:v});});});});
 
+
+  // ── Toggle sezioni portale: nominativi, docs, servizi ──────────────
+  app.post('/admin/groups/:id/portal/nom-toggle', requireAuth, requireNotViewer, function(req, res) {
+    var id = parseInt(req.params.id, 10);
+    db.get('SELECT portal_nom_enabled FROM assignment_groups WHERE id=?', [id], function(e, row) {
+      if (!row) return res.status(404).json({ error: 'not found' });
+      var v = row.portal_nom_enabled ? 0 : 1;
+      db.run('UPDATE assignment_groups SET portal_nom_enabled=? WHERE id=?', [v, id], function() {
+        res.json({ enabled: v });
+      });
+    });
+  });
+
+  app.post('/admin/groups/:id/portal/docs-toggle', requireAuth, requireNotViewer, function(req, res) {
+    var id = parseInt(req.params.id, 10);
+    db.get('SELECT portal_docs_enabled FROM assignment_groups WHERE id=?', [id], function(e, row) {
+      if (!row) return res.status(404).json({ error: 'not found' });
+      var v = row.portal_docs_enabled ? 0 : 1;
+      db.run('UPDATE assignment_groups SET portal_docs_enabled=? WHERE id=?', [v, id], function() {
+        res.json({ enabled: v });
+      });
+    });
+  });
+
+  app.post('/admin/groups/:id/portal/service-toggle', requireAuth, requireNotViewer, function(req, res) {
+    var id = parseInt(req.params.id, 10);
+    db.get('SELECT portal_service_enabled FROM assignment_groups WHERE id=?', [id], function(e, row) {
+      if (!row) return res.status(404).json({ error: 'not found' });
+      var v = row.portal_service_enabled ? 0 : 1;
+      db.run('UPDATE assignment_groups SET portal_service_enabled=? WHERE id=?', [v, id], function() {
+        res.json({ enabled: v });
+      });
+    });
+  });
   // ═══════════════════════════════════════════════════════════════
   // BACHECA COMUNICAZIONI
   // ═══════════════════════════════════════════════════════════════
