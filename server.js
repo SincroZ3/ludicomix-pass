@@ -35,9 +35,14 @@ refreshCurrentEdition();
 
 // ── Migration: aggiungi colonne sezioni portale se non esistono ──────
 ['portal_nom_enabled','portal_docs_enabled','portal_service_enabled'].forEach(function(col) {
-  db.run('ALTER TABLE assignment_groups ADD COLUMN ' + col + ' INTEGER NOT NULL DEFAULT 1', function(err) {
+  db.run('ALTER TABLE assignment_groups ADD COLUMN ' + col + ' INTEGER DEFAULT 1', function(err) {
     if (err && !err.message.includes('duplicate column')) {
       console.warn('Migration ' + col + ':', err.message);
+    } else {
+      // Aggiorna record esistenti che hanno NULL (SQLite non aggiorna esistenti con ALTER)
+      db.run('UPDATE assignment_groups SET ' + col + '=1 WHERE ' + col + ' IS NULL', function(e2) {
+        if (e2) console.warn('Migration UPDATE ' + col + ':', e2.message);
+      });
     }
   });
 });
