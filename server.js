@@ -5178,7 +5178,13 @@ app.get('/search', requireAuth, (req, res) => {
   });
 
   // GET — dashboard admin
-  app.get('/admin/accreditamento', requireAuth, requireOrganizer, async (req, res) => {
+  
+// ── Admin Hub ─────────────────────────────────────────────────────────
+app.get('/admin/hub', requireAuth, requireOrganizer, function(req, res) {
+  res.render('admin_hub', { currentUser: req.session.user });
+});
+
+app.get('/admin/accreditamento', requireAuth, requireOrganizer, async (req, res) => {
     try {
       const requests = await dbAll(
         `SELECT ar.*, u.username AS reviewer_name
