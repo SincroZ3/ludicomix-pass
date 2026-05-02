@@ -107,6 +107,15 @@ function checkGroupLimit(gid){
 
   const crmRoutes   = require('./routes/crm');
 const agendaRoutes = require('./agenda_routes');
+
+// ── Migration: map_rot per rotazione poligoni mappa stand ──────────────────
+db.run("ALTER TABLE assignment_groups ADD COLUMN map_rot REAL DEFAULT 0", function(err) {
+  if (err && !err.message.includes('duplicate column')) {
+    console.warn('[Migration] map_rot:', err.message);
+  }
+});
+// ─────────────────────────────────────────────────────────────────────────────
+
 const app = express();
   const PORT = process.env.PORT || 8080;
 
@@ -521,7 +530,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], pending: pending||[], shifts: shifts||[], zones: zones||[] });
     } catch (err) {
@@ -696,7 +705,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], pending: pending||[], shifts: shifts||[], zones: zones||[] });
     } catch (err) {
@@ -847,7 +856,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
@@ -1046,7 +1055,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
@@ -1318,7 +1327,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
@@ -2574,7 +2583,7 @@ async function triggerBatchPassOnClose(groupId) {
                FROM groups g LEFT JOIN pass_types pt ON pt.id = g.pass_type_id
                ORDER BY g.priority ASC, g.name ASC`),
         dbAll('SELECT * FROM pass_types ORDER BY id DESC'),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\') ORDER BY sort_order, name'),
+        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name'),
         dbAll('SELECT id, username, role, created_at FROM users ORDER BY username ASC'),
         dbAll("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'"),
         dbAll('SELECT sa.*, u.username FROM scan_attempts sa LEFT JOIN users u ON u.id=sa.user_id ORDER BY sa.id DESC LIMIT 500'),
@@ -3843,7 +3852,7 @@ async function triggerBatchPassOnClose(groupId) {
     db.all('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\') ORDER BY sort_order, name', [], function(err, zones) {
       if (err) return res.status(500).send('Errore DB');
       db.all(`SELECT ag.id, ag.name AS stand_name, ag.stand_name AS stand_loc, ag.stand_code,
-                ag.zone, ag.map_x, ag.map_y, ag.map_w, ag.map_h, ag.map_shape,
+                ag.zone, ag.map_x, ag.map_y, ag.map_w, ag.map_h, ag.map_shape, ag.map_rot,
                 ag.max_passes, ag.notes,
                 COUNT(CASE WHEN p.status!='INVALIDATO' THEN 1 END) AS pass_count,
                 SUM(CASE WHEN p.status IN('CONSEGNATO','RICONSEGNATO') THEN 1 ELSE 0 END) AS consegnati
@@ -3899,6 +3908,7 @@ async function triggerBatchPassOnClose(groupId) {
     var w = (req.body.map_w !== '' && req.body.map_w != null) ? parseFloat(req.body.map_w) : null;
     var h = (req.body.map_h !== '' && req.body.map_h != null) ? parseFloat(req.body.map_h) : null;
     var shape = (req.body.map_shape && req.body.map_shape.trim()) ? req.body.map_shape.trim() : null;
+    var rot = (req.body.map_rot !== undefined && req.body.map_rot !== '') ? parseFloat(req.body.map_rot) : null;
     var refW = (req.body.ref_w && !isNaN(parseInt(req.body.ref_w,10))) ? parseInt(req.body.ref_w,10) : null;
     var refH = (req.body.ref_h && !isNaN(parseInt(req.body.ref_h,10))) ? parseInt(req.body.ref_h,10) : null;
     var fields = 'map_x=?, map_y=?';
@@ -3906,6 +3916,7 @@ async function triggerBatchPassOnClose(groupId) {
     if (w !== null) { fields += ', map_w=?'; params.push(w); }
     if (h !== null) { fields += ', map_h=?'; params.push(h); }
     if (req.body.map_shape !== undefined) { fields += ', map_shape=?'; params.push(shape); }
+    if (rot !== null) { fields += ', map_rot=?'; params.push(rot); }
     params.push(id);
     db.run('UPDATE assignment_groups SET ' + fields + ' WHERE id=?', params, function(err) {
       if (err) return res.json({ ok: false, error: err.message });

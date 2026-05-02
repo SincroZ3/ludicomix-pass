@@ -167,6 +167,8 @@ var noZoneGroups=groups.filter(function(g){return !g.zone||zoneNames.indexOf(g.z
           var _gw=g.map_w||8; var _gh=g.map_h||5; var _gs=g.map_shape||null;
           var _bs='left:'+g.map_x.toFixed(2)+'%;top:'+g.map_y.toFixed(2)+'%;background:'+sc(g)+';width:'+_gw+'%;height:'+_gh+'%;';
           if(_gs){try{var _sp=JSON.parse(_gs);_bs+='clip-path:polygon('+_sp.map(function(p){return p[0]+'% '+p[1]+'%';}).join(',')+')';}catch(e){}}
+          var _gr=g.map_rot||0;
+          if(_gr){_bs+='transform:translate(-50%,-50%) rotate('+_gr+'deg);';}
           %>
         <div class="stand-box" id="sbox-<%=g.id%>" data-gid="<%=g.id%>"
              data-name="<%=g.stand_name%>"
@@ -175,6 +177,7 @@ var noZoneGroups=groups.filter(function(g){return !g.zone||zoneNames.indexOf(g.z
              data-pc="<%=g.pass_count||0%>" data-cs="<%=g.consegnati||0%>"
              data-mp="<%=g.max_passes||''%>"
              data-mw="<%=_gw%>" data-mh="<%=_gh%>"
+             data-rot="<%=_gr%>"
              <%if(g.notes){%>data-notes="<%=g.notes.replace(/"/g,'&quot;').replace(/\n/g,'&#10;')%>"<%}%>
              style="<%=_bs%>"
              onclick="openStandPopup(event,this)"
@@ -336,6 +339,9 @@ function _mkBox(g,x,y,zid){
   box.draggable=true;
   var sty='left:'+x.toFixed(2)+'%;top:'+y.toFixed(2)+'%;background:'+gColor(g)+';width:'+gw+'%;height:'+gh+'%;';
   if(g.map_shape){try{var sp=JSON.parse(g.map_shape);sty+='clip-path:polygon('+sp.map(function(p){return p[0]+'% '+p[1]+'%';}).join(',')+')';}catch(e){}}
+  var _gr=g.map_rot||0;
+  box.setAttribute('data-rot',String(_gr));
+  if(_gr){sty+='transform:translate(-50%,-50%) rotate('+_gr+'deg);';}
   box.style.cssText=sty;
   var nHtml=g.notes?'<span class="note-icon" onclick="event.stopPropagation();openNoteModal(event,\''+_ea(g.stand_name)+'\',\''+_ea(g.notes)+'\')">&#128221;</span>':'';
   box.innerHTML=nHtml+'<div class="sn">'+(g.stand_name||'')+'</div><div class="sp">'+(g.consegnati||0)+'/'+(g.pass_count||0)+'</div>';
