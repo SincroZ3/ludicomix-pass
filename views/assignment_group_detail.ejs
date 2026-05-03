@@ -124,11 +124,25 @@
 </details>
 <% } else { %>
 <details style="margin-bottom:1rem;">
-  <summary style="cursor:pointer;font-weight:700;font-size:0.85rem;color:var(--accent-blue);padding:0.4rem 0;">&#9999;&#65039; Rinomina gruppo</summary>
+  <summary style="cursor:pointer;font-weight:700;font-size:0.85rem;color:var(--accent-blue);padding:0.4rem 0;">&#9999;&#65039; Modifica dati gruppo</summary>
   <div class="card" style="margin-top:0.5rem;">
     <form method="post" action="/assignment-groups/<%= groupInfo.id %>/edit" style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem 1rem;">
       <label style="grid-column:1/-1;">Nome gruppo <span style="color:#c0392b">*</span><br>
         <input type="text" name="name" value="<%= groupInfo.name %>" required>
+      </label>
+      <label>Zona / Padiglione<br>
+        <select name="zone">
+          <option value="">&#8212; Nessuna &#8212;</option>
+          <% (typeof zones !== 'undefined' ? zones : []).forEach(function(z){ %>
+            <option value="<%= z.name %>" <%= groupInfo.zone === z.name ? 'selected' : '' %>><%= z.name %></option>
+          <% }); %>
+          <% if (groupInfo.zone && groupInfo.zone.trim() && (typeof zones === 'undefined' || !zones.find(function(z){ return z.name === groupInfo.zone; }))) { %>
+            <option value="<%= groupInfo.zone %>" selected><%= groupInfo.zone %> (legacy)</option>
+          <% } %>
+        </select>
+      </label>
+      <label>Codice stand<br>
+        <input type="text" name="stand_code" value="<%= groupInfo.stand_code || '' %>">
       </label>
       <div style="grid-column:1/-1;">
         <button type="submit" class="primary">Salva modifiche</button>

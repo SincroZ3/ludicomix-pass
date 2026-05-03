@@ -32,21 +32,6 @@ function edFilter() {
 }
 function edVal() { return _currentEdition ? _currentEdition.id : null; }
 refreshCurrentEdition();
-
-// ── Migration: aggiungi colonne sezioni portale se non esistono ──────
-['portal_nom_enabled','portal_docs_enabled','portal_service_enabled'].forEach(function(col) {
-  db.run('ALTER TABLE assignment_groups ADD COLUMN ' + col + ' INTEGER DEFAULT 1', function(err) {
-    if (err && !err.message.includes('duplicate column')) {
-      console.warn('Migration ' + col + ':', err.message);
-    } else {
-      // Aggiorna record esistenti che hanno NULL (SQLite non aggiorna esistenti con ALTER)
-      db.run('UPDATE assignment_groups SET ' + col + '=1 WHERE ' + col + ' IS NULL', function(e2) {
-        if (e2) console.warn('Migration UPDATE ' + col + ':', e2.message);
-      });
-    }
-  });
-});
-
 // ── Migration: aggiungi zone_scope a zones se non esiste ─────────────
 db.run("ALTER TABLE zones ADD COLUMN zone_scope TEXT DEFAULT 'internal'", function(err) {
   if (err && !err.message.includes('duplicate column')) {
@@ -107,15 +92,6 @@ function checkGroupLimit(gid){
 
   const crmRoutes   = require('./routes/crm');
 const agendaRoutes = require('./agenda_routes');
-
-// ── Migration: map_rot per rotazione poligoni mappa stand ──────────────────
-db.run("ALTER TABLE assignment_groups ADD COLUMN map_rot REAL DEFAULT 0", function(err) {
-  if (err && !err.message.includes('duplicate column')) {
-    console.warn('[Migration] map_rot:', err.message);
-  }
-});
-// ─────────────────────────────────────────────────────────────────────────────
-
 const app = express();
   const PORT = process.env.PORT || 8080;
 
@@ -530,7 +506,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = 'internal' OR zone_scope = 'both') ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], pending: pending||[], shifts: shifts||[], zones: zones||[] });
     } catch (err) {
@@ -705,7 +681,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = 'internal' OR zone_scope = 'both') ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], pending: pending||[], shifts: shifts||[], zones: zones||[] });
     } catch (err) {
@@ -856,7 +832,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = 'internal' OR zone_scope = 'both') ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
@@ -1055,7 +1031,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = 'internal' OR zone_scope = 'both') ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
@@ -1327,7 +1303,7 @@ app.get('/home', requireAuth, (req, res) => {
                (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
                FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
                ORDER BY s.start_at ASC, s.name ASC`),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name')
+        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = 'internal' OR zone_scope = 'both') ORDER BY sort_order, name')
       ]);
       res.render('volunteers', { volunteers: volunteers||[], shifts: shifts||[], zones: zones||[], pending: pending||[] });
     } catch (err) {
@@ -1618,7 +1594,7 @@ app.get('/home', requireAuth, (req, res) => {
         `;
         db.all(sql, [], (err3, assignmentGroups) => {
           if (err3) return res.status(500).send('Errore DB gruppi assegnatari');
-          db.all('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\') ORDER BY sort_order, name', [], (err4, zones) => {
+          db.all('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = 'internal' OR zone_scope = 'both') ORDER BY sort_order, name', [], (err4, zones) => {
             if (err4) return res.status(500).send('Errore DB zone');
             res.render('participants', { categories, types, assignmentGroups, zones: zones || [] });
           });
@@ -1736,7 +1712,7 @@ app.get('/home', requireAuth, (req, res) => {
           if (err3) return res.status(500).send('Errore DB partecipanti');
           const dupSkipped = req.query.dup_skipped ? parseInt(req.query.dup_skipped, 10) : 0;
         const dupTotal   = req.query.dup_total   ? parseInt(req.query.dup_total,   10) : 0;
-        db.all('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\') ORDER BY sort_order, name', [], (errZ, zones) => {
+        db.all('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = 'internal' OR zone_scope = 'both') ORDER BY sort_order, name', [], (errZ, zones) => {
           const importOk   = req.query.import_ok   ? parseInt(req.query.import_ok,10)   : null;
           const importSkip = req.query.import_skip ? parseInt(req.query.import_skip,10) : null;
           const importErrs = req.query.import_errs ? decodeURIComponent(req.query.import_errs).split('|') : [];
@@ -2583,7 +2559,7 @@ async function triggerBatchPassOnClose(groupId) {
                FROM groups g LEFT JOIN pass_types pt ON pt.id = g.pass_type_id
                ORDER BY g.priority ASC, g.name ASC`),
         dbAll('SELECT * FROM pass_types ORDER BY id DESC'),
-        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\' OR zone_scope = \'both\') ORDER BY sort_order, name'),
+        dbAll('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = 'internal' OR zone_scope = 'both') ORDER BY sort_order, name'),
         dbAll('SELECT id, username, role, created_at FROM users ORDER BY username ASC'),
         dbAll("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'"),
         dbAll('SELECT sa.*, u.username FROM scan_attempts sa LEFT JOIN users u ON u.id=sa.user_id ORDER BY sa.id DESC LIMIT 500'),
@@ -2668,7 +2644,7 @@ async function triggerBatchPassOnClose(groupId) {
     const { name, sort_order } = req.body;
     if (!name || !name.trim()) return res.status(400).send('Nome zona obbligatorio');
     db.run(
-      'INSERT INTO zones (name, sort_order, zone_scope) VALUES (?, ?, \'internal\')',
+      'INSERT INTO zones (name, sort_order) VALUES (?, ?)',
       [name.trim(), parseInt(sort_order || 0, 10)],
       function(err) {
         if (err) {
@@ -2680,17 +2656,6 @@ async function triggerBatchPassOnClose(groupId) {
         res.redirect('/admin/settings#zone');
       }
     );
-  });
-
-  app.post('/admin/zones/:id/set-scope', requireAuth, requireOrganizer, (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    const { zone_scope } = req.body;
-    const validScopes = ['internal', 'public', 'both'];
-    if (!validScopes.includes(zone_scope)) return res.status(400).send('Scope non valido');
-    db.run('UPDATE zones SET zone_scope=? WHERE id=?', [zone_scope, id], function(err) {
-      if (err) return res.status(500).send('Errore aggiornamento scope');
-      res.redirect('/admin/zone-manager?flash=Scope+aggiornato');
-    });
   });
 
   app.post('/admin/zones/:id/edit', requireAuth, requireAdmin, (req, res) => {
@@ -2717,62 +2682,6 @@ async function triggerBatchPassOnClose(groupId) {
     });
   });
 
-
-
-  // -------- Gestione Mappa Pubblica --------
-
-  app.get('/admin/zone-manager', requireAuth, requireOrganizer, (req, res) => {
-    db.all(
-      'SELECT * FROM zones ORDER BY sort_order, name',
-      [],
-      (err, zones) => {
-        if (err) return res.status(500).send('Errore DB zone');
-        res.render('zone_manager', { zones: zones || [], flash: req.query.flash || null, currentUser: req.session.user });
-      }
-    );
-  });
-
-  app.post('/admin/mappa-pubblica/zone/new', requireAuth, requireOrganizer, (req, res) => {
-    const { name, map_label, map_type, map_lat, map_lng, map_zoom, map_desc, map_address, map_tags, map_color, sort_order } = req.body;
-    if (!name || !name.trim()) return res.status(400).send('Nome zona obbligatorio');
-    db.run(
-      "INSERT INTO zones (name, sort_order, map_label, map_type, map_lat, map_lng, map_zoom, map_desc, map_address, map_tags, map_color, map_active, zone_scope) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'public')",
-      [name.trim(), parseInt(sort_order||0,10), map_label||null, map_type||'area',
-       map_lat ? parseFloat(map_lat) : null, map_lng ? parseFloat(map_lng) : null,
-       parseInt(map_zoom||16,10), map_desc||null, map_address||null, map_tags||null, map_color||null],
-      function(err) {
-        if (err) return res.status(500).send('Errore salvataggio zona mappa: ' + err.message);
-        logAction(req.session.user.id, 'create_public_zone', 'zone', this.lastID, 'Creata zona pubblica: ' + name.trim());
-        res.redirect('/admin/zone-manager?flash=created');
-      }
-    );
-  });
-
-  app.post('/admin/mappa-pubblica/zone/:id', requireAuth, requireOrganizer, (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    const action = req.body._action || 'save';
-    if (action === 'delete') {
-      db.run('DELETE FROM zones WHERE id = ? AND zone_scope = \'public\'', [id], function(err) {
-        if (err) return res.status(500).send('Errore eliminazione zona mappa');
-        logAction(req.session.user.id, 'delete_public_zone', 'zone', id, 'Zona mappa pubblica eliminata');
-        res.redirect('/admin/zone-manager?flash=deleted');
-      });
-    } else {
-      const { name, map_label, map_type, map_lat, map_lng, map_zoom, map_desc, map_address, map_tags, map_color, map_active, sort_order } = req.body;
-      db.run(
-        "UPDATE zones SET name=?, sort_order=?, map_label=?, map_type=?, map_lat=?, map_lng=?, map_zoom=?, map_desc=?, map_address=?, map_tags=?, map_color=?, map_active=? WHERE id=? AND zone_scope='public'",
-        [name, parseInt(sort_order||0,10), map_label||null, map_type||'area',
-         map_lat ? parseFloat(map_lat) : null, map_lng ? parseFloat(map_lng) : null,
-         parseInt(map_zoom||16,10), map_desc||null, map_address||null, map_tags||null,
-         map_color||null, map_active ? 1 : 0, id],
-        function(err) {
-          if (err) return res.status(500).send('Errore aggiornamento zona mappa');
-          logAction(req.session.user.id, 'edit_public_zone', 'zone', id, 'Zona mappa pubblica aggiornata');
-          res.redirect('/admin/zone-manager?flash=saved');
-        }
-      );
-    }
-  });
 
   // -------- Backup & Restore DB --------
 
@@ -3000,40 +2909,6 @@ async function triggerBatchPassOnClose(groupId) {
   app.post('/admin/groups/:id/portal/token',requireAuth,requireNotViewer,function(req,res){var id=parseInt(req.params.id,10),token=require('crypto').randomBytes(24).toString('hex');db.run('UPDATE assignment_groups SET portal_token=?,portal_enabled=1 WHERE id=?',[token,id],function(err){if(err)return res.status(500).json({error:err.message});res.json({token});});});
   app.post('/admin/groups/:id/portal/toggle',requireAuth,requireNotViewer,function(req,res){var id=parseInt(req.params.id,10);db.get('SELECT portal_enabled FROM assignment_groups WHERE id=?',[id],function(e,row){if(!row)return res.status(404).json({error:'not found'});var v=row.portal_enabled?0:1;db.run('UPDATE assignment_groups SET portal_enabled=? WHERE id=?',[v,id],function(){res.json({enabled:v});});});});
 
-
-  // ── Toggle sezioni portale: nominativi, docs, servizi ──────────────
-  app.post('/admin/groups/:id/portal/nom-toggle', requireAuth, requireNotViewer, function(req, res) {
-    var id = parseInt(req.params.id, 10);
-    db.get('SELECT portal_nom_enabled FROM assignment_groups WHERE id=?', [id], function(e, row) {
-      if (!row) return res.status(404).json({ error: 'not found' });
-      var v = row.portal_nom_enabled ? 0 : 1;
-      db.run('UPDATE assignment_groups SET portal_nom_enabled=? WHERE id=?', [v, id], function() {
-        res.json({ enabled: v });
-      });
-    });
-  });
-
-  app.post('/admin/groups/:id/portal/docs-toggle', requireAuth, requireNotViewer, function(req, res) {
-    var id = parseInt(req.params.id, 10);
-    db.get('SELECT portal_docs_enabled FROM assignment_groups WHERE id=?', [id], function(e, row) {
-      if (!row) return res.status(404).json({ error: 'not found' });
-      var v = row.portal_docs_enabled ? 0 : 1;
-      db.run('UPDATE assignment_groups SET portal_docs_enabled=? WHERE id=?', [v, id], function() {
-        res.json({ enabled: v });
-      });
-    });
-  });
-
-  app.post('/admin/groups/:id/portal/service-toggle', requireAuth, requireNotViewer, function(req, res) {
-    var id = parseInt(req.params.id, 10);
-    db.get('SELECT portal_service_enabled FROM assignment_groups WHERE id=?', [id], function(e, row) {
-      if (!row) return res.status(404).json({ error: 'not found' });
-      var v = row.portal_service_enabled ? 0 : 1;
-      db.run('UPDATE assignment_groups SET portal_service_enabled=? WHERE id=?', [v, id], function() {
-        res.json({ enabled: v });
-      });
-    });
-  });
   // ═══════════════════════════════════════════════════════════════
   // BACHECA COMUNICAZIONI
   // ═══════════════════════════════════════════════════════════════
@@ -3502,70 +3377,6 @@ async function triggerBatchPassOnClose(groupId) {
     }
   });
 
-  // POST /api/portale/:token/participants — aggiunge nominativo dal portale
-  app.post('/api/portale/:token/participants', async (req, res) => {
-    const token = req.params.token;
-    const { firstname, lastname, role } = req.body;
-    if (!firstname || !lastname) return res.status(400).json({ error: 'Nome e cognome obbligatori' });
-    try {
-      const group = await dbGet(
-        'SELECT id, max_passes, portal_open_from, portal_open_until FROM assignment_groups WHERE portal_token=? AND portal_enabled=1',
-        [token]
-      );
-      if (!group) return res.status(404).json({ error: 'Portale non disponibile' });
-      const now = new Date().toISOString().slice(0, 16);
-      if (group.portal_open_from && now < group.portal_open_from)
-        return res.status(403).json({ error: 'Portale non ancora aperto' });
-      if (group.portal_open_until && now > group.portal_open_until)
-        return res.status(403).json({ error: 'Finestra inserimento chiusa' });
-      if (group.max_passes !== null) {
-        const cnt = await dbGet('SELECT COUNT(*) AS c FROM participants WHERE assignment_group_id=?', [group.id]);
-        if (cnt && cnt.c >= group.max_passes)
-          return res.status(400).json({ error: 'Limite massimo di pass raggiunto' });
-      }
-      const dup = await dbGet(
-        'SELECT id FROM participants WHERE LOWER(first_name)=? AND LOWER(last_name)=? AND assignment_group_id=?',
-        [firstname.toLowerCase(), lastname.toLowerCase(), group.id]
-      );
-      if (dup) return res.status(409).json({ error: 'Nominativo già presente' });
-      const result = await dbRun(
-        'INSERT INTO participants (first_name, last_name, role, assignment_group_id) VALUES (?,?,?,?)',
-        [firstname.trim(), lastname.trim(), role || null, group.id]
-      );
-      logAction(null, 'portal_add_participant', 'participant', result.lastID,
-        'Nominativo aggiunto dal portale: ' + firstname + ' ' + lastname);
-      res.json({ ok: true, id: result.lastID });
-    } catch(err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // POST /api/portale/:token/participants/:pid/delete — rimuove nominativo dal portale
-  app.post('/api/portale/:token/participants/:pid/delete', async (req, res) => {
-    const token = req.params.token;
-    const pid   = parseInt(req.params.pid, 10);
-    try {
-      const group = await dbGet(
-        'SELECT id FROM assignment_groups WHERE portal_token=? AND portal_enabled=1',
-        [token]
-      );
-      if (!group) return res.status(404).json({ error: 'Portale non disponibile' });
-      const part = await dbGet(
-        'SELECT id FROM participants WHERE id=? AND assignment_group_id=?',
-        [pid, group.id]
-      );
-      if (!part) return res.status(404).json({ error: 'Nominativo non trovato' });
-      const hasPass = await dbGet('SELECT id FROM passes WHERE participant_id=? LIMIT 1', [pid]);
-      if (hasPass) return res.status(400).json({ error: 'Pass già generato, impossibile rimuovere' });
-      await dbRun('DELETE FROM participants WHERE id=?', [pid]);
-      logAction(null, 'portal_delete_participant', 'participant', pid, 'Nominativo rimosso dal portale');
-      res.json({ ok: true });
-    } catch(err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-
   app.get('/admin/bacheca', requireAuth, requireOrganizer, async (req, res) => {
     try {
       const announcements = await dbAll(`
@@ -3711,9 +3522,9 @@ async function triggerBatchPassOnClose(groupId) {
             WHERE ar.announcement_id = a.id AND ar.portal_token = ?
           )
       `, [token, token, token]);
-      res.set('Cache-Control', 'no-store, no-cache, must-revalidate').json({ unread: row ? row.cnt : 0 });
+      res.json({ unread: row ? row.cnt : 0 });
     } catch(err) {
-      res.set('Cache-Control', 'no-store').json({ unread: 0 });
+      res.json({ unread: 0 });
     }
   });
 
@@ -3849,10 +3660,10 @@ async function triggerBatchPassOnClose(groupId) {
   });
 
   app.get('/mappa', requireAuth, function(req, res) {
-    db.all('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = \'internal\') ORDER BY sort_order, name', [], function(err, zones) {
+    db.all('SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope = 'internal' OR zone_scope = 'both') ORDER BY sort_order, name', [], function(err, zones) {
       if (err) return res.status(500).send('Errore DB');
       db.all(`SELECT ag.id, ag.name AS stand_name, ag.stand_name AS stand_loc, ag.stand_code,
-                ag.zone, ag.map_x, ag.map_y, ag.map_w, ag.map_h, ag.map_shape, ag.map_rot,
+                ag.zone, ag.map_x, ag.map_y, ag.map_w, ag.map_h, ag.map_shape,
                 ag.max_passes, ag.notes,
                 COUNT(CASE WHEN p.status!='INVALIDATO' THEN 1 END) AS pass_count,
                 SUM(CASE WHEN p.status IN('CONSEGNATO','RICONSEGNATO') THEN 1 ELSE 0 END) AS consegnati
@@ -3908,7 +3719,6 @@ async function triggerBatchPassOnClose(groupId) {
     var w = (req.body.map_w !== '' && req.body.map_w != null) ? parseFloat(req.body.map_w) : null;
     var h = (req.body.map_h !== '' && req.body.map_h != null) ? parseFloat(req.body.map_h) : null;
     var shape = (req.body.map_shape && req.body.map_shape.trim()) ? req.body.map_shape.trim() : null;
-    var rot = (req.body.map_rot !== undefined && req.body.map_rot !== '') ? parseFloat(req.body.map_rot) : null;
     var refW = (req.body.ref_w && !isNaN(parseInt(req.body.ref_w,10))) ? parseInt(req.body.ref_w,10) : null;
     var refH = (req.body.ref_h && !isNaN(parseInt(req.body.ref_h,10))) ? parseInt(req.body.ref_h,10) : null;
     var fields = 'map_x=?, map_y=?';
@@ -3916,7 +3726,6 @@ async function triggerBatchPassOnClose(groupId) {
     if (w !== null) { fields += ', map_w=?'; params.push(w); }
     if (h !== null) { fields += ', map_h=?'; params.push(h); }
     if (req.body.map_shape !== undefined) { fields += ', map_shape=?'; params.push(shape); }
-    if (rot !== null) { fields += ', map_rot=?'; params.push(rot); }
     params.push(id);
     db.run('UPDATE assignment_groups SET ' + fields + ' WHERE id=?', params, function(err) {
       if (err) return res.json({ ok: false, error: err.message });
@@ -5215,13 +5024,7 @@ app.get('/search', requireAuth, (req, res) => {
   });
 
   // GET — dashboard admin
-  
-// ── Admin Hub ─────────────────────────────────────────────────────────
-app.get('/admin/hub', requireAuth, requireOrganizer, function(req, res) {
-  res.render('admin_hub', { currentUser: req.session.user });
-});
-
-app.get('/admin/accreditamento', requireAuth, requireOrganizer, async (req, res) => {
+  app.get('/admin/accreditamento', requireAuth, requireOrganizer, async (req, res) => {
     try {
       const requests = await dbAll(
         `SELECT ar.*, u.username AS reviewer_name
