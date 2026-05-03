@@ -34,6 +34,7 @@ const registerPortale        = require('./routes/portale');
 const registerParticipants   = require('./routes/participants');
 const registerPasses         = require('./routes/passes');
 const registerVolunteers     = require('./routes/volunteers');
+const registerLogistica      = require('./routes/logistica');
 
 // ── DB helpers ──────────────────────────────────────────────────
 const dbAll = promisify(db.all.bind(db));
@@ -269,6 +270,7 @@ const { generateAutoPass } = require('./routes/auto-passes');
 registerPortale       (app, db, { ...middlewares, triggerBatchPassOnClose });
 registerParticipants  (app, db, { ...middlewares, generateAutoPass, getCurrent });
 registerVolunteers    (app, db, middlewares);
+registerLogistica     (app, db, middlewares);
 
 // ── Auth routes ──────────────────────────────────────────────────
 app.get('/', (req, res) => res.redirect(req.session.user ? '/home' : '/login'));
