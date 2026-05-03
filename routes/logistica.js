@@ -236,10 +236,11 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
 
   app.get('/admin/checklist', requireAuth, requireOrganizer, async (req, res) => {
     try {
-      const templates = await dbAll(`SELECT * FROM checklist_templates ORDER BY phase, sort_order`);
+      const templates = await dbAll(`SELECT * FROM checklist_templates ORDER BY phase, sort_order, title`);
       const items     = await dbAll(`SELECT * FROM checklist_items ORDER BY template_id, sort_order`);
-      const runs      = await dbAll(`SELECT * FROM checklist_runs ORDER BY started_at DESC LIMIT 50`);
-      res.render('admin-checklist', { templates, items, runs, saved: req.query.saved || null });
+      const runs      = await dbAll(`SELECT cr.*, ct.title AS template_title, ct.phase, ct.area FROM checklist_runs cr JOIN checklist_templates ct ON ct.id=cr.template_id ORDER BY cr.started_at DESC LIMIT 50`);
+      const editions  = await dbAll(`SELECT * FROM editions ORDER BY year DESC`);
+      res.render('admin-checklist', { templates, items, runs, editions, saved: req.query.saved || null });
     } catch (err) { res.status(500).send('Errore: ' + err.message); }
   });
 
@@ -371,12 +372,22 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
   // FORNITORI
   // ════════════════════════════════════════════════════════════════
 
+  const MATERIAL_CATALOG = {
+    corrente:        { label: 'Corrente',          icon: '⚡' },
+    gazebo:          { label: 'Gazebo',            icon: '⛺' },
+    tavoli_extra:    { label: 'Tavoli',            icon: '🪑' },
+    sedie_extra:     { label: 'Sedie',             icon: '🪑' },
+    transenne:       { label: 'Transenne',         icon: '🚧' },
+    palchi_incontri: { label: 'Palchi & Incontri', icon: '🎙️' },
+    altro:           { label: 'Altro',             icon: '📦' },
+  };
+
   app.get('/admin/fornitori', requireAuth, requireOrganizer, async (req, res) => {
     try {
       const suppliers = await dbAll(`SELECT * FROM suppliers ORDER BY category, name`);
       const items     = await dbAll(`SELECT * FROM supplier_items ORDER BY supplier_id, created_at DESC`);
       const editions  = await dbAll(`SELECT * FROM editions ORDER BY year DESC`);
-      res.render('admin-fornitori', { suppliers, items, editions, saved: req.query.saved || null });
+      res.render('admin-fornitori', { suppliers, items, editions, MATERIAL_CATALOG, saved: req.query.saved || null });
     } catch (err) { res.status(500).send('Errore: ' + err.message); }
   });
 
