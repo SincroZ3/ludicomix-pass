@@ -190,43 +190,61 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
 
   app.get('/admin/logistica/resoconto', requireAuth, requireOrganizer, async (req, res) => {
     try {
-      const requests = await dbAll(`
-        SELECT sr.*, ag.name AS group_name, ag.zone,
-               pt.name AS pass_type_name
-        FROM service_requests sr
-        LEFT JOIN assignment_groups ag ON ag.id = sr.assignment_group_id
-        LEFT JOIN pass_types pt ON pt.id = ag.group_id
-        ORDER BY ag.zone, ag.name, sr.category
-      `);
-      const materialTypes    = await dbAll(`SELECT * FROM logistic_categories ORDER BY sort_order, label`);
-      const storageLocations = await dbAll(`SELECT * FROM logistic_locations ORDER BY sort_order, label`);
-      res.render('admin-logistica-resoconto', { requests, materialTypes, storageLocations });
+      const [byItem, byGroup, inventory] = await Promise.all([
+        dbAll(`SELECT category, item_name, subcategory,
+                      COUNT(DISTINCT assignment_group_id) AS num_groups,
+                      SUM(quantity)      AS tot_requested,
+                      SUM(confirmed_qty) AS tot_confirmed,
+                      SUM(delivered_qty) AS tot_delivered
+               FROM group_material_requests
+               GROUP BY category, item_name, subcategory
+               ORDER BY category, item_name`),
+        dbAll(`SELECT ag.id, ag.name AS group_name, ag.zone, ag.stand_code,
+                      COUNT(gmr.id)          AS num_items,
+                      SUM(gmr.quantity)      AS tot_requested,
+                      SUM(gmr.confirmed_qty) AS tot_confirmed,
+                      GROUP_CONCAT(gmr.item_name||' x'||gmr.quantity, ', ') AS sommario
+               FROM assignment_groups ag
+               JOIN group_material_requests gmr ON gmr.assignment_group_id=ag.id
+               GROUP BY ag.id ORDER BY ag.name`),
+        dbAll(`SELECT name, category, total_qty FROM equipment ORDER BY category, name`)
+      ]);
+      const materialTypes = await dbAll(`SELECT * FROM logistic_categories ORDER BY sort_order, label`);
+      const MATERIAL_CATALOG = {};
+      materialTypes.forEach(c => { MATERIAL_CATALOG[c.key_name] = { label: c.label, icon: c.icon || '📦' }; });
+      const kpi = {
+        num_gruppi:     byGroup.length,
+        tot_richieste:  byItem.reduce((s, r) => s + (r.tot_requested || 0), 0),
+        tot_confermate: byItem.reduce((s, r) => s + (r.tot_confirmed || 0), 0),
+        tot_consegnate: byItem.reduce((s, r) => s + (r.tot_delivered || 0), 0),
+      };
+      res.render('logistica-resoconto', { byItem, byGroup, inventory, kpi, MATERIAL_CATALOG });
     } catch (err) {
-      console.error('Errore /admin/logistica/resoconto:', err);
-      res.status(500).send('Errore interno');
+      console.error('Resoconto GET:', err.message);
+      res.status(500).send('Errore: ' + err.message);
     }
   });
 
   app.get('/admin/logistica/resoconto/export.csv', requireAuth, requireOrganizer, async (req, res) => {
     try {
       const rows = await dbAll(`
-        SELECT sr.id, ag.name AS gruppo, ag.zone AS zona,
-               sr.category, sr.item, sr.subcategory,
-               sr.quantity, sr.notes, sr.status,
-               sr.requested_at
-        FROM service_requests sr
-        LEFT JOIN assignment_groups ag ON ag.id = sr.assignment_group_id
-        ORDER BY ag.zone, ag.name, sr.category
-      `);
-      const header = 'ID,Gruppo,Zona,Categoria,Articolo,Subcategoria,Quantità,Note,Stato,Data\n';
-      const csv = header + rows.map(r =>
-        [r.id, r.gruppo, r.zona, r.category, r.item, r.subcategory, r.quantity, r.notes, r.status, r.requested_at]
-          .map(v => `"${(v || '').toString().replace(/"/g, '""')}"`)
-          .join(',')
+        SELECT ag.name AS gruppo, ag.zone AS zona, ag.stand_code AS stand,
+               gmr.category AS categoria, gmr.item_name AS articolo, gmr.subcategory AS sottocategoria,
+               gmr.quantity AS richiesti, gmr.confirmed_qty AS confermati, gmr.delivered_qty AS consegnati,
+               gmr.status AS stato, gmr.notes AS note, gmr.created_at AS data_richiesta
+        FROM group_material_requests gmr
+        JOIN assignment_groups ag ON ag.id = gmr.assignment_group_id
+        ORDER BY ag.name, gmr.category, gmr.item_name`);
+      const esc  = v => '"' + String(v || '').replace(/"/g, '""') + '"';
+      const hdr  = 'Gruppo,Zona,Stand,Categoria,Articolo,Sottocategoria,Richiesti,Confermati,Consegnati,Stato,Note,Data';
+      const body = rows.map(r =>
+        [r.gruppo, r.zona, r.stand, r.categoria, r.articolo, r.sottocategoria,
+         r.richiesti, r.confermati || 0, r.consegnati || 0, r.stato, r.note || '',
+         r.data_richiesta ? r.data_richiesta.substring(0, 16) : ''].map(esc).join(',')
       ).join('\n');
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', 'attachment; filename="logistica-resoconto.csv"');
-      res.send(csv);
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename=fabbisogni-logistica.csv');
+      res.send(hdr + '\n' + body);
     } catch (err) { res.status(500).send('Errore export: ' + err.message); }
   });
 
@@ -419,13 +437,29 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
     const uCost    = parseFloat(unit_cost)     || 0;
     const totCost  = parseFloat((qty * uCost).toFixed(2));
     try {
-      await dbRun(
-        `INSERT INTO supplier_items (supplier_id, description, item_type, material_category, quantity, unit_cost, total_cost, notes, edition_id)
-         VALUES (?,?,?,?,?,?,?,?,?)`,
-        [+req.params.id, description.trim(), item_type || 'altro',
-         material_category || null, qty, uCost, totCost,
-         notes || null, edition_id || null]
-      );
+      // Aggiungi material_category se la colonna esiste (migration in server.js)
+      let hasMC = false;
+      try {
+        const cols = await dbAll(`PRAGMA table_info(supplier_items)`);
+        hasMC = cols.some(c => c.name === 'material_category');
+      } catch(_) {}
+
+      if (hasMC) {
+        await dbRun(
+          `INSERT INTO supplier_items (supplier_id, description, item_type, material_category, quantity, unit_cost, total_cost, notes, edition_id)
+           VALUES (?,?,?,?,?,?,?,?,?)`,
+          [+req.params.id, description.trim(), item_type || 'altro',
+           material_category || null, qty, uCost, totCost,
+           notes || null, edition_id || null]
+        );
+      } else {
+        await dbRun(
+          `INSERT INTO supplier_items (supplier_id, description, item_type, quantity, unit_cost, total_cost, notes, edition_id)
+           VALUES (?,?,?,?,?,?,?,?)`,
+          [+req.params.id, description.trim(), item_type || 'altro',
+           qty, uCost, totCost, notes || null, edition_id || null]
+        );
+      }
       logAction(req.session.user.id, 'create_supplier_item', 'supplier_item', null, `Voce fornitore #${req.params.id}: ${description.trim()}`);
       res.redirect('/admin/fornitori?saved=ok');
     } catch (err) {
