@@ -32,6 +32,7 @@
   <button type="button" class="crm-tab" data-tab="pagamenti" onclick="crmTab('pagamenti',this)">💳 Pagamenti<% if(typeof payments!=='undefined'&&payments.length){ %><% var _scad=payments.filter(function(p){return p.status==='scaduto';}).length; %><% if(_scad){ %> <span class="crm-badge crm-badge-danger"><%= _scad %> ⚠</span><% }else{ %> <span class="crm-badge"><%= payments.length %></span><% } %><% } %></button>
   <button type="button" class="crm-tab" data-tab="fiscale" onclick="crmTab('fiscale',this)">🧾 Dati Fiscali</button>
   <button type="button" class="crm-tab" data-tab="documenti" onclick="crmTab('documenti',this)">📁 Documenti<% if(typeof groupDocs!=='undefined'&&groupDocs.length){ %> <span class="crm-badge"><%= groupDocs.length %></span><% } %></button>
+  <button type="button" class="crm-tab" data-tab="materiali" onclick="crmTab('materiali',this)">🏗️ Materiali<% if(typeof materials!=='undefined'&&materials.length){ %> <span class="crm-badge"><%= materials.length %></span><% } %></button>
 <% } %>
 <% } %>
 </div>
@@ -1339,8 +1340,125 @@ function maronnoForza() {
 </div>
 <% } %>
 </div><!-- /tab-documenti -->
+
+<div id="tab-materiali" class="crm-panel">
+  <div style="margin-bottom:1rem">
+    <h3 style="font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700;margin:0 0 1rem">Aggiungi materiale</h3>
+    <form method="POST" action="/assignment-groups/<%= groupInfo.id %>/materiali">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.8rem">
+        <div>
+          <label style="display:block;font-size:.75rem;font-weight:600;color:#64748b;margin-bottom:.25rem">Categoria</label>
+          <select name="category" required style="width:100%;padding:.4rem .6rem;border:1.5px solid #d1d9e6;border-radius:6px;font-size:.83rem">
+            <% if(typeof MATERIAL_CATALOG!=='undefined'){ Object.entries(MATERIAL_CATALOG).forEach(function([k,v]){ %>
+              <option value="<%= k %>"><%= v.icon %> <%= v.label %></option>
+            <% }); } else { %>
+              <option value="altro">📦 Altro</option>
+            <% } %>
+          </select>
+        </div>
+        <div>
+          <label style="display:block;font-size:.75rem;font-weight:600;color:#64748b;margin-bottom:.25rem">Articolo *</label>
+          <input type="text" name="item_name" placeholder="es. Tavolo pieghevole, Gazebo 3x3…" maxlength="100" required style="width:100%;padding:.4rem .6rem;border:1.5px solid #d1d9e6;border-radius:6px;font-size:.83rem">
+        </div>
+        <div>
+          <label style="display:block;font-size:.75rem;font-weight:600;color:#64748b;margin-bottom:.25rem">Quantità</label>
+          <input type="number" name="quantity" value="1" min="1" max="999" required style="width:100%;padding:.4rem .6rem;border:1.5px solid #d1d9e6;border-radius:6px;font-size:.83rem">
+        </div>
+        <div style="grid-column:span 2">
+          <label style="display:block;font-size:.75rem;font-weight:600;color:#64748b;margin-bottom:.25rem">Note (opzionale)</label>
+          <input type="text" name="notes" placeholder="Specifiche aggiuntive" maxlength="255" style="width:100%;padding:.4rem .6rem;border:1.5px solid #d1d9e6;border-radius:6px;font-size:.83rem">
+        </div>
+      </div>
+      <div style="margin-top:.9rem">
+        <button type="submit" style="padding:.45rem 1.1rem;background:#1e2d4e;color:#fff;border:none;border-radius:7px;font-size:.83rem;font-weight:600;cursor:pointer">+ Aggiungi</button>
+      </div>
+    </form>
+  </div>
+
+  <div>
+    <h3 style="font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700;margin:0 0 1rem">
+      Materiali richiesti
+      <% if(typeof materials!=='undefined'&&materials.length){ %>
+        <span style="background:#e0f2fe;color:#0369a1;padding:.1rem .5rem;border-radius:9999px;font-size:.68rem;font-weight:700;margin-left:.4rem"><%= materials.length %></span>
+      <% } %>
+    </h3>
+    <% if(!materials||!materials.length){ %>
+      <div style="text-align:center;padding:2rem 1rem;color:#94a3b8">
+        <div style="font-size:2rem;margin-bottom:.4rem">📦</div>
+        <p style="font-size:.83rem">Nessun materiale aggiunto.</p>
+      </div>
+    <% } else { %>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:.83rem">
+        <thead>
+          <tr style="border-bottom:2px solid #e2e8f0">
+            <th style="text-align:left;padding:.42rem .7rem;font-size:.67rem;text-transform:uppercase;letter-spacing:.45px;color:#64748b;font-weight:700">#</th>
+            <th style="text-align:left;padding:.42rem .7rem;font-size:.67rem;text-transform:uppercase;letter-spacing:.45px;color:#64748b;font-weight:700">Categoria</th>
+            <th style="text-align:left;padding:.42rem .7rem;font-size:.67rem;text-transform:uppercase;letter-spacing:.45px;color:#64748b;font-weight:700">Articolo</th>
+            <th style="text-align:left;padding:.42rem .7rem;font-size:.67rem;text-transform:uppercase;letter-spacing:.45px;color:#64748b;font-weight:700">Qt</th>
+            <th style="text-align:left;padding:.42rem .7rem;font-size:.67rem;text-transform:uppercase;letter-spacing:.45px;color:#64748b;font-weight:700">Stato</th>
+            <th style="text-align:left;padding:.42rem .7rem;font-size:.67rem;text-transform:uppercase;letter-spacing:.45px;color:#64748b;font-weight:700">Conf.</th>
+            <th style="text-align:left;padding:.42rem .7rem;font-size:.67rem;text-transform:uppercase;letter-spacing:.45px;color:#64748b;font-weight:700">Cons.</th>
+            <th style="text-align:left;padding:.42rem .7rem;font-size:.67rem;text-transform:uppercase;letter-spacing:.45px;color:#64748b;font-weight:700">Note</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        <% materials.forEach(function(m){ %>
+          <tr id="gmr-row-<%= m.id %>" style="border-bottom:1px solid #f1f5f9">
+            <td style="padding:.48rem .7rem;color:#94a3b8;font-size:.72rem"><%= m.id %></td>
+            <td style="padding:.48rem .7rem;color:#64748b;font-size:.76rem"><% var _mc=typeof MATERIAL_CATALOG!=='undefined'&&MATERIAL_CATALOG[m.category]; %><%= _mc?_mc.icon+' '+_mc.label:m.category %></td>
+            <td style="padding:.48rem .7rem;font-weight:600"><%= m.item_name %></td>
+            <td style="padding:.48rem .7rem;font-weight:700;text-align:right"><%= m.quantity %></td>
+            <td style="padding:.48rem .7rem">
+              <select class="gmr-status-sel" data-id="<%= m.id %>" onchange="gmrUpdateStatus(this)" style="padding:.2rem .4rem;font-size:.72rem;border-radius:6px;border:1.5px solid #d1d9e6">
+                <% ['richiesto','confermato','consegnato','annullato'].forEach(function(s){ %>
+                  <option value="<%= s %>"<%= m.status===s?' selected':'' %>><%= s %></option>
+                <% }); %>
+              </select>
+            </td>
+            <td style="padding:.48rem .7rem"><input type="number" class="gmr-conf-qty" data-id="<%= m.id %>" value="<%= m.confirmed_qty||0 %>" min="0" max="999" onchange="gmrUpdateStatus(this)" style="width:58px;padding:.22rem .4rem;font-size:.76rem;border-radius:6px;border:1.5px solid #d1d9e6"></td>
+            <td style="padding:.48rem .7rem"><input type="number" class="gmr-del-qty"  data-id="<%= m.id %>" value="<%= m.delivered_qty||0 %>" min="0" max="999" onchange="gmrUpdateStatus(this)" style="width:58px;padding:.22rem .4rem;font-size:.76rem;border-radius:6px;border:1.5px solid #d1d9e6"></td>
+            <td style="padding:.48rem .7rem;font-size:.76rem;color:#64748b;max-width:140px"><%= m.notes||'—' %></td>
+            <td style="padding:.48rem .7rem"><button onclick="gmrDeleteMaterial(<%= m.id %>)" style="padding:.22rem .6rem;font-size:.7rem;background:#fee2e2;color:#b91c1c;border:none;border-radius:5px;cursor:pointer">✕</button></td>
+          </tr>
+        <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </div>
+</div><!-- /tab-materiali -->
 <script>
-/* ── Tab switching ── */
+/* ── Materiali Logistica ── */
+  const _GMR_GID = typeof groupInfo !== 'undefined' ? groupInfo.id : 0;
+  async function gmrUpdateStatus(el) {
+    const id = el.dataset.id;
+    const row = document.getElementById('gmr-row-' + id);
+    const status  = row.querySelector('.gmr-status-sel').value;
+    const confQty = row.querySelector('.gmr-conf-qty').value;
+    const delQty  = row.querySelector('.gmr-del-qty').value;
+    try {
+      const r = await fetch(`/assignment-groups/${_GMR_GID}/materiali/${id}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, confirmed_qty: confQty, delivered_qty: delQty })
+      });
+      const d = await r.json();
+      if (!d.ok) alert('Errore aggiornamento: ' + (d.error || ''));
+    } catch(e) { alert('Errore di rete: ' + e.message); }
+  }
+  async function gmrDeleteMaterial(id) {
+    if (!confirm('Eliminare questa voce di materiale?')) return;
+    try {
+      const r = await fetch(`/assignment-groups/${_GMR_GID}/materiali/${id}`, { method: 'DELETE' });
+      const d = await r.json();
+      if (d.ok) { const row = document.getElementById('gmr-row-' + id); if (row) row.remove(); }
+      else alert('Errore: ' + d.error);
+    } catch(e) { alert('Errore di rete: ' + e.message); }
+  }
+
+  /* ── Tab switching ── */
 function crmTab(tabId, btn) {
   document.querySelectorAll('.crm-panel').forEach(function(p){ p.classList.remove('active'); });
   document.querySelectorAll('.crm-tab').forEach(function(b){ b.classList.remove('active'); });
