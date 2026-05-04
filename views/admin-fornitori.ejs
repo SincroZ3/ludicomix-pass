@@ -128,8 +128,8 @@
                       <label>Categoria materiale</label>
                       <select name="material_category">
                         <option value="">— nessuna —</option>
-                        <% Object.entries(MATERIAL_CATALOG).forEach(function([k,v]){ %>
-                          <option value="<%= k %>"><%= v.icon %> <%= v.label %></option>
+                        <% (materialTypes||[]).forEach(function(c){ %>
+                          <option value="<%= c.key_name %>"><%= c.icon %> <%= c.label %></option>
                         <% }); %>
                       </select>
                     </div>
@@ -160,7 +160,7 @@
                         <td><span class="type-badge <%= typeCls[it.item_type]||'item-type-altro' %>"><%= typeLabel[it.item_type]||it.item_type %></span></td>
                         <td style="font-size:.76rem;color:#475569"><%
                           var mc = it.material_category;
-                          var ce = mc && MATERIAL_CATALOG[mc];
+                          var ce = mc && (materialTypes||[]).find(function(c){ return c.key_name===mc; });
                           %><%= ce ? ce.icon+' '+ce.label : (mc||'—') %></td>
                         <td style="text-align:center"><%= it.quantity %></td>
                         <td style="text-align:right;font-family:monospace"><%= it.unit_cost>0?'€ '+Number(it.unit_cost).toFixed(2):'—' %></td>
