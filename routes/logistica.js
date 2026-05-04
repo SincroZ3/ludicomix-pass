@@ -387,7 +387,8 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
       const suppliers = await dbAll(`SELECT * FROM suppliers ORDER BY category, name`);
       const items     = await dbAll(`SELECT * FROM supplier_items ORDER BY supplier_id, created_at DESC`);
       const editions  = await dbAll(`SELECT * FROM editions ORDER BY year DESC`);
-      res.render('admin-fornitori', { suppliers, items, editions, MATERIAL_CATALOG, saved: req.query.saved || null });
+      const materialTypes = await dbAll(`SELECT * FROM logistic_categories ORDER BY sort_order, label`);
+      res.render('admin-fornitori', { suppliers, items, editions, materialTypes, saved: req.query.saved || null });
     } catch (err) { res.status(500).send('Errore: ' + err.message); }
   });
 
@@ -412,16 +413,25 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
   });
 
   app.post('/admin/fornitori/:id/item', requireAuth, requireOrganizer, async (req, res) => {
-    const { description, qty, unit_price, total_price, notes, edition_id } = req.body;
+    const { description, item_type, material_category, quantity, unit_cost, notes, edition_id } = req.body;
     if (!description) return res.redirect('/admin/fornitori?saved=err');
+    const qty      = parseInt(quantity, 10)    || 1;
+    const uCost    = parseFloat(unit_cost)     || 0;
+    const totCost  = parseFloat((qty * uCost).toFixed(2));
     try {
       await dbRun(
-        `INSERT INTO supplier_items (supplier_id, description, qty, unit_price, total_price, notes, edition_id) VALUES (?,?,?,?,?,?,?)`,
-        [+req.params.id, description.trim(), qty || null, unit_price || null, total_price || null, notes || null, edition_id || null]
+        `INSERT INTO supplier_items (supplier_id, description, item_type, material_category, quantity, unit_cost, total_cost, notes, edition_id)
+         VALUES (?,?,?,?,?,?,?,?,?)`,
+        [+req.params.id, description.trim(), item_type || 'altro',
+         material_category || null, qty, uCost, totCost,
+         notes || null, edition_id || null]
       );
       logAction(req.session.user.id, 'create_supplier_item', 'supplier_item', null, `Voce fornitore #${req.params.id}: ${description.trim()}`);
       res.redirect('/admin/fornitori?saved=ok');
-    } catch (err) { res.redirect('/admin/fornitori?saved=err'); }
+    } catch (err) {
+      console.error('Errore POST /admin/fornitori/:id/item:', err.message);
+      res.redirect('/admin/fornitori?saved=err');
+    }
   });
 
   app.delete('/admin/fornitori/item/:id', requireAuth, requireOrganizer, async (req, res) => {
