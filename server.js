@@ -357,6 +357,151 @@ app.get('/home', requireAuth, async (req, res) => {
   }
 });
 
+// ── Helper: mezzanotte locale in formato SQLite ─────────────────
+function todayMidnight() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} 00:00:00`;
+}
+
+// ── API: dashboard-stats (polling live dalla home) ───────────────
+app.get('/api/dashboard-stats', requireAuth, async (req, res) => {
+  try {
+    const edId       = _currentEdition ? _currentEdition.id : null;
+    const since      = todayMidnight();
+    const edFilter2  = edId ? `AND p.edition_id = ${edId}` : '';
+    const edFilterAg = edId ? `AND ag.edition_id = ${edId}` : '';
+
+    const [r1, r2, r3, r4] = await Promise.all([
+      dbGet('SELECT COUNT(*) as total FROM participants'),
+      dbGet('SELECT COUNT(*) as total FROM passes'),
+      dbAll('SELECT status, COUNT(*) as count FROM passes GROUP BY status'),
+      dbGet(`SELECT COUNT(*) as total FROM participants WHERE id NOT IN
+             (SELECT DISTINCT participant_id FROM passes WHERE status!='INVALIDATO')`),
+    ]);
+
+    const r5 = await dbAll(`
+      SELECT ag.id, ag.name, ag.zone, ag.max_passes,
+        COUNT(DISTINCT pa.id) AS participant_count,
+        COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0) AS pass_count
+      FROM assignment_groups ag
+      LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
+      LEFT JOIN passes p ON p.participant_id = pa.id
+      WHERE (1=1) ${edFilterAg}
+      GROUP BY ag.id
+      HAVING
+        (COUNT(DISTINCT pa.id)>0 AND COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0)=0)
+        OR (ag.max_passes IS NOT NULL AND ag.max_passes>0
+          AND COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0)<ag.max_passes)
+      ORDER BY
+        CASE WHEN COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0)=0
+             AND COUNT(DISTINCT pa.id)>0 THEN 0 ELSE 1 END ASC,
+        (CASE WHEN ag.max_passes IS NOT NULL AND ag.max_passes>0
+              THEN ag.max_passes - COALESCE(SUM(CASE WHEN p.status!='INVALIDATO' THEN 1 ELSE 0 END),0)
+              ELSE 0 END) DESC
+      LIMIT 12`).catch(() => []);
+
+    const r6 = await dbAll(`
+      SELECT al.action, al.details, al.created_at, u.username
+      FROM action_logs al LEFT JOIN users u ON u.id = al.user_id
+      ORDER BY al.id DESC LIMIT 8`).catch(() => []);
+
+    const [r7, r8, r9, r10, r11, r12] = await Promise.all([
+      dbAll(`
+        SELECT ora, SUM(count) as count, SUM(qr) as qr, SUM(manual) as manual
+        FROM (
+          SELECT strftime('%H', created_at) as ora, COUNT(*) as count, COUNT(*) as qr, 0 as manual
+          FROM scan_attempts WHERE created_at >= ? AND result = 'OK' GROUP BY ora
+          UNION ALL
+          SELECT strftime('%H', counted_at) as ora, COUNT(*) as count, 0 as qr, COUNT(*) as manual
+          FROM visitor_counts WHERE direction = 'IN' AND counted_at >= ? GROUP BY ora
+        )
+        GROUP BY ora ORDER BY ora ASC`, [since, since]).catch(() => []),
+      dbAll(`
+        SELECT code, COUNT(*) as hits, MAX(created_at) as last_scan,
+               MAX(participant_name) as participant_name, MAX(group_name) as group_name
+        FROM scan_attempts
+        WHERE created_at >= datetime('now','-2 hours')
+        GROUP BY code HAVING hits > 3
+        ORDER BY hits DESC LIMIT 10`).catch(() => []),
+      dbAll(`
+        SELECT ag.name as group_name, ag.zone, COUNT(p.id) as non_consegnati
+        FROM passes p
+        LEFT JOIN participants pa ON pa.id = p.participant_id
+        LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
+        WHERE p.status IN ('STAMPATO','GENERATO') ${edFilter2}
+        GROUP BY ag.id ORDER BY non_consegnati DESC LIMIT 20`).catch(() => []),
+      dbAll(`
+        SELECT vc.area,
+          SUM(CASE WHEN vc.direction='IN'  THEN 1 ELSE 0 END) as ins,
+          SUM(CASE WHEN vc.direction='OUT' THEN 1 ELSE 0 END) as outs
+        FROM visitor_counts vc
+        LEFT JOIN (SELECT area, MAX(reset_at) as last_reset FROM visitor_resets GROUP BY area) vr
+          ON vr.area = vc.area
+        WHERE vc.counted_at >= COALESCE(vr.last_reset, ?) AND vc.counted_at >= ?
+        GROUP BY vc.area`, [since, since]).catch(() => []),
+      dbGet(`SELECT COUNT(*) as total FROM scan_attempts WHERE result='OK' AND created_at >= ?`, [since]).catch(() => ({ total: 0 })),
+      dbGet(`SELECT COUNT(*) as total FROM visitor_counts WHERE direction='IN' AND counted_at >= ?`, [since]).catch(() => ({ total: 0 })),
+    ]);
+
+    const passesByStatus = {};
+    (r3 || []).forEach(r => { passesByStatus[r.status] = r.count; });
+
+    const presenze = {};
+    (r10 || []).forEach(r => {
+      presenze[r.area] = { ins: r.ins||0, outs: r.outs||0, presenti: Math.max(0, (r.ins||0)-(r.outs||0)) };
+    });
+
+    const SCHEDULES = [
+      { date: '2026-05-15', closingRitiro: '19:30', label: 'ritiro pass 15/05' },
+      { date: '2026-05-16', closingRitiro: '09:30', label: 'ritiro pass 16/05' },
+      { date: '2026-05-16', closingFiera:  '21:00', label: 'fiera 16/05' },
+      { date: '2026-05-17', closingFiera:  '19:30', label: 'fiera 17/05' },
+    ];
+    function getNextClosing() {
+      const now = new Date();
+      const todayStr = now.toISOString().slice(0, 10);
+      const timeStr  = now.toTimeString().slice(0, 5);
+      for (const s of SCHEDULES) {
+        if (s.date !== todayStr) continue;
+        const closing = s.closingRitiro || s.closingFiera;
+        if (timeStr < closing) {
+          const [hh, mm] = closing.split(':').map(Number);
+          const cl = new Date(now); cl.setHours(hh, mm, 0, 0);
+          return { closing, label: s.label, diffMin: Math.floor((cl - now) / 60000), isRitiro: !!s.closingRitiro };
+        }
+      }
+      return null;
+    }
+    const nextClosing = getNextClosing();
+    const alertPassNonRitirati = nextClosing && nextClosing.isRitiro && nextClosing.diffMin <= 120
+      ? { closing: nextClosing.closing, label: nextClosing.label, diffMin: nextClosing.diffMin }
+      : null;
+
+    res.json({
+      stats: {
+        totalParticipants: r1?.total || 0,
+        totalPasses:       r2?.total || 0,
+        passesByStatus,
+        senzaPass:         r4?.total || 0,
+        ingressiOggi:      (r11?.total || 0) + (r12?.total || 0),
+      },
+      alertGroups:       r5 || [],
+      recentActivity:    r6 || [],
+      heatmapOre:        r7 || [],
+      scanAnomali:       r8 || [],
+      passNonConsegnati: r9 || [],
+      presenze,
+      alertPassNonRitirati,
+      nextClosing,
+    });
+  } catch (err) {
+    console.error('[dashboard-stats] errore:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Start ────────────────────────────────────────────────────────
 app.listen(PORT, () =>
   console.log(`✅  Ludicomix Pass avviato su http://localhost:${PORT}`)
