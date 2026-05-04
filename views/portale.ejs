@@ -1674,7 +1674,7 @@ function uploadPortalDoc(e) {
   btn.disabled = true; btn.textContent = "Caricamento...";
   msg.textContent = ''; msg.className = 'form-msg';
 
-  fetch('/portale/' + token + '/documents', { method: 'POST', body: fd })
+  fetch('/portale/' + window.__SRV_TOKEN + '/documents', { method: 'POST', body: fd })
   .then(function(r){ return r.json().then(function(d){ return {ok:r.ok,data:d}; }); })
   .then(function(result) {
     btn.disabled = false; btn.textContent = "\u2B06 Carica documento";
@@ -1708,7 +1708,7 @@ function submitTicket(e) {
   btn.disabled = true; btn.textContent = "Invio...";
   msg.textContent = ''; msg.className = 'form-msg';
 
-  fetch('/portale/' + token + '/tickets', {
+  fetch('/portale/' + window.__SRV_TOKEN + '/tickets', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ subject: subj, message: text })
@@ -1743,7 +1743,7 @@ function submitReply(tid, btnEl) {
   btnEl.disabled = true; btnEl.textContent = "Invio...";
   if (msg) { msg.textContent = ''; msg.className = 'form-msg'; }
 
-  fetch('/portale/' + token + '/tickets/' + tid + '/reply', {
+  fetch('/portale/' + window.__SRV_TOKEN + '/tickets/' + tid + '/reply', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message: input.value.trim() })
