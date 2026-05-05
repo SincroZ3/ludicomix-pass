@@ -159,7 +159,8 @@ module.exports = function registerParticipantsRoutes(
                     crmQ('SELECT * FROM guest_profiles  WHERE assignment_group_id=? LIMIT 1', [id]),
                     new Promise((ok, ko) => db.get('SELECT * FROM fiscal_data WHERE assignment_group_id=?', [id], (e, r) => e ? ko(e) : ok(r))),
                     crmQ('SELECT * FROM group_material_requests WHERE assignment_group_id=? ORDER BY category, item_name, id', [id]),
-                  ]).then(([contacts, payments, groupDocs, gpRows, fiscalData, materials]) => {
+                    crmQ('SELECT * FROM logistic_categories ORDER BY sort_order, label', []),
+                  ]).then(([contacts, payments, groupDocs, gpRows, fiscalData, materials, materialTypes]) => {
                     const PASS_STATUSES = ['IN_ATTESA', 'GENERATO', 'SCARICATO', 'STAMPATO', 'CONSEGNATO', 'RICONSEGNATO', 'INVALIDATO'];
                     res.render('assignment_group_detail', {
                       groupInfo, types: types || [], participants: participants || [],
@@ -176,6 +177,8 @@ module.exports = function registerParticipantsRoutes(
                       guestProfile: gpRows?.[0] || null,
                       fiscalData:   fiscalData || null,
                       materials:    materials  || [],
+                      materialTypes: materialTypes || [],
+                      MATERIAL_CATALOG: Object.fromEntries((materialTypes||[]).map(c => [c.key_name, { label: c.label, icon: c.icon||'📦' }])),
                     });
                   }).catch(e => { console.error('detail CRM catch:', e?.message); res.status(500).send('Errore CRM: ' + e?.message); });
                 });
@@ -361,9 +364,21 @@ module.exports = function registerParticipantsRoutes(
         dbGet(`SELECT ag.id, ag.name, ag.zone, ag.stand_code, ag.stand_name, g.name AS category_name
                FROM assignment_groups ag JOIN groups g ON g.id=ag.group_id WHERE ag.id=?`, [id]),
         dbAll('SELECT * FROM group_material_requests WHERE assignment_group_id=? ORDER BY category, item_name, id', [id]),
+        dbAll('SELECT * FROM logistic_categories ORDER BY sort_order, label'),
       ]);
       if (!group) return res.status(404).send('Stand non trovato');
-      res.render('group-materiali', { group, materials, MATERIAL_CATALOG, materialTypes, saved: req.query.saved || null, currentUser: req.query.saved || null ? req.session.user : req.session.user });
+      const MATERIAL_CATALOG_LOCAL = {};
+      materialTypes.forEach(c => { MATERIAL_CATALOG_LOCAL[c.key_name] = { label: c.label, icon: c.icon || '📦' }; });
+      // la view group-materiali.ejs usa cat.keyname (senza underscore) → adattiamo
+      const logisticCategories = materialTypes.map(c => ({ ...c, keyname: c.key_name }));
+      res.render('group-materiali', {
+        group, materials,
+        MATERIAL_CATALOG: MATERIAL_CATALOG_LOCAL,
+        materialTypes,
+        logisticCategories,
+        saved: req.query.saved || null,
+        currentUser: req.session.user
+      });
     } catch (err) {
       res.status(500).send('Errore: ' + err.message);
     }
