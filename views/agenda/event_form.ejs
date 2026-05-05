@@ -323,8 +323,9 @@
 
 <script>
 // ── Intercetta submit per check conflitto via API ────────────────────────
-(function() {
-  var form = document.querySelector('form[method="POST"]');
+document.addEventListener('DOMContentLoaded', function() {
+  // Seleziona il form principale (quello con action /agenda/events...)
+  var form = document.querySelector('form[action*="/agenda/events"]');
   if (!form) return;
 
   form.addEventListener('submit', function(e) {
@@ -367,15 +368,9 @@
             + '&end_time='   + encodeURIComponent(endTime)
             + (excludeId ? '&exclude_id=' + excludeId : '');
 
-    fetch(url, { credentials: 'same-origin' })
-      .then(function(r) {
-        // Se la sessione è scaduta il server manda redirect HTML → non è JSON → submit normale
-        var ct = r.headers.get('content-type') || '';
-        if (!ct.includes('application/json')) { form.submit(); return null; }
-        return r.json();
-      })
+    fetch(url)
+      .then(function(r) { return r.json(); })
       .then(function(data) {
-        if (!data) return; // gestito sopra (redirect)
         if (!data.conflict) {
           form.submit();
           return;
@@ -392,14 +387,14 @@
         document.getElementById('conflict-modal').style.display = 'flex';
       })
       .catch(function() {
-        form.submit();
+        form.submit(); // errore di rete → lascia passare
       });
   });
 
   document.getElementById('conflict-modal').addEventListener('click', function(e) {
     if (e.target === this) closeConflictModal();
   });
-})();
+});
 
 function closeConflictModal() {
   document.getElementById('conflict-modal').style.display = 'none';
@@ -409,7 +404,7 @@ function closeConflictModal() {
 function confirmConflict() {
   document.getElementById('conflict-modal').style.display = 'none';
   document.getElementById('force-conflict').value = '1';
-  document.querySelector('form[method="POST"]').submit();
+  document.querySelector('form[action*="/agenda/events"]').submit();
 }
 
 // ── Logica originale ─────────────────────────────────────────────────────
