@@ -367,9 +367,15 @@
             + '&end_time='   + encodeURIComponent(endTime)
             + (excludeId ? '&exclude_id=' + excludeId : '');
 
-    fetch(url)
-      .then(function(r) { return r.json(); })
+    fetch(url, { credentials: 'same-origin' })
+      .then(function(r) {
+        // Se la sessione è scaduta il server manda redirect HTML → non è JSON → submit normale
+        var ct = r.headers.get('content-type') || '';
+        if (!ct.includes('application/json')) { form.submit(); return null; }
+        return r.json();
+      })
       .then(function(data) {
+        if (!data) return; // gestito sopra (redirect)
         if (!data.conflict) {
           form.submit();
           return;
@@ -386,7 +392,7 @@
         document.getElementById('conflict-modal').style.display = 'flex';
       })
       .catch(function() {
-        form.submit(); // errore di rete → lascia passare
+        form.submit();
       });
   });
 
