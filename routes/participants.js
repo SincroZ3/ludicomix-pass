@@ -357,13 +357,13 @@ module.exports = function registerParticipantsRoutes(
   app.get('/assignment-groups/:id/materiali', requireAuth, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     try {
-      const [group, materials] = await Promise.all([
+      const [group, materials, materialTypes] = await Promise.all([
         dbGet(`SELECT ag.id, ag.name, ag.zone, ag.stand_code, ag.stand_name, g.name AS category_name
                FROM assignment_groups ag JOIN groups g ON g.id=ag.group_id WHERE ag.id=?`, [id]),
         dbAll('SELECT * FROM group_material_requests WHERE assignment_group_id=? ORDER BY category, item_name, id', [id]),
       ]);
       if (!group) return res.status(404).send('Stand non trovato');
-      res.render('group-materiali', { group, materials, MATERIAL_CATALOG, saved: req.query.saved || null, currentUser: req.session.user });
+      res.render('group-materiali', { group, materials, MATERIAL_CATALOG, materialTypes, saved: req.query.saved || null, currentUser: req.query.saved || null ? req.session.user : req.session.user });
     } catch (err) {
       res.status(500).send('Errore: ' + err.message);
     }

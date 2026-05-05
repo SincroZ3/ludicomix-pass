@@ -1342,6 +1342,9 @@ function maronnoForza() {
 </div><!-- /tab-documenti -->
 
 <div id="tab-materiali" class="crm-panel">
+  <div style="display:flex;justify-content:flex-end;margin-bottom:.8rem">
+    <a href="/admin/logistica/resoconto" style="font-size:.78rem;font-weight:700;color:#1d6fa4;text-decoration:none">📊 Vai a resoconto fabbisogni</a>
+  </div>
   <div style="margin-bottom:1rem">
     <h3 style="font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:700;margin:0 0 1rem">Aggiungi materiale</h3>
     <form method="POST" action="/assignment-groups/<%= groupInfo.id %>/materiali">
@@ -1349,7 +1352,9 @@ function maronnoForza() {
         <div>
           <label style="display:block;font-size:.75rem;font-weight:600;color:#64748b;margin-bottom:.25rem">Categoria</label>
           <select name="category" required style="width:100%;padding:.4rem .6rem;border:1.5px solid #d1d9e6;border-radius:6px;font-size:.83rem">
-            <% if(typeof MATERIAL_CATALOG!=='undefined'){ Object.entries(MATERIAL_CATALOG).forEach(function([k,v]){ %>
+            <% if(typeof materialTypes!=='undefined' && materialTypes.length){ materialTypes.forEach(function(c){ %>
+              <option value="<%= c.key_name %>"><%= c.icon %> <%= c.label %></option>
+            <% }); } else if(typeof MATERIAL_CATALOG!=='undefined'){ Object.entries(MATERIAL_CATALOG).forEach(function([k,v]){ %>
               <option value="<%= k %>"><%= v.icon %> <%= v.label %></option>
             <% }); } else { %>
               <option value="altro">📦 Altro</option>
