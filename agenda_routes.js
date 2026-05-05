@@ -14,14 +14,14 @@
 
 const express = require('express');
 const router  = express.Router();
-
-// ── Migration sicura: aggiunge location_type se non esiste ──
-db.run("ALTER TABLE events ADD COLUMN location_type TEXT DEFAULT 'sala'", function() {});
 const db      = require('./db');
 const bwipjs  = require('bwip-js');
 
 module.exports = function agendaRoutes(logActionFn) {
 const logAction = logActionFn || function(){};
+
+  // ── Migration sicura: aggiunge location_type se non esiste ──
+  db.run("ALTER TABLE events ADD COLUMN location_type TEXT DEFAULT 'sala'", function() {});
 
 // ─────────────────────────────────────────────
 // MIDDLEWARE AUTH — protegge tutte le rotte /agenda/*
