@@ -329,28 +329,39 @@
 
   form.addEventListener('submit', function(e) {
     var forceField = document.getElementById('force-conflict');
-    // Se force=1 l'utente ha già confermato → lascia passare il submit normale
-    if (forceField && forceField.value === '1') return;
+    if (forceField && forceField.value === '1') return; // già confermato, submit libero
 
-    // Leggi i valori dal form
-    var spaceId    = form.querySelector('[name="space_id"]') ? form.querySelector('[name="space_id"]').value : '';
-    var spaceHidden = document.getElementById('space_id_hidden');
-    if (spaceHidden && spaceHidden.value) spaceId = spaceHidden.value;
-    var date       = form.querySelector('[name="date"]')       ? form.querySelector('[name="date"]').value       : '';
-    var startTime  = form.querySelector('[name="start_time"]') ? form.querySelector('[name="start_time"]').value : '';
-    var endTime    = form.querySelector('[name="end_time"]')   ? form.querySelector('[name="end_time"]').value   : '';
+    // Leggi space_id dal select visibile (tipo sala) oppure dall'hidden (tipo espositore/associazione)
+    var spaceIdSelect = document.getElementById('space_id_select');
+    var spaceIdHidden = document.getElementById('space_id_hidden');
+    var spaceId = '';
+    if (spaceIdSelect && spaceIdSelect.closest('#salaBlock') && spaceIdSelect.closest('#salaBlock').style.display !== 'none') {
+      spaceId = spaceIdSelect.value;
+    } else if (spaceIdHidden) {
+      spaceId = spaceIdHidden.value;
+    }
+    // fallback: prova comunque il select
+    if (!spaceId && spaceIdSelect) spaceId = spaceIdSelect.value;
 
-    if (!spaceId || !date || !startTime || !endTime) return; // dati mancanti → submit normale
+    var dateEl      = form.querySelector('[name="date"]');
+    var startEl     = form.querySelector('[name="start_time"]');
+    var endEl       = form.querySelector('[name="end_time"]');
+    var date        = dateEl      ? dateEl.value      : '';
+    var startTime   = startEl     ? startEl.value     : '';
+    var endTime     = endEl       ? endEl.value       : '';
+
+    if (!spaceId || !date || !startTime || !endTime) return; // dati incompleti → submit normale
 
     e.preventDefault();
 
     // Ricava l'eventuale ID evento dall'action (edit)
-    var action = form.getAttribute('action') || '';
+    var action    = form.getAttribute('action') || '';
     var excludeId = '';
-    var match = action.match(/\/agenda\/events\/(\d+)/);
+    var match     = action.match(/\/agenda\/events\/(\d+)/);
     if (match) excludeId = match[1];
 
-    var url = '/api/agenda/check-conflict?space_id=' + encodeURIComponent(spaceId)
+    var url = '/api/agenda/check-conflict'
+            + '?space_id='   + encodeURIComponent(spaceId)
             + '&date='       + encodeURIComponent(date)
             + '&start_time=' + encodeURIComponent(startTime)
             + '&end_time='   + encodeURIComponent(endTime)
@@ -360,7 +371,6 @@
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (!data.conflict) {
-          // Nessun conflitto → submit diretto
           form.submit();
           return;
         }
@@ -368,21 +378,18 @@
         var list = document.getElementById('conflict-list');
         list.innerHTML = data.conflicts.map(function(c) {
           return '<div style="padding:.3rem 0;border-bottom:1px solid #fde68a">'
-               + '<strong>' + (c.title||'') + '</strong><br>'
-               + '<span>' + (c.start_time||'') + '–' + (c.end_time||'') + '</span>'
-               + (c.space_name ? ' <span style="color:#94a3b8;font-size:.76rem">· ' + c.space_name + '</span>' : '')
+               + '<strong>' + (c.title || '') + '</strong><br>'
+               + '<span>' + (c.start_time || '') + '&ndash;' + (c.end_time || '') + '</span>'
+               + (c.space_name ? ' <span style="color:#94a3b8;font-size:.76rem">&middot; ' + c.space_name + '</span>' : '')
                + '</div>';
         }).join('');
-        var modal = document.getElementById('conflict-modal');
-        modal.style.display = 'flex';
+        document.getElementById('conflict-modal').style.display = 'flex';
       })
       .catch(function() {
-        // Errore fetch → lascia passare il submit normale
-        form.submit();
+        form.submit(); // errore di rete → lascia passare
       });
   });
 
-  // Chiudi modale cliccando fuori
   document.getElementById('conflict-modal').addEventListener('click', function(e) {
     if (e.target === this) closeConflictModal();
   });
