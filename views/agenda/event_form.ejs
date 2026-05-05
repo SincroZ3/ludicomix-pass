@@ -377,7 +377,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var ct = r.headers.get('content-type') || '';
         if (!ct.includes('application/json')) {
           _conflictOk = true;
-          mainForm.requestSubmit ? mainForm.requestSubmit() : mainForm.submit();
+          mainForm.submit();
           return null;
         }
         return r.json();
@@ -386,7 +386,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!data) return;
         if (!data.conflict) {
           _conflictOk = true;
-          mainForm.requestSubmit ? mainForm.requestSubmit() : mainForm.submit();
+          mainForm.submit();
           return;
         }
         var list = document.getElementById('conflict-list');
@@ -401,7 +401,7 @@ document.addEventListener('DOMContentLoaded', function() {
       })
       .catch(function() {
         _conflictOk = true;
-        mainForm.requestSubmit ? mainForm.requestSubmit() : mainForm.submit();
+        mainForm.submit();
       });
   });
 
@@ -423,7 +423,7 @@ function confirmConflict() {
   if (ff) ff.value = '1';
   _conflictOk = true;
   var f = getMainForm();
-  if (f) { f.requestSubmit ? f.requestSubmit() : f.submit(); }
+  if (f) { f.submit(); }
 }
 
 function toggleRole(id, checked) {
