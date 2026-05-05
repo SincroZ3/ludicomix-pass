@@ -111,9 +111,9 @@
           <div style="margin-bottom:.85rem">
             <label>Tipo luogo <span class="req">*</span></label>
             <select name="location_type" id="locationTypeSelect" onchange="toggleLocationUI()">
-              <option value="sala"          <%= (!event.location_text) ? 'selected' : '' %>>🏛 Sala / Spazio</option>
-              <option value="espositore"    <%= (event.location_text && event.location_type === 'espositore') ? 'selected' : '' %>>🏪 Espositore / Stand</option>
-              <option value="associazione"  <%= (event.location_text && event.location_type === 'associazione') ? 'selected' : '' %>>🎲 Associazione</option>
+              <option value="sala"          <%= (!event.location_type || event.location_type === 'sala') ? 'selected' : '' %>>🏛 Sala / Spazio</option>
+              <option value="espositore"    <%= event.location_type === 'espositore' ? 'selected' : '' %>>🏪 Espositore / Stand</option>
+              <option value="associazione"  <%= event.location_type === 'associazione' ? 'selected' : '' %>>🎲 Associazione</option>
             </select>
           </div>
 
@@ -348,6 +348,7 @@ function getMainForm() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+  toggleLocationUI();
   var mainForm = getMainForm();
   if (!mainForm) return;
 
