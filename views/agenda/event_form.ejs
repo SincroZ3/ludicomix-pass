@@ -419,11 +419,17 @@ function closeConflictModal() {
 
 function confirmConflict() {
   document.getElementById('conflict-modal').style.display = 'none';
-  var ff = document.getElementById('force-conflict');
-  if (ff) ff.value = '1';
   _conflictOk = true;
   var f = getMainForm();
-  if (f) { f.submit(); }
+  if (!f) return;
+  var old = f.querySelector('input[name="force"]');
+  if (old) old.parentNode.removeChild(old);
+  var inp = document.createElement('input');
+  inp.type = 'hidden';
+  inp.name = 'force';
+  inp.value = '1';
+  f.appendChild(inp);
+  f.submit();
 }
 
 function toggleRole(id, checked) {
