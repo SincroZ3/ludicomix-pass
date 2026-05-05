@@ -308,90 +308,83 @@
 
 <!-- ══ MODALE CONFLITTO ══════════════════════════════════════════════════ -->
 <div id="conflict-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:14px;padding:2rem 2.2rem;max-width:460px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center;position:relative">
-    <img src="/ciuchino_stop.png" alt="Attenzione" style="width:90px;height:auto;margin-bottom:1rem;display:block;margin-left:auto;margin-right:auto"
-         onerror="this.style.display='none'">
+  <div style="background:#fff;border-radius:14px;padding:2rem 2.2rem;max-width:460px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center">
+    <img src="/ciuchino_stop.png" alt="Attenzione" style="width:90px;height:auto;margin-bottom:1rem;display:block;margin-left:auto;margin-right:auto" onerror="this.style.display='none'">
     <h2 style="font-size:1.1rem;font-weight:800;color:#1e2d4e;margin:0 0 .5rem">⚠️ Conflitto di orario</h2>
-    <p style="font-size:.88rem;color:#475569;margin:0 0 1.1rem">
-      Nello stesso spazio e orario è già presente:
-    </p>
-    <div id="conflict-list" style="background:#fef9ec;border:1.5px solid #fbbf24;border-radius:8px;padding:.75rem 1rem;margin-bottom:1.3rem;text-align:left;font-size:.84rem;color:#92400e"></div>
-    <p style="font-size:.82rem;color:#64748b;margin:0 0 1.3rem">
-      Vuoi aggiungere l'evento <strong>in contemporanea</strong> (es. mostra, esposizione permanente)?
-    </p>
+    <p style="font-size:.88rem;color:#475569;margin:0 0 1rem">Nello stesso spazio è già presente:</p>
+    <div id="conflict-list" style="background:#fef9ec;border:1.5px solid #fbbf24;border-radius:8px;padding:.75rem 1rem;margin-bottom:1.2rem;text-align:left;font-size:.84rem;color:#92400e"></div>
+    <p style="font-size:.82rem;color:#64748b;margin:0 0 1.3rem">Vuoi aggiungere l'evento <strong>in contemporanea</strong>?<br><span style="font-size:.76rem">(es. mostra permanente, esposizione)</span></p>
     <div style="display:flex;gap:.75rem;justify-content:center">
-      <button onclick="closeConflictModal()" style="padding:.55rem 1.4rem;border:1.5px solid #d1d9e6;border-radius:8px;background:#fff;font-size:.88rem;font-weight:600;cursor:pointer;color:#475569">
-        ✗ Annulla
-      </button>
-      <button onclick="confirmConflict()" style="padding:.55rem 1.4rem;border:none;border-radius:8px;background:#1e2d4e;color:#fff;font-size:.88rem;font-weight:700;cursor:pointer">
-        ✓ Aggiungi comunque
-      </button>
+      <button type="button" onclick="closeConflictModal()" style="padding:.55rem 1.4rem;border:1.5px solid #d1d9e6;border-radius:8px;background:#fff;font-size:.88rem;font-weight:600;cursor:pointer;color:#475569">✗ Annulla</button>
+      <button type="button" onclick="confirmConflict()" style="padding:.55rem 1.4rem;border:none;border-radius:8px;background:#1e2d4e;color:#fff;font-size:.88rem;font-weight:700;cursor:pointer">✓ Aggiungi comunque</button>
     </div>
   </div>
 </div>
 
 <script>
-// ── Gestione conflitto ───────────────────────────────────────────────────
+// ── Intercetta submit per check conflitto via API ────────────────────────
 (function() {
-  const form = document.querySelector('form[method="POST"]');
+  var form = document.querySelector('form[method="POST"]');
   if (!form) return;
 
-  form.addEventListener('submit', async function(e) {
-    const forceField = document.getElementById('force-conflict');
-    if (forceField && forceField.value === '1') return; // già confermato
+  form.addEventListener('submit', function(e) {
+    var forceField = document.getElementById('force-conflict');
+    // Se force=1 l'utente ha già confermato → lascia passare il submit normale
+    if (forceField && forceField.value === '1') return;
+
+    // Leggi i valori dal form
+    var spaceId    = form.querySelector('[name="space_id"]') ? form.querySelector('[name="space_id"]').value : '';
+    var spaceHidden = document.getElementById('space_id_hidden');
+    if (spaceHidden && spaceHidden.value) spaceId = spaceHidden.value;
+    var date       = form.querySelector('[name="date"]')       ? form.querySelector('[name="date"]').value       : '';
+    var startTime  = form.querySelector('[name="start_time"]') ? form.querySelector('[name="start_time"]').value : '';
+    var endTime    = form.querySelector('[name="end_time"]')   ? form.querySelector('[name="end_time"]').value   : '';
+
+    if (!spaceId || !date || !startTime || !endTime) return; // dati mancanti → submit normale
 
     e.preventDefault();
 
-    const data = new FormData(form);
-    const action = form.getAttribute('action');
+    // Ricava l'eventuale ID evento dall'action (edit)
+    var action = form.getAttribute('action') || '';
+    var excludeId = '';
+    var match = action.match(/\/agenda\/events\/(\d+)/);
+    if (match) excludeId = match[1];
 
-    try {
-      const resp = await fetch(action, {
-        method: 'POST',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-        body: data
-      });
+    var url = '/api/agenda/check-conflict?space_id=' + encodeURIComponent(spaceId)
+            + '&date='       + encodeURIComponent(date)
+            + '&start_time=' + encodeURIComponent(startTime)
+            + '&end_time='   + encodeURIComponent(endTime)
+            + (excludeId ? '&exclude_id=' + excludeId : '');
 
-      // Se redirect (302) o HTML → nessun conflitto, submit normale
-      const ct = resp.headers.get('content-type') || '';
-      if (!ct.includes('application/json')) {
-        forceField.value = '1';
+    fetch(url)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.conflict) {
+          // Nessun conflitto → submit diretto
+          form.submit();
+          return;
+        }
+        // Conflitto → popola e mostra il modale
+        var list = document.getElementById('conflict-list');
+        list.innerHTML = data.conflicts.map(function(c) {
+          return '<div style="padding:.3rem 0;border-bottom:1px solid #fde68a">'
+               + '<strong>' + (c.title||'') + '</strong><br>'
+               + '<span>' + (c.start_time||'') + '–' + (c.end_time||'') + '</span>'
+               + (c.space_name ? ' <span style="color:#94a3b8;font-size:.76rem">· ' + c.space_name + '</span>' : '')
+               + '</div>';
+        }).join('');
+        var modal = document.getElementById('conflict-modal');
+        modal.style.display = 'flex';
+      })
+      .catch(function() {
+        // Errore fetch → lascia passare il submit normale
         form.submit();
-        return;
-      }
+      });
+  });
 
-      const json = await resp.json();
-      if (!json.conflict) {
-        // Nessun conflitto → successo, vai alla lista
-        window.location.href = '/agenda/events';
-        return;
-      }
-
-      // Conflitto → mostra modale
-      const list = document.getElementById('conflict-list');
-      list.innerHTML = json.conflicts.map(c =>
-        `<div style="padding:.3rem 0;border-bottom:1px solid #fde68a;last-child{border:none}">
-          <strong>${c.title}</strong><br>
-          <span style="color:#92400e">${c.start_time}–${c.end_time}</span>
-          <% /* spazio */ %><span style="color:#94a3b8;font-size:.76rem"> · ${c.space_name||''}</span>
-        </div>`
-      ).join('');
-      // Rimuovi template tag EJS che non servono nel JS
-      list.innerHTML = json.conflicts.map(c =>
-        `<div style="padding:.3rem 0;border-bottom:1px solid #fde68a">
-          <strong>${c.title}</strong><br>
-          <span style="color:#92400e">${c.start_time}–${c.end_time}</span>
-          <span style="color:#94a3b8;font-size:.76rem"> · ${c.space_name||''}</span>
-        </div>`
-      ).join('');
-
-      const modal = document.getElementById('conflict-modal');
-      modal.style.display = 'flex';
-    } catch(err) {
-      // In caso di errore fetch → submit tradizionale
-      forceField.value = '0';
-      form.submit();
-    }
+  // Chiudi modale cliccando fuori
+  document.getElementById('conflict-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeConflictModal();
   });
 })();
 
@@ -406,12 +399,7 @@ function confirmConflict() {
   document.querySelector('form[method="POST"]').submit();
 }
 
-// Chiudi modale cliccando fuori
-document.getElementById('conflict-modal').addEventListener('click', function(e) {
-  if (e.target === this) closeConflictModal();
-});
-
-// ── Logica esistente ─────────────────────────────────────────────────────
+// ── Logica originale ─────────────────────────────────────────────────────
 function toggleRole(id, checked) {
   var sel = document.getElementById('role-' + id);
   if (sel) sel.style.opacity = checked ? 1 : .4;

@@ -445,11 +445,6 @@ router.post('/agenda/events', requireAuth, (req, res) => {
 
   checkConflict(space_id, date, start_time, end_time, null, (err, conflicts) => {
     if (!forceConflict && conflicts && conflicts.length > 0) {
-      // Se la richiesta è AJAX/fetch → risponde JSON per mostrare il modale
-      if (req.headers['x-requested-with'] === 'XMLHttpRequest' || req.headers['accept']?.includes('application/json')) {
-        return res.json({ conflict: true, conflicts });
-      }
-      // Fallback: flash + redirect
       const c = conflicts[0];
       flash(req, 'error', `Conflitto con "${c.title}" (${c.start_time}–${c.end_time}) nella stessa sala.`);
       return res.redirect('/agenda/events/new');
@@ -532,9 +527,6 @@ router.post('/agenda/events/:id', requireAuth, (req, res) => {
 
   checkConflict(space_id, date, start_time, end_time, id, (err, conflicts) => {
     if (!forceConflict && conflicts && conflicts.length > 0) {
-      if (req.headers['x-requested-with'] === 'XMLHttpRequest' || req.headers['accept']?.includes('application/json')) {
-        return res.json({ conflict: true, conflicts });
-      }
       const c = conflicts[0];
       flash(req, 'error', `Conflitto con "${c.title}" (${c.start_time}–${c.end_time}) nella stessa sala.`);
       return res.redirect(`/agenda/events/${id}/edit`);
@@ -985,6 +977,18 @@ router.post('/programma/iscriviti/:id', (req, res) => {
 });
 
 // ── API: Ricerca partecipanti per collegamento speaker ───────
+// ── API: check conflitto orario (usata dal frontend prima del submit) ──────
+router.get('/api/agenda/check-conflict', requireAuth, (req, res) => {
+  const { space_id, date, start_time, end_time, exclude_id } = req.query;
+  if (!space_id || !date || !start_time || !end_time) {
+    return res.json({ conflict: false, conflicts: [] });
+  }
+  checkConflict(space_id, date, start_time, end_time, exclude_id || null, (err, conflicts) => {
+    if (err) return res.json({ conflict: false, conflicts: [] });
+    res.json({ conflict: conflicts && conflicts.length > 0, conflicts: conflicts || [] });
+  });
+});
+
 router.get('/api/agenda/search-participants', requireAuth, (req, res) => {
   const q = (req.query.q || '').trim();
   if (q.length < 2) return res.json([]);
