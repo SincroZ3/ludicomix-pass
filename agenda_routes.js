@@ -441,8 +441,15 @@ router.post('/agenda/events', requireAuth, (req, res) => {
     return res.redirect('/agenda/events/new');
   }
 
+  const forceConflict = req.body.force === '1';
+
   checkConflict(space_id, date, start_time, end_time, null, (err, conflicts) => {
-    if (conflicts && conflicts.length > 0) {
+    if (!forceConflict && conflicts && conflicts.length > 0) {
+      // Se la richiesta è AJAX/fetch → risponde JSON per mostrare il modale
+      if (req.headers['x-requested-with'] === 'XMLHttpRequest' || req.headers['accept']?.includes('application/json')) {
+        return res.json({ conflict: true, conflicts });
+      }
+      // Fallback: flash + redirect
       const c = conflicts[0];
       flash(req, 'error', `Conflitto con "${c.title}" (${c.start_time}–${c.end_time}) nella stessa sala.`);
       return res.redirect('/agenda/events/new');
@@ -521,8 +528,13 @@ router.post('/agenda/events/:id', requireAuth, (req, res) => {
     return res.redirect(`/agenda/events/${id}/edit`);
   }
 
+  const forceConflict = req.body.force === '1';
+
   checkConflict(space_id, date, start_time, end_time, id, (err, conflicts) => {
-    if (conflicts && conflicts.length > 0) {
+    if (!forceConflict && conflicts && conflicts.length > 0) {
+      if (req.headers['x-requested-with'] === 'XMLHttpRequest' || req.headers['accept']?.includes('application/json')) {
+        return res.json({ conflict: true, conflicts });
+      }
       const c = conflicts[0];
       flash(req, 'error', `Conflitto con "${c.title}" (${c.start_time}–${c.end_time}) nella stessa sala.`);
       return res.redirect(`/agenda/events/${id}/edit`);
