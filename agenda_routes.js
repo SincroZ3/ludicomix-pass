@@ -610,7 +610,7 @@ router.get('/agenda/events/:id/registrations', requireAuth, (req, res) => {
   db.get(`SELECT e.*, s.name AS space_name FROM events e JOIN spaces s ON s.id=e.space_id WHERE e.id=?`, [req.params.id], (err, event) => {
     if (err) { console.error('[registrations GET event]', err.message); return res.redirect('/agenda/events'); }
     if (!event) return res.redirect('/agenda/events');
-    db.all(`SELECT r.*, p.name AS pass_name,
+    db.all(`SELECT r.*, p.code AS pass_code,
         cr.birth_date, cr.social_contact, cr.cosplay_name, cr.cosplay_series,
         cr.participation_type, cr.group_name
       FROM registrations r
@@ -621,7 +621,7 @@ router.get('/agenda/events/:id/registrations', requireAuth, (req, res) => {
       if (err2) {
         console.error('[registrations GET db.all]', err2.message);
         // Fallback: query senza join cosplay se la tabella non esiste ancora
-        return db.all(`SELECT r.*, p.name AS pass_name
+        return db.all(`SELECT r.*, p.code AS pass_code
           FROM registrations r
           LEFT JOIN passes p ON p.id = r.pass_id
           WHERE r.event_id=?

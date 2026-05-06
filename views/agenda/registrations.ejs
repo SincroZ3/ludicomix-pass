@@ -94,7 +94,7 @@
             <td><a href="mailto:<%= r.email %>" class="link-action"><%= r.email %></a></td>
             <td><%= r.phone || '—' %></td>
             <td>
-              <% if(r.pass_id) { %><span style="color:#1d6a39;font-weight:700;">✓ Sì</span><% } else { %><span style="color:var(--text-muted)">—</span><% } %>
+              <% if(r.pass_id) { %><span style="color:#1d6a39;font-weight:700;">✓ <%= r.pass_code || r.pass_id %></span><% } else { %><span style="color:var(--text-muted)">—</span><% } %>
             </td>
             <td>
               <% if(r.status === 'confirmed') { %>
