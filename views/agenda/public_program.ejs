@@ -613,7 +613,7 @@
             <div class="fc-body">
               <div class="fc-tags">
                 <span class="fc-tag-type"><%= ev.event_type || 'evento' %></span>
-                <span class="fc-tag-space"><%= ev.location_text || ev.space_name %></span>
+                <span class="fc-tag-space"><%= ev.display_location %></span>
               </div>
               <div class="fc-title"><%= ev.title %></div>
               <div class="fc-meta">
@@ -695,7 +695,7 @@
         <div class="ev-body">
           <div class="ev-tags">
             <span class="tag tag-type"><%= e.event_type || 'evento' %></span>
-            <span class="tag tag-space">📍 <%= e.location_text || e.space_name %></span>
+            <span class="tag tag-space">📍 <%= e.display_location %></span>
             <% if (e.tags) { e.tags.split(',').forEach(t => { t = t.trim(); if (t) { %><span class="tag tag-other"><%= t %></span><% } }); } %>
             <% if (isFull) { %><span class="tag tag-full">⊗ Esaurito</span><% } %>
             <% if (e.free_entry == 1) { %><span class="tag" style="background:#d4efdb;color:#1d6a39;border-color:#a7d9b2;">🎟 Ingresso libero</span><% } %>
@@ -817,7 +817,7 @@ EVDATA[<%= e.id %>] = <%- JSON.stringify({
   description: e.description || '',
   event_type: e.event_type || '',
   date: e.date, start_time: e.start_time, end_time: e.end_time,
-  space_name: e.location_text || e.space_name,
+  space_name: e.display_location,
   max_seats: e.max_seats || 0,
   seats_taken: e.seats_taken || 0,
   availability: e.availability || '',
@@ -838,7 +838,7 @@ function openModal(id) {
   document.getElementById('mTitle').textContent = ev.title;
   var dateStr = '';
   try { dateStr = new Date(ev.date + 'T12:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'long'}); } catch(x) {}
-  document.getElementById('mMeta').textContent = '\u{1F4C5} ' + dateStr + '   \u{1F550} ' + ev.start_time + '\u2013' + ev.end_time + '   \u{1F4CD} ' + (ev.location_text || ev.space_name);
+  document.getElementById('mMeta').textContent = '\u{1F4C5} ' + dateStr + '   \u{1F550} ' + ev.start_time + '\u2013' + ev.end_time + '   \u{1F4CD} ' + (ev.display_location);
   var desc = document.getElementById('mDesc');
   desc.textContent = ev.description;
   desc.style.display = ev.description ? '' : 'none';
