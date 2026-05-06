@@ -608,6 +608,7 @@ router.post('/agenda/events/:id/publish', requireAuth, (req, res) => {
 
 router.get('/agenda/events/:id/registrations', requireAuth, (req, res) => {
   db.get(`SELECT e.*, s.name AS space_name FROM events e JOIN spaces s ON s.id=e.space_id WHERE e.id=?`, [req.params.id], (err, event) => {
+    if (err) { console.error('[registrations GET event]', err.message); return res.redirect('/agenda/events'); }
     if (!event) return res.redirect('/agenda/events');
     db.all(`SELECT r.*, p.name AS pass_name,
         cr.birth_date, cr.social_contact, cr.cosplay_name, cr.cosplay_series,
@@ -617,6 +618,28 @@ router.get('/agenda/events/:id/registrations', requireAuth, (req, res) => {
       LEFT JOIN cosplay_registrations cr ON cr.registration_id = r.id
       WHERE r.event_id=?
       ORDER BY r.registered_at`, [req.params.id], (err2, regs) => {
+      if (err2) {
+        console.error('[registrations GET db.all]', err2.message);
+        // Fallback: query senza join cosplay se la tabella non esiste ancora
+        return db.all(`SELECT r.*, p.name AS pass_name
+          FROM registrations r
+          LEFT JOIN passes p ON p.id = r.pass_id
+          WHERE r.event_id=?
+          ORDER BY r.registered_at`, [req.params.id], (err2b, regs2) => {
+          db.get(`SELECT COUNT(*) AS confirmed FROM registrations
+            WHERE event_id=? AND status='confirmed'`, [req.params.id], (err3, cnt) => {
+            res.render('agenda/registrations', {
+              currentUser: req.session.user,
+              flash: getFlash(req),
+              event,
+              confirmedCount: cnt ? cnt.confirmed : 0,
+              registrations: regs2 || [],
+              isCosplay: false,
+              title: `Iscrizioni — ${event.title}`
+            });
+          });
+        });
+      }
       db.get(`SELECT COUNT(*) AS confirmed FROM registrations
         WHERE event_id=? AND status='confirmed'`, [req.params.id], (err3, cnt) => {
         res.render('agenda/registrations', {
