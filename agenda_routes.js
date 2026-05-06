@@ -456,13 +456,14 @@ router.post('/agenda/events', requireAuth, (req, res) => {
 
     db.run(
       `INSERT INTO events (title, description, space_id, date, start_time, end_time,
-        max_seats, event_type, is_public, published, registrations_open, featured, image_url, tags, notes, location_text, location_type, free_entry, ticketed_area)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        max_seats, event_type, is_public, published, registrations_open, featured, image_url, tags, notes, location_text, location_type, free_entry, ticketed_area, registration_form_type)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [title.trim(), description || '', parseInt(space_id), date, start_time, end_time,
        parseInt(max_seats) || 0, event_type || 'panel',
        is_public ? 1 : 0, published ? 1 : 0, registrations_open ? 1 : 0, featured ? 1 : 0,
        image_url || '', tags || '', notes || '', locationTextVal, locationTypeVal,
-       free_entry ? 1 : 0, ticketed_area ? 1 : 0],
+       free_entry ? 1 : 0, ticketed_area ? 1 : 0,
+       ['standard','cosplay'].includes(req.body.registration_form_type) ? req.body.registration_form_type : 'standard'],
       function(err2) {
         if (err2) {
           flash(req, 'error', 'Errore salvataggio evento.');
@@ -540,7 +541,7 @@ router.post('/agenda/events/:id', requireAuth, (req, res) => {
     db.run(
       `UPDATE events SET title=?, description=?, space_id=?, date=?, start_time=?, end_time=?,
         max_seats=?, event_type=?, is_public=?, published=?, registrations_open=?, featured=?, image_url=?, tags=?, notes=?, location_text=?, location_type=?,
-        free_entry=?, ticketed_area=?,
+        free_entry=?, ticketed_area=?, registration_form_type=?,
         updated_at=datetime('now')
        WHERE id=?`,
       [title.trim(), description || '', parseInt(space_id), date, start_time, end_time,
@@ -548,6 +549,7 @@ router.post('/agenda/events/:id', requireAuth, (req, res) => {
        is_public ? 1 : 0, published ? 1 : 0, registrations_open ? 1 : 0, featured ? 1 : 0,
        image_url || '', tags || '', notes || '', locationTextVal, locationTypeVal,
        free_entry ? 1 : 0, ticketed_area ? 1 : 0,
+       ['standard','cosplay'].includes(req.body.registration_form_type) ? req.body.registration_form_type : 'standard',
        req.params.id],
       function(err2) {
         if (err2) {
@@ -605,14 +607,15 @@ router.post('/agenda/events/:id/publish', requireAuth, (req, res) => {
 // ══════════════════════════════════════════════
 
 router.get('/agenda/events/:id/registrations', requireAuth, (req, res) => {
-  db.get(`SELECT e.*, s.name AS space_name
-    FROM events e JOIN spaces s ON s.id = e.space_id
-    WHERE e.id=?`, [req.params.id], (err, event) => {
+  db.get(`SELECT e.*, s.name AS space_name FROM events e JOIN spaces s ON s.id=e.space_id WHERE e.id=?`, [req.params.id], (err, event) => {
     if (!event) return res.redirect('/agenda/events');
-    db.all(`SELECT r.*,
-      CASE WHEN r.pass_id IS NOT NULL THEN 'Sì' ELSE 'No' END AS has_pass
+    db.all(`SELECT r.*, p.name AS pass_name,
+        cr.birth_date, cr.social_contact, cr.cosplay_name, cr.cosplay_series,
+        cr.participation_type, cr.group_name
       FROM registrations r
-      WHERE r.event_id = ?
+      LEFT JOIN passes p ON p.id = r.pass_id
+      LEFT JOIN cosplay_registrations cr ON cr.registration_id = r.id
+      WHERE r.event_id=?
       ORDER BY r.registered_at`, [req.params.id], (err2, regs) => {
       db.get(`SELECT COUNT(*) AS confirmed FROM registrations
         WHERE event_id=? AND status='confirmed'`, [req.params.id], (err3, cnt) => {
@@ -620,15 +623,15 @@ router.get('/agenda/events/:id/registrations', requireAuth, (req, res) => {
           currentUser: req.session.user,
           flash: getFlash(req),
           event,
-          registrations: regs || [],
           confirmedCount: cnt ? cnt.confirmed : 0,
+          registrations: regs || [],
+          isCosplay: (event.registration_form_type || 'standard') === 'cosplay',
           title: `Iscrizioni — ${event.title}`
         });
       });
     });
   });
 });
-
 router.post('/agenda/events/:id/registrations/:rid/cancel', requireAuth, (req, res) => {
   db.run(
     `UPDATE registrations SET status='cancelled', cancelled_at=datetime('now') WHERE id=?`,
@@ -927,11 +930,13 @@ router.get('/programma/iscriviti/:id', (req, res) => {
     if (!event) return res.redirect('/programma');
     const full    = event.max_seats > 0 && event.seats_taken >= event.max_seats;
     const success = req.query.success === '1';
+    const formType = event.registration_form_type || 'standard';
     res.render('agenda/register_form', {
       currentUser: null,
       event,
       full,
       success,
+      formType,
       flash: getFlash(req),
       title: `Iscrizione — ${event.title}`
     });
@@ -939,15 +944,21 @@ router.get('/programma/iscriviti/:id', (req, res) => {
 });
 
 router.post('/programma/iscriviti/:id', (req, res) => {
-  const { first_name, last_name, email, phone } = req.body;
+  const { first_name, last_name, email, phone, gdpr_consent,
+          birth_date, social_contact, cosplay_name, cosplay_series,
+          participation_type, group_name } = req.body;
   const eventId = req.params.id;
 
   if (!first_name || !last_name || !email) {
     flash(req, 'error', 'Nome, cognome ed email sono obbligatori.');
     return res.redirect(`/programma/iscriviti/${eventId}`);
   }
+  if (!gdpr_consent) {
+    flash(req, 'error', 'Devi accettare il trattamento dei dati personali per procedere.');
+    return res.redirect(`/programma/iscriviti/${eventId}`);
+  }
 
-  db.get(`SELECT e.max_seats, e.registrations_open, COUNT(r.id) AS seats_taken
+  db.get(`SELECT e.max_seats, e.registrations_open, e.registration_form_type, COUNT(r.id) AS seats_taken
     FROM events e
     LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'confirmed'
     WHERE e.id=? GROUP BY e.id`, [eventId], (err, ev) => {
@@ -962,6 +973,16 @@ router.post('/programma/iscriviti/:id', (req, res) => {
       return res.redirect(`/programma/iscriviti/${eventId}`);
     }
 
+    // Validazione campi cosplay
+    const isCosplay = ev.registration_form_type === 'cosplay';
+    if (isCosplay) {
+      if (!birth_date) { flash(req, 'error', 'La data di nascita è obbligatoria.'); return res.redirect(`/programma/iscriviti/${eventId}`); }
+      if (!cosplay_name) { flash(req, 'error', 'Il nome del cosplay è obbligatorio.'); return res.redirect(`/programma/iscriviti/${eventId}`); }
+      if (!cosplay_series) { flash(req, 'error', 'La serie/opera di riferimento è obbligatoria.'); return res.redirect(`/programma/iscriviti/${eventId}`); }
+      if (!participation_type) { flash(req, 'error', 'Indica se partecipi da singolo o in gruppo.'); return res.redirect(`/programma/iscriviti/${eventId}`); }
+      if (participation_type === 'gruppo' && !group_name) { flash(req, 'error', 'Inserisci il nome del gruppo.'); return res.redirect(`/programma/iscriviti/${eventId}`); }
+    }
+
     db.run(
       `INSERT INTO registrations (event_id, first_name, last_name, email, phone) VALUES (?,?,?,?,?)`,
       [eventId, first_name.trim(), last_name.trim(), email.trim().toLowerCase(), phone || ''],
@@ -974,6 +995,25 @@ router.post('/programma/iscriviti/:id', (req, res) => {
           flash(req, 'error', "Errore durante l'iscrizione. Riprova.");
           return res.redirect(`/programma/iscriviti/${eventId}`);
         }
+        const registrationId = this.lastID;
+
+        // Se cosplay, salva dati aggiuntivi
+        if (isCosplay) {
+          db.run(
+            `INSERT INTO cosplay_registrations
+              (registration_id, event_id, birth_date, social_contact, cosplay_name, cosplay_series, participation_type, group_name, gdpr_consent)
+              VALUES (?,?,?,?,?,?,?,?,1)`,
+            [registrationId, eventId,
+             birth_date.trim(),
+             social_contact ? social_contact.trim() : null,
+             cosplay_name.trim(),
+             cosplay_series.trim(),
+             participation_type === 'gruppo' ? 'gruppo' : 'singolo',
+             participation_type === 'gruppo' ? (group_name || '').trim() : null],
+            (err3) => { if (err3) console.error('[Cosplay reg]', err3.message); }
+          );
+        }
+
         flash(req, 'success', 'Iscrizione confermata! Ti aspettiamo.');
         res.redirect(`/programma/iscriviti/${eventId}?success=1`);
       }

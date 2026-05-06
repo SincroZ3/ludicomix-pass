@@ -452,6 +452,7 @@ db.run(`ALTER TABLE speakers ADD COLUMN photo_url TEXT`, () => {});
 // Migration: accesso evento
 db.run(`ALTER TABLE events ADD COLUMN free_entry INTEGER NOT NULL DEFAULT 0`, () => {});
 db.run(`ALTER TABLE events ADD COLUMN ticketed_area INTEGER NOT NULL DEFAULT 0`, () => {});
+db.run(`ALTER TABLE events ADD COLUMN registration_form_type TEXT DEFAULT 'standard'`, () => {});
 
 db.run(`CREATE INDEX IF NOT EXISTS idx_events_date ON events(date)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_events_space_date ON events(space_id, date, start_time)`);
@@ -460,6 +461,23 @@ db.run(`CREATE INDEX IF NOT EXISTS idx_event_speakers_event ON event_speakers(ev
 db.run(`CREATE INDEX IF NOT EXISTS idx_event_speakers_speaker ON event_speakers(speaker_id)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_registrations_event ON registrations(event_id, status)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_registrations_email ON registrations(email)`);
+
+// ── Tabella iscrizioni cosplay ────────────────────────────────────────────
+db.run(`CREATE TABLE IF NOT EXISTS cosplay_registrations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  registration_id INTEGER NOT NULL REFERENCES registrations(id) ON DELETE CASCADE,
+  event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  birth_date TEXT NOT NULL,
+  social_contact TEXT,
+  cosplay_name TEXT NOT NULL,
+  cosplay_series TEXT NOT NULL,
+  participation_type TEXT NOT NULL DEFAULT 'singolo',
+  group_name TEXT,
+  gdpr_consent INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_cosplay_reg_event ON cosplay_registrations(event_id)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_cosplay_reg_group ON cosplay_registrations(event_id, group_name)`);
 // ── Migrazioni tabella guests (aggiunge colonne se mancano in DB precedenti) ──
 db.serialize(function() {
   ['ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0',

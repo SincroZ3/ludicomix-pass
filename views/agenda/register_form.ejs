@@ -111,10 +111,65 @@
             <label for="phone">Telefono <small style="font-weight:400;color:var(--muted);">(opzionale)</small></label>
             <input type="tel" id="phone" name="phone" placeholder="3xx xxxxxxx">
           </div>
+
+          <% if (formType === 'cosplay') { %>
+          <hr style="margin:1.25rem 0;border:none;border-top:2px dashed #c7d2fe;">
+          <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#4f46e5;margin-bottom:.85rem;">
+            🎭 Dati Cosplay
+          </div>
+          <div class="form-group">
+            <label for="birth_date">Data di nascita <span class="req">*</span></label>
+            <input type="date" id="birth_date" name="birth_date" required
+              style="display:block;width:100%;padding:.5rem .75rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:.9rem;color:var(--text);">
+          </div>
+          <div class="form-group">
+            <label for="cosplay_name">Nome del Cosplay <span class="req">*</span></label>
+            <input type="text" id="cosplay_name" name="cosplay_name" required placeholder="Es. Naruto Uzumaki">
+          </div>
+          <div class="form-group">
+            <label for="cosplay_series">Serie / Opera di riferimento <span class="req">*</span></label>
+            <input type="text" id="cosplay_series" name="cosplay_series" required placeholder="Es. Naruto, One Piece, Marvel...">
+          </div>
+          <div class="form-group">
+            <label for="social_contact">Contatto Social <small style="font-weight:400;color:var(--muted);">(opzionale)</small></label>
+            <input type="text" id="social_contact" name="social_contact" placeholder="@username Instagram / TikTok...">
+          </div>
+          <div class="form-group">
+            <label>Partecipazione <span class="req">*</span></label>
+            <div style="display:flex;gap:1.25rem;margin-top:.3rem;">
+              <label style="display:flex;align-items:center;gap:.4rem;font-weight:500;font-size:.88rem;cursor:pointer;">
+                <input type="radio" name="participation_type" value="singolo" checked
+                  onchange="toggleGroupBlock(this)" style="accent-color:#4f46e5;">
+                👤 Singolo
+              </label>
+              <label style="display:flex;align-items:center;gap:.4rem;font-weight:500;font-size:.88rem;cursor:pointer;">
+                <input type="radio" name="participation_type" value="gruppo"
+                  onchange="toggleGroupBlock(this)" style="accent-color:#4f46e5;">
+                👥 In gruppo
+              </label>
+            </div>
+          </div>
+          <div class="form-group" id="group-name-block" style="display:none;">
+            <label for="group_name">Nome Gruppo <span class="req">*</span></label>
+            <input type="text" id="group_name" name="group_name" placeholder="Es. Team Nakama">
+          </div>
+          <% } %>
+          <!-- GDPR -->
+          <div class="form-group" style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:6px;padding:.75rem 1rem;">
+            <label style="display:flex;align-items:flex-start;gap:.6rem;cursor:pointer;font-weight:400;font-size:.82rem;color:#3730a3;margin:0;">
+              <input type="checkbox" name="gdpr_consent" value="1" required
+                style="margin-top:.2rem;flex-shrink:0;accent-color:#4f46e5;">
+              <span>Acconsento al trattamento dei miei dati personali ai sensi del
+                <strong>Regolamento UE 2016/679 (GDPR)</strong> per finalità organizzative dell'evento.
+                <span style="color:#c0392b;">*</span></span>
+            </label>
+          </div>
+
           <button type="submit" class="btn-submit" id="btn-submit">Iscriviti gratuitamente →</button>
         </form>
-        <p style="font-size:.75rem;color:var(--muted);text-align:center;margin-top:.75rem;">
-          Iscrivendoti accetti il trattamento dei dati per finalità organizzative dell'evento.
+        <p style="font-size:.72rem;color:var(--muted);text-align:center;margin-top:.75rem;">
+          I tuoi dati sono trattati esclusivamente per finalità organizzative dell'evento,
+          nel rispetto del Reg. UE 2016/679 (GDPR).
         </p>
       <% } %>
     </div>
@@ -130,6 +185,18 @@
         b.disabled = true;
         b.textContent = 'Invio in corso…';
       });
+    }
+    function toggleGroupBlock(el) {
+      var block = document.getElementById('group-name-block');
+      var inp   = document.getElementById('group_name');
+      if (!block) return;
+      if (el.value === 'gruppo') {
+        block.style.display = '';
+        if (inp) inp.required = true;
+      } else {
+        block.style.display = 'none';
+        if (inp) { inp.required = false; inp.value = ''; }
+      }
     }
   </script>
 </body>

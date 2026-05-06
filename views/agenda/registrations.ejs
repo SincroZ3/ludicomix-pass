@@ -47,6 +47,12 @@
           <% if(event.published) { %><span style="color:#1d6a39;">● Pubblicato</span><% } else { %><span style="color:#7d5a00;">○ Bozza</span><% } %>
         </div>
       </div>
+      <div>
+        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);">Modulo</div>
+        <div style="font-weight:700;">
+          <% if(isCosplay) { %><span style="color:#4f46e5;">🎭 Cosplay</span><% } else { %><span>📋 Standard</span><% } %>
+        </div>
+      </div>
     </div>
     <% if(event.max_seats > 0) { %>
       <div style="margin-top:1rem;background:var(--bg-section);border-radius:var(--radius-sm);height:8px;overflow:hidden;">
@@ -74,7 +80,11 @@
     <div class="table-wrapper">
       <table>
         <thead><tr>
-          <th>#</th><th>Nome</th><th>Email</th><th>Telefono</th><th>Pass</th><th>Stato</th><th>Iscritto il</th><th>Azioni</th>
+          <th>#</th><th>Nome</th><th>Email</th><th>Telefono</th><th>Pass</th><th>Stato</th><th>Iscritto il</th>
+          <% if (isCosplay) { %>
+          <th>Cosplay</th><th>Serie</th><th>Tipo</th><th>Gruppo</th><th>Nascita</th><th>Social</th>
+          <% } %>
+          <th>Azioni</th>
         </tr></thead>
         <tbody>
         <% registrations.forEach((r, i) => { %>
@@ -96,6 +106,18 @@
               <% } %>
             </td>
             <td style="font-size:.78rem;color:var(--text-muted)"><%= r.registered_at ? r.registered_at.slice(0,16).replace('T',' ') : '—' %></td>
+            <% if (isCosplay) { %>
+            <td style="font-size:.78rem;"><%= r.cosplay_name || '—' %></td>
+            <td style="font-size:.78rem;"><%= r.cosplay_series || '—' %></td>
+            <td style="font-size:.78rem;">
+              <% if (r.participation_type === 'gruppo') { %><span style="color:#4f46e5;font-weight:600;">👥 Gruppo</span>
+              <% } else if (r.participation_type === 'singolo') { %><span>👤 Singolo</span>
+              <% } else { %>—<% } %>
+            </td>
+            <td style="font-size:.78rem;"><%= r.group_name || '—' %></td>
+            <td style="font-size:.78rem;"><%= r.birth_date || '—' %></td>
+            <td style="font-size:.78rem;"><%= r.social_contact || '—' %></td>
+            <% } %>
             <td>
               <% if(r.status === 'confirmed') { %>
                 <form method="POST" action="/agenda/events/<%= event.id %>/registrations/<%= r.id %>/cancel"
