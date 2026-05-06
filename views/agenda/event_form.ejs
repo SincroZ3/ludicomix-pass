@@ -322,11 +322,11 @@
 
 <!-- MODALE CONFLITTO -->
 <div id="conflict-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:14px;padding:2rem 2.2rem;max-width:460px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center">
+  <div style="background:#fff;border-radius:14px;padding:2rem 2.2rem;max-width:460px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center;display:flex;flex-direction:column;max-height:90vh;">
     <img src="/ciuchino_stop.png" alt="Attenzione" style="width:90px;height:auto;margin-bottom:1rem;display:block;margin-left:auto;margin-right:auto" onerror="this.style.display='none'">
     <h2 style="font-size:1.1rem;font-weight:800;color:#1e2d4e;margin:0 0 .5rem">&#9888; Conflitto di orario</h2>
     <p style="font-size:.88rem;color:#475569;margin:0 0 1rem">Nello stesso spazio &egrave; gi&agrave; presente:</p>
-    <div id="conflict-list" style="background:#fef9ec;border:1.5px solid #fbbf24;border-radius:8px;padding:.75rem 1rem;margin-bottom:1.2rem;text-align:left;font-size:.84rem;color:#92400e"></div>
+    <div id="conflict-list" style="background:#fef9ec;border:1.5px solid #fbbf24;border-radius:8px;padding:.75rem 1rem;margin-bottom:1.2rem;text-align:left;font-size:.84rem;color:#92400e;max-height:220px;overflow-y:auto;flex-shrink:1;"></div>
     <p style="font-size:.82rem;color:#64748b;margin:0 0 1.3rem">Vuoi aggiungere l'evento <strong>in contemporanea</strong>?</p>
     <div style="display:flex;gap:.75rem;justify-content:center">
       <button type="button" onclick="closeConflictModal()" style="padding:.55rem 1.4rem;border:1.5px solid #d1d9e6;border-radius:8px;background:#fff;font-size:.88rem;font-weight:600;cursor:pointer;color:#475569">&#10007; Annulla</button>
@@ -455,11 +455,11 @@ function toggleRole(id, checked) {
 
 <!-- MODALE CONFLITTO -->
 <div id="conflict-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:14px;padding:2rem 2.2rem;max-width:460px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center">
+  <div style="background:#fff;border-radius:14px;padding:2rem 2.2rem;max-width:460px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center;display:flex;flex-direction:column;max-height:90vh;">
     <img src="/ciuchino_stop.png" alt="Attenzione" style="width:90px;height:auto;margin-bottom:1rem;display:block;margin-left:auto;margin-right:auto" onerror="this.style.display='none'">
     <h2 style="font-size:1.1rem;font-weight:800;color:#1e2d4e;margin:0 0 .5rem">&#9888; Conflitto di orario</h2>
     <p style="font-size:.88rem;color:#475569;margin:0 0 1rem">Nello stesso spazio &egrave; gi&agrave; presente:</p>
-    <div id="conflict-list" style="background:#fef9ec;border:1.5px solid #fbbf24;border-radius:8px;padding:.75rem 1rem;margin-bottom:1.2rem;text-align:left;font-size:.84rem;color:#92400e"></div>
+    <div id="conflict-list" style="background:#fef9ec;border:1.5px solid #fbbf24;border-radius:8px;padding:.75rem 1rem;margin-bottom:1.2rem;text-align:left;font-size:.84rem;color:#92400e;max-height:220px;overflow-y:auto;flex-shrink:1;"></div>
     <p style="font-size:.82rem;color:#64748b;margin:0 0 1.3rem">Vuoi aggiungere l'evento <strong>in contemporanea</strong>?</p>
     <div style="display:flex;gap:.75rem;justify-content:center">
       <button type="button" onclick="closeConflictModal()" style="padding:.55rem 1.4rem;border:1.5px solid #d1d9e6;border-radius:8px;background:#fff;font-size:.88rem;font-weight:600;cursor:pointer;color:#475569">&#10007; Annulla</button>
@@ -483,11 +483,11 @@ function toggleRole(id, checked) {
 
 <!-- MODALE CONFLITTO -->
 <div id="conflict-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:14px;padding:2rem 2.2rem;max-width:460px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center">
+  <div style="background:#fff;border-radius:14px;padding:2rem 2.2rem;max-width:460px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center;display:flex;flex-direction:column;max-height:90vh;">
     <img src="/ciuchino_stop.png" alt="Attenzione" style="width:90px;height:auto;margin-bottom:1rem;display:block;margin-left:auto;margin-right:auto" onerror="this.style.display='none'">
     <h2 style="font-size:1.1rem;font-weight:800;color:#1e2d4e;margin:0 0 .5rem">&#9888; Conflitto di orario</h2>
     <p style="font-size:.88rem;color:#475569;margin:0 0 1rem">Nello stesso spazio &egrave; gi&agrave; presente:</p>
-    <div id="conflict-list" style="background:#fef9ec;border:1.5px solid #fbbf24;border-radius:8px;padding:.75rem 1rem;margin-bottom:1.2rem;text-align:left;font-size:.84rem;color:#92400e"></div>
+    <div id="conflict-list" style="background:#fef9ec;border:1.5px solid #fbbf24;border-radius:8px;padding:.75rem 1rem;margin-bottom:1.2rem;text-align:left;font-size:.84rem;color:#92400e;max-height:220px;overflow-y:auto;flex-shrink:1;"></div>
     <p style="font-size:.82rem;color:#64748b;margin:0 0 1.3rem">Vuoi aggiungere l'evento <strong>in contemporanea</strong>?</p>
     <div style="display:flex;gap:.75rem;justify-content:center">
       <button type="button" onclick="closeConflictModal()" style="padding:.55rem 1.4rem;border:1.5px solid #d1d9e6;border-radius:8px;background:#fff;font-size:.88rem;font-weight:600;cursor:pointer;color:#475569">&#10007; Annulla</button>
@@ -511,11 +511,11 @@ function toggleRole(id, checked) {
 
 <!-- MODALE CONFLITTO -->
 <div id="conflict-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:14px;padding:2rem 2.2rem;max-width:460px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center">
+  <div style="background:#fff;border-radius:14px;padding:2rem 2.2rem;max-width:460px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center;display:flex;flex-direction:column;max-height:90vh;">
     <img src="/ciuchino_stop.png" alt="Attenzione" style="width:90px;height:auto;margin-bottom:1rem;display:block;margin-left:auto;margin-right:auto" onerror="this.style.display='none'">
     <h2 style="font-size:1.1rem;font-weight:800;color:#1e2d4e;margin:0 0 .5rem">&#9888; Conflitto di orario</h2>
     <p style="font-size:.88rem;color:#475569;margin:0 0 1rem">Nello stesso spazio &egrave; gi&agrave; presente:</p>
-    <div id="conflict-list" style="background:#fef9ec;border:1.5px solid #fbbf24;border-radius:8px;padding:.75rem 1rem;margin-bottom:1.2rem;text-align:left;font-size:.84rem;color:#92400e"></div>
+    <div id="conflict-list" style="background:#fef9ec;border:1.5px solid #fbbf24;border-radius:8px;padding:.75rem 1rem;margin-bottom:1.2rem;text-align:left;font-size:.84rem;color:#92400e;max-height:220px;overflow-y:auto;flex-shrink:1;"></div>
     <p style="font-size:.82rem;color:#64748b;margin:0 0 1.3rem">Vuoi aggiungere l'evento <strong>in contemporanea</strong>?</p>
     <div style="display:flex;gap:.75rem;justify-content:center">
       <button type="button" onclick="closeConflictModal()" style="padding:.55rem 1.4rem;border:1.5px solid #d1d9e6;border-radius:8px;background:#fff;font-size:.88rem;font-weight:600;cursor:pointer;color:#475569">&#10007; Annulla</button>
@@ -541,11 +541,11 @@ function toggleRole(id, checked) {
 
 <!-- MODALE CONFLITTO -->
 <div id="conflict-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:14px;padding:2rem 2.2rem;max-width:460px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center">
+  <div style="background:#fff;border-radius:14px;padding:2rem 2.2rem;max-width:460px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center;display:flex;flex-direction:column;max-height:90vh;">
     <img src="/ciuchino_stop.png" alt="Attenzione" style="width:90px;height:auto;margin-bottom:1rem;display:block;margin-left:auto;margin-right:auto" onerror="this.style.display='none'">
     <h2 style="font-size:1.1rem;font-weight:800;color:#1e2d4e;margin:0 0 .5rem">&#9888; Conflitto di orario</h2>
     <p style="font-size:.88rem;color:#475569;margin:0 0 1rem">Nello stesso spazio &egrave; gi&agrave; presente:</p>
-    <div id="conflict-list" style="background:#fef9ec;border:1.5px solid #fbbf24;border-radius:8px;padding:.75rem 1rem;margin-bottom:1.2rem;text-align:left;font-size:.84rem;color:#92400e"></div>
+    <div id="conflict-list" style="background:#fef9ec;border:1.5px solid #fbbf24;border-radius:8px;padding:.75rem 1rem;margin-bottom:1.2rem;text-align:left;font-size:.84rem;color:#92400e;max-height:220px;overflow-y:auto;flex-shrink:1;"></div>
     <p style="font-size:.82rem;color:#64748b;margin:0 0 1.3rem">Vuoi aggiungere l'evento <strong>in contemporanea</strong>?</p>
     <div style="display:flex;gap:.75rem;justify-content:center">
       <button type="button" onclick="closeConflictModal()" style="padding:.55rem 1.4rem;border:1.5px solid #d1d9e6;border-radius:8px;background:#fff;font-size:.88rem;font-weight:600;cursor:pointer;color:#475569">&#10007; Annulla</button>
