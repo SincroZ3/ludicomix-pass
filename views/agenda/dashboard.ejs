@@ -22,6 +22,17 @@
   /* ── CALENDAR ── */
   .cal-wrap{background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 1px 4px rgba(30,45,78,.06);overflow:hidden}
   .cal-grid{display:grid;gap:0}
+  /* Navigazione giorni */
+  .day-nav{display:flex;align-items:center;justify-content:space-between;gap:.75rem;background:#1e2d4e;border-radius:10px;padding:.5rem .75rem;margin-bottom:.5rem}
+  .day-nav-btn{display:inline-flex;align-items:center;gap:.35rem;background:rgba(255,255,255,.1);color:#f5c842;border:1.5px solid rgba(255,255,255,.15);border-radius:99px;padding:.35rem .9rem;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;text-decoration:none}
+  .day-nav-btn:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.35)}
+  .day-nav-btn.disabled{opacity:.3;cursor:not-allowed;pointer-events:none}
+  .day-nav-center{text-align:center;flex:1}
+  .day-nav-label{font-size:1.05rem;font-weight:800;color:#fff;line-height:1.2}
+  .day-nav-date{font-size:.75rem;color:#aec6e8;font-weight:500;margin-top:.1rem}
+  .day-nav-dots{display:flex;gap:.35rem;justify-content:center;margin-top:.4rem}
+  .day-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.25);cursor:pointer;transition:background .15s}
+  .day-dot.active{background:#f5c842}
   .cal-col-head{background:#1e2d4e;color:#fff;padding:.65rem .5rem;text-align:center;font-size:.78rem;font-weight:800;letter-spacing:.04em;border-left:1px solid rgba(255,255,255,.12)}
   .cal-col-head:first-child{background:#162038;border-left:none}
   .cal-col-head .day-label{font-size:.65rem;font-weight:600;opacity:.75;text-transform:uppercase;letter-spacing:.06em}
@@ -230,23 +241,30 @@
       </div>
     <% } else { %>
 
-    <!-- HEADER GIORNI -->
-    <div style="display:grid;grid-template-columns:<%= gridCols %>;position:sticky;top:0;z-index:20">
-      <div class="cal-col-head" style="background:#162038;padding:.65rem .3rem;font-size:.65rem;color:#94a3b8;text-align:right"></div>
-      <% CAL_DAYS.forEach(function(d,i){ %>
-      <div class="cal-col-head">
-        <div class="day-label"><%= CAL_LABELS[i] %></div>
-        <div class="day-date">
-          <% var dp=d.split('-'); %><span style="font-size:.72rem;font-weight:600;opacity:.75"><%= dp[2] %>/<%= dp[1] %>/<%= dp[0] %></span>
-        </div>
-        <div style="font-size:.65rem;opacity:.6;margin-top:.1rem"><%= eventsByDay[d].length %> eventi</div>
+    <!-- NAVIGAZIONE GIORNO SINGOLO -->
+    <div class="day-nav" id="dayNav">
+      <button class="day-nav-btn" id="btnPrevDay" onclick="changeDay(-1)">&#8592; Prec.</button>
+      <div class="day-nav-center">
+        <div class="day-nav-label" id="dayNavLabel"></div>
+        <div class="day-nav-date" id="dayNavDate"></div>
+        <div class="day-nav-dots" id="dayNavDots"></div>
       </div>
-      <% }) %>
+      <button class="day-nav-btn" id="btnNextDay" onclick="changeDay(+1)">Succ. &#8594;</button>
+    </div>
+
+    <!-- HEADER GIORNO ATTIVO (sticky) -->
+    <div style="display:grid;grid-template-columns:56px 1fr;position:sticky;top:0;z-index:20" id="calDayHeader">
+      <div class="cal-col-head" style="background:#162038;padding:.65rem .3rem;font-size:.65rem;color:#94a3b8;text-align:right"></div>
+      <div class="cal-col-head" id="calDayHeaderCell">
+        <div class="day-label" id="hdrDayLabel"></div>
+        <div class="day-date"><span id="hdrDayDate" style="font-size:.72rem;font-weight:600;opacity:.75"></span></div>
+        <div style="font-size:.65rem;opacity:.6;margin-top:.1rem" id="hdrDayCount"></div>
+      </div>
     </div>
 
     <!-- GRIGLIA ORARIA -->
-    <div style="overflow-y:auto;max-height:75vh">
-      <div class="cal-grid" style="grid-template-columns:<%= gridCols %>">
+    <div style="overflow-y:auto;max-height:75vh" id="calScrollWrap">
+      <div class="cal-grid" style="grid-template-columns:56px 1fr" id="calGrid">
 
         <% slots.forEach(function(slot, si){
           var isHour = slot.m === 0;
@@ -258,12 +276,12 @@
             <% if(isHour){ %><%= String(slot.h).padStart(2,'0') %>:00<% } else if(slot.m===30){ %><span style="opacity:.5"><%= String(slot.h).padStart(2,'0') %>:30</span><% } %>
           </div>
 
-          <!-- Celle per ogni giorno -->
+          <!-- Celle per ogni giorno (tutte renderizzate, nascoste via JS) -->
           <% CAL_DAYS.forEach(function(day, di){
             var dayEvs = eventsByDay[day]||[];
             var slotMin = slot.h*60 + slot.m;
           %>
-            <div class="cal-cell <%= isHour ? 'hour' : '' %>" style="height:<%= SLOT_H %>px">
+            <div class="cal-cell <%= isHour ? 'hour' : '' %>" style="height:<%= SLOT_H %>px" data-day="<%= day %>">
               <%
                 // Renderizza gli eventi che iniziano in questo slot
                 dayEvs.forEach(function(ev){
@@ -388,12 +406,103 @@ function resetEventPositions() {
   });
 }
 
-// Salva le posizioni originali al caricamento
+
+
+// ── DATI GIORNI (passati da EJS) ──
+var CAL_DAYS_JS  = <%- JSON.stringify(CAL_DAYS) %>;
+var CAL_LABELS_JS = <%- JSON.stringify(CAL_LABELS) %>;
+var eventsByDayCount = <%- JSON.stringify(
+  (function(){
+    var obj={};
+    CAL_DAYS.forEach(function(d){ obj[d] = eventsByDay[d] ? eventsByDay[d].length : 0; });
+    return obj;
+  })()
+) %>;
+var FIERA_DAYS_FULL_JS = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+
+// ── NAVIGAZIONE GIORNO ──
+var activeDayIdx = 0;
+
+function renderDayNav() {
+  var day   = CAL_DAYS_JS[activeDayIdx];
+  var label = CAL_LABELS_JS[activeDayIdx];
+  var dp    = day.split('-');
+  var dateStr = dp[2] + '/' + dp[1] + '/' + dp[0];
+  var count   = eventsByDayCount[day] || 0;
+
+  // Barra nav
+  document.getElementById('dayNavLabel').textContent = label;
+  document.getElementById('dayNavDate').textContent  = dateStr + ' · ' + count + ' eventi';
+
+  // Header sticky
+  document.getElementById('hdrDayLabel').textContent = label;
+  document.getElementById('hdrDayDate').textContent  = dateStr;
+  document.getElementById('hdrDayCount').textContent = count + ' eventi';
+
+  // Dots
+  var dotsEl = document.getElementById('dayNavDots');
+  dotsEl.innerHTML = '';
+  CAL_DAYS_JS.forEach(function(d, i) {
+    var dot = document.createElement('span');
+    dot.className = 'day-dot' + (i === activeDayIdx ? ' active' : '');
+    dot.title = CAL_LABELS_JS[i];
+    dot.addEventListener('click', function() { activeDayIdx = i; renderDayNav(); showActiveDay(); });
+    dotsEl.appendChild(dot);
+  });
+
+  // Pulsanti prev/next
+  document.getElementById('btnPrevDay').classList.toggle('disabled', activeDayIdx === 0);
+  document.getElementById('btnNextDay').classList.toggle('disabled', activeDayIdx === CAL_DAYS_JS.length - 1);
+}
+
+function showActiveDay() {
+  var activeDay = CAL_DAYS_JS[activeDayIdx];
+  // Mostra/nascondi celle della griglia
+  document.querySelectorAll('.cal-cell[data-day]').forEach(function(cell) {
+    cell.style.display = cell.dataset.day === activeDay ? '' : 'none';
+  });
+  // Scroll in cima alla griglia
+  var wrap = document.getElementById('calScrollWrap');
+  if (wrap) wrap.scrollTop = 0;
+  renderDayNav();
+}
+
+function changeDay(delta) {
+  var next = activeDayIdx + delta;
+  if (next < 0 || next >= CAL_DAYS_JS.length) return;
+  activeDayIdx = next;
+  showActiveDay();
+}
+
+// Supporto swipe touch per mobile
+(function() {
+  var wrap = document.getElementById('calScrollWrap');
+  if (!wrap) return;
+  var startX = 0, startY = 0;
+  wrap.addEventListener('touchstart', function(e) {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }, { passive: true });
+  wrap.addEventListener('touchend', function(e) {
+    var dx = e.changedTouches[0].clientX - startX;
+    var dy = e.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+      changeDay(dx < 0 ? 1 : -1);
+    }
+  }, { passive: true });
+})();
+
+// Init al caricamento: salva posizioni originali + mostra primo giorno
 document.addEventListener('DOMContentLoaded', function() {
+  // Salva posizioni originali per il filtro sale
   document.querySelectorAll('.cal-event').forEach(function(ev) {
     ev.dataset.origLeft  = ev.style.left;
     ev.dataset.origWidth = ev.style.width;
   });
+  // Mostra il primo giorno
+  if (CAL_DAYS_JS.length > 0) {
+    showActiveDay();
+  }
 });
 
 document.querySelectorAll('.space-filter-btn').forEach(function(btn){
