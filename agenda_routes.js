@@ -690,14 +690,20 @@ router.get('/agenda/registrations', requireAuth, (req, res) => {
 // ══════════════════════════════════════════════
 
 router.get('/programma', (req, res) => {
-  const { date, space } = req.query;
+  const { date, space, q } = req.query;
   const selectedDate  = date  || null;
   const selectedSpace = space || null;
+  const searchQuery   = q ? q.trim() : null;
 
   let sql = `SELECT * FROM v_public_program WHERE 1=1`;
   const params = [];
   if (selectedDate)  { sql += ` AND date = ?`;       params.push(selectedDate); }
   if (selectedSpace) { sql += ` AND space_name = ?`; params.push(selectedSpace); }
+  if (searchQuery)   {
+    sql += ` AND (title LIKE ? OR speakers_list LIKE ? OR description LIKE ?)`;
+    const like = `%${searchQuery}%`;
+    params.push(like, like, like);
+  }
   sql += ` ORDER BY date, start_time`;
 
   db.all(sql, params, (err, events) => {
@@ -736,9 +742,10 @@ router.get('/programma', (req, res) => {
               events: events || [],
               dates: dates || [],
               spaces: spaces || [],
-              filters: { date: selectedDate, space: selectedSpace },
+              filters: { date: selectedDate, space: selectedSpace, q: searchQuery },
               selectedDate,
               selectedSpace,
+              searchQuery: searchQuery || '',
               featuredGuests: featuredGuests || [],
               allSpeakers: allSpeakers || [],
               title: 'Programma Ludicomix'

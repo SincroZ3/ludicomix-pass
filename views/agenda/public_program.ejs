@@ -516,7 +516,7 @@
         </div>
         <div class="filter-group search">
           <label>Cerca evento o ospite&hellip;</label>
-          <input type="text" id="filterSearch" placeholder="Cerca evento o ospite..." oninput="applyClientFilter()">
+          <input type="text" id="filterSearch" name="q" value="<%= searchQuery %>" placeholder="Cerca evento o ospite..." oninput="applyClientFilter()">
         </div>
         <div class="filter-actions">
           <button type="submit" class="btn-filtra">Filtra</button>
@@ -1251,7 +1251,23 @@ function handleHashOpen() {
 }
 
 // All'apertura della pagina
-document.addEventListener('DOMContentLoaded', function() { handleHashOpen(); });
+document.addEventListener('DOMContentLoaded', function() {
+  handleHashOpen();
+
+  // Auto-apri il pannello filtri se c'è un filtro attivo
+  var hasFilter = <%= (filters.date || filters.space || filters.q) ? 'true' : 'false' %>;
+  if (hasFilter) {
+    var wrap = document.getElementById('filterCollapsible');
+    var btn  = document.getElementById('filterToggleBtn');
+    if (wrap) { wrap.classList.remove('collapsed'); }
+    if (btn)  { btn.classList.add('open'); btn.setAttribute('aria-expanded', 'true'); }
+  }
+
+  // Se c'è una ricerca testuale server-side, applica anche il filtro client-side
+  // così type-filter e search lavorano insieme
+  var sq = document.getElementById('filterSearch');
+  if (sq && sq.value.trim()) { applyClientFilter(); }
+});
 
 // Se l'utente usa back/forward nel browser
 window.addEventListener('hashchange', function() {
