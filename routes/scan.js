@@ -208,10 +208,20 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
         ${edFilter()}
       ORDER BY ag.name LIMIT 5`;
 
+    const sqlEv = `
+      SELECT e.id, e.title, e.event_type, e.date, e.start_time, e.end_time,
+             s.name AS space_name
+      FROM events e
+      LEFT JOIN spaces s ON s.id = e.space_id
+      WHERE e.title LIKE ? OR s.name LIKE ? OR e.event_type LIKE ?
+      ORDER BY e.date, e.start_time LIMIT 6`;
+
     db.all(sqlP, [like, like, like, like, like, like, like], (e1, passes) => {
       db.all(sqlPa, [like, like, like, like], (e2, participants) => {
         db.all(sqlG, [like, like, like, like], (e3, groups) => {
-          res.json({ passes: passes || [], participants: participants || [], groups: groups || [] });
+          db.all(sqlEv, [like, like, like], (e4, events) => {
+            res.json({ passes: passes || [], participants: participants || [], groups: groups || [], events: events || [] });
+          });
         });
       });
     });

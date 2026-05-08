@@ -609,6 +609,7 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 .cp-badge-gen{background:#e0e7ff;color:#3730a3}
 .cp-badge-cons{background:#d1fae5;color:#065f46}
 .cp-badge-inv{background:#fee2e2;color:#991b1b}
+.cp-badge-event{background:#e0f2fe;color:#075985}
 .cp-footer{padding:.4rem .9rem;border-top:1px solid #f0f2f5;display:flex;gap:1.1rem;font-size:.72rem;color:#a0aec0}
 .cp-footer kbd{background:#f0f2f5;border:1px solid #d1d9e6;border-radius:3px;padding:.05rem .3rem;font-size:.68rem;font-family:monospace;color:#4a5568}
 
@@ -768,6 +769,18 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
           '👤', p.first_name+' '+p.last_name, (p.role||'')+(p.stand_name?' · '+p.stand_name:''), '');
       });
     }
+    if(data.events&&data.events.length){
+      html+='<div class="cp-section-title">📅 Eventi</div>';
+      data.events.forEach(function(e){
+        var sub=(e.space_name||'');
+        if(e.event_type) sub+=(sub?' · ':'')+e.event_type;
+        if(e.date) sub+=(sub?' · ':'')+e.date;
+        if(e.start_time) sub+=(sub?' ':'')+(e.start_time.slice(0,5))+(e.end_time?'–'+e.end_time.slice(0,5):'');
+        html+=buildItem('/agenda/events/'+e.id+'/edit',
+          '📅', e.title, sub,
+          '<span class="cp-badge cp-badge-event">Evento</span>');
+      });
+    }
     if(data.groups&&data.groups.length){
       html+='<div class="cp-section-title">🏪 Gruppi / Stand</div>';
       data.groups.forEach(function(g){
@@ -775,7 +788,7 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
           '🏪', g.stand_name||g.name, (g.zone||'')+(g.name?' · '+g.name:''), '');
       });
     }
-    var total=(data.passes?data.passes.length:0)+(data.participants?data.participants.length:0)+(data.groups?data.groups.length:0);
+    var total=(data.passes?data.passes.length:0)+(data.participants?data.participants.length:0)+(data.groups?data.groups.length:0)+(data.events?data.events.length:0);
     if(!total) html='<div class="cp-empty">Nessun risultato trovato.</div>';
     html+='<a class="cp-item" data-href="/search?q='+encodeURIComponent(input.value)+'&tab=all" href="/search?q='+encodeURIComponent(input.value)+'&tab=all" style="border-top:1px solid #f0f2f5;color:var(--accent-blue)">'
       +'<span class="cp-icon">🔍</span>'
