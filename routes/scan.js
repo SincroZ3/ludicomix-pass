@@ -46,7 +46,22 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
             [code, 'NOT_FOUND', req.session.user.id, ip]);
           return res.status(404).json({ error: 'Pass non trovato', code });
         }
-        res.json({ pass });
+        // Se ENTRATO, cerca l'ultimo accesso giornaliero per il warning duplicato
+        if (pass.status === 'ENTRATO') {
+          const today = new Date().toISOString().slice(0, 10);
+          db.get(
+            `SELECT created_at FROM scan_attempts
+             WHERE pass_id=? AND result='ACCESSO'
+               AND date(created_at)=date('now','localtime')
+             ORDER BY id DESC LIMIT 1`,
+            [pass.id],
+            (err2, lastAccess) => {
+              res.json({ pass, lastAccess: lastAccess ? lastAccess.created_at : null });
+            }
+          );
+        } else {
+          res.json({ pass });
+        }
       }
     );
   });
@@ -79,10 +94,41 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
           return res.status(400).json({ error: 'Pass invalidato', status: pass.status });
         }
 
+        // Pass ENTRATO: scansione di accesso in manifestazione
         if (pass.status === 'CONSEGNATO' || pass.status === 'RICONSEGNATO') {
-          db.run('INSERT INTO scan_attempts(code,result,pass_id,participant_name,group_name,user_id,ip) VALUES(?,?,?,?,?,?,?)',
-            [code, 'GIA_' + pass.status, pass.id, pname, pass.group_name, uid, ip]);
-          return res.status(409).json({ error: 'Pass già ' + pass.status.toLowerCase(), status: pass.status });
+          db.run('UPDATE passes SET status = ? WHERE id = ?', ['ENTRATO', pass.id], function(err2) {
+            if (err2) return res.status(500).json({ error: 'Errore DB' });
+            db.run('INSERT INTO scan_attempts(code,result,pass_id,participant_name,group_name,user_id,ip) VALUES(?,?,?,?,?,?,?)',
+              [code, 'ACCESSO', pass.id, pname, pass.group_name, uid, ip]);
+            logAction(uid, 'scan_accesso', 'pass', pass.id, 'Pass ENTRATO in manifestazione via scanner QR');
+            db.run('INSERT INTO pass_status_history(pass_id,status,user_id) VALUES(?,?,?)',
+              [pass.id, 'ENTRATO', uid]);
+            res.json({ success: true, action: 'entrato', passId: pass.id });
+          });
+          return;
+        }
+
+        // Pass già ENTRATO: warning duplicato — non cambia stato, registra tentativo
+        if (pass.status === 'ENTRATO') {
+          db.get(
+            `SELECT created_at FROM scan_attempts
+             WHERE pass_id=? AND result='ACCESSO'
+               AND date(created_at)=date('now','localtime')
+             ORDER BY id DESC LIMIT 1`,
+            [pass.id],
+            (err2, lastAccess) => {
+              db.run('INSERT INTO scan_attempts(code,result,pass_id,participant_name,group_name,user_id,ip) VALUES(?,?,?,?,?,?,?)',
+                [code, 'DUPLICATO', pass.id, pname, pass.group_name, uid, ip]);
+              res.status(409).json({
+                error: 'Pass già entrato oggi',
+                status: 'ENTRATO',
+                duplicate: true,
+                lastAccess: lastAccess ? lastAccess.created_at : null,
+                pass: { first_name: pass.first_name, last_name: pass.last_name, group_name: pass.group_name }
+              });
+            }
+          );
+          return;
         }
 
         db.run('UPDATE passes SET status = ? WHERE id = ?', ['CONSEGNATO', pass.id], function (err2) {
@@ -92,7 +138,7 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
           logAction(uid, 'scan_consegna', 'pass', pass.id, 'Pass CONSEGNATO via scanner QR');
           db.run('INSERT INTO pass_status_history(pass_id,status,user_id) VALUES(?,?,?)',
             [pass.id, 'CONSEGNATO', uid]);
-          res.json({ success: true, passId: pass.id });
+          res.json({ success: true, action: 'consegnato', passId: pass.id });
         });
       }
     );

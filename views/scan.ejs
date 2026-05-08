@@ -20,6 +20,17 @@
 .btn-riprendi{background:var(--accent-blue);color:#fff;display:none}
 .scan-ctr{text-align:center;font-size:.82rem;color:var(--text-muted);margin-bottom:.75rem}
 .scan-ctr strong{color:#2d6a4f;font-size:1.05rem}
+#result-card.entrato{border-color:#1d6fa4}
+#result-card.duplicato{border-color:#c0392b;background:#fff5f5}
+.dup-warn{background:#c0392b;color:#fff;border-radius:var(--radius-sm);padding:.75rem 1rem;font-size:.92rem;font-weight:700;margin-bottom:.75rem;text-align:center}
+.dup-titolare{background:#fff;border:2px solid #c0392b;border-radius:var(--radius-sm);padding:.75rem 1rem;margin-bottom:.75rem}
+.dup-titolare .dt-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#c0392b;margin-bottom:.2rem}
+.dup-titolare .dt-name{font-size:1.25rem;font-weight:900;color:#1a2744;margin-bottom:.15rem}
+.dup-titolare .dt-meta{font-size:.82rem;color:#555;margin-bottom:.1rem}
+.dup-titolare .dt-time{font-size:.78rem;color:#c0392b;font-weight:700;margin-top:.4rem}
+.btn-accesso{background:#1d6fa4;color:#fff}
+.btn-accesso:hover{background:#155d8a}
+.btn-accesso:disabled{opacity:.5;cursor:not-allowed}
 </style>
 
 <div id="scanner-wrap">
@@ -32,14 +43,24 @@
     <div id="rtype" class="rmeta"></div>
     <div id="rcode" class="rcode"></div>
     <div id="rmsg" class="rmsg"></div>
+    <div id="dup-block" style="display:none">
+      <div class="dup-warn">⚠️ ACCESSO DUPLICATO — VERIFICA IL TITOLARE</div>
+      <div class="dup-titolare">
+        <div class="dt-label">Titolare registrato</div>
+        <div id="dup-name" class="dt-name"></div>
+        <div id="dup-group" class="dt-meta"></div>
+        <div id="dup-time" class="dt-time"></div>
+      </div>
+    </div>
     <button id="btn-consegna" class="btn-big btn-consegna" onclick="doConsegna()">&#10003; SEGNA COME CONSEGNATO</button>
+    <button id="btn-accesso" class="btn-big btn-accesso" onclick="doConsegna()" style="display:none">&#9654; SEGNA ACCESSO IN MANIFESTAZIONE</button>
     <button id="btn-riprendi" class="btn-big btn-riprendi" onclick="riprendiScan()">&#128260; Scansiona un altro</button>
   </div>
 </div>
 
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
-var COLORS={GENERATO:'#6b3fa0',SCARICATO:'#1d6fa4',STAMPATO:'#c9a227',CONSEGNATO:'#2d6a4f',RICONSEGNATO:'#c0392b',INVALIDATO:'#555'};
+var COLORS={GENERATO:'#6b3fa0',SCARICATO:'#1d6fa4',STAMPATO:'#c9a227',CONSEGNATO:'#2d6a4f',RICONSEGNATO:'#c0392b',ENTRATO:'#1d6fa4',INVALIDATO:'#555'};
 var scanning=true, lastCode=null, sessN=0, html5QrCode=null;
 
 html5QrCode = new Html5Qrcode('qr-reader');
@@ -67,9 +88,12 @@ function showResult(d){
   card.style.display='block'; card.className='';
   var badge=document.getElementById('rbadge');
   var bc=document.getElementById('btn-consegna');
+  var ba=document.getElementById('btn-accesso');
   var br=document.getElementById('btn-riprendi');
   var msg=document.getElementById('rmsg');
-  bc.style.display='none'; br.style.display='block';
+  var dupBlock=document.getElementById('dup-block');
+  bc.style.display='none'; ba.style.display='none';
+  br.style.display='block'; dupBlock.style.display='none';
   if(!d.pass){
     card.className='err';
     badge.textContent='\u274C NON TROVATO'; badge.style.background='#c0392b';
@@ -92,9 +116,28 @@ function showResult(d){
     msg.textContent='\u26D4 Pass invalidato, non consegnabile.';
     msg.style.cssText='background:#fde8e8;color:#c0392b';
   } else if(st==='CONSEGNATO'||st==='RICONSEGNATO'){
-    card.className='warn';
-    msg.textContent='\u26A0\uFE0F Pass già '+st.toLowerCase()+'.';
-    msg.style.cssText='background:#fef9e7;color:#c9a227';
+    card.className='ok';
+    msg.textContent='\u2705 Pass consegnato. Conferma l'ingresso in manifestazione.';
+    msg.style.cssText='background:#eaf5ef;color:#2d6a4f';
+    ba.style.display='block'; ba.disabled=false;
+    ba.setAttribute('data-code', p.code);
+  } else if(st==='ENTRATO'){
+    card.className='duplicato';
+    badge.textContent='\u26A0\uFE0F GI\u00C0 ENTRATO'; badge.style.background='#c0392b';
+    msg.textContent='Questo pass ha gi\u00e0 effettuato l'accesso oggi.';
+    msg.style.cssText='background:#fde8e8;color:#c0392b';
+    dupBlock.style.display='block';
+    document.getElementById('dup-name').textContent=(p.first_name||'')+' '+(p.last_name||'');
+    document.getElementById('dup-group').textContent='\uD83D\uDC65 '+(p.group_name||'Nessun gruppo')+' \u00b7 \uD83C\uDFAB '+(p.pass_type_name||'');
+    var timeStr='';
+    if(d.lastAccess){
+      try{
+        var dt=new Date(d.lastAccess.replace(' ','T'));
+        timeStr='Ultimo accesso: '+dt.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})+' del '+dt.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'});
+      }catch(x){timeStr=d.lastAccess;}
+    }
+    document.getElementById('dup-time').textContent=timeStr;
+    if(navigator.vibrate) navigator.vibrate([200,100,200,100,200]);
   } else {
     card.className='ok';
     msg.textContent='\u2705 Pass valido. Conferma la consegna.';
@@ -122,24 +165,38 @@ function showErr(msg,code){
 }
 
 function doConsegna(){
-  var code=document.getElementById('btn-consegna').getAttribute('data-code');
   var bc=document.getElementById('btn-consegna');
-  bc.disabled=true; bc.textContent='Salvataggio...';
+  var ba=document.getElementById('btn-accesso');
+  var isAccesso=ba.style.display!=='none';
+  var code=isAccesso ? ba.getAttribute('data-code') : bc.getAttribute('data-code');
+  var activeBtn=isAccesso ? ba : bc;
+  activeBtn.disabled=true; activeBtn.textContent='Salvataggio...';
   fetch('/api/scan/'+encodeURIComponent(code)+'/consegna',{method:'POST'})
     .then(function(r){return r.json();})
     .then(function(d){
       if(d.success){
         sessN++; document.getElementById('sess-n').textContent=sessN;
         if(navigator.vibrate) navigator.vibrate([80,40,80]);
-        bc.textContent='\u2713 CONSEGNATO!'; bc.style.background='#1a5c3a';
-        document.getElementById('rmsg').textContent='\uD83C\uDF89 Pass segnato come CONSEGNATO!';
+        if(d.action==='entrato'){
+          activeBtn.textContent='\u2714 ACCESSO REGISTRATO!'; activeBtn.style.background='#155d8a';
+          document.getElementById('rmsg').textContent='\uD83D\uDEAA Ingresso in manifestazione registrato!';
+          document.getElementById('rmsg').style.cssText='background:#e8f4fd;color:#1d6fa4';
+        } else {
+          activeBtn.textContent='\u2713 CONSEGNATO!'; activeBtn.style.background='#1a5c3a';
+          document.getElementById('rmsg').textContent='\uD83C\uDF89 Pass segnato come CONSEGNATO!';
+        }
         setTimeout(riprendiScan, 2500);
       } else {
-        bc.disabled=false; bc.textContent='\u2713 SEGNA COME CONSEGNATO';
-        alert(d.error||'Errore durante la consegna');
+        activeBtn.disabled=false;
+        activeBtn.textContent=isAccesso ? '\u25BA SEGNA ACCESSO IN MANIFESTAZIONE' : '\u2713 SEGNA COME CONSEGNATO';
+        alert(d.error||'Errore');
       }
     })
-    .catch(function(){bc.disabled=false;bc.textContent='\u2713 SEGNA COME CONSEGNATO';alert('Errore di rete');});
+    .catch(function(){
+      activeBtn.disabled=false;
+      activeBtn.textContent=isAccesso ? '\u25BA SEGNA ACCESSO IN MANIFESTAZIONE' : '\u2713 SEGNA COME CONSEGNATO';
+      alert('Errore di rete');
+    });
 }
 
 function riprendiScan(){
