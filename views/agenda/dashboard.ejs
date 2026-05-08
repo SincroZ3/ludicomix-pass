@@ -308,6 +308,9 @@
                  data-seats="<%= ev.seats_taken||0 %>/<%= ev.space_capacity||'?' %>"
                  data-space-id="<%= ev.space_id %>"
                  data-cell="<%= day %>-<%= slotMin %>"
+                 data-start="<%= evStartMin %>"
+                 data-end="<%= evEndMin %>"
+                 data-day="<%= day %>"
                  onmouseenter="showEvTooltip(event,this)"
                  onmouseleave="hideEvTooltip()">
                 <div class="ev-title"><%= ev.title %></div>
@@ -374,26 +377,63 @@ document.addEventListener('mousemove', function(e){
 
 // ── FILTRO SALE ──
 function recalcEventPositions(spaceId) {
-  // Raggruppa gli eventi visibili per cella (giorno + slot di inizio)
-  // usando l'attributo data-cell assegnato al rendering
-  var cellMap = {};
+  // Raccoglie eventi visibili filtrati per sala
+  var visibleEvs = [];
   document.querySelectorAll('.cal-event').forEach(function(ev) {
     if (spaceId !== 'all' && ev.dataset.spaceId !== spaceId) return;
-    var cell = ev.dataset.cell;
-    if (!cell) return;
-    if (!cellMap[cell]) cellMap[cell] = [];
-    cellMap[cell].push(ev);
+    if (ev.style.display === 'none') return;
+    visibleEvs.push(ev);
+  });
+  if (!visibleEvs.length) return;
+
+  // Ordina per ora di inizio
+  visibleEvs.sort(function(a, b) {
+    return (parseInt(a.dataset.start) || 0) - (parseInt(b.dataset.start) || 0);
   });
 
-  // Per ogni cella, ri-distribuisce gli eventi visibili in colonne
-  Object.keys(cellMap).forEach(function(cell) {
-    var evs = cellMap[cell];
-    var n = evs.length;
-    evs.forEach(function(ev, i) {
-      var pct = 100 / n;
-      var leftPct = i * pct;
+  // Raggruppa in cluster di eventi sovrapposti temporalmente (stesso giorno)
+  var clusters = [];
+  visibleEvs.forEach(function(ev) {
+    var eStart = parseInt(ev.dataset.start) || 0;
+    var eEnd   = parseInt(ev.dataset.end)   || 0;
+    var eDay   = ev.dataset.day || '';
+    var placed = false;
+    for (var ci = 0; ci < clusters.length; ci++) {
+      var overlaps = clusters[ci].some(function(other) {
+        return other.dataset.day === eDay &&
+               eStart < (parseInt(other.dataset.end) || 0) &&
+               eEnd   > (parseInt(other.dataset.start) || 0);
+      });
+      if (overlaps) { clusters[ci].push(ev); placed = true; break; }
+    }
+    if (!placed) clusters.push([ev]);
+  });
+
+  // Per ogni cluster: assegna colonne con greedy, poi applica larghezza
+  clusters.forEach(function(cluster) {
+    if (cluster.length === 1) {
+      cluster[0].style.left  = 'calc(0% + 1px)';
+      cluster[0].style.width = 'calc(100% - 3px)';
+      return;
+    }
+    var cols = []; // cols[i] = minuto fine ultimo evento in colonna i
+    cluster.forEach(function(ev) {
+      var eStart = parseInt(ev.dataset.start) || 0;
+      var eEnd   = parseInt(ev.dataset.end)   || 0;
+      var c = -1;
+      for (var ci = 0; ci < cols.length; ci++) {
+        if (cols[ci] <= eStart) { c = ci; cols[ci] = eEnd; break; }
+      }
+      if (c === -1) { c = cols.length; cols.push(eEnd); }
+      ev._assignedCol = c;
+    });
+    var totalCols = cols.length;
+    var pct = 100 / totalCols;
+    cluster.forEach(function(ev) {
+      var leftPct = (ev._assignedCol || 0) * pct;
       ev.style.left  = 'calc(' + leftPct + '% + 1px)';
-      ev.style.width = 'calc(' + pct    + '% - 3px)';
+      ev.style.width = 'calc(' + pct + '% - 3px)';
+      delete ev._assignedCol;
     });
   });
 }
