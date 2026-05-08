@@ -589,14 +589,14 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 /* ============================================================
    COMMAND PALETTE  (Ctrl+K / Cmd+K)
    ============================================================ */
-#cp-overlay{display:none;position:fixed;inset:0;background:rgba(10,20,45,.55);z-index:9990;backdrop-filter:blur(2px);align-items:flex-start;justify-content:center;padding-top:10vh}
+#cp-overlay{display:none;position:fixed;inset:0;background:rgba(10,20,45,.55);z-index:9990;backdrop-filter:blur(2px);align-items:flex-start;justify-content:center;padding-top:10vh;touch-action:none}
 #cp-overlay.open{display:flex}
-#cp-box{background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(10,20,45,.35);width:100%;max-width:580px;overflow:hidden}
+#cp-box{background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(10,20,45,.35);width:100%;max-width:580px;overflow:hidden;touch-action:auto}
 #cp-header{display:flex;align-items:center;gap:.55rem;padding:.6rem 1rem;border-bottom:1px solid #e8ecf3;background:#f7f8fa}
 #cp-q{flex:1;border:none;outline:none;font-size:1rem;background:transparent;color:#1a2744;font-family:inherit}
 #cp-q::placeholder{color:#a0aec0}
 #cp-hint{font-size:.72rem;color:#a0aec0;white-space:nowrap}
-#cp-results{max-height:380px;overflow-y:auto}
+#cp-results{max-height:380px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
 .cp-empty{padding:1.5rem;text-align:center;color:#a0aec0;font-size:.88rem}
 .cp-section-title{padding:.35rem .9rem .2rem;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#718096;border-top:1px solid #f0f2f5}
 .cp-item{display:flex;align-items:center;gap:.65rem;padding:.52rem .9rem;cursor:pointer;transition:background .1s;text-decoration:none;color:inherit}
@@ -704,11 +704,6 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
     </div>
   </div>
 </div>
-
-<!-- FAB ricerca mobile -->
-<% if (currentUser) { %>
-<button id="search-fab" aria-label="Apri ricerca rapida" title="Cerca (Cmd+K)">🔍</button>
-<% } %>
 <script>
 (function(){
   var overlay=document.getElementById('cp-overlay');
@@ -826,32 +821,30 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
   });
 })();
 
-// ── FAB drag & click ──
+// ── FAB: click, drag, scroll fix, viewport resize fix ──
 (function(){
   var fab = document.getElementById('search-fab');
   if(!fab) return;
 
-  // Click → apri palette
+  // ── Apri palette ──
   fab.addEventListener('click', function(){
-    if(fab._dragged) return; // ignora click dopo drag
-    var ov = document.getElementById('cp-overlay');
+    if(fab._dragged) return;
+    var ov  = document.getElementById('cp-overlay');
     var inp = document.getElementById('cp-q');
     if(!ov) return;
     ov.classList.add('open');
-    if(inp) setTimeout(function(){ inp.focus(); inp.select(); }, 50);
+    if(inp) setTimeout(function(){ inp.focus(); }, 80);
   });
 
-  // Drag touch
+  // ── Drag touch ──
   var startX, startY, startRight, startBottom, moved;
   fab.addEventListener('touchstart', function(e){
     var t = e.touches[0];
     var rect = fab.getBoundingClientRect();
-    startX = t.clientX;
-    startY = t.clientY;
+    startX = t.clientX; startY = t.clientY;
     startRight  = window.innerWidth  - rect.right;
     startBottom = window.innerHeight - rect.bottom;
-    moved = false;
-    fab._dragged = false;
+    moved = false; fab._dragged = false;
     fab.classList.add('dragging');
   }, {passive:true});
 
@@ -859,20 +852,53 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
     var t = e.touches[0];
     var dx = t.clientX - startX;
     var dy = t.clientY - startY;
-    if(Math.abs(dx)>4 || Math.abs(dy)>4) moved = true;
+    if(Math.abs(dx)>5 || Math.abs(dy)>5) moved = true;
     if(!moved) return;
     e.preventDefault();
-    var newRight  = Math.max(8, Math.min(window.innerWidth  - 52 - 8, startRight  - dx));
-    var newBottom = Math.max(8, Math.min(window.innerHeight - 52 - 8, startBottom - dy));
+    var newRight  = Math.max(8, Math.min(window.innerWidth  - 60, startRight  - dx));
+    var newBottom = Math.max(8, Math.min(window.innerHeight - 60, startBottom - dy));
     fab.style.right  = newRight  + 'px';
     fab.style.bottom = newBottom + 'px';
   }, {passive:false});
 
   fab.addEventListener('touchend', function(){
     fab.classList.remove('dragging');
-    if(moved) fab._dragged = true;
-    setTimeout(function(){ fab._dragged = false; }, 300);
+    if(moved){ fab._dragged = true; setTimeout(function(){ fab._dragged = false; }, 300); }
   });
+
+  // ── Fix scroll overlay su mobile ──
+  // Blocca scroll pagina se tocco è fuori da cp-results, lascia passare se è dentro
+  var cpOverlay = document.getElementById('cp-overlay');
+  var cpResults = document.getElementById('cp-results');
+  if(cpOverlay && cpResults){
+    cpOverlay.addEventListener('touchmove', function(e){
+      if(cpResults.contains(e.target)){
+        e.stopPropagation(); // scroll lista OK
+      } else {
+        e.preventDefault();  // blocca scroll pagina sotto
+      }
+    }, {passive:false});
+  }
+
+  // ── Fix viewport resize (tastiera mobile che appare/sparisce) ──
+  // Quando la tastiera si chiude il browser ridisegna il viewport e i position:fixed
+  // possono "congelarsi". Forziamo un reflow minimo sull'overlay.
+  if(cpOverlay){
+    var lastVH = window.innerHeight;
+    window.addEventListener('resize', function(){
+      var newVH = window.innerHeight;
+      if(newVH !== lastVH){
+        lastVH = newVH;
+        if(cpOverlay.classList.contains('open')){
+          // reflow: toglie e rimette display per sbloccare il fixed
+          cpOverlay.style.display = 'none';
+          // eslint-disable-next-line no-unused-expressions
+          cpOverlay.offsetHeight; // forza reflow
+          cpOverlay.style.display = '';
+        }
+      }
+    });
+  }
 })();
 </script>
 <% } %>
