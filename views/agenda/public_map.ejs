@@ -564,6 +564,20 @@ function activateZone(id) {
   });
 }
 
+
+  // linkify: converte URL nel testo in <a> cliccabili
+  function linkify(text) {
+    if (!text) return '';
+    var safe = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+    return safe.replace(
+      /(https?:\/\/[^\s<>"']+)/g,
+      '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline;word-break:break-all;">$1</a>'
+    );
+  }
 function focusZone(id) {
   var z = ZONES.find(function(x){return x.id===id;});
   if (!z || !z.map_lat) return;
@@ -664,7 +678,7 @@ function openSheet(z) {
     '<div><div class="sheet-title">'+z.name+'</div>' +
     (z.map_address ? '<div class="sheet-loc">📍 '+z.map_address+'</div>' : '') +
     '</div></div>' +
-    (z.map_desc ? '<div class="sheet-desc">'+z.map_desc+'</div>' : '') +
+    (z.map_desc ? '<div class="sheet-desc">'+linkify(z.map_desc)+'</div>' : '') +
     (tags ? '<div class="sheet-tags">'+tags+'</div>' : '') +
     '<a href="'+mapsUrl+'" target="_blank" rel="noopener noreferrer" class="btn-directions">'+
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M3 12l9-9 9 9"/><path d="M9 21V12h6v9"/></svg>'+

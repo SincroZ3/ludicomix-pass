@@ -702,7 +702,7 @@
             <% if (e.ticketed_area == 1) { %><span class="tag" style="background:#dbeafe;color:#1e40af;border-color:#93c5fd;">🎫 Area a biglietto</span><% } %>
           </div>
           <div class="ev-title"><%= e.title %></div>
-          <% if (e.description) { %><div class="ev-desc"><%= e.description.slice(0,200) %><%= e.description.length > 200 ? '…' : '' %></div><% } %>
+          <% if (e.description) { %><div class="ev-desc"><%- e.description.slice(0,200).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/(https?:\/\/[^\s<>"']+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline;word-break:break-all;">$1</a>') %><%= e.description.length > 200 ? '…' : '' %></div><% } %>
           <% if (e.speakers_list) { %><div class="ev-speakers">con <strong><%= e.speakers_list %></strong></div><% } %>
         </div>
 
@@ -830,6 +830,20 @@ EVDATA[<%= e.id %>] = <%- JSON.stringify({
 <% }); %>
 
 /* ── MODAL ── */
+
+  // linkify: converte URL nel testo in <a> cliccabili
+  function linkify(text) {
+    if (!text) return '';
+    var safe = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+    return safe.replace(
+      /(https?:\/\/[^\s<>"']+)/g,
+      '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline;word-break:break-all;">$1</a>'
+    );
+  }
 function openModal(id) {
   var ev = EVDATA[id]; if (!ev) return;
   history.replaceState(null, '', '#evento-' + id);
@@ -840,7 +854,7 @@ function openModal(id) {
   try { dateStr = new Date(ev.date + 'T12:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'long'}); } catch(x) {}
   document.getElementById('mMeta').textContent = '\u{1F4C5} ' + dateStr + '   \u{1F550} ' + ev.start_time + '\u2013' + ev.end_time + '   \u{1F4CD} ' + (ev.display_location);
   var desc = document.getElementById('mDesc');
-  desc.textContent = ev.description;
+  desc.innerHTML = linkify(ev.description || '');
   desc.style.display = ev.description ? '' : 'none';
   /* ── Immagine evento ── */
   var imgWrap = document.getElementById('mImg');
