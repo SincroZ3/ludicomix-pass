@@ -117,14 +117,14 @@ function showResult(d){
     msg.style.cssText='background:#fde8e8;color:#c0392b';
   } else if(st==='CONSEGNATO'||st==='RICONSEGNATO'){
     card.className='ok';
-    msg.textContent='\u2705 Pass consegnato. Conferma l'ingresso in manifestazione.';
+    msg.textContent='\u2705 Pass consegnato. Conferma l\'ingresso in manifestazione.';
     msg.style.cssText='background:#eaf5ef;color:#2d6a4f';
     ba.style.display='block'; ba.disabled=false;
     ba.setAttribute('data-code', p.code);
   } else if(st==='ENTRATO'){
     card.className='duplicato';
     badge.textContent='\u26A0\uFE0F GI\u00C0 ENTRATO'; badge.style.background='#c0392b';
-    msg.textContent='Questo pass ha gi\u00e0 effettuato l'accesso oggi.';
+    msg.textContent='Questo pass ha gi\u00e0 effettuato l\'accesso oggi.';
     msg.style.cssText='background:#fde8e8;color:#c0392b';
     dupBlock.style.display='block';
     document.getElementById('dup-name').textContent=(p.first_name||'')+' '+(p.last_name||'');
