@@ -118,12 +118,6 @@
     .filter-group select:focus, .filter-group input:focus { border-color: #1e2d4e; }
     .filter-group.search { flex: 2; min-width: 200px; }
     .filter-actions { display: flex; gap: .4rem; align-items: flex-end; padding-bottom: 1px; }
-    .btn-filtra {
-      padding: .44rem 1.2rem; background: #1e2d4e; color: #f5c842;
-      border: none; border-radius: 6px; font-size: .8rem; font-weight: 700;
-      cursor: pointer; text-transform: uppercase; letter-spacing: .4px; transition: background .15s;
-    }
-    .btn-filtra:hover { background: #162240; }
     .btn-reset {
       padding: .44rem 1rem; background: transparent; color: #8896ab;
       border: 1px solid #d1d9e6; border-radius: 6px; font-size: .8rem; font-weight: 600;
@@ -487,10 +481,10 @@
     </button>
     <div class="filter-collapsible collapsed" id="filterCollapsible">
     <div class="filter-card">
-      <form class="filter-row" method="GET" action="/programma" id="filterForm">
+      <div class="filter-row" id="filterForm">
         <div class="filter-group">
           <label>Tutte le date</label>
-          <select name="date">
+          <select id="filterDate" onchange="applyClientFilter()">
             <option value="">Tutte le date</option>
             <% dates.forEach(d => { %>
             <option value="<%= d.date %>" <%= filters.date === d.date ? 'selected' : '' %>>
@@ -501,10 +495,10 @@
         </div>
         <div class="filter-group">
           <label>Tutte le sale</label>
-          <select name="space">
+          <select id="filterSpace" onchange="applyClientFilter()">
             <option value="">Tutte le sale</option>
             <% spaces.forEach(s => { %>
-            <option value="<%= s.name %>" <%= filters.space === s.name ? 'selected' : '' %>><%= s.name %></option>
+            <option value="<%= s.name.toLowerCase() %>" <%= filters.space === s.name ? 'selected' : '' %>><%= s.name %></option>
             <% }); %>
           </select>
         </div>
@@ -516,13 +510,12 @@
         </div>
         <div class="filter-group search">
           <label>Cerca evento o ospite&hellip;</label>
-          <input type="text" id="filterSearch" name="q" value="<%= searchQuery %>" placeholder="Cerca evento o ospite..." oninput="applyClientFilter()">
+          <input type="text" id="filterSearch" value="<%= searchQuery %>" placeholder="Cerca evento o ospite..." oninput="applyClientFilter()">
         </div>
         <div class="filter-actions">
-          <button type="submit" class="btn-filtra">Filtra</button>
-          <a href="/programma" class="btn-reset">Reset</a>
+          <button type="button" class="btn-reset" onclick="resetFilters()">✕ Reset</button>
         </div>
-      </form>
+      </div>
       <div class="events-count" id="eventsCount"><%= events.length %> eventi</div>
     </div>
     </div><!-- /filter-collapsible -->
@@ -682,6 +675,8 @@
            data-type="<%= (e.event_type||'').toLowerCase() %>"
            data-title="<%= e.title.toLowerCase() %>"
            data-speakers="<%= (e.speakers_list||'').toLowerCase() %>"
+           data-space="<%= (e.space_name||e.display_location||'').toLowerCase() %>"
+           data-desc="<%= (e.description||'').toLowerCase().replace(/"/g,'&quot;') %>"
            onclick="openModal(<%= e.id %>)">
 
         <!-- Colonna tempo -->
@@ -702,7 +697,7 @@
             <% if (e.ticketed_area == 1) { %><span class="tag" style="background:#dbeafe;color:#1e40af;border-color:#93c5fd;">🎫 Area a biglietto</span><% } %>
           </div>
           <div class="ev-title"><%= e.title %></div>
-          <% if (e.description) { %><div class="ev-desc"><%- e.description.slice(0,200).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/(https?:\/\/[^\s<>"']+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline;word-break:break-all;">$1</a>') %><%= e.description.length > 200 ? '…' : '' %></div><% } %>
+          <% if (e.description) { %><div class="ev-desc"><%= e.description.slice(0,200) %><%= e.description.length > 200 ? '…' : '' %></div><% } %>
           <% if (e.speakers_list) { %><div class="ev-speakers">con <strong><%= e.speakers_list %></strong></div><% } %>
         </div>
 
@@ -830,20 +825,6 @@ EVDATA[<%= e.id %>] = <%- JSON.stringify({
 <% }); %>
 
 /* ── MODAL ── */
-
-  // linkify: converte URL nel testo in <a> cliccabili
-  function linkify(text) {
-    if (!text) return '';
-    var safe = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-    return safe.replace(
-      /(https?:\/\/[^\s<>"']+)/g,
-      '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline;word-break:break-all;">$1</a>'
-    );
-  }
 function openModal(id) {
   var ev = EVDATA[id]; if (!ev) return;
   history.replaceState(null, '', '#evento-' + id);
@@ -854,7 +835,7 @@ function openModal(id) {
   try { dateStr = new Date(ev.date + 'T12:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'long'}); } catch(x) {}
   document.getElementById('mMeta').textContent = '\u{1F4C5} ' + dateStr + '   \u{1F550} ' + ev.start_time + '\u2013' + ev.end_time + '   \u{1F4CD} ' + (ev.display_location);
   var desc = document.getElementById('mDesc');
-  desc.innerHTML = linkify(ev.description || '');
+  desc.textContent = ev.description;
   desc.style.display = ev.description ? '' : 'none';
   /* ── Immagine evento ── */
   var imgWrap = document.getElementById('mImg');
@@ -1131,17 +1112,57 @@ document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { clo
 })();
 
 function applyClientFilter() {
-  var typeVal   = document.getElementById('filterType').value.toLowerCase();
-  var searchVal = document.getElementById('filterSearch').value.toLowerCase().trim();
-  var cards     = document.querySelectorAll('.event-card');
-  var visible   = 0;
+  var typeVal   = (document.getElementById('filterType')  || {value:''}).value.toLowerCase();
+  var searchVal = (document.getElementById('filterSearch') || {value:''}).value.toLowerCase().trim();
+  var dateVal   = (document.getElementById('filterDate')   || {value:''}).value;
+  var spaceVal  = (document.getElementById('filterSpace')  || {value:''}).value.toLowerCase();
+
+  // sync day-tabs with date select
+  document.querySelectorAll('.day-tab').forEach(function(b) {
+    b.classList.toggle('active', dateVal !== '' && b.dataset.date === dateVal);
+  });
+  if (dateVal === '') {
+    var allTab = document.querySelector('.day-tab[data-date=""]');
+    if (allTab) allTab.classList.add('active');
+  }
+
+  // filter day-groups by date
+  document.querySelectorAll('.day-group').forEach(function(g) {
+    g.style.display = (!dateVal || g.dataset.date === dateVal) ? '' : 'none';
+  });
+
+  // filter event-cards by type + space + search (title + speakers + description)
+  var cards = document.querySelectorAll('.event-card');
   cards.forEach(function(c) {
     var matchType   = !typeVal   || c.dataset.type === typeVal;
-    var matchSearch = !searchVal || c.dataset.title.includes(searchVal) || c.dataset.speakers.includes(searchVal);
-    if (matchType && matchSearch) { c.classList.remove('hidden'); visible++; }
-    else                          { c.classList.add('hidden'); }
+    var matchSpace  = !spaceVal  || c.dataset.space === spaceVal;
+    var matchSearch = !searchVal ||
+      (c.dataset.title    || '').includes(searchVal) ||
+      (c.dataset.speakers || '').includes(searchVal) ||
+      (c.dataset.desc     || '').includes(searchVal);
+    c.classList.toggle('hidden', !(matchType && matchSpace && matchSearch));
   });
-  document.getElementById('eventsCount').textContent = visible + ' eventi';
+
+  // recount visible (not hidden AND in visible day-group)
+  var visible = 0;
+  document.querySelectorAll('.event-card:not(.hidden)').forEach(function(c) {
+    var grp = c.closest('.day-group');
+    if (!grp || grp.style.display !== 'none') visible++;
+  });
+  var countEl = document.getElementById('eventsCount');
+  if (countEl) countEl.textContent = visible + ' eventi';
+}
+
+function resetFilters() {
+  var fd = document.getElementById('filterDate');
+  var fs = document.getElementById('filterSpace');
+  var ft = document.getElementById('filterType');
+  var fq = document.getElementById('filterSearch');
+  if (fd) fd.value = '';
+  if (fs) fs.value = '';
+  if (ft) ft.value = '';
+  if (fq) fq.value = '';
+  applyClientFilter();
 }
 
 /* ── FILTRI COLLASSABILI ── */
@@ -1178,24 +1199,12 @@ function setDayTab(dateVal, btnEl) {
     }
   }
 
-  /* filtra i day-group e gli event-card */
-  var groups = document.querySelectorAll('.day-group');
-  groups.forEach(function(g) {
-    if (!dateVal || g.dataset.date === dateVal) {
-      g.style.display = '';
-    } else {
-      g.style.display = 'none';
-    }
-  });
+  /* sincronizza il select data nel pannello filtri */
+  var fd = document.getElementById('filterDate');
+  if (fd) fd.value = dateVal || '';
 
-  /* aggiorna contatore visibile */
-  var visible = 0;
-  document.querySelectorAll('.event-card:not(.hidden)').forEach(function(c) {
-    var grp = c.closest('.day-group');
-    if (!grp || grp.style.display !== 'none') visible++;
-  });
-  var countEl = document.getElementById('eventsCount');
-  if (countEl) countEl.textContent = visible + ' eventi';
+  /* delega tutto il filtraggio ad applyClientFilter (gestisce anche space/type/search) */
+  applyClientFilter();
 }
 
 /* ── MODALE OSPITI ── */
