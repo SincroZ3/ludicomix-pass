@@ -831,11 +831,14 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
   var fab = document.getElementById('search-fab');
   if(!fab) return;
 
-  // Click → apri palette (riusa la funzione open() già definita sopra)
-  fab.addEventListener('click', function(e){
+  // Click → apri palette
+  fab.addEventListener('click', function(){
     if(fab._dragged) return; // ignora click dopo drag
-    if(typeof open === 'function') open();
-    else overlay.classList.add('open');
+    var ov = document.getElementById('cp-overlay');
+    var inp = document.getElementById('cp-q');
+    if(!ov) return;
+    ov.classList.add('open');
+    if(inp) setTimeout(function(){ inp.focus(); inp.select(); }, 50);
   });
 
   // Drag touch
