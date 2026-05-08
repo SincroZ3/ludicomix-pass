@@ -18,7 +18,7 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter 
   app.get('/search', requireAuth, (req, res) => {
     const q   = (req.query.q || '').trim();
     const tab = req.query.tab || 'all';
-    if (!q) return res.render('search', { q: '', tab, passes: [], participants: [], groups: [] });
+    if (!q) return res.render('search', { q: '', tab, passes: [], participants: [], groups: [], events: [] });
 
     const like = `%${q}%`;
 
@@ -59,14 +59,25 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter 
         ${edFilter()}
       GROUP BY ag.id ORDER BY ag.name LIMIT 80`;
 
+    const sqlEv = `
+      SELECT e.id, e.title, e.event_type, e.date, e.start_time, e.end_time,
+             e.description, s.name AS space_name
+      FROM events e
+      LEFT JOIN spaces s ON s.id = e.space_id
+      WHERE e.title LIKE ? OR s.name LIKE ? OR e.event_type LIKE ? OR e.description LIKE ?
+      ORDER BY e.date, e.start_time LIMIT 100`;
+
     db.all(sqlP, [like, like, like, like, like, like, like], (e1, passes) => {
       db.all(sqlPa, [like, like, like, like, like], (e2, participants) => {
         db.all(sqlG, [like, like, like, like], (e3, groups) => {
-          res.render('search', {
-            q, tab,
-            passes:       passes       || [],
-            participants: participants || [],
-            groups:       groups       || [],
+          db.all(sqlEv, [like, like, like, like], (e4, events) => {
+            res.render('search', {
+              q, tab,
+              passes:       passes       || [],
+              participants: participants || [],
+              groups:       groups       || [],
+              events:       events       || [],
+            });
           });
         });
       });

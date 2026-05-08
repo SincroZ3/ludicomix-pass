@@ -37,7 +37,7 @@
       <button type="submit" class="primary">🔍 Cerca</button>
     </div>
     <div class="search-hint">
-      Cerca in <strong>partecipanti</strong>, <strong>pass</strong> e <strong>gruppi</strong> contemporaneamente.
+      Cerca in <strong>partecipanti</strong>, <strong>pass</strong>, <strong>gruppi</strong> e <strong>eventi</strong> contemporaneamente.
       Oppure incolla un codice QR grezzo:
       <span style="margin-left:.35rem"></span>
       <input type="text" id="qr-raw" placeholder="Incolla codice QR…" style="font-family:monospace;font-size:.82rem;padding:.25rem .55rem;border-radius:4px;border:1px solid var(--border);width:240px;vertical-align:middle" title="Incolla il codice QR per trovare il pass direttamente">
@@ -46,7 +46,7 @@
   </form>
 </div>
 
-<% var total = passes.length + participants.length + groups.length; %>
+<% var total = passes.length + participants.length + groups.length + (events ? events.length : 0); %>
 
 <% if (q && total === 0) { %>
   <div class="alert alert-warning"><span>⚠️</span> Nessun risultato per "<strong><%= q %></strong>".</div>
@@ -71,6 +71,11 @@
   <% if(groups.length>0){ %>
   <button class="stab <%=tab==='groups'?'active':''%>" onclick="switchTab('groups')">
     🏪 Gruppi / Stand <span class="stab-badge"><%= groups.length %></span>
+  </button>
+  <% } %>
+  <% if(events && events.length>0){ %>
+  <button class="stab <%=tab==='events'?'active':''%>" onclick="switchTab('events')">
+    📅 Eventi <span class="stab-badge"><%= events.length %></span>
   </button>
   <% } %>
 </div>
@@ -167,6 +172,38 @@
               <span class="chip"><%= g.consegnati||0 %>/<%= g.pass_count||0 %></span>
             </td>
             <td><a href="/assignment-groups/<%= g.id %>" class="link-action">📋 Apri</a></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
+<!-- ── EVENTI ── -->
+<% if(events && events.length>0){ %>
+<div class="search-section <%=(tab==='all'||tab==='events')?'visible':''%>" id="sec-events" style="<%=tab==='all'&&(passes.length>0||participants.length>0||groups.length>0)?'margin-top:1.4rem':''%>">
+  <div class="section-heading">📅 Eventi trovati &mdash; <span><%= events.length %></span></div>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr><th>Titolo</th><th>Sala</th><th>Tipo</th><th>Data</th><th>Orario</th><th>Apri</th></tr>
+      </thead>
+      <tbody>
+        <% events.forEach(function(ev){ %>
+          <tr>
+            <td><strong><%= ev.title %></strong>
+              <% if(ev.description){ %>
+                <div style="font-size:.73rem;color:var(--text-muted);margin-top:.15rem;max-width:420px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><%= ev.description.slice(0,120) %><%= ev.description.length>120?'…':'' %></div>
+              <% } %>
+            </td>
+            <td><%= ev.space_name||'&mdash;' %></td>
+            <td><%= ev.event_type||'&mdash;' %></td>
+            <td style="white-space:nowrap;font-size:.82rem"><%= ev.date||'&mdash;' %></td>
+            <td style="white-space:nowrap;font-size:.82rem;font-family:monospace">
+              <%= ev.start_time ? ev.start_time.slice(0,5) : '' %><%= ev.end_time ? '–'+ev.end_time.slice(0,5) : '' %>
+            </td>
+            <td><a href="/agenda/events/<%= ev.id %>/edit" class="link-action">✏️ Modifica</a></td>
           </tr>
         <% }); %>
       </tbody>
