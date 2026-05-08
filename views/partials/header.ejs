@@ -613,6 +613,16 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 .cp-footer{padding:.4rem .9rem;border-top:1px solid #f0f2f5;display:flex;gap:1.1rem;font-size:.72rem;color:#a0aec0}
 .cp-footer kbd{background:#f0f2f5;border:1px solid #d1d9e6;border-radius:3px;padding:.05rem .3rem;font-size:.68rem;font-family:monospace;color:#4a5568}
 
+/* ── FAB ricerca mobile ── */
+#search-fab{display:none;position:fixed;bottom:1.5rem;right:1.5rem;z-index:9980;
+  width:52px;height:52px;border-radius:50%;background:#1e2d4e;color:#f5c842;
+  border:none;box-shadow:0 4px 18px rgba(10,20,45,.38);cursor:pointer;
+  align-items:center;justify-content:center;font-size:1.35rem;
+  transition:transform .15s,box-shadow .15s;touch-action:none;user-select:none}
+#search-fab:hover{transform:scale(1.08);box-shadow:0 6px 24px rgba(10,20,45,.45)}
+#search-fab:active{transform:scale(.95)}
+#search-fab.dragging{transition:none;box-shadow:0 8px 28px rgba(10,20,45,.5)}
+@media(max-width:768px){#search-fab{display:flex}}
 </style>
 </head>
 <body>
@@ -694,6 +704,11 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
     </div>
   </div>
 </div>
+
+<!-- FAB ricerca mobile -->
+<% if (currentUser) { %>
+<button id="search-fab" aria-label="Apri ricerca rapida" title="Cerca (Cmd+K)">🔍</button>
+<% } %>
 <script>
 (function(){
   var overlay=document.getElementById('cp-overlay');
@@ -808,6 +823,52 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
         .then(render)
         .catch(function(){resultsEl.innerHTML='<div class="cp-empty">Errore di rete.</div>';});
     },200);
+  });
+})();
+
+// ── FAB drag & click ──
+(function(){
+  var fab = document.getElementById('search-fab');
+  if(!fab) return;
+
+  // Click → apri palette (riusa la funzione open() già definita sopra)
+  fab.addEventListener('click', function(e){
+    if(fab._dragged) return; // ignora click dopo drag
+    if(typeof open === 'function') open();
+    else overlay.classList.add('open');
+  });
+
+  // Drag touch
+  var startX, startY, startRight, startBottom, moved;
+  fab.addEventListener('touchstart', function(e){
+    var t = e.touches[0];
+    var rect = fab.getBoundingClientRect();
+    startX = t.clientX;
+    startY = t.clientY;
+    startRight  = window.innerWidth  - rect.right;
+    startBottom = window.innerHeight - rect.bottom;
+    moved = false;
+    fab._dragged = false;
+    fab.classList.add('dragging');
+  }, {passive:true});
+
+  fab.addEventListener('touchmove', function(e){
+    var t = e.touches[0];
+    var dx = t.clientX - startX;
+    var dy = t.clientY - startY;
+    if(Math.abs(dx)>4 || Math.abs(dy)>4) moved = true;
+    if(!moved) return;
+    e.preventDefault();
+    var newRight  = Math.max(8, Math.min(window.innerWidth  - 52 - 8, startRight  - dx));
+    var newBottom = Math.max(8, Math.min(window.innerHeight - 52 - 8, startBottom - dy));
+    fab.style.right  = newRight  + 'px';
+    fab.style.bottom = newBottom + 'px';
+  }, {passive:false});
+
+  fab.addEventListener('touchend', function(){
+    fab.classList.remove('dragging');
+    if(moved) fab._dragged = true;
+    setTimeout(function(){ fab._dragged = false; }, 300);
   });
 })();
 </script>
