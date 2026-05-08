@@ -110,6 +110,19 @@ runMigration("ALTER TABLE assignment_groups ADD COLUMN portal_docs_enabled INTEG
 runMigration("ALTER TABLE assignment_groups ADD COLUMN portal_service_enabled INTEGER DEFAULT 1", 'portal_service_enabled');
 runMigration("ALTER TABLE assignment_groups ADD COLUMN map_rot REAL DEFAULT 0",                   'map_rot');
 runMigration("ALTER TABLE zones ADD COLUMN zone_scope TEXT DEFAULT 'internal'",                   'zone_scope');
+db.run(`CREATE TABLE IF NOT EXISTS quiz_musicale_registrations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  registration_id INTEGER NOT NULL UNIQUE,
+  event_id INTEGER NOT NULL,
+  nickname TEXT NOT NULL,
+  social_ig TEXT,
+  social_tiktok TEXT,
+  anime_preferito TEXT NOT NULL,
+  pg_preferito TEXT NOT NULL,
+  anime_no TEXT NOT NULL,
+  gdpr_consent INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now'))
+)`, (err) => { if (err) console.error('[Migration] quiz_musicale_registrations:', err.message); });
 ['portal_nom_enabled','portal_docs_enabled','portal_service_enabled'].forEach(col =>
   db.run(`UPDATE assignment_groups SET ${col}=1 WHERE ${col} IS NULL`)
 );

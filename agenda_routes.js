@@ -463,7 +463,7 @@ router.post('/agenda/events', requireAuth, (req, res) => {
        is_public ? 1 : 0, published ? 1 : 0, registrations_open ? 1 : 0, featured ? 1 : 0,
        image_url || '', tags || '', notes || '', locationTextVal, locationTypeVal,
        free_entry ? 1 : 0, ticketed_area ? 1 : 0,
-       ['standard','cosplay'].includes(req.body.registration_form_type) ? req.body.registration_form_type : 'standard'],
+       ['standard','cosplay','quiz_musicale'].includes(req.body.registration_form_type) ? req.body.registration_form_type : 'standard'],
       function(err2) {
         if (err2) {
           flash(req, 'error', 'Errore salvataggio evento.');
@@ -549,7 +549,7 @@ router.post('/agenda/events/:id', requireAuth, (req, res) => {
        is_public ? 1 : 0, published ? 1 : 0, registrations_open ? 1 : 0, featured ? 1 : 0,
        image_url || '', tags || '', notes || '', locationTextVal, locationTypeVal,
        free_entry ? 1 : 0, ticketed_area ? 1 : 0,
-       ['standard','cosplay'].includes(req.body.registration_form_type) ? req.body.registration_form_type : 'standard',
+       ['standard','cosplay','quiz_musicale'].includes(req.body.registration_form_type) ? req.body.registration_form_type : 'standard',
        req.params.id],
       function(err2) {
         if (err2) {
@@ -612,10 +612,13 @@ router.get('/agenda/events/:id/registrations', requireAuth, (req, res) => {
     if (!event) return res.redirect('/agenda/events');
     db.all(`SELECT r.*, p.code AS pass_code,
         cr.birth_date, cr.social_contact, cr.cosplay_name, cr.cosplay_series,
-        cr.participation_type, cr.group_name
+        cr.participation_type, cr.group_name,
+        qm.nickname, qm.social_ig, qm.social_tiktok,
+        qm.anime_preferito, qm.pg_preferito, qm.anime_no
       FROM registrations r
       LEFT JOIN passes p ON p.id = r.pass_id
       LEFT JOIN cosplay_registrations cr ON cr.registration_id = r.id
+      LEFT JOIN quiz_musicale_registrations qm ON qm.registration_id = r.id
       WHERE r.event_id=?
       ORDER BY r.registered_at`, [req.params.id], (err2, regs) => {
       if (err2) {
@@ -649,6 +652,7 @@ router.get('/agenda/events/:id/registrations', requireAuth, (req, res) => {
           confirmedCount: cnt ? cnt.confirmed : 0,
           registrations: regs || [],
           isCosplay: (event.registration_form_type || 'standard') === 'cosplay',
+          isQuizMusicale: (event.registration_form_type || 'standard') === 'quiz_musicale',
           title: `Iscrizioni — ${event.title}`
         });
       });
@@ -976,7 +980,9 @@ router.get('/programma/iscriviti/:id', (req, res) => {
 router.post('/programma/iscriviti/:id', (req, res) => {
   const { first_name, last_name, email, phone, gdpr_consent,
           birth_date, social_contact, cosplay_name, cosplay_series,
-          participation_type, group_name } = req.body;
+          participation_type, group_name,
+          nickname, social_ig, social_tiktok,
+          anime_preferito, pg_preferito, anime_no } = req.body;
   const eventId = req.params.id;
 
   if (!first_name || !last_name || !email) {
@@ -1013,6 +1019,15 @@ router.post('/programma/iscriviti/:id', (req, res) => {
       if (participation_type === 'gruppo' && !group_name) { flash(req, 'error', 'Inserisci il nome del gruppo.'); return res.redirect(`/programma/iscriviti/${eventId}`); }
     }
 
+    // Validazione campi quiz musicale
+    const isQuizMusicale = ev.registration_form_type === 'quiz_musicale';
+    if (isQuizMusicale) {
+      if (!nickname) { flash(req, 'error', 'Il nickname è obbligatorio.'); return res.redirect(`/programma/iscriviti/${eventId}`); }
+      if (!anime_preferito) { flash(req, 'error', 'Indica il tuo anime preferito.'); return res.redirect(`/programma/iscriviti/${eventId}`); }
+      if (!pg_preferito) { flash(req, 'error', 'Indica il tuo personaggio preferito.'); return res.redirect(`/programma/iscriviti/${eventId}`); }
+      if (!anime_no) { flash(req, 'error', 'Indica un anime che non guarderesti.'); return res.redirect(`/programma/iscriviti/${eventId}`); }
+    }
+
     db.run(
       `INSERT INTO registrations (event_id, first_name, last_name, email, phone) VALUES (?,?,?,?,?)`,
       [eventId, first_name.trim(), last_name.trim(), email.trim().toLowerCase(), phone || ''],
@@ -1041,6 +1056,24 @@ router.post('/programma/iscriviti/:id', (req, res) => {
              participation_type === 'gruppo' ? 'gruppo' : 'singolo',
              participation_type === 'gruppo' ? (group_name || '').trim() : null],
             (err3) => { if (err3) console.error('[Cosplay reg]', err3.message); }
+          );
+        }
+
+        // Se quiz musicale, salva dati aggiuntivi
+        if (isQuizMusicale) {
+          db.run(
+            `INSERT INTO quiz_musicale_registrations
+              (registration_id, event_id, nickname, social_ig, social_tiktok,
+               anime_preferito, pg_preferito, anime_no, gdpr_consent)
+              VALUES (?,?,?,?,?,?,?,?,1)`,
+            [registrationId, eventId,
+             nickname.trim(),
+             social_ig ? social_ig.trim() : null,
+             social_tiktok ? social_tiktok.trim() : null,
+             anime_preferito.trim(),
+             pg_preferito.trim(),
+             anime_no.trim()],
+            (err3) => { if (err3) console.error('[QuizMusicale reg]', err3.message); }
           );
         }
 

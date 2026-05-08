@@ -50,7 +50,7 @@
       <div>
         <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);">Modulo</div>
         <div style="font-weight:700;">
-          <% if(isCosplay) { %><span style="color:#4f46e5;">🎭 Cosplay</span><% } else { %><span>📋 Standard</span><% } %>
+          <% if(isCosplay) { %><span style="color:#4f46e5;">🎭 Cosplay</span><% } else if(typeof isQuizMusicale !== 'undefined' && isQuizMusicale) { %><span style="color:#b45309;">🎵 Quiz Musicale</span><% } else { %><span>📋 Standard</span><% } %>
         </div>
       </div>
     </div>
@@ -83,6 +83,9 @@
           <th>#</th><th>Nome</th><th>Email</th><th>Telefono</th><th>Pass</th><th>Stato</th><th>Iscritto il</th>
           <% if (isCosplay) { %>
           <th>Cosplay</th><th>Serie</th><th>Tipo</th><th>Gruppo</th><th>Nascita</th><th>Social</th>
+          <% } %>
+          <% if (typeof isQuizMusicale !== 'undefined' && isQuizMusicale) { %>
+          <th>Nickname</th><th>Instagram</th><th>TikTok</th><th>Anime preferito</th><th>Personaggio</th><th>Anime no</th>
           <% } %>
           <th>Azioni</th>
         </tr></thead>
@@ -117,6 +120,14 @@
             <td style="font-size:.78rem;"><%= r.group_name || '—' %></td>
             <td style="font-size:.78rem;"><%= r.birth_date || '—' %></td>
             <td style="font-size:.78rem;"><%= r.social_contact || '—' %></td>
+            <% } %>
+            <% if (typeof isQuizMusicale !== 'undefined' && isQuizMusicale) { %>
+            <td style="font-size:.78rem;font-weight:600;"><%= r.nickname || '—' %></td>
+            <td style="font-size:.78rem;"><%= r.social_ig ? '@'+r.social_ig.replace(/^@/,'') : '—' %></td>
+            <td style="font-size:.78rem;"><%= r.social_tiktok ? '@'+r.social_tiktok.replace(/^@/,'') : '—' %></td>
+            <td style="font-size:.78rem;"><%= r.anime_preferito || '—' %></td>
+            <td style="font-size:.78rem;"><%= r.pg_preferito || '—' %></td>
+            <td style="font-size:.78rem;"><%= r.anime_no || '—' %></td>
             <% } %>
             <td>
               <% if(r.status === 'confirmed') { %>

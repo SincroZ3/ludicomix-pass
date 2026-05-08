@@ -249,9 +249,13 @@
               <option value="cosplay" <%= event.registration_form_type === 'cosplay' ? 'selected' : '' %>>
                 🎭 Cosplay — Dati estesi per gare cosplay
               </option>
+              <option value="quiz_musicale" <%= event.registration_form_type === 'quiz_musicale' ? 'selected' : '' %>>
+                🎵 Quiz Musicale — Dati anime/manga per il quiz
+              </option>
             </select>
             <div style="font-size:.75rem;color:#4f46e5;margin-top:.4rem">
               Il modulo Cosplay include: data di nascita, nome cosplay, serie, social (opz.) e gestione gruppi.
+              Il modulo Quiz Musicale include: nickname, social (IG/TikTok), anime preferito, personaggio preferito, anime che non guarderesti.
             </div>
           </div>
 

@@ -154,6 +154,37 @@
             <input type="text" id="group_name" name="group_name" placeholder="Es. Team Nakama">
           </div>
           <% } %>
+
+          <% if (formType === 'quiz_musicale') { %>
+          <hr style="margin:1.25rem 0;border:none;border-top:2px dashed #fde68a;">
+          <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#b45309;margin-bottom:.85rem;">
+            🎵 Dati Quiz Musicale
+          </div>
+          <div class="form-group">
+            <label for="nickname">Nickname <span class="req">*</span></label>
+            <input type="text" id="nickname" name="nickname" required placeholder="Come vuoi essere chiamato/a?">
+          </div>
+          <div class="form-group">
+            <label for="social_ig">Instagram <small style="font-weight:400;color:var(--muted);">(opzionale)</small></label>
+            <input type="text" id="social_ig" name="social_ig" placeholder="@username">
+          </div>
+          <div class="form-group">
+            <label for="social_tiktok">TikTok <small style="font-weight:400;color:var(--muted);">(opzionale)</small></label>
+            <input type="text" id="social_tiktok" name="social_tiktok" placeholder="@username">
+          </div>
+          <div class="form-group">
+            <label for="anime_preferito">Anime Preferito <span class="req">*</span></label>
+            <input type="text" id="anime_preferito" name="anime_preferito" required placeholder="Es. Attack on Titan, Demon Slayer...">
+          </div>
+          <div class="form-group">
+            <label for="pg_preferito">Personaggio Anime/Manga Preferito <span class="req">*</span></label>
+            <input type="text" id="pg_preferito" name="pg_preferito" required placeholder="Es. Levi Ackerman, Naruto Uzumaki...">
+          </div>
+          <div class="form-group">
+            <label for="anime_no">Anime che non guarderesti mai <span class="req">*</span></label>
+            <input type="text" id="anime_no" name="anime_no" required placeholder="Sii onesto/a!">
+          </div>
+          <% } %>
           <!-- GDPR -->
           <div class="form-group" style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:6px;padding:.75rem 1rem;">
             <label style="display:flex;align-items:flex-start;gap:.6rem;cursor:pointer;font-weight:400;font-size:.82rem;color:#3730a3;margin:0;">
