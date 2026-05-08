@@ -213,13 +213,13 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
              s.name AS space_name
       FROM events e
       LEFT JOIN spaces s ON s.id = e.space_id
-      WHERE e.title LIKE ? OR s.name LIKE ? OR e.event_type LIKE ?
+      WHERE e.title LIKE ? OR s.name LIKE ? OR e.event_type LIKE ? OR e.description LIKE ?
       ORDER BY e.date, e.start_time LIMIT 6`;
 
     db.all(sqlP, [like, like, like, like, like, like, like], (e1, passes) => {
       db.all(sqlPa, [like, like, like, like], (e2, participants) => {
         db.all(sqlG, [like, like, like, like], (e3, groups) => {
-          db.all(sqlEv, [like, like, like], (e4, events) => {
+          db.all(sqlEv, [like, like, like, like], (e4, events) => {
             res.json({ passes: passes || [], participants: participants || [], groups: groups || [], events: events || [] });
           });
         });
