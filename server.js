@@ -110,19 +110,6 @@ runMigration("ALTER TABLE assignment_groups ADD COLUMN portal_docs_enabled INTEG
 runMigration("ALTER TABLE assignment_groups ADD COLUMN portal_service_enabled INTEGER DEFAULT 1", 'portal_service_enabled');
 runMigration("ALTER TABLE assignment_groups ADD COLUMN map_rot REAL DEFAULT 0",                   'map_rot');
 runMigration("ALTER TABLE zones ADD COLUMN zone_scope TEXT DEFAULT 'internal'",                   'zone_scope');
-db.run(`CREATE TABLE IF NOT EXISTS quiz_musicale_registrations (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  registration_id INTEGER NOT NULL UNIQUE,
-  event_id INTEGER NOT NULL,
-  nickname TEXT NOT NULL,
-  social_ig TEXT,
-  social_tiktok TEXT,
-  anime_preferito TEXT NOT NULL,
-  pg_preferito TEXT NOT NULL,
-  anime_no TEXT NOT NULL,
-  gdpr_consent INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT DEFAULT (datetime('now'))
-)`, (err) => { if (err) console.error('[Migration] quiz_musicale_registrations:', err.message); });
 ['portal_nom_enabled','portal_docs_enabled','portal_service_enabled'].forEach(col =>
   db.run(`UPDATE assignment_groups SET ${col}=1 WHERE ${col} IS NULL`)
 );
@@ -425,7 +412,7 @@ app.get('/api/dashboard-stats', requireAuth, async (req, res) => {
         SELECT ora, SUM(count) as count, SUM(qr) as qr, SUM(manual) as manual
         FROM (
           SELECT strftime('%H', created_at) as ora, COUNT(*) as count, COUNT(*) as qr, 0 as manual
-          FROM scan_attempts WHERE created_at >= ? AND result = 'OK' GROUP BY ora
+          FROM scan_attempts WHERE created_at >= ? AND result IN ('SUCCESS','ACCESSO') GROUP BY ora
           UNION ALL
           SELECT strftime('%H', counted_at) as ora, COUNT(*) as count, 0 as qr, COUNT(*) as manual
           FROM visitor_counts WHERE direction = 'IN' AND counted_at >= ? GROUP BY ora
@@ -454,7 +441,7 @@ app.get('/api/dashboard-stats', requireAuth, async (req, res) => {
           ON vr.area = vc.area
         WHERE vc.counted_at >= COALESCE(vr.last_reset, ?) AND vc.counted_at >= ?
         GROUP BY vc.area`, [since, since]).catch(() => []),
-      dbGet(`SELECT COUNT(*) as total FROM scan_attempts WHERE result='OK' AND created_at >= ?`, [since]).catch(() => ({ total: 0 })),
+      dbGet(`SELECT COUNT(*) as total FROM scan_attempts WHERE result IN ('SUCCESS','ACCESSO') AND created_at >= ?`, [since]).catch(() => ({ total: 0 })),
       dbGet(`SELECT COUNT(*) as total FROM visitor_counts WHERE direction='IN' AND counted_at >= ?`, [since]).catch(() => ({ total: 0 })),
     ]);
 

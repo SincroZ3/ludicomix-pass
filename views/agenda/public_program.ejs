@@ -833,7 +833,7 @@ function openModal(id) {
   document.getElementById('mTitle').textContent = ev.title;
   var dateStr = '';
   try { dateStr = new Date(ev.date + 'T12:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'long'}); } catch(x) {}
-  document.getElementById('mMeta').textContent = '\u{1F4C5} ' + dateStr + '   \u{1F550} ' + ev.start_time + '\u2013' + ev.end_time + '   \u{1F4CD} ' + (ev.display_location);
+  document.getElementById('mMeta').textContent = '\u{1F4C5} ' + dateStr + '   \u{1F550} ' + ev.start_time + '\u2013' + ev.end_time + '   \u{1F4CD} ' + (ev.space_name || ev.display_location || '');
   var desc = document.getElementById('mDesc');
   desc.textContent = ev.description;
   desc.style.display = ev.description ? '' : 'none';
