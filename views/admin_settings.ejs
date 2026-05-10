@@ -611,11 +611,16 @@
       scanner:   '&#128247; Accede SOLO alla pagina Scanner. Al login viene portato direttamente alla scansione. Ideale per steward.',
       viewer:    '&#128065; Sola lettura &#8212; vede tutto ma non pu&#242; fare modifiche n&#233; scansionare.',
     };
-    var colors = {admin:'#1e2d4e',organizer:'#1b5e20',operator:'#4a148c',scanner:'#e65100',viewer:'#880e4f'};
+    var colors = {admin:'#1e2d4e',organizer:'#1b5e20',operator:'#4a148c',scanner:'#e65100',viewer:'#880e4f',custom:'#4f46e5'};
     var sel = document.getElementById('new-role-sel');
     var desc = document.getElementById('new-role-desc');
-    function upd(){ desc.innerHTML = defs[sel.value]||''; desc.style.borderColor = colors[sel.value]||'var(--border)'; }
-    sel.addEventListener('change', upd); upd();
+    var customPermsBlock = document.getElementById('new-custom-perms');
+    function upd(){
+      if(desc){ desc.innerHTML = defs[sel.value]||''; desc.style.borderColor = colors[sel.value]||'var(--border)'; }
+      if(customPermsBlock){ customPermsBlock.style.display = sel.value === 'custom' ? 'block' : 'none'; }
+    }
+    sel.addEventListener('change', upd);
+    upd();
   })();
   </script>
 
@@ -835,9 +840,9 @@
 function toggleNewArea(head) {
   var subs  = head.nextElementSibling;
   var arrow = head.querySelector('.new-perm-arrow');
-  var open  = subs.style.display !== 'none';
-  subs.style.display  = open ? 'none' : 'block';
-  arrow.style.transform = open ? 'rotate(-90deg)' : '';
+  var open  = subs && subs.style.display !== 'none';
+  if(subs)  subs.style.display = open ? 'none' : 'block';
+  if(arrow) arrow.style.transform = open ? 'rotate(-90deg)' : 'rotate(0deg)';
 }
 function toggleNewAreaAll(areaChk) {
   var area = areaChk.dataset.area;
