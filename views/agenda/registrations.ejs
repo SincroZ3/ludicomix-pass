@@ -5,6 +5,11 @@
     <h1 class="page-title" style="margin:0;border:none;">👥 Iscrizioni — <%= event.title %></h1>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
       <a href="/agenda/events/<%= event.id %>/edit" class="secondary">✏️ Modifica evento</a>
+      <a href="/agenda/events/<%= event.id %>/registrations/export"
+         style="display:inline-flex;align-items:center;gap:.35rem;padding:.4rem .9rem;background:#1d6a39;color:#fff;border-radius:var(--radius-sm);font-size:.82rem;font-weight:700;text-decoration:none;"
+         title="Scarica lista iscritti in Excel">
+        📥 Esporta Excel
+      </a>
       <a href="/agenda/events" class="secondary">← Tutti gli eventi</a>
     </div>
   </div>

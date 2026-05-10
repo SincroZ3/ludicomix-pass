@@ -659,6 +659,124 @@ router.get('/agenda/events/:id/registrations', requireAuth, (req, res) => {
     });
   });
 });
+// ── EXPORT EXCEL ISCRIZIONI ──────────────────────────────────────────────────
+router.get('/agenda/events/:id/registrations/export', requireAuth, (req, res) => {
+  const XLSX = require('xlsx');
+  db.get(`SELECT e.*, s.name AS space_name FROM events e JOIN spaces s ON s.id=e.space_id WHERE e.id=?`,
+    [req.params.id], (err, event) => {
+    if (err || !event) return res.status(404).send('Evento non trovato');
+    db.all(`SELECT r.*,
+        p.code AS pass_code,
+        cr.birth_date, cr.social_contact, cr.cosplay_name, cr.cosplay_series,
+        cr.participation_type, cr.group_name AS cosplay_group,
+        qm.nickname, qm.social_ig, qm.social_tiktok,
+        qm.anime_preferito, qm.pg_preferito, qm.anime_no
+      FROM registrations r
+      LEFT JOIN passes p ON p.id = r.pass_id
+      LEFT JOIN cosplay_registrations cr ON cr.registration_id = r.id
+      LEFT JOIN quiz_musicale_registrations qm ON qm.registration_id = r.id
+      WHERE r.event_id=?
+      ORDER BY r.registered_at`, [req.params.id], (err2, regs) => {
+      if (err2) {
+        // fallback senza join extra
+        return db.all(`SELECT r.*, p.code AS pass_code
+          FROM registrations r
+          LEFT JOIN passes p ON p.id = r.pass_id
+          WHERE r.event_id=? ORDER BY r.registered_at`, [req.params.id], (err3, regs2) => {
+          if (err3) return res.status(500).send('Errore DB');
+          sendExcel(res, event, regs2 || [], 'standard');
+        });
+      }
+      const formType = event.registration_form_type || 'standard';
+      sendExcel(res, event, regs || [], formType);
+    });
+  });
+});
+
+function sendExcel(res, event, regs, formType) {
+  const XLSX = require('xlsx');
+  const isCosplay = formType === 'cosplay';
+  const isQuiz    = formType === 'quiz_musicale';
+
+  // Intestazioni base
+  const baseHeaders = ['#', 'Cognome', 'Nome', 'Email', 'Telefono', 'Pass', 'Stato', 'Iscritto il'];
+  const cosplayHeaders = ['Cosplay Nome', 'Cosplay Serie', 'Tipo partecipazione', 'Gruppo', 'Data nascita', 'Contatto social'];
+  const quizHeaders    = ['Nickname', 'Instagram', 'TikTok', 'Anime preferito', 'Personaggio preferito', 'Anime non gradito'];
+
+  let headers = [...baseHeaders];
+  if (isCosplay) headers = [...headers, ...cosplayHeaders];
+  if (isQuiz)    headers = [...headers, ...quizHeaders];
+
+  const rows = regs.map((r, i) => {
+    const base = [
+      i + 1,
+      r.last_name  || '',
+      r.first_name || '',
+      r.email      || '',
+      r.phone      || '',
+      r.pass_code  || '',
+      r.status     || '',
+      r.registered_at ? r.registered_at.slice(0, 16).replace('T', ' ') : ''
+    ];
+    if (isCosplay) {
+      base.push(
+        r.cosplay_name        || '',
+        r.cosplay_series      || '',
+        r.participation_type  || '',
+        r.cosplay_group       || '',
+        r.birth_date          || '',
+        r.social_contact      || ''
+      );
+    }
+    if (isQuiz) {
+      base.push(
+        r.nickname       || '',
+        r.social_ig      || '',
+        r.social_tiktok  || '',
+        r.anime_preferito || '',
+        r.pg_preferito   || '',
+        r.anime_no       || ''
+      );
+    }
+    return base;
+  });
+
+  const wsData = [headers, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Larghezze colonne automatiche
+  ws['!cols'] = headers.map((h, ci) => {
+    const maxLen = Math.max(h.length, ...rows.map(r => String(r[ci] || '').length));
+    return { wch: Math.min(Math.max(maxLen + 2, 10), 50) };
+  });
+
+  const wb = XLSX.utils.book_new();
+  const sheetName = (event.title || 'Iscrizioni').replace(/[\\/\?\*\[\]]/g, '').slice(0, 31);
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+  // Foglio riepilogo
+  const summary = XLSX.utils.aoa_to_sheet([
+    ['Evento',   event.title || ''],
+    ['Data',     (event.date || '') + '  ' + (event.start_time || '') + ' – ' + (event.end_time || '')],
+    ['Sala',     event.space_name || ''],
+    ['Modulo',   formType],
+    ['Tot. iscrizioni', regs.length],
+    ['Confermate', regs.filter(r => r.status === 'confirmed').length],
+    ['Annullate',  regs.filter(r => r.status === 'cancelled').length],
+    ['Esportato il', new Date().toLocaleString('it-IT')]
+  ]);
+  summary['!cols'] = [{ wch: 20 }, { wch: 40 }];
+  XLSX.utils.book_append_sheet(wb, summary, 'Riepilogo');
+
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  const safeTitle = (event.title || 'iscrizioni').toLowerCase().replace(/[^a-z0-9]+/gi, '-').slice(0, 40);
+  const filename  = `iscrizioni-${safeTitle}-${event.date || 'evento'}.xlsx`;
+
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.send(buf);
+}
+
 router.post('/agenda/events/:id/registrations/:rid/cancel', requireAuth, (req, res) => {
   db.run(
     `UPDATE registrations SET status='cancelled', cancelled_at=datetime('now') WHERE id=?`,
