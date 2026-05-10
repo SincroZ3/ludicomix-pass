@@ -137,7 +137,8 @@
                      <%= area.subs.every(function(s){ return (userPerms||[]).includes(s.id); }) ? 'checked' : '' %>>
               <%= area.label %>
             </span>
-            <span class="perm-arrow" style="font-size:.7rem;color:var(--text-muted);transition:transform .2s;">▼</span>
+            <span class="perm-count" data-area="<%= area.id %>" style="font-size:.68rem;color:var(--text-muted);margin-right:.4rem;font-weight:500;"></span>
+          <span class="perm-arrow" style="font-size:.7rem;color:var(--text-muted);transition:transform .2s;transform:rotate(-90deg);display:inline-block;">▼</span>
           </div>
           <!-- Sotto-permessi -->
           <div class="perm-subs" style="padding:.5rem .75rem .6rem;display:grid;gap:.3rem;border-top:1px solid var(--border);">
@@ -260,17 +261,34 @@ function toggleAreaAll(areaChk) {
   var area = areaChk.dataset.area;
   var subs = document.querySelectorAll('input.sub-check[data-area="' + area + '"]');
   subs.forEach(function(s){ s.checked = areaChk.checked; });
+  // Apre la sezione automaticamente quando si spunta l'area
+  var head  = areaChk.closest('.perm-area-head');
+  var subsEl = head && head.nextElementSibling;
+  var arrow  = head && head.querySelector('.perm-arrow');
+  if(subsEl && areaChk.checked && subsEl.style.display === 'none') {
+    subsEl.style.display = 'grid';
+    if(arrow) arrow.style.transform = 'rotate(0deg)';
+  }
+  syncAreaCheck(area);
 }
 
 // ── Sincronizza checkbox area quando cambiano i sub ───────────────────
 function syncAreaCheck(areaId) {
-  var subs  = document.querySelectorAll('input.sub-check[data-area="' + areaId + '"]');
-  var all   = Array.from(subs).every(function(s){ return s.checked; });
-  var none  = Array.from(subs).every(function(s){ return !s.checked; });
-  var aChk  = document.querySelector('input.area-check[data-area="' + areaId + '"]');
+  var subs    = document.querySelectorAll('input.sub-check[data-area="' + areaId + '"]');
+  var checked = Array.from(subs).filter(function(s){ return s.checked; }).length;
+  var total   = subs.length;
+  var all     = checked === total;
+  var none    = checked === 0;
+  var aChk    = document.querySelector('input.area-check[data-area="' + areaId + '"]');
   if (!aChk) return;
   aChk.checked       = all;
   aChk.indeterminate = !all && !none;
+  var badge = document.querySelector('.perm-count[data-area="' + areaId + '"]');
+  if(badge) {
+    badge.textContent  = checked > 0 ? checked + '/' + total : '';
+    badge.style.color  = all ? 'var(--success, #437a22)' : checked > 0 ? 'var(--color-primary, #01696f)' : 'var(--text-muted)';
+    badge.style.fontWeight = checked > 0 ? '700' : '500';
+  }
 }
 
 // Avvia accordion: tutte chiuse tranne quelle con sub spuntati
@@ -278,11 +296,15 @@ document.querySelectorAll('.perm-area').forEach(function(area) {
   var hasChecked = area.querySelectorAll('input.sub-check:checked').length > 0;
   var subs  = area.querySelector('.perm-subs');
   var arrow = area.querySelector('.perm-arrow');
-  if (!hasChecked) {
+  if (hasChecked) {
+    // Sezione con permessi attivi → aperta, freccia giù
+    subs.style.display = 'grid';
+    if(arrow) arrow.style.transform = 'rotate(0deg)';
+  } else {
+    // Sezione vuota → chiusa, freccia a sinistra
     subs.style.display = 'none';
-    arrow.style.transform = 'rotate(-90deg)';
+    if(arrow) arrow.style.transform = 'rotate(-90deg)';
   }
-  // Sincronizza stato indeterminate all'avvio
   var areaId = area.querySelector('.area-check').dataset.area;
   syncAreaCheck(areaId);
 });

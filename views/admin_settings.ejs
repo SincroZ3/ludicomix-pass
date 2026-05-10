@@ -460,7 +460,8 @@
                        style="margin-right:.35rem;cursor:pointer;">
                 <%= area.label %>
               </span>
-              <span class="new-perm-arrow" style="font-size:.65rem;color:var(--text-muted);transition:transform .2s;">▼</span>
+              <span class="new-perm-count" data-area="<%= area.id %>" style="font-size:.68rem;color:var(--text-muted);margin-right:.4rem;font-weight:500;"></span>
+              <span class="new-perm-arrow" style="font-size:.65rem;color:var(--text-muted);transition:transform .2s;transform:rotate(-90deg);display:inline-block;">▼</span>
             </div>
             <div class="new-perm-subs" style="padding:.4rem .65rem .5rem;display:none;border-top:1px solid var(--border);">
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:.25rem;">
@@ -834,9 +835,7 @@
 <
 
 <script>
-(function () {
-
-// ── Accordion permessi custom nel form creazione ─────────────────────
+// ── Funzioni accordion permessi custom — SCOPE GLOBALE (usate da onclick inline) ──
 function toggleNewArea(head) {
   var subs  = head.nextElementSibling;
   var arrow = head.querySelector('.new-perm-arrow');
@@ -847,15 +846,41 @@ function toggleNewArea(head) {
 function toggleNewAreaAll(areaChk) {
   var area = areaChk.dataset.area;
   document.querySelectorAll('input.new-sub-check[data-area="'+area+'"]').forEach(function(s){ s.checked = areaChk.checked; });
+  // Se spunta l'area, apre automaticamente la sottosezione
+  var head  = areaChk.closest('[onclick]');
+  var subs  = head && head.nextElementSibling;
+  var arrow = head && head.querySelector('.new-perm-arrow');
+  if(subs && areaChk.checked && subs.style.display === 'none') {
+    subs.style.display = 'block';
+    if(arrow) arrow.style.transform = 'rotate(0deg)';
+  }
+  syncNewAreaCheck(area);
 }
 function syncNewAreaCheck(areaId) {
-  var subs = document.querySelectorAll('input.new-sub-check[data-area="'+areaId+'"]');
-  var all  = Array.from(subs).every(function(s){ return s.checked; });
-  var none = Array.from(subs).every(function(s){ return !s.checked; });
-  var ac   = document.querySelector('input.new-area-check[data-area="'+areaId+'"]');
+  var subs    = document.querySelectorAll('input.new-sub-check[data-area="'+areaId+'"]');
+  var checked = Array.from(subs).filter(function(s){ return s.checked; }).length;
+  var total   = subs.length;
+  var all     = checked === total;
+  var none    = checked === 0;
+  var ac      = document.querySelector('input.new-area-check[data-area="'+areaId+'"]');
   if(!ac) return;
   ac.checked = all; ac.indeterminate = !all && !none;
+  var badge = document.querySelector('.new-perm-count[data-area="'+areaId+'"]');
+  if(badge) {
+    badge.textContent = checked > 0 ? checked+'/'+total : '';
+    badge.style.color = checked === total ? 'var(--success, #437a22)' : checked > 0 ? 'var(--color-primary, #01696f)' : 'var(--text-muted)';
+    badge.style.fontWeight = checked > 0 ? '700' : '500';
+  }
 }
+</script>
+
+<script>
+(function () {
+
+  // Init badge contatori al caricamento
+  document.querySelectorAll('input.new-area-check').forEach(function(ac) {
+    syncNewAreaCheck(ac.dataset.area);
+  });
 
   var PANELS = { zone: 'panel-zone', raggruppamenti: 'panel-raggruppamenti', tipologie: 'panel-tipologie', backup:'panel-backup',notifiche:'panel-notifiche', utenti: 'panel-utenti', scan: 'panel-scan', auto_pass: 'panel-auto_pass', edizioni: 'panel-edizioni' };
   var tabs   = document.querySelectorAll('[data-tab]');
