@@ -19,7 +19,7 @@
 const bcrypt = require('bcryptjs');
 const { promisify } = require('util');
 
-module.exports = function registerUserRoutes(app, db, { requireAuth, requireAdmin, logAction, ROLES }) {
+module.exports = function registerUserRoutes(app, db, { requireAuth, requireAdmin, logAction, ROLES, hasPerm, parsePerms }) {
 
   const dbGet = promisify(db.get.bind(db));
   function dbRun(sql, ...p) {
@@ -80,9 +80,16 @@ module.exports = function registerUserRoutes(app, db, { requireAuth, requireAdmi
       return res.status(400).send('Tutti i campi utente sono obbligatori');
     }
     const hash = bcrypt.hashSync(password, 10);
+    // Raccoglie permessi custom se ruolo = custom
+    let permissionsJson = null;
+    if (role === ROLES.CUSTOM) {
+      const permsRaw = req.body.permissions;
+      const permsArr = Array.isArray(permsRaw) ? permsRaw : (permsRaw ? [permsRaw] : []);
+      permissionsJson = JSON.stringify(permsArr);
+    }
     db.run(
-      'INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)',
-      [username, hash, role],
+      'INSERT INTO users (username, password_hash, role, permissions) VALUES (?, ?, ?, ?)',
+      [username, hash, role, permissionsJson],
       function (err) {
         if (err) return res.status(500).send('Errore creazione utente (forse username già esistente).');
         logAction(req.session.user.id, 'create_user', 'user', this.lastID, `Creato utente ${username} (${role})`);
@@ -94,10 +101,13 @@ module.exports = function registerUserRoutes(app, db, { requireAuth, requireAdmi
   // ── Form modifica utente ─────────────────────────────────────────
   app.get('/admin/users/:id/edit', requireAdmin, async (req, res) => {
     const id   = parseInt(req.params.id, 10);
-    const user = await dbGet('SELECT id, username, role, created_at FROM users WHERE id=?', [id]);
+    const user = await dbGet('SELECT id, username, role, created_at, permissions FROM users WHERE id=?', [id]);
     if (!user) return res.status(404).send('Utente non trovato');
+    let userPerms = [];
+    try { userPerms = JSON.parse(user.permissions || '[]'); } catch(e) {}
     res.render('admin_user_edit', {
       editUser:    user,
+      userPerms,
       currentUser: req.session.user,
       saved:       req.query.saved,
       error:       req.query.error,
@@ -121,7 +131,14 @@ module.exports = function registerUserRoutes(app, db, { requireAuth, requireAdmi
     try {
       const existing = await dbGet('SELECT id FROM users WHERE username=? AND id!=?', [username, id]);
       if (existing) return res.redirect('/admin/users/' + id + '/edit?error=username-taken');
-      await dbRun('UPDATE users SET username=?, role=? WHERE id=?', [username.trim(), role, id]);
+      // Gestisci permessi custom
+      let permissionsJson = null;
+      if (role === ROLES.CUSTOM) {
+        const permsRaw = req.body.permissions;
+        const permsArr = Array.isArray(permsRaw) ? permsRaw : (permsRaw ? [permsRaw] : []);
+        permissionsJson = JSON.stringify(permsArr);
+      }
+      await dbRun('UPDATE users SET username=?, role=?, permissions=? WHERE id=?', [username.trim(), role, permissionsJson, id]);
       logAction(req.session.user.id, 'edit_user', 'user', id, `Username: ${username.trim()}, Ruolo: ${role}`);
       res.redirect('/admin/users/' + id + '/edit?saved=1');
     } catch (err) {

@@ -28,16 +28,15 @@
   <!-- ── MODIFICA DATI ── -->
   <div class="card">
     <div class="card-title">✏️ Dati utente</div>
-    <form method="POST" action="/admin/users/<%= editUser.id %>">
+    <form method="POST" action="/admin/users/<%= editUser.id %>" id="edit-user-form">
 
       <label>Username <span class="req">*</span>
         <input type="text" name="username" value="<%= editUser.username %>" required
-               maxlength="60" autocomplete="off" style="margin-top:.2rem;"
-               <%= editUser.id === currentUser.id ? '' : '' %>>
+               maxlength="60" autocomplete="off" style="margin-top:.2rem;">
       </label>
 
       <label style="margin-top:1rem;">Ruolo <span class="req">*</span>
-        <select name="role" style="margin-top:.2rem;">
+        <select name="role" id="role-sel" style="margin-top:.2rem;">
           <%
             var roleDefs = [
               { val:'admin',     label:'🔑 Amministratore',  desc:'Accesso totale, impostazioni sistema e utenti' },
@@ -45,6 +44,7 @@
               { val:'operator',  label:'🎫 Operatore',       desc:'Crea/modifica pass e partecipanti, può scansionare' },
               { val:'scanner',   label:'📷 Scanner',         desc:'Solo pagina scan — steward/ingresso' },
               { val:'viewer',    label:'👁 Visualizzatore',  desc:'Sola lettura su tutto' },
+              { val:'custom',    label:'⚙️ Custom',          desc:'Permessi personalizzati — spunta le funzioni abilitate sotto' },
             ];
           %>
           <% roleDefs.forEach(function(r){ %>
@@ -67,6 +67,104 @@
         </div>
       <% } %>
 
+      <!-- ── PERMESSI CUSTOM (visibile solo se ruolo = custom) ── -->
+      <div id="custom-perms-block" style="display:<%= editUser.role === 'custom' ? 'block' : 'none' %>;margin-top:1.1rem;">
+        <div style="font-size:.82rem;font-weight:700;color:var(--text-primary);margin-bottom:.6rem;
+                    padding-bottom:.4rem;border-bottom:1px solid var(--border);">
+          ⚙️ Permessi personalizzati
+        </div>
+
+        <%
+          // Definizione aree e sotto-permessi
+          var permAreas = [
+            { id:'participants', label:'📦 Partecipanti & Pass', subs:[
+              { id:'participants.view',         label:'Visualizza lista e dettagli' },
+              { id:'participants.edit',         label:'Crea e modifica partecipanti/pass' },
+              { id:'participants.delete',       label:'Elimina partecipanti e pass' },
+              { id:'participants.import',       label:'Importa da CSV' },
+              { id:'participants.export',       label:'Esporta/scarica dati' },
+            ]},
+            { id:'agenda', label:'📅 Agenda & Eventi', subs:[
+              { id:'agenda.view',               label:'Visualizza eventi' },
+              { id:'agenda.edit',               label:'Crea e modifica eventi' },
+              { id:'agenda.delete',             label:'Elimina eventi' },
+              { id:'agenda.registrations',      label:'Gestisci iscrizioni agli eventi' },
+              { id:'agenda.export',             label:'Esporta iscritti in Excel' },
+            ]},
+            { id:'scan', label:'📷 Scanner & Contatore', subs:[
+              { id:'scan.scan',                 label:'Scansiona QR code (scanner ingresso)' },
+              { id:'scan.contatore',            label:'Accedi al contatore visitatori' },
+              { id:'scan.manual_deliver',       label:'Segna consegna manuale pass' },
+            ]},
+            { id:'org', label:'🗂️ Logistica & Struttura', subs:[
+              { id:'org.view',                  label:'Visualizza stand, zone, raggruppamenti' },
+              { id:'org.manage',                label:'Crea/modifica/elimina stand e zone' },
+              { id:'org.mappa',                 label:'Accedi alla mappa stand' },
+            ]},
+            { id:'volunteers', label:'🙋 Volontari', subs:[
+              { id:'volunteers.view',           label:'Visualizza lista volontari' },
+              { id:'volunteers.edit',           label:'Crea e modifica volontari' },
+              { id:'volunteers.delete',         label:'Elimina volontari' },
+            ]},
+            { id:'reports', label:'📊 Reports & Statistiche', subs:[
+              { id:'reports.view',              label:'Visualizza reports e statistiche' },
+            ]},
+            { id:'bacheca', label:'📌 Bacheca', subs:[
+              { id:'bacheca.view',              label:'Visualizza comunicazioni bacheca' },
+              { id:'bacheca.edit',              label:'Pubblica e modifica comunicazioni' },
+              { id:'bacheca.delete',            label:'Elimina comunicazioni' },
+            ]},
+            { id:'accreditamento', label:'🏅 Accreditamento', subs:[
+              { id:'accreditamento.view',       label:'Visualizza accreditamenti' },
+              { id:'accreditamento.manage',     label:'Gestisci e valida accreditamenti' },
+            ]},
+          ];
+        %>
+
+        <% permAreas.forEach(function(area){ %>
+        <div class="perm-area" style="margin-bottom:.55rem;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;">
+          <!-- Intestazione area (click per espandere) -->
+          <div class="perm-area-head" onclick="toggleArea(this)"
+               style="display:flex;align-items:center;justify-content:space-between;
+                      padding:.5rem .75rem;background:var(--bg-section);cursor:pointer;
+                      user-select:none;font-size:.82rem;font-weight:600;">
+            <span>
+              <!-- Checkbox area: seleziona/deseleziona tutti -->
+              <input type="checkbox" class="area-check"
+                     data-area="<%= area.id %>"
+                     onclick="event.stopPropagation();toggleAreaAll(this)"
+                     style="margin-right:.4rem;cursor:pointer;"
+                     <%= area.subs.every(function(s){ return (userPerms||[]).includes(s.id); }) ? 'checked' : '' %>>
+              <%= area.label %>
+            </span>
+            <span class="perm-arrow" style="font-size:.7rem;color:var(--text-muted);transition:transform .2s;">▼</span>
+          </div>
+          <!-- Sotto-permessi -->
+          <div class="perm-subs" style="padding:.5rem .75rem .6rem;display:grid;gap:.3rem;border-top:1px solid var(--border);">
+            <% area.subs.forEach(function(sub){ %>
+            <label style="display:flex;align-items:center;gap:.45rem;font-size:.8rem;cursor:pointer;margin:0;">
+              <input type="checkbox" name="permissions" value="<%= sub.id %>"
+                     data-area="<%= area.id %>"
+                     class="sub-check"
+                     onchange="syncAreaCheck('<%= area.id %>')"
+                     <%= (userPerms||[]).includes(sub.id) ? 'checked' : '' %>>
+              <%= sub.label %>
+            </label>
+            <% }); %>
+          </div>
+        </div>
+        <% }); %>
+
+        <div style="font-size:.72rem;color:var(--text-muted);margin-top:.4rem;">
+          ℹ️ Le aree non spuntate saranno inaccessibili per questo utente.
+        </div>
+      </div>
+      <!-- fine custom-perms-block -->
+
+      <% if(editUser.id === currentUser.id){ %>
+        <!-- niente -->
+      <% } %>
+
       <div style="margin-top:1.25rem;display:flex;gap:.65rem;align-items:center;">
         <button type="submit" class="primary">💾 Salva modifiche</button>
         <a href="/admin/settings#utenti" class="secondary">Annulla</a>
@@ -83,26 +181,21 @@
         La nuova password sarà attiva immediatamente.
       </p>
       <form method="POST" action="/admin/users/<%= editUser.id %>/reset-password" onsubmit="return confirmReset()">
-
         <label>Nuova password <span class="req">*</span>
           <input type="password" name="new_password" id="np" required minlength="8"
                  autocomplete="new-password" placeholder="Min. 8 caratteri" style="margin-top:.2rem;">
         </label>
-
         <label style="margin-top:.85rem;">Conferma password <span class="req">*</span>
           <input type="password" name="confirm_password" id="cp" required
                  autocomplete="new-password" placeholder="Ripeti la password" style="margin-top:.2rem;">
           <span id="pwd-match" style="font-size:.72rem;margin-top:.2rem;display:block;"></span>
         </label>
-
-        <!-- Strength bar -->
         <div style="margin-top:.6rem;">
           <div style="height:4px;border-radius:9999px;background:var(--border-light);overflow:hidden;">
             <div id="pwd-bar" style="height:4px;width:0%;transition:width .3s,background .3s;border-radius:9999px;"></div>
           </div>
           <span id="pwd-strength" style="font-size:.7rem;color:var(--text-muted);"></span>
         </div>
-
         <button type="submit" class="primary" style="margin-top:1rem;background:#c0392b;color:#fff;">
           🔑 Reimposta password
         </button>
@@ -119,77 +212,82 @@
             <td><%= (editUser.created_at||'—').substring(0,16).replace('T',' ') %></td></tr>
         <tr><td style="color:var(--text-muted);padding:.25rem 0;">Ruolo attuale</td>
             <td><strong id="current-role-label"><%= editUser.role %></strong></td></tr>
+        <% if(editUser.role === 'custom'){ %>
+        <tr><td style="color:var(--text-muted);padding:.25rem 0;">Permessi attivi</td>
+            <td><strong style="color:#4f46e5;"><%= (userPerms||[]).length %> permess<%= (userPerms||[]).length===1?'o':'i' %></strong></td></tr>
+        <% } %>
       </table>
     </div>
   </div>
 </div>
 
-<!-- Tabella riepilogativa ruoli -->
-<div class="card" style="max-width:860px;margin-top:.5rem;">
-  <div class="card-title">📊 Permessi per ruolo</div>
-  <div style="overflow-x:auto;">
-    <table style="font-size:.78rem;width:100%;">
-      <thead>
-        <tr>
-          <th style="text-align:left;padding:.45rem .75rem;">Funzione</th>
-          <th style="text-align:center;">🔑 Admin</th>
-          <th style="text-align:center;">📋 Organizzatore</th>
-          <th style="text-align:center;">🎫 Operatore</th>
-          <th style="text-align:center;">📷 Scanner</th>
-          <th style="text-align:center;">👁 Viewer</th>
-        </tr>
-      </thead>
-      <tbody>
-        <%
-          var perms = [
-            ['Visualizza tutto',                   1,1,1,0,1],
-            ['Crea/modifica partecipanti e pass',  1,1,1,0,0],
-            ['Scansiona e marca consegnato',        1,1,1,1,0],
-            ['Gestisce stand e raggruppamenti',     1,1,0,0,0],
-            ['Zone, tipologie pass PDF',            1,1,0,0,0],
-            ['Import CSV partecipanti',             1,1,0,0,0],
-            ['Pubblica bacheca comunicazioni',      1,1,0,0,0],
-            ['Impostazioni sistema (backup, SMTP)', 1,0,0,0,0],
-            ['Gestione utenti',                     1,0,0,0,0],
-          ];
-          var tick = '✅'; var cross = '—';
-        %>
-        <% perms.forEach(function(p){ %>
-        <tr>
-          <td style="padding:.4rem .75rem;color:var(--text-secondary);"><%= p[0] %></td>
-          <% [1,2,3,4,5].forEach(function(i){ %>
-          <td style="text-align:center;padding:.4rem .5rem;">
-            <% if(p[i]){ %><span style="color:#2d6a4f;font-size:.95rem;">✅</span>
-            <% } else { %><span style="color:var(--border);font-size:.75rem;">—</span><% } %>
-          </td>
-          <% }); %>
-        </tr>
-        <% }); %>
-      </tbody>
-    </table>
-  </div>
-</div>
-
 <script>
+// ── Descrizioni ruolo ──────────────────────────────────────────────────
 var roleDefs = {
   admin:     '🔑 Accesso totale — impostazioni sistema, gestione utenti e tutto il resto.',
   organizer: '📋 Gestione operativa completa: stand, pass, partecipanti, import, bacheca. NON può gestire utenti o impostazioni di sistema.',
   operator:  '🎫 Crea e gestisce partecipanti e pass, può scansionare. NON può modificare la struttura stand/tipologie.',
-  scanner:   '📷 Accede SOLO alla pagina Scanner. Al login viene portato direttamente alla scansione. Ideale per steward e personale ingresso.',
-  viewer:    '👁 Sola lettura — vede tutto ma non può fare modifiche né scansionare.'
+  scanner:   '📷 Accede SOLO alla pagina Scanner. Al login viene portato direttamente alla scansione.',
+  viewer:    '👁 Sola lettura — vede tutto ma non può fare modifiche né scansionare.',
+  custom:    '⚙️ Permessi personalizzati — usa le checkbox qui sotto per definire esattamente cosa può fare questo utente.',
 };
 
-var sel = document.querySelector('[name=role]');
+var sel = document.getElementById('role-sel');
+var customBlock = document.getElementById('custom-perms-block');
+
 function updateDesc() {
   var d = document.getElementById('role-desc');
   d.textContent = roleDefs[sel.value] || '';
-  var colors = {admin:'#1d6fa4',organizer:'#2d6a4f',operator:'#6b3fa0',scanner:'#c9a227',viewer:'#6b7280'};
+  var colors = {admin:'#1d6fa4',organizer:'#2d6a4f',operator:'#6b3fa0',scanner:'#c9a227',viewer:'#6b7280',custom:'#4f46e5'};
   d.style.borderColor = colors[sel.value] || 'var(--border)';
+  // Mostra/nascondi blocco permessi custom
+  customBlock.style.display = sel.value === 'custom' ? 'block' : 'none';
 }
 sel.addEventListener('change', updateDesc);
 updateDesc();
 
-// Password strength
+// ── Accordion aree ────────────────────────────────────────────────────
+function toggleArea(head) {
+  var subs = head.nextElementSibling;
+  var arrow = head.querySelector('.perm-arrow');
+  var open = subs.style.display !== 'none';
+  subs.style.display = open ? 'none' : 'grid';
+  arrow.style.transform = open ? 'rotate(-90deg)' : 'rotate(0deg)';
+}
+
+// ── Seleziona/deseleziona tutti i sub di un'area ──────────────────────
+function toggleAreaAll(areaChk) {
+  var area = areaChk.dataset.area;
+  var subs = document.querySelectorAll('input.sub-check[data-area="' + area + '"]');
+  subs.forEach(function(s){ s.checked = areaChk.checked; });
+}
+
+// ── Sincronizza checkbox area quando cambiano i sub ───────────────────
+function syncAreaCheck(areaId) {
+  var subs  = document.querySelectorAll('input.sub-check[data-area="' + areaId + '"]');
+  var all   = Array.from(subs).every(function(s){ return s.checked; });
+  var none  = Array.from(subs).every(function(s){ return !s.checked; });
+  var aChk  = document.querySelector('input.area-check[data-area="' + areaId + '"]');
+  if (!aChk) return;
+  aChk.checked       = all;
+  aChk.indeterminate = !all && !none;
+}
+
+// Avvia accordion: tutte chiuse tranne quelle con sub spuntati
+document.querySelectorAll('.perm-area').forEach(function(area) {
+  var hasChecked = area.querySelectorAll('input.sub-check:checked').length > 0;
+  var subs  = area.querySelector('.perm-subs');
+  var arrow = area.querySelector('.perm-arrow');
+  if (!hasChecked) {
+    subs.style.display = 'none';
+    arrow.style.transform = 'rotate(-90deg)';
+  }
+  // Sincronizza stato indeterminate all'avvio
+  var areaId = area.querySelector('.area-check').dataset.area;
+  syncAreaCheck(areaId);
+});
+
+// ── Password strength ─────────────────────────────────────────────────
 var np = document.getElementById('np');
 var cp = document.getElementById('cp');
 np.addEventListener('input', function(){
@@ -210,9 +308,8 @@ function checkMatch(){
   if(np.value===cp.value){m.textContent='✅ Password corrispondente';m.style.color='#2d6a4f';}
   else{m.textContent='❌ Le password non corrispondono';m.style.color='#c0392b';}
 }
-
 function confirmReset(){
-  return confirm('Sei sicuro di voler reimpostare la password di questo utente?\nL\'operazione è immediata.');
+  return confirm('Reimpostare la password per questo utente?');
 }
 </script>
 

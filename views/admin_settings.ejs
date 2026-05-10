@@ -391,12 +391,96 @@
             <option value="scanner">&#128247; Scanner</option>
             <option value="viewer">&#128065; Visualizzatore</option>
             <option value="admin">&#128273; Amministratore</option>
+            <option value="custom">&#9881;&#65039; Custom (permessi personalizzati)</option>
           </select>
         </label>
         <div id="new-role-desc"
              style="padding:.45rem .65rem;border-radius:4px;font-size:.77rem;
                     color:var(--text-secondary);background:var(--bg-section);
                     border-left:3px solid var(--border);"></div>
+
+        <!-- Permessi custom (visibile solo se ruolo = custom) -->
+        <div id="new-custom-perms" style="display:none;margin-top:.85rem;">
+          <div style="font-size:.8rem;font-weight:700;margin-bottom:.5rem;padding-bottom:.35rem;border-bottom:1px solid var(--border);">
+            ⚙️ Permessi personalizzati
+          </div>
+          <%
+            var newPermAreas = [
+              { id:'participants', label:'📦 Partecipanti & Pass', subs:[
+                { id:'participants.view',    label:'Visualizza' },
+                { id:'participants.edit',    label:'Crea/modifica' },
+                { id:'participants.delete',  label:'Elimina' },
+                { id:'participants.import',  label:'Importa CSV' },
+                { id:'participants.export',  label:'Esporta dati' },
+              ]},
+              { id:'agenda', label:'📅 Agenda & Eventi', subs:[
+                { id:'agenda.view',          label:'Visualizza' },
+                { id:'agenda.edit',          label:'Crea/modifica' },
+                { id:'agenda.delete',        label:'Elimina' },
+                { id:'agenda.registrations', label:'Gestisci iscrizioni' },
+                { id:'agenda.export',        label:'Esporta Excel' },
+              ]},
+              { id:'scan', label:'📷 Scanner & Contatore', subs:[
+                { id:'scan.scan',            label:'Scan QR ingresso' },
+                { id:'scan.contatore',       label:'Contatore visitatori' },
+                { id:'scan.manual_deliver',  label:'Consegna manuale' },
+              ]},
+              { id:'org', label:'🗂️ Logistica', subs:[
+                { id:'org.view',             label:'Visualizza' },
+                { id:'org.manage',           label:'Crea/modifica struttura' },
+                { id:'org.mappa',            label:'Mappa stand' },
+              ]},
+              { id:'volunteers', label:'🙋 Volontari', subs:[
+                { id:'volunteers.view',      label:'Visualizza' },
+                { id:'volunteers.edit',      label:'Crea/modifica' },
+                { id:'volunteers.delete',    label:'Elimina' },
+              ]},
+              { id:'reports', label:'📊 Reports', subs:[
+                { id:'reports.view',         label:'Visualizza statistiche' },
+              ]},
+              { id:'bacheca', label:'📌 Bacheca', subs:[
+                { id:'bacheca.view',         label:'Visualizza' },
+                { id:'bacheca.edit',         label:'Pubblica/modifica' },
+                { id:'bacheca.delete',       label:'Elimina' },
+              ]},
+              { id:'accreditamento', label:'🏅 Accreditamento', subs:[
+                { id:'accreditamento.view',   label:'Visualizza' },
+                { id:'accreditamento.manage', label:'Gestisci' },
+              ]},
+            ];
+          %>
+          <% newPermAreas.forEach(function(area){ %>
+          <div style="margin-bottom:.4rem;border:1px solid var(--border);border-radius:4px;overflow:hidden;">
+            <div onclick="toggleNewArea(this)"
+                 style="display:flex;align-items:center;justify-content:space-between;padding:.4rem .65rem;
+                        background:var(--bg-section);cursor:pointer;font-size:.78rem;font-weight:600;user-select:none;">
+              <span>
+                <input type="checkbox" class="new-area-check" data-area="<%= area.id %>"
+                       onclick="event.stopPropagation();toggleNewAreaAll(this)"
+                       style="margin-right:.35rem;cursor:pointer;">
+                <%= area.label %>
+              </span>
+              <span class="new-perm-arrow" style="font-size:.65rem;color:var(--text-muted);transition:transform .2s;">▼</span>
+            </div>
+            <div class="new-perm-subs" style="padding:.4rem .65rem .5rem;display:none;border-top:1px solid var(--border);">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:.25rem;">
+              <% area.subs.forEach(function(sub){ %>
+                <label style="display:flex;align-items:center;gap:.35rem;font-size:.77rem;cursor:pointer;margin:0;">
+                  <input type="checkbox" name="permissions" value="<%= sub.id %>"
+                         data-area="<%= area.id %>" class="new-sub-check"
+                         onchange="syncNewAreaCheck('<%= area.id %>')">
+                  <%= sub.label %>
+                </label>
+              <% }); %>
+              </div>
+            </div>
+          </div>
+          <% }); %>
+          <div style="font-size:.7rem;color:var(--text-muted);margin-top:.3rem;">
+            ℹ️ Puoi modificare i permessi in qualsiasi momento dalla pagina di modifica utente.
+          </div>
+        </div>
+
         <div><button type="submit" class="primary">&#43; Crea Utente</button></div>
       </form>
     </div>
@@ -472,6 +556,7 @@
               operator:  ['#ede7f6','#4a148c','&#127915; Operatore'],
               scanner:   ['#fff8e1','#e65100','&#128247; Scanner'],
               viewer:    ['#fce4ec','#880e4f','&#128065; Visualizzatore'],
+              custom:    ['#eef2ff','#3730a3','&#9881;&#65039; Custom'],
             };
             var chip = roleChips[u.role] || ['#f3f4f6','#374151', u.role];
           %>
@@ -486,6 +571,10 @@
                 <span class="chip" style="background:<%= chip[0] %>;color:<%= chip[1] %>;">
                   <%- chip[2] %>
                 </span>
+                <% if(u.role === 'custom'){ %>
+                  <% var uPermsCount = 0; try { uPermsCount = JSON.parse(u.permissions||'[]').length; } catch(e){} %>
+                  <span style="font-size:.68rem;color:#4f46e5;margin-left:.3rem;">(<%= uPermsCount %> perm.)</span>
+                <% } %>
               </td>
               <td style="font-size:.78rem;color:var(--text-muted);">
                 <%= (u.created_at||'').substring(0,16).replace('T',' ') %>
@@ -517,6 +606,7 @@
     var defs = {
       admin:     '&#128273; Accesso totale &#8212; impostazioni sistema, gestione utenti.',
       organizer: '&#128203; Gestione operativa: stand, pass, partecipanti, import, bacheca. NON pu&#242; gestire utenti o impostazioni di sistema.',
+      custom:    '&#9881;&#65039; Permessi personalizzati &#8212; usa le checkbox qui sotto per definire esattamente cosa pu&#242; fare questo utente.',
       operator:  '&#127915; Crea e gestisce partecipanti e pass, pu&#242; scansionare. NON modifica la struttura stand/tipologie.',
       scanner:   '&#128247; Accede SOLO alla pagina Scanner. Al login viene portato direttamente alla scansione. Ideale per steward.',
       viewer:    '&#128065; Sola lettura &#8212; vede tutto ma non pu&#242; fare modifiche n&#233; scansionare.',
@@ -740,6 +830,28 @@
 
 <script>
 (function () {
+
+// ── Accordion permessi custom nel form creazione ─────────────────────
+function toggleNewArea(head) {
+  var subs  = head.nextElementSibling;
+  var arrow = head.querySelector('.new-perm-arrow');
+  var open  = subs.style.display !== 'none';
+  subs.style.display  = open ? 'none' : 'block';
+  arrow.style.transform = open ? 'rotate(-90deg)' : '';
+}
+function toggleNewAreaAll(areaChk) {
+  var area = areaChk.dataset.area;
+  document.querySelectorAll('input.new-sub-check[data-area="'+area+'"]').forEach(function(s){ s.checked = areaChk.checked; });
+}
+function syncNewAreaCheck(areaId) {
+  var subs = document.querySelectorAll('input.new-sub-check[data-area="'+areaId+'"]');
+  var all  = Array.from(subs).every(function(s){ return s.checked; });
+  var none = Array.from(subs).every(function(s){ return !s.checked; });
+  var ac   = document.querySelector('input.new-area-check[data-area="'+areaId+'"]');
+  if(!ac) return;
+  ac.checked = all; ac.indeterminate = !all && !none;
+}
+
   var PANELS = { zone: 'panel-zone', raggruppamenti: 'panel-raggruppamenti', tipologie: 'panel-tipologie', backup:'panel-backup',notifiche:'panel-notifiche', utenti: 'panel-utenti', scan: 'panel-scan', auto_pass: 'panel-auto_pass', edizioni: 'panel-edizioni' };
   var tabs   = document.querySelectorAll('[data-tab]');
 

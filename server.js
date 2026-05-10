@@ -114,6 +114,7 @@ runMigration("ALTER TABLE zones ADD COLUMN zone_scope TEXT DEFAULT 'internal'", 
   db.run(`UPDATE assignment_groups SET ${col}=1 WHERE ${col} IS NULL`)
 );
 db.run("UPDATE zones SET zone_scope='internal' WHERE zone_scope IS NULL");
+runMigration("ALTER TABLE users ADD COLUMN permissions TEXT DEFAULT NULL", 'user_permissions');
 
 // ── Express app ──────────────────────────────────────────────────
 const app      = express();
@@ -163,18 +164,70 @@ const ROLES = {
   OPERATOR:  'operator',
   SCANNER:   'scanner',
   VIEWER:    'viewer',
+  CUSTOM:    'custom',
 };
 
-const hasRole = (user, ...roles) => user && roles.includes(user.role);
+// Mappa middleware → permesso custom richiesto per quel livello di accesso
+const PERM_MAP = {
+  admin:       'system.admin',      // requireAdmin
+  organizer:   'org.manage',        // requireOrganizer
+  notviewer:   'participants.view', // requireNotViewer
+  scan:        'scan.scan',         // requireCanScan
+};
+
+// Parsea i permessi dal campo JSON del DB
+function parsePerms(user) {
+  if (!user || user.role !== ROLES.CUSTOM) return [];
+  try { return JSON.parse(user.permissions || '[]'); } catch(e) { return []; }
+}
+
+// Controlla se un utente custom ha uno specifico permesso
+function hasPerm(user, perm) {
+  if (!user) return false;
+  if (user.role !== ROLES.CUSTOM) return false;
+  const perms = parsePerms(user);
+  return perms.includes(perm);
+}
+
+// hasRole esteso: supporta ruolo custom tramite hasPerm
+function hasRole(user, ...roles) {
+  if (!user) return false;
+  if (roles.includes(user.role)) return true;
+  // Se custom, controlla se ha almeno uno dei permessi equivalenti ai ruoli richiesti
+  if (user.role === ROLES.CUSTOM) {
+    const perms = parsePerms(user);
+    // Mappa ogni ruolo richiesto al suo permesso custom equivalente
+    const rolePermMap = {
+      admin:     ['system.admin'],
+      organizer: ['org.manage'],
+      operator:  ['participants.edit', 'scan.scan'],
+      scanner:   ['scan.scan'],
+      viewer:    ['participants.view'],
+    };
+    return roles.some(r => {
+      const needed = rolePermMap[r] || [];
+      return needed.some(p => perms.includes(p));
+    });
+  }
+  return false;
+}
 
 function requireAuth(req, res, next) {
   if (!req.session.user) return res.redirect('/login');
-  if (req.session.user.role === ROLES.SCANNER &&
+  const u = req.session.user;
+  // Utenti scanner puri (o custom con solo perm scan) → redirige a /scan
+  const isScanOnly = u.role === ROLES.SCANNER ||
+    (u.role === ROLES.CUSTOM && (() => {
+      const p = parsePerms(u);
+      return p.includes('scan.scan') && !p.includes('participants.view') && !p.includes('org.manage');
+    })());
+  if (isScanOnly &&
       !req.path.startsWith('/scan') &&
       !req.path.startsWith('/api/scan') &&
       !req.path.startsWith('/contatore') &&
       !req.path.startsWith('/api/visitors') &&
-      !req.path.startsWith('/logout')) {
+      !req.path.startsWith('/logout') &&
+      !req.path.startsWith('/account')) {
     return res.redirect('/scan');
   }
   next();
@@ -219,7 +272,7 @@ const uploadMemory = multer({
 
 // ── CRM & Agenda (legacy) ────────────────────────────────────────
 crmRoutes(app, db, {
-  requireAuth, requireNotViewer, requireOrganizer, logAction, uploadMemory,
+  requireAuth, requireNotViewer, requireOrganizer, logAction, uploadMemory, hasPerm, parsePerms,
 });
 app.use('/', agendaRoutes(logAction));
 
@@ -412,7 +465,7 @@ app.get('/api/dashboard-stats', requireAuth, async (req, res) => {
         SELECT ora, SUM(count) as count, SUM(qr) as qr, SUM(manual) as manual
         FROM (
           SELECT strftime('%H', created_at) as ora, COUNT(*) as count, COUNT(*) as qr, 0 as manual
-          FROM scan_attempts WHERE created_at >= ? AND result IN ('SUCCESS','ACCESSO') GROUP BY ora
+          FROM scan_attempts WHERE created_at >= ? AND result = 'OK' GROUP BY ora
           UNION ALL
           SELECT strftime('%H', counted_at) as ora, COUNT(*) as count, 0 as qr, COUNT(*) as manual
           FROM visitor_counts WHERE direction = 'IN' AND counted_at >= ? GROUP BY ora
@@ -441,7 +494,7 @@ app.get('/api/dashboard-stats', requireAuth, async (req, res) => {
           ON vr.area = vc.area
         WHERE vc.counted_at >= COALESCE(vr.last_reset, ?) AND vc.counted_at >= ?
         GROUP BY vc.area`, [since, since]).catch(() => []),
-      dbGet(`SELECT COUNT(*) as total FROM scan_attempts WHERE result IN ('SUCCESS','ACCESSO') AND created_at >= ?`, [since]).catch(() => ({ total: 0 })),
+      dbGet(`SELECT COUNT(*) as total FROM scan_attempts WHERE result='OK' AND created_at >= ?`, [since]).catch(() => ({ total: 0 })),
       dbGet(`SELECT COUNT(*) as total FROM visitor_counts WHERE direction='IN' AND counted_at >= ?`, [since]).catch(() => ({ total: 0 })),
     ]);
 
