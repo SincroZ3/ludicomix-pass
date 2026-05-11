@@ -1259,7 +1259,7 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
     if (err || !zone) return res.status(404).json({ error: 'Zona non trovata o non pubblica' });
     db.all(
       `SELECT ag.id, ag.name, ag.stand_name, ag.stand_code,
-              ag.map_x, ag.map_y, ag.map_w, ag.map_h, ag.map_shape,
+              ag.map_x, ag.map_y, ag.map_w, ag.map_h, ag.map_shape, ag.map_rot,
               g.name AS category_name, g.id AS group_id
        FROM assignment_groups ag
        LEFT JOIN groups g ON g.id = ag.group_id
