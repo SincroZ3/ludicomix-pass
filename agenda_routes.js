@@ -1292,19 +1292,32 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
               const sname  = (ag.stand_name || '').trim().toLowerCase();
               const gname  = (ag.name       || '').trim().toLowerCase();
               const agEvents = allEvents.filter(ev => {
-                // Match 1: location_text esatto (stand_code, stand_name o name)
+                // Match 1 — location_text ESATTO vs stand_code / stand_name / nome gruppo
                 const lt = (ev.location_text || '').trim().toLowerCase();
                 if (lt) {
                   if (code  && lt === code)  return true;
                   if (sname && lt === sname) return true;
                   if (gname && lt === gname) return true;
                 }
-                // Match 2: stand_code trovato nel titolo o nella descrizione
-                // (solo se stand_code ha almeno 3 caratteri per evitare falsi positivi)
+                // Match 2 — stand_code nel titolo, descrizione o nome associazione evento
+                // (solo se stand_code >= 3 chars per evitare falsi positivi)
                 if (code.length >= 3) {
+                  const title = (ev.title            || '').toLowerCase();
+                  const desc  = (ev.description      || '').toLowerCase();
+                  const locT  = (ev.location_text    || '').toLowerCase();
+                  if (title.includes(code) || desc.includes(code) || locT.includes(code)) return true;
+                }
+                // Match 3 — stand_name o nome gruppo nel titolo o descrizione
+                // (solo se almeno 5 chars per ridurre falsi positivi)
+                if (sname.length >= 5) {
                   const title = (ev.title       || '').toLowerCase();
                   const desc  = (ev.description || '').toLowerCase();
-                  if (title.includes(code) || desc.includes(code)) return true;
+                  if (title.includes(sname) || desc.includes(sname)) return true;
+                }
+                if (gname.length >= 5) {
+                  const title = (ev.title       || '').toLowerCase();
+                  const desc  = (ev.description || '').toLowerCase();
+                  if (title.includes(gname) || desc.includes(gname)) return true;
                 }
                 return false;
               });

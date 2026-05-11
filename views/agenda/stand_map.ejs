@@ -261,6 +261,10 @@
     }
     .sm-ev-title{font-size:.8rem;font-weight:700;color:#1a2744;line-height:1.25}
     .sm-ev-space{font-size:.65rem;color:#718096;margin-top:.1rem}
+    .sm-ev-link{display:block;text-decoration:none;color:inherit;border-radius:6px;
+      transition:background .12s;margin:0 -.4rem;padding:0 .4rem}
+    .sm-ev-link:active,.sm-ev-link:hover{background:#f0f4ff}
+    .sm-ev-arrow{font-size:.65rem;color:#4f98a3;margin-top:.18rem}
 
     /* ── Loading ─────────────────────────────────────────────────────── */
     #smLoad{position:fixed;inset:0;z-index:9999;background:#1e2d4e;
@@ -351,6 +355,13 @@
   <div class="sm-drawer-head">
     <span class="sm-drawer-title">Stand in zona</span>
     <button class="sm-drawer-close" onclick="closeDrawer()" aria-label="Chiudi">✕</button>
+  </div>
+  <div style="padding:.5rem .75rem .3rem;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.08)">
+    <input type="search" id="smDrawerSearch" placeholder="Cerca stand…"
+      oninput="filterDrawer(this.value)"
+      style="width:100%;padding:.42rem .7rem;border-radius:7px;border:1px solid rgba(255,255,255,.15);
+             background:rgba(255,255,255,.08);color:#e2e8f0;font-size:.8rem;outline:none;
+             -webkit-appearance:none">
   </div>
   <div class="sm-drawer-body" id="smDrawerBody"></div>
 </div>
@@ -581,14 +592,18 @@ function openSheet(s) {
       const orario = ev.start_time
         ? ev.start_time.substring(0,5) + (ev.end_time ? ' – ' + ev.end_time.substring(0,5) : '')
         : '';
+      const evUrl = '/programma#evento-' + ev.id;
       html +=
-        '<div class="sm-ev-item">' +
-          (orario ? '<div class="sm-ev-time">' + esc(ev.date ? ev.date.substring(5).replace('-','/') : '') + '<br>' + esc(orario) + '</div>' : '') +
-          '<div>' +
-            '<div class="sm-ev-title">' + esc(ev.title || '') + '</div>' +
-            (ev.space_name ? '<div class="sm-ev-space">🏛 ' + esc(ev.space_name) + '</div>' : '') +
+        '<a class="sm-ev-link" href="' + evUrl + '" target="_blank" rel="noopener noreferrer">' +
+          '<div class="sm-ev-item">' +
+            (orario ? '<div class="sm-ev-time">' + esc(ev.date ? ev.date.substring(5).replace('-','/') : '') + '<br>' + esc(orario) + '</div>' : '') +
+            '<div style="min-width:0;flex:1">' +
+              '<div class="sm-ev-title">' + esc(ev.title || '') + '</div>' +
+              (ev.space_name ? '<div class="sm-ev-space">🏛 ' + esc(ev.space_name) + '</div>' : '') +
+              '<div class="sm-ev-arrow">Vai al programma →</div>' +
+            '</div>' +
           '</div>' +
-        '</div>';
+        '</a>';
     });
   }
 
@@ -644,6 +659,17 @@ function openDrawer() {
 function closeDrawer() {
   document.getElementById('smDrawer').classList.remove('open');
   document.getElementById('smDrawerOverlay').classList.remove('open');
+}
+
+function filterDrawer(q) {
+  const term = (q || '').trim().toLowerCase();
+  const body = document.getElementById('smDrawerBody');
+  if (!body) return;
+  const items = body.querySelectorAll('.sm-drawer-item');
+  items.forEach(item => {
+    const text = item.textContent.toLowerCase();
+    item.style.display = (!term || text.includes(term)) ? '' : 'none';
+  });
 }
 
 function focusStand(id) {
