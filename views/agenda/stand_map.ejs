@@ -10,6 +10,7 @@
       font-family:-apple-system,'Segoe UI',Arial,sans-serif;
       background:#1e2d4e;}
 
+    /* ── Header ─────────────────────────────────────────────────────── */
     .sm-header{
       position:fixed;top:0;left:0;right:0;z-index:500;
       display:flex;align-items:center;justify-content:space-between;
@@ -25,32 +26,69 @@
       padding:.45rem .85rem;border-radius:10px;
       background:rgba(255,255,255,.1);border:1.5px solid rgba(245,200,66,.4);
       color:#f5c842;font-size:.78rem;font-weight:700;
-      cursor:pointer;text-decoration:none;transition:background .15s;
+      cursor:pointer;text-decoration:none;
     }
     .sm-back:active{background:rgba(255,255,255,.2)}
 
+    /* ── Pan/zoom wrapper ────────────────────────────────────────────── */
     #mapWrap{position:fixed;inset:0;overflow:hidden;cursor:grab;touch-action:none;}
     #mapWrap.grabbing{cursor:grabbing}
     #mapInner{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform;user-select:none;}
 
     /*
-     * #mapArea replica ESATTAMENTE il .map-area della mappa admin:
-     *   - background-image CSS con background-size:contain / background-position:center top
-     *   - position:relative per contenere gli stand con left/top in %
-     *   - Le dimensioni vengono impostate via JS in modo che il rapporto w/h
-     *     coincida con quello del .map-area al momento del drop nella pagina admin.
-     *   NOTA: nella pagina admin il .map-area ha width:100% del contenitore
-     *   e min-height:520px. Noi calcoliamo le stesse dimensioni proporzionali.
+     * #mapBg è l'immagine di sfondo come un vero <img> — occupa esattamente
+     * le dimensioni naturali (areaW × areaH) e serve solo come sfondo visivo.
+     *
+     * #mapArea è sovrapposto a #mapBg con position:absolute inset:0.
+     * CRUCIALE: #mapArea ha esattamente le stesse dimensioni del div .map-area
+     * della pagina admin al momento del drop, cioè:
+     *   width  = ADMIN_W  (larghezza del .map-area nell'admin — sconosciuta)
+     *   height = ADMIN_H  (max(520, width * imgH/imgW) se contain verticale)
+     *
+     * Poiché non conosciamo ADMIN_W, usiamo la logica inversa:
+     * Il div admin usa background-size:contain e background-position:center top.
+     * Con contain, l'immagine viene scalata in modo che entrambe le dimensioni
+     * stiano dentro il div. Se imgAR > divAR (immagine più larga) → limitata da width.
+     * Se imgAR < divAR (immagine più alta) → limitata da height.
+     *
+     * La posizione dell'immagine nel div admin:
+     *   imgRenderedW = min(divW, divH * imgAR)
+     *   imgRenderedH = min(divH, divW / imgAR)
+     *   imgOffsetX   = (divW - imgRenderedW) / 2  ← con center
+     *   imgOffsetY   = 0                           ← con top
+     *
+     * Le coordinate % degli stand sono relative al div (0,0)→(divW,divH).
+     * Un punto a left:X%, top:Y% si trova in pixel a:
+     *   px = X/100 * divW
+     *   py = Y/100 * divH
+     *
+     * Per allinearsi, il nostro #mapArea deve avere le stesse divW e divH.
+     * Poi usiamo <img> posizionato con left=imgOffsetX, top=0.
+     *
+     * STIMA di divW: la pagina admin ha width ~100vw, senza sidebar.
+     * Dal codice: .map-area-wrap{width:100%}, .map-wrap{display:block}.
+     * Usiamo una larghezza di riferimento fissa pari a quella che tipicamente
+     * aveva il browser admin quando gli stand sono stati posizionati.
+     * Dal DB/mappa: refW e refH vengono passati con ogni drop ma non salvati.
+     * → Usiamo l'approccio più robusto: esponiamo refW dal backend se disponibile,
+     *   altrimenti usiamo 1400px come stima ragionevole per un desktop admin.
+     *
+     * In questo file accettiamo dal template EJS la variabile `zone.map_ref_w`
+     * (se salvata) oppure usiamo il default 1400.
      */
+
     #mapArea{
-      position:relative;
-      background-size:contain;
-      background-repeat:no-repeat;
-      background-position:center top;
-      overflow:hidden;
+      position:absolute;
+      inset:0;
+      /* nessun background: l'immagine è un <img> separato */
+    }
+    #mapBgImg{
+      position:absolute;
+      display:block;
+      /* left/top/width/height impostati via JS dopo calcolo delle bande */
     }
 
-    /* Stand: identici a .stand-box ────────────────────────────────────────── */
+    /* ── Stand ───────────────────────────────────────────────────────── */
     .sm-stand{
       position:absolute;
       transform:translate(-50%,-50%);
@@ -81,7 +119,7 @@
       max-width:100%;position:relative;z-index:2;
     }
 
-    /* Tooltip */
+    /* ── Tooltip ─────────────────────────────────────────────────────── */
     .sm-tip{
       position:fixed;z-index:900;
       background:#1e2d4e;color:#fff;
@@ -96,7 +134,7 @@
     .sm-tip-name{font-weight:700;line-height:1.2}
     .sm-tip-ev{font-size:.63rem;color:#a0aec0;margin-top:.2rem}
 
-    /* Sheet */
+    /* ── Sheet ───────────────────────────────────────────────────────── */
     .sm-overlay{position:fixed;inset:0;z-index:700;pointer-events:none}
     .sm-overlay.open{pointer-events:auto}
     .sm-sheet{
@@ -122,11 +160,13 @@
     .sm-scat{font-size:.72rem;color:#718096;margin-top:.15rem}
     .sm-noev{font-size:.8rem;color:#a0aec0;text-align:center;padding:.75rem 0;font-style:italic}
 
-    /* Controls */
+    /* ── Controlli (bottom-right, NON sovrapposti all'header) ─────────── */
     .sm-ctrl{
-      position:fixed;right:12px;
-      bottom:calc(env(safe-area-inset-bottom,0px)+12px);
-      z-index:500;display:flex;flex-direction:column;gap:6px;
+      position:fixed;
+      right:12px;
+      bottom:calc(env(safe-area-inset-bottom,0px) + 12px);
+      z-index:500;
+      display:flex;flex-direction:column;gap:6px;
     }
     .sm-btn{
       width:44px;height:44px;border-radius:11px;
@@ -138,21 +178,22 @@
     .sm-btn:active{background:#f0f4ff}
     .sm-btn.reset{background:#1e2d4e;border-color:#f5c842;color:#f5c842}
 
-    /* Legend */
+    /* ── Legend (bottom-left) ────────────────────────────────────────── */
     .sm-legend{
-      position:fixed;left:12px;
-      bottom:calc(env(safe-area-inset-bottom,0px)+12px);
+      position:fixed;
+      left:12px;
+      bottom:calc(env(safe-area-inset-bottom,0px) + 12px);
       z-index:500;
       background:rgba(30,45,78,.88);border:1px solid rgba(245,200,66,.3);
       border-radius:10px;padding:.45rem .7rem;
-      font-size:.62rem;color:#cbd5e0;
+      font-size:.62rem;color:#cbd5e0;display:none;
     }
     .sm-leg-row{display:flex;align-items:center;gap:.4rem;margin-bottom:.18rem}
     .sm-leg-row:last-child{margin-bottom:0}
     .sm-leg-sq{width:10px;height:10px;border-radius:2px;flex-shrink:0;
       background:#1e2d4e;border:1.5px solid rgba(245,200,66,.7);}
 
-    /* Loading */
+    /* ── Loading ─────────────────────────────────────────────────────── */
     #smLoad{position:fixed;inset:0;z-index:9999;background:#1e2d4e;
       display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;}
     .spin{width:40px;height:40px;border-radius:50%;
@@ -162,8 +203,9 @@
     #smLoad p{color:#a0aec0;font-size:.85rem}
 
     @media(min-width:769px){
-      .sm-sheet{left:auto;right:16px;bottom:16px;width:320px;border-radius:16px;
-        max-height:calc(100vh - 80px);transform:translateX(calc(100% + 20px));}
+      .sm-sheet{left:auto;right:16px;bottom:16px;width:320px;
+        border-radius:16px;max-height:calc(100vh - 80px);
+        transform:translateX(calc(100% + 20px));}
       .sm-sheet.open{transform:translateX(0)}
     }
   </style>
@@ -192,21 +234,13 @@
 
 <div id="mapWrap">
   <div id="mapInner">
-    <div id="mapArea"
-      <% if (zone.background_image) { %>
-         style="background-image:url('/zone-bg/<%= zone.background_image %>')"
-      <% } %>
-    ></div>
+    <!-- L'immagine viene posizionata via JS per replicare il contain admin -->
+    <img id="mapBgImg" alt="Planimetria" draggable="false"
+         <% if (zone.background_image) { %>src="/zone-bg/<%= zone.background_image %>"<% } %>
+         style="display:none">
+    <div id="mapArea"></div>
   </div>
 </div>
-
-<% if (zone.background_image) { %>
-<img id="bgLoader" src="/zone-bg/<%= zone.background_image %>"
-     style="display:none;position:absolute;pointer-events:none"
-     alt="" onload="onBgLoad(this)">
-<% } else { %>
-<script>setTimeout(()=>onBgLoad(null),50);</script>
-<% } %>
 
 <div class="sm-tip" id="smTip">
   <div class="sm-tip-code" id="tipCode"></div>
@@ -221,18 +255,18 @@
 </div>
 
 <div class="sm-ctrl">
-  <button class="sm-btn reset" onclick="resetView()" title="Reset">
+  <button class="sm-btn reset" onclick="resetView()" title="Reset zoom" aria-label="Reset zoom">
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
          stroke="currentColor" stroke-width="2.5">
       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
       <path d="M3 3v5h5"/>
     </svg>
   </button>
-  <button class="sm-btn" onclick="doZoom(1.25)">+</button>
-  <button class="sm-btn" onclick="doZoom(0.8)">−</button>
+  <button class="sm-btn" onclick="doZoom(1.25)" aria-label="Zoom in">+</button>
+  <button class="sm-btn" onclick="doZoom(0.8)"  aria-label="Zoom out">−</button>
 </div>
 
-<div class="sm-legend" id="smLegend" style="display:none">
+<div class="sm-legend" id="smLegend">
   <div class="sm-leg-row"><div class="sm-leg-sq"></div>Stand</div>
   <div class="sm-leg-row">
     <div class="sm-leg-sq" style="position:relative">
@@ -244,106 +278,111 @@
 </div>
 
 <script>
+// ── Configurazione ────────────────────────────────────────────────────────────
 const ZONE_ID = <%= zoneId %>;
 const isMobile = window.innerWidth <= 768;
 
-let stands = [];
-let areaW = 900, areaH = 600;
+// ADMIN_REF_W = larghezza del div .map-area nella pagina admin al momento
+// in cui gli stand sono stati posizionati tramite drag & drop.
+// Idealmente questo valore dovrebbe essere salvato nel DB (col. map_ref_w nella
+// tabella zones) e passato dal template. Se non disponibile, usiamo 1400px
+// che è una stima ragionevole per un desktop admin a schermo intero.
+// ADMIN_MIN_H = min-height del .map-area admin (dal CSS: min-height:520px).
+const ADMIN_REF_W = <%= (zone.map_ref_w || 1400) %>;
+const ADMIN_MIN_H = 520;
+
+let stands    = [];
+let areaW = 0, areaH = 0;   // dimensioni del div admin (= "virtuale" del nostro #mapArea)
+let imgOffX = 0, imgOffY = 0, imgRenW = 0, imgRenH = 0; // posizione immagine nel div admin
 let sc = 1, tx = 0, ty = 0;
 
 const wrap  = document.getElementById('mapWrap');
 const inner = document.getElementById('mapInner');
 const area  = document.getElementById('mapArea');
+const bgImg = document.getElementById('mapBgImg');
 
 // ── Carica stands ─────────────────────────────────────────────────────────────
 fetch('/api/mappa-stand/' + ZONE_ID)
   .then(r => r.json())
   .then(d => {
     stands = d.stands || [];
-    if (areaW > 0 && area.style.width) renderStands();
+    if (areaW > 0) renderStands();
   })
   .catch(() => {
     document.getElementById('smLoad').innerHTML =
       '<p style="color:#fc8181">Errore caricamento mappa.</p>';
   });
 
-// ── Calcolo dimensioni del #mapArea ──────────────────────────────────────────
-//
-// PROBLEMA DA RISOLVERE:
-// Nella mappa admin, le % vengono calcolate su rect.width x rect.height del
-// div .map-area, che usa:
-//   width: 100% del suo contenitore (che è width: 100% della pagina)
-//   min-height: 520px
-//   background-size: contain  →  l'immagine si adatta dentro il div
-//
-// Quando l'immagine viene droppata, il .map-area ha dimensioni REALI a schermo.
-// Se il div è più largo rispetto all'aspect ratio dell'immagine:
-//   → l'immagine è alta quanto il div, con bande laterali vuote
-//   → le % X fanno riferimento all'INTERA larghezza del div (incluse le bande)
-// Se il div è più stretto:
-//   → l'immagine è larga quanto il div, con bande sotto
-//   → le % Y fanno riferimento all'INTERA altezza del div (incluse le bande)
-//
-// Noi NON conosciamo la larghezza del div admin al momento del drop.
-// L'unico modo per ricostruire l'allineamento è fare in modo che il NOSTRO
-// div #mapArea abbia lo stesso comportamento:
-//   → stesso width, stesso height, stesso background-size:contain
-//   → gli stand con left/top % cadono nello stesso punto visivo
-//
-// SOLUZIONE: usiamo un div con aspect-ratio fisso (naturalW/naturalH)
-// ma con sfondo CSS contain. Per garantire che i % degli stand
-// corrispondano esattamente, il div deve avere le stesse proporzioni
-// che aveva il .map-area admin. Poiché il .map-area aveva min-height:520px
-// e width:100%, noi impostiamo:
-//   areaW = max(viewport_width, naturalW)  → non schiacciamo mai
-//   areaH = max(520, areaW / (naturalW/naturalH))
-// In questo modo il div è abbastanza largo da contenere l'immagine
-// con contain senza bande laterali significative.
-//
-// IN PRATICA: impostiamo width=naturalWidth, height=naturalHeight
-// e usiamo background-size:100% 100% (stretch esatto).
-// Questo garantisce allineamento pixel-perfect: le % sono relative
-// all'immagine intera senza margini.
-//
-function onBgLoad(img) {
-  let natW, natH;
-  if (img && img.naturalWidth && img.naturalHeight) {
-    natW = img.naturalWidth;
-    natH = img.naturalHeight;
+// ── Setup dopo caricamento immagine ──────────────────────────────────────────
+bgImg.addEventListener('load', () => initLayout(bgImg.naturalWidth, bgImg.naturalHeight));
+bgImg.addEventListener('error', () => initLayout(1200, 800));
+if (!bgImg.src || bgImg.complete) {
+  setTimeout(() => initLayout(bgImg.naturalWidth || 1200, bgImg.naturalHeight || 800), 50);
+}
+
+function initLayout(natW, natH) {
+  if (!natW || !natH) { natW = 1200; natH = 800; }
+
+  // ── Replica esatta del div .map-area dell'admin ───────────────────────────
+  //
+  // CSS admin:  width:100%  →  ADMIN_REF_W
+  //             min-height:520px
+  //             background-size:contain
+  //             background-position:center top
+  //
+  // Con background-size:contain l'immagine è scalata per stare dentro il div:
+  const imgAR   = natW / natH;
+  const divAR   = ADMIN_REF_W / ADMIN_MIN_H;
+
+  let renderedW, renderedH;
+  if (imgAR > divAR) {
+    // Immagine più larga del div → scalata per width
+    renderedW = ADMIN_REF_W;
+    renderedH = ADMIN_REF_W / imgAR;
   } else {
-    natW = 1200; natH = 800;
+    // Immagine più alta (o stessa AR) → scalata per height
+    renderedH = ADMIN_MIN_H;
+    renderedW = ADMIN_MIN_H * imgAR;
   }
 
-  // Usiamo background-size:100% 100% (stretch al div)
-  // così i % degli stand sono sempre relativi all'immagine intera.
-  // Il div ha esattamente le proporzioni dell'immagine originale.
-  areaW = natW;
-  areaH = natH;
+  // Dimensioni reali del div admin
+  areaW = ADMIN_REF_W;
+  areaH = Math.max(ADMIN_MIN_H, renderedH);
 
-  area.style.width  = areaW + 'px';
-  area.style.height = areaH + 'px';
-  // Stretch esatto: niente bande, le % coincidono con la mappa admin
-  // (la mappa admin usa contain, ma noi non conosciamo le sue dimensioni
-  //  reali — con 100% 100% eliminiamo qualsiasi ambiguità)
-  area.style.backgroundSize = '100% 100%';
+  // Offset dell'immagine nel div admin (center top)
+  imgOffX = (areaW - renderedW) / 2;
+  imgOffY = 0; // background-position:top
+  imgRenW = renderedW;
+  imgRenH = renderedH;
 
+  // ── Imposta dimensioni del contenitore virtuale ───────────────────────────
   inner.style.width  = areaW + 'px';
   inner.style.height = areaH + 'px';
+  area.style.width   = areaW + 'px';
+  area.style.height  = areaH + 'px';
+
+  // ── Posiziona l'immagine esattamente come la vedeva l'admin ──────────────
+  bgImg.style.display = 'block';
+  bgImg.style.position = 'absolute';
+  bgImg.style.left   = imgOffX + 'px';
+  bgImg.style.top    = imgOffY + 'px';
+  bgImg.style.width  = imgRenW + 'px';
+  bgImg.style.height = imgRenH + 'px';
+  bgImg.style.pointerEvents = 'none';
+  bgImg.style.userSelect    = 'none';
+  bgImg.style.webkitUserDrag = 'none';
+  inner.insertBefore(bgImg, inner.firstChild);
 
   resetView(false);
   if (stands.length) renderStands();
-
-  document.getElementById('smLoad').style.display   = 'none';
+  document.getElementById('smLoad').style.display = 'none';
   document.getElementById('smLegend').style.display = 'block';
 }
 
 // ── Render stands ──────────────────────────────────────────────────────────────
-// Replica esatta della logica mappa admin (mappa.ejs righe 167-171):
-//   left/top = map_x/map_y in %
-//   width/height = map_w/map_h in %
-//   clip-path da JSON array [[x%,y%],...]
-//   transform: translate(-50%,-50%) + rotate se map_rot
-//   COLORE: solido, opaco (niente rgba trasparente)
+// Le coordinate left/top % sono relative ad #mapArea (= div admin virtuale).
+// Non serve nessuna correzione: il div ha esattamente le stesse dimensioni
+// che aveva il .map-area dell'admin al momento del drop.
 function renderStands() {
   area.querySelectorAll('.sm-stand').forEach(n => n.remove());
 
@@ -354,9 +393,8 @@ function renderStands() {
     const gh = parseFloat(s.map_h || 5);
     const gr = parseFloat(s.map_rot || 0);
 
-    // Colore solido (opaco) — identico all'admin che usa sc(g) = colore gruppo
-    // Usiamo un blu scuro solido come colore default
-    const color = '#1e2d4e';
+    // Colore solido opaco — usa il colore del gruppo se disponibile
+    const color = s.color || '#1e2d4e';
 
     let style =
       'left:'   + parseFloat(s.map_x).toFixed(2) + '%;' +
@@ -365,7 +403,6 @@ function renderStands() {
       'height:' + gh.toFixed(2) + '%;' +
       'background:' + color + ';';
 
-    // clip-path da JSON array (riga 169 mappa admin)
     if (s.map_shape) {
       try {
         const sp = JSON.parse(s.map_shape);
@@ -376,13 +413,12 @@ function renderStands() {
       } catch(e) {}
     }
 
-    // rotazione (righe 170-171 mappa admin)
     if (gr) {
       style += 'transform:translate(-50%,-50%) rotate(' + gr + 'deg);';
     }
 
     const hasEv = Array.isArray(s.events) && s.events.length > 0;
-    const el = document.createElement('div');
+    const el    = document.createElement('div');
     el.className = 'sm-stand' + (hasEv ? ' has-events' : '');
     el.id = 'smst-' + s.id;
     el.setAttribute('style', style);
@@ -416,13 +452,15 @@ function showTip(e, s) {
   document.getElementById('tipEv').textContent   =
     Array.isArray(s.events) && s.events.length
       ? '🗓 ' + s.events.length + (s.events.length === 1 ? ' evento' : ' eventi') : '';
-  tip.classList.add('show'); moveTip(e);
+  tip.classList.add('show');
+  moveTip(e);
 }
 function moveTip(e) {
   let x = e.clientX + 14, y = e.clientY - 10;
   if (x + 230 > window.innerWidth)  x = e.clientX - 234;
   if (y + 80  > window.innerHeight) y = e.clientY - 90;
-  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  tip.style.left = x + 'px';
+  tip.style.top  = y + 'px';
 }
 function hideTip() { tip.classList.remove('show'); }
 
@@ -465,6 +503,7 @@ function applyT() {
   inner.style.transform = 'translate('+tx+'px,'+ty+'px) scale('+sc+')';
 }
 function resetView(anim) {
+  if (!areaW || !areaH) return;
   const vw = wrap.clientWidth, vh = wrap.clientHeight;
   sc = Math.min(vw/areaW, vh/areaH) * 0.92;
   tx = (vw - areaW*sc) / 2;
@@ -483,6 +522,8 @@ function doZoom(f) {
   applyT();
   setTimeout(() => inner.style.transition = '', 220);
 }
+
+// Mouse drag
 let drag=false,dsx,dsy,dtx,dty;
 wrap.addEventListener('mousedown', e => {
   if (e.target.closest('.sm-stand')) return;
@@ -494,6 +535,8 @@ window.addEventListener('mousemove', e => {
   tx=dtx+(e.clientX-dsx); ty=dty+(e.clientY-dsy); applyT();
 });
 window.addEventListener('mouseup', () => { drag=false; wrap.classList.remove('grabbing'); });
+
+// Wheel zoom
 wrap.addEventListener('wheel', e => {
   e.preventDefault();
   const r=wrap.getBoundingClientRect();
@@ -502,7 +545,9 @@ wrap.addEventListener('wheel', e => {
   const ns=Math.min(5,Math.max(0.2,sc*f));
   const ra=ns/sc;
   tx=cx-ra*(cx-tx); ty=cy-ra*(cy-ty); sc=ns; applyT();
-}, {passive:false});
+},{passive:false});
+
+// Touch pinch
 let tch={},lDist=null,lMid=null,lSingle=null;
 wrap.addEventListener('touchstart', e => {
   Array.from(e.changedTouches).forEach(t=>{tch[t.identifier]={x:t.clientX,y:t.clientY};});
