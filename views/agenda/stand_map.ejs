@@ -451,7 +451,6 @@ let sc = 1, tx = 0, ty = 0;
 const wrap  = document.getElementById('mapWrap');
 const inner = document.getElementById('mapInner');
 const area  = document.getElementById('mapArea');
-const IS_AUTH = <%- isAuthenticated ? 'true' : 'false' %>;
 const IS_AUTH = <%- typeof isAuthenticated !== 'undefined' && isAuthenticated ? 'true' : 'false' %>;
 const bgImg = document.getElementById('mapBgImg');
 
