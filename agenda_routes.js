@@ -1260,7 +1260,7 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
     db.all(
       `SELECT ag.id, ag.name, ag.stand_name, ag.stand_code,
               ag.map_x, ag.map_y, ag.map_w, ag.map_h, ag.map_shape, ag.map_rot,
-              g.color AS color, g.id AS group_id
+              g.id AS group_id
        FROM assignment_groups ag
        LEFT JOIN groups g ON g.id = ag.group_id
        WHERE ag.zone=? AND ag.map_x IS NOT NULL AND ag.map_y IS NOT NULL

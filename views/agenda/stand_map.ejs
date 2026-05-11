@@ -621,10 +621,10 @@ function openDrawer() {
   } else {
     sorted.forEach(s => {
       const evCount = Array.isArray(s.events) ? s.events.length : 0;
-      const color   = s.color || '#1e2d4e';
+      const color   = '#1e2d4e';
       html +=
         '<div class="sm-drawer-item" onclick="focusStand(' + s.id + ')">' +
-          '<div class="sm-drawer-dot" style="background:' + color + '"></div>' +
+          '<div class="sm-drawer-dot"></div>' +
           '<div style="min-width:0;flex:1">' +
             '<div style="display:flex;align-items:center;gap:.35rem">' +
               (s.stand_code ? '<span class="sm-drawer-code">' + esc(s.stand_code) + '</span>' : '') +
