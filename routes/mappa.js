@@ -37,7 +37,7 @@ module.exports = function registerMappaRoutes(
   });
 
   // ── Serve file background ────────────────────────────────────────
-  app.get('/zone-bg/:filename', requireAuth, (req, res) => {
+  app.get('/zone-bg/:filename', (req, res) => {
     res.sendFile(path.join(DATA_DIR, 'generated', path.basename(req.params.filename)));
   });
 
