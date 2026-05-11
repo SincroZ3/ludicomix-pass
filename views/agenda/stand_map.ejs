@@ -193,6 +193,75 @@
     .sm-leg-sq{width:10px;height:10px;border-radius:2px;flex-shrink:0;
       background:#1e2d4e;border:1.5px solid rgba(245,200,66,.7);}
 
+    /* ── Drawer lista stand ──────────────────────────────────────────── */
+    .sm-drawer-overlay{
+      position:fixed;inset:0;z-index:600;
+      background:rgba(0,0,0,.45);
+      opacity:0;pointer-events:none;
+      transition:opacity .28s ease;
+    }
+    .sm-drawer-overlay.open{opacity:1;pointer-events:auto}
+    .sm-drawer{
+      position:fixed;right:0;top:0;bottom:0;z-index:650;
+      width:min(300px,88vw);
+      background:#1e2d4e;
+      border-left:1.5px solid rgba(245,200,66,.3);
+      display:flex;flex-direction:column;
+      transform:translateX(100%);
+      transition:transform .3s cubic-bezier(.16,1,.3,1);
+      box-shadow:-4px 0 32px rgba(0,0,0,.35);
+    }
+    .sm-drawer.open{transform:translateX(0)}
+    .sm-drawer-head{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:.75rem 1rem .6rem;
+      border-bottom:1px solid rgba(255,255,255,.1);
+      flex-shrink:0;
+    }
+    .sm-drawer-title{color:#f5c842;font-size:.82rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px}
+    .sm-drawer-close{
+      width:30px;height:30px;border-radius:7px;
+      background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+      color:#fff;font-size:1.1rem;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .sm-drawer-close:active{background:rgba(255,255,255,.18)}
+    .sm-drawer-body{flex:1;overflow-y:auto;padding:.4rem 0;}
+    .sm-drawer-item{
+      display:flex;align-items:center;gap:.65rem;
+      padding:.55rem 1rem;cursor:pointer;
+      border-bottom:1px solid rgba(255,255,255,.05);
+      transition:background .12s;
+    }
+    .sm-drawer-item:active,.sm-drawer-item:hover{background:rgba(245,200,66,.1)}
+    .sm-drawer-dot{
+      width:10px;height:10px;border-radius:2px;flex-shrink:0;
+      background:#4f98a3;border:1.5px solid rgba(245,200,66,.5);
+    }
+    .sm-drawer-code{font-size:.68rem;font-weight:800;color:#f5c842;min-width:36px;flex-shrink:0}
+    .sm-drawer-name{font-size:.78rem;color:#e2e8f0;line-height:1.2}
+    .sm-drawer-loc{font-size:.65rem;color:#718096;margin-top:.08rem}
+    .sm-drawer-evbadge{
+      margin-left:auto;flex-shrink:0;
+      background:rgba(245,200,66,.18);color:#f5c842;
+      font-size:.6rem;font-weight:800;border-radius:9999px;
+      padding:.1rem .38rem;
+    }
+    /* Evento nella sheet */
+    .sm-ev-item{
+      display:flex;gap:.6rem;align-items:flex-start;
+      padding:.55rem 0;border-bottom:1px solid #e8ecf3;
+    }
+    .sm-ev-item:last-child{border-bottom:none}
+    .sm-ev-time{
+      flex-shrink:0;min-width:52px;
+      font-size:.68rem;font-weight:800;color:#1e2d4e;
+      background:#f0f4ff;border-radius:5px;
+      padding:.2rem .35rem;text-align:center;line-height:1.3;
+    }
+    .sm-ev-title{font-size:.8rem;font-weight:700;color:#1a2744;line-height:1.25}
+    .sm-ev-space{font-size:.65rem;color:#718096;margin-top:.1rem}
+
     /* ── Loading ─────────────────────────────────────────────────────── */
     #smLoad{position:fixed;inset:0;z-index:9999;background:#1e2d4e;
       display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;}
@@ -255,7 +324,17 @@
 </div>
 
 <div class="sm-ctrl">
-  <button class="sm-btn reset" onclick="resetView()" title="Reset zoom" aria-label="Reset zoom">
+  <button class="sm-btn" onclick="openDrawer()" aria-label="Lista stand" title="Lista stand">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2.5">
+      <line x1="8" y1="6"  x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+      <line x1="8" y1="18" x2="21" y2="18"/>
+      <circle cx="3" cy="6" r="1.2" fill="currentColor"/>
+      <circle cx="3" cy="12" r="1.2" fill="currentColor"/>
+      <circle cx="3" cy="18" r="1.2" fill="currentColor"/>
+    </svg>
+  </button>
+  <button class="sm-btn reset" onclick="resetView()" title="Centra mappa" aria-label="Centra mappa">
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
          stroke="currentColor" stroke-width="2.5">
       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
@@ -264,6 +343,16 @@
   </button>
   <button class="sm-btn" onclick="doZoom(1.25)" aria-label="Zoom in">+</button>
   <button class="sm-btn" onclick="doZoom(0.8)"  aria-label="Zoom out">−</button>
+</div>
+
+<!-- Drawer lista stand -->
+<div class="sm-drawer-overlay" id="smDrawerOverlay" onclick="closeDrawer()"></div>
+<div class="sm-drawer" id="smDrawer">
+  <div class="sm-drawer-head">
+    <span class="sm-drawer-title">Stand in zona</span>
+    <button class="sm-drawer-close" onclick="closeDrawer()" aria-label="Chiudi">✕</button>
+  </div>
+  <div class="sm-drawer-body" id="smDrawerBody"></div>
 </div>
 
 <div class="sm-legend" id="smLegend">
@@ -467,26 +556,111 @@ function hideTip() { tip.classList.remove('show'); }
 // ── Sheet ──────────────────────────────────────────────────────────────────────
 function openSheet(s) {
   hideTip();
+  closeDrawer();
   area.querySelectorAll('.sm-stand').forEach(el => el.classList.remove('active'));
   const el = document.getElementById('smst-' + s.id);
   if (el) el.classList.add('active');
-  document.getElementById('smBody').innerHTML =
+
+  // Header: solo codice e nome stand (senza gruppo/associazione)
+  let html =
     '<div class="sm-shead">' +
-      '<div class="sm-badge">' + (s.stand_code || (s.name||'').substring(0,4)) + '</div>' +
+      '<div class="sm-badge">' + esc(s.stand_code || (s.name||'').substring(0,4)) + '</div>' +
       '<div>' +
-        '<div class="sm-sname">' + (s.name || '') + '</div>' +
-        (s.stand_name    ? '<div class="sm-scat">📍 ' + s.stand_name    + '</div>' : '') +
-        (s.category_name ? '<div class="sm-scat">🏷 ' + s.category_name + '</div>' : '') +
+        '<div class="sm-sname">' + esc(s.name || '') + '</div>' +
+        (s.stand_name ? '<div class="sm-scat">📍 ' + esc(s.stand_name) + '</div>' : '') +
       '</div>' +
-    '</div>' +
-    '<div class="sm-noev">Nessun evento collegato a questo stand.</div>';
+    '</div>';
+
+  // Sezione eventi
+  const evs = Array.isArray(s.events) ? s.events : [];
+  if (evs.length === 0) {
+    html += '<div class="sm-noev">Nessun evento in programma per questo stand.</div>';
+  } else {
+    html += '<div style="font-size:.72rem;font-weight:800;color:#4a5568;text-transform:uppercase;letter-spacing:.4px;margin:.6rem 0 .35rem">📅 Programma</div>';
+    evs.forEach(ev => {
+      const orario = ev.start_time
+        ? ev.start_time.substring(0,5) + (ev.end_time ? ' – ' + ev.end_time.substring(0,5) : '')
+        : '';
+      html +=
+        '<div class="sm-ev-item">' +
+          (orario ? '<div class="sm-ev-time">' + esc(ev.date ? ev.date.substring(5).replace('-','/') : '') + '<br>' + esc(orario) + '</div>' : '') +
+          '<div>' +
+            '<div class="sm-ev-title">' + esc(ev.title || '') + '</div>' +
+            (ev.space_name ? '<div class="sm-ev-space">🏛 ' + esc(ev.space_name) + '</div>' : '') +
+          '</div>' +
+        '</div>';
+    });
+  }
+
+  document.getElementById('smBody').innerHTML = html;
   document.getElementById('smSheet').classList.add('open');
   document.getElementById('smOverlay').classList.add('open');
+}
+
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 function closeSheet() {
   document.getElementById('smSheet').classList.remove('open');
   document.getElementById('smOverlay').classList.remove('open');
   area.querySelectorAll('.sm-stand').forEach(el => el.classList.remove('active'));
+}
+
+// ── Drawer lista stand ─────────────────────────────────────────────────────────
+function openDrawer() {
+  closeSheet();
+  // Costruisce lista alfabetica degli stand con dati già in memoria
+  const sorted = [...stands].sort((a, b) => {
+    const ca = (a.stand_code || a.name || '').toLowerCase();
+    const cb = (b.stand_code || b.name || '').toLowerCase();
+    return ca.localeCompare(cb, 'it');
+  });
+  let html = '';
+  if (sorted.length === 0) {
+    html = '<div style="color:#718096;font-size:.8rem;text-align:center;padding:2rem 1rem">Nessuno stand posizionato</div>';
+  } else {
+    sorted.forEach(s => {
+      const evCount = Array.isArray(s.events) ? s.events.length : 0;
+      const color   = s.color || '#1e2d4e';
+      html +=
+        '<div class="sm-drawer-item" onclick="focusStand(' + s.id + ')">' +
+          '<div class="sm-drawer-dot" style="background:' + color + '"></div>' +
+          '<div style="min-width:0;flex:1">' +
+            '<div style="display:flex;align-items:center;gap:.35rem">' +
+              (s.stand_code ? '<span class="sm-drawer-code">' + esc(s.stand_code) + '</span>' : '') +
+              '<span class="sm-drawer-name">' + esc(s.name || '') + '</span>' +
+            '</div>' +
+            (s.stand_name ? '<div class="sm-drawer-loc">📍 ' + esc(s.stand_name) + '</div>' : '') +
+          '</div>' +
+          (evCount > 0 ? '<span class="sm-drawer-evbadge">' + evCount + ' 🗓</span>' : '') +
+        '</div>';
+    });
+  }
+  document.getElementById('smDrawerBody').innerHTML = html;
+  document.getElementById('smDrawer').classList.add('open');
+  document.getElementById('smDrawerOverlay').classList.add('open');
+}
+
+function closeDrawer() {
+  document.getElementById('smDrawer').classList.remove('open');
+  document.getElementById('smDrawerOverlay').classList.remove('open');
+}
+
+function focusStand(id) {
+  closeDrawer();
+  const s = stands.find(x => x.id === id);
+  if (!s || s.map_x == null) return;
+  // Centra la vista sullo stand e apre la sheet
+  const vw = wrap.clientWidth, vh = wrap.clientHeight;
+  const px = (s.map_x / 100) * areaW;
+  const py = (s.map_y / 100) * areaH;
+  const targetSc = Math.max(sc, 1.5);
+  tx = vw / 2 - px * targetSc;
+  ty = vh / 2 - py * targetSc;
+  sc = targetSc;
+  inner.style.transition = 'transform .4s cubic-bezier(.16,1,.3,1)';
+  applyT();
+  setTimeout(() => { inner.style.transition = ''; openSheet(s); }, 420);
 }
 (function(){
   const sh = document.getElementById('smSheet');

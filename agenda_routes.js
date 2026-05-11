@@ -1260,7 +1260,7 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
     db.all(
       `SELECT ag.id, ag.name, ag.stand_name, ag.stand_code,
               ag.map_x, ag.map_y, ag.map_w, ag.map_h, ag.map_shape, ag.map_rot,
-              g.name AS category_name, g.id AS group_id
+              g.color AS color, g.id AS group_id
        FROM assignment_groups ag
        LEFT JOIN groups g ON g.id = ag.group_id
        WHERE ag.zone=? AND ag.map_x IS NOT NULL AND ag.map_y IS NOT NULL
@@ -1268,7 +1268,44 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
       [zone.name],
       (err2, stands) => {
         if (err2) return res.status(500).json({ error: 'Errore DB stands' });
-        res.json({ zone, stands: stands || [] });
+        if (!stands || stands.length === 0) return res.json({ zone, stands: [] });
+
+        // Recupera eventi pubblicati collegati agli stand tramite location_text
+        // Un evento è collegato se location_type IN ('espositore','associazione')
+        // e location_text corrisponde a stand_code, stand_name o name dello stand
+        const zoneName = zone.name;
+        db.all(
+          `SELECT e.id, e.title, e.date, e.start_time, e.end_time,
+                  e.location_text, e.location_type, e.event_type,
+                  s.name AS space_name
+           FROM events e
+           LEFT JOIN spaces s ON s.id = e.space_id
+           WHERE e.published = 1
+             AND e.location_type IN ('espositore', 'associazione')
+             AND e.location_text IS NOT NULL
+             AND e.location_text != ''
+           ORDER BY e.date, e.start_time`,
+          [],
+          (err3, events) => {
+            if (err3) {
+              // Se fallisce il recupero eventi, restituiamo stands senza eventi
+              return res.json({ zone, stands: stands.map(s => ({ ...s, events: [] })) });
+            }
+            // Associa gli eventi agli stand per corrispondenza location_text
+            const standsWithEvents = stands.map(ag => {
+              const agEvents = (events || []).filter(ev => {
+                const lt = (ev.location_text || '').trim().toLowerCase();
+                return lt && (
+                  (ag.stand_code && lt === ag.stand_code.trim().toLowerCase()) ||
+                  (ag.stand_name && lt === ag.stand_name.trim().toLowerCase()) ||
+                  (ag.name       && lt === ag.name.trim().toLowerCase())
+                );
+              });
+              return { ...ag, events: agEvents };
+            });
+            res.json({ zone, stands: standsWithEvents });
+          }
+        );
       }
     );
   });
