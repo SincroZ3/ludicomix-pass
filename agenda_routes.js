@@ -1258,7 +1258,7 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
   db.get('SELECT * FROM zones WHERE id=? AND stand_map_public=1', [zoneId], (err, zone) => {
     if (err || !zone) return res.status(404).json({ error: 'Zona non trovata o non pubblica' });
     db.all(
-      `SELECT ag.id, ag.name, ag.stand_name, ag.stand_code,
+      `SELECT ag.id, ag.name, ag.stand_name, ag.stand_code, ag.zone,
               ag.map_x, ag.map_y, ag.map_w, ag.map_h, ag.map_shape, ag.map_rot,
               g.id AS group_id
        FROM assignment_groups ag
@@ -1270,38 +1270,48 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
         if (err2) return res.status(500).json({ error: 'Errore DB stands' });
         if (!stands || stands.length === 0) return res.json({ zone, stands: [] });
 
-        // Recupera eventi pubblicati collegati agli stand tramite location_text
-        // Un evento è collegato se location_type IN ('espositore','associazione')
-        // e location_text corrisponde a stand_code, stand_name o name dello stand
-        const zoneName = zone.name;
+        // Recupera tutti gli eventi pubblicati per matchare agli stand
+        // Match 1 (esatto):    location_text == stand_code | stand_name | name
+        // Match 2 (description): description LIKE %stand_code% (solo se stand_code >= 3 chars)
         db.all(
-          `SELECT e.id, e.title, e.date, e.start_time, e.end_time,
+          `SELECT e.id, e.title, e.description, e.date, e.start_time, e.end_time,
                   e.location_text, e.location_type, e.event_type,
                   s.name AS space_name
            FROM events e
            LEFT JOIN spaces s ON s.id = e.space_id
            WHERE e.published = 1
-             AND e.location_type IN ('espositore', 'associazione')
-             AND e.location_text IS NOT NULL
-             AND e.location_text != ''
            ORDER BY e.date, e.start_time`,
           [],
           (err3, events) => {
             if (err3) {
-              // Se fallisce il recupero eventi, restituiamo stands senza eventi
               return res.json({ zone, stands: stands.map(s => ({ ...s, events: [] })) });
             }
-            // Associa gli eventi agli stand per corrispondenza location_text
+            const allEvents = events || [];
             const standsWithEvents = stands.map(ag => {
-              const agEvents = (events || []).filter(ev => {
+              const code   = (ag.stand_code || '').trim().toLowerCase();
+              const sname  = (ag.stand_name || '').trim().toLowerCase();
+              const gname  = (ag.name       || '').trim().toLowerCase();
+              const agEvents = allEvents.filter(ev => {
+                // Match 1: location_text esatto (stand_code, stand_name o name)
                 const lt = (ev.location_text || '').trim().toLowerCase();
-                return lt && (
-                  (ag.stand_code && lt === ag.stand_code.trim().toLowerCase()) ||
-                  (ag.stand_name && lt === ag.stand_name.trim().toLowerCase()) ||
-                  (ag.name       && lt === ag.name.trim().toLowerCase())
-                );
+                if (lt) {
+                  if (code  && lt === code)  return true;
+                  if (sname && lt === sname) return true;
+                  if (gname && lt === gname) return true;
+                }
+                // Match 2: stand_code trovato nel titolo o nella descrizione
+                // (solo se stand_code ha almeno 3 caratteri per evitare falsi positivi)
+                if (code.length >= 3) {
+                  const title = (ev.title       || '').toLowerCase();
+                  const desc  = (ev.description || '').toLowerCase();
+                  if (title.includes(code) || desc.includes(code)) return true;
+                }
+                return false;
               });
-              return { ...ag, events: agEvents };
+              // Rimuovi duplicati (stesso id evento)
+              const seen = new Set();
+              const unique = agEvents.filter(ev => seen.has(ev.id) ? false : seen.add(ev.id));
+              return { ...ag, events: unique };
             });
             res.json({ zone, stands: standsWithEvents });
           }

@@ -537,7 +537,7 @@ function renderStands() {
 const tip = document.getElementById('smTip');
 function showTip(e, s) {
   document.getElementById('tipCode').textContent = s.stand_code || '';
-  document.getElementById('tipName').textContent = s.name || '';
+  document.getElementById('tipName').textContent = s.stand_name || s.stand_code || '';
   document.getElementById('tipEv').textContent   =
     Array.isArray(s.events) && s.events.length
       ? '🗓 ' + s.events.length + (s.events.length === 1 ? ' evento' : ' eventi') : '';
@@ -564,10 +564,10 @@ function openSheet(s) {
   // Header: solo codice e nome stand (senza gruppo/associazione)
   let html =
     '<div class="sm-shead">' +
-      '<div class="sm-badge">' + esc(s.stand_code || (s.name||'').substring(0,4)) + '</div>' +
+      '<div class="sm-badge">' + esc(s.stand_code || '') + '</div>' +
       '<div>' +
-        '<div class="sm-sname">' + esc(s.name || '') + '</div>' +
-        (s.stand_name ? '<div class="sm-scat">📍 ' + esc(s.stand_name) + '</div>' : '') +
+        '<div class="sm-sname">' + esc(s.stand_name || s.stand_code || '') + '</div>' +
+        (s.zone ? '<div class="sm-scat">🗺 ' + esc(s.zone) + '</div>' : '') +
       '</div>' +
     '</div>';
 
@@ -628,9 +628,9 @@ function openDrawer() {
           '<div style="min-width:0;flex:1">' +
             '<div style="display:flex;align-items:center;gap:.35rem">' +
               (s.stand_code ? '<span class="sm-drawer-code">' + esc(s.stand_code) + '</span>' : '') +
-              '<span class="sm-drawer-name">' + esc(s.name || '') + '</span>' +
+              '<span class="sm-drawer-name">' + esc(s.stand_name || s.stand_code || '') + '</span>' +
             '</div>' +
-            (s.stand_name ? '<div class="sm-drawer-loc">📍 ' + esc(s.stand_name) + '</div>' : '') +
+            (s.zone ? '<div class="sm-drawer-loc">🗺 ' + esc(s.zone) + '</div>' : '') +
           '</div>' +
           (evCount > 0 ? '<span class="sm-drawer-evbadge">' + evCount + ' 🗓</span>' : '') +
         '</div>';
