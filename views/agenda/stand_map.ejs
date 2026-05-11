@@ -6,29 +6,65 @@
   <title>Mappa Stand — <%= zone.name %> · Ludicomix</title>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    html,body{height:100%;width:100%;overflow:hidden;font-family:-apple-system,'Segoe UI',Arial,sans-serif;background:#1e2d4e;color:#1a2744}
+    html,body{height:100%;width:100%;overflow:hidden;
+      font-family:-apple-system,'Segoe UI',Arial,sans-serif;
+      background:#1e2d4e;color:#1a2744}
 
-    .sm-header{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:center;
-      justify-content:space-between;padding:.55rem .9rem;
-      background:linear-gradient(to bottom,rgba(30,45,78,.95) 60%,transparent);pointer-events:none}
+    /* ── Header ─────────────────────────────────────────────────────────────── */
+    .sm-header{
+      position:fixed;top:0;left:0;right:0;z-index:500;
+      display:flex;align-items:center;justify-content:space-between;
+      padding:.55rem .9rem;
+      background:linear-gradient(to bottom,rgba(30,45,78,.95) 60%,transparent);
+      pointer-events:none;
+    }
     .sm-header>*{pointer-events:auto}
     .sm-title{color:#f5c842;font-size:.82rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px}
     .sm-subtitle{color:rgba(255,255,255,.7);font-size:.68rem;font-weight:600}
-    .sm-back{display:flex;align-items:center;gap:.4rem;padding:.45rem .85rem;border-radius:10px;
-      background:rgba(255,255,255,.1);border:1.5px solid rgba(245,200,66,.4);color:#f5c842;
-      font-size:.78rem;font-weight:700;cursor:pointer;text-decoration:none;transition:background .15s}
+    .sm-back{
+      display:flex;align-items:center;gap:.4rem;
+      padding:.45rem .85rem;border-radius:10px;
+      background:rgba(255,255,255,.1);border:1.5px solid rgba(245,200,66,.4);
+      color:#f5c842;font-size:.78rem;font-weight:700;
+      cursor:pointer;text-decoration:none;transition:background .15s;
+    }
     .sm-back:active{background:rgba(255,255,255,.2)}
 
-    #mapWrap{position:fixed;inset:0;overflow:hidden;cursor:grab;touch-action:none;
-      display:flex;align-items:center;justify-content:center}
+    /* ── Wrapper pan/zoom ────────────────────────────────────────────────────── */
+    #mapWrap{
+      position:fixed;inset:0;
+      overflow:hidden;cursor:grab;touch-action:none;
+    }
     #mapWrap.grabbing{cursor:grabbing}
-    #mapInner{position:relative;transform-origin:0 0;will-change:transform;user-select:none}
-    #mapBg{display:block;pointer-events:none;user-select:none;-webkit-user-drag:none}
 
-    /* ── STAND: identico al .stand-box della mappa admin ────────────────────
-       • left/top = posizione CENTRO in % sul contenitore
-       • transform: translate(-50%,-50%) centra il box sul punto
-       • clip-path e rotate vengono applicati inline come nella mappa admin   */
+    /* ── Contenitore interno (questo viene traslato/scalato) ─────────────────
+       Mantiene esattamente la struttura della mappa admin:
+       - background-image CSS  (NON un <img> tag)
+       - background-size: contain
+       - background-position: center top
+       - width/height fissi in px uguali all'immagine naturale
+       In questo modo left/top % degli stand coincidono 1:1 con la mappa admin */
+    #mapInner{
+      position:absolute;
+      transform-origin:0 0;
+      will-change:transform;
+      user-select:none;
+      /* dimensioni impostate via JS dopo calcolo naturalWidth/Height */
+    }
+    /* Il div che replica .map-area della mappa admin */
+    #mapArea{
+      position:relative;
+      background-size:contain;
+      background-repeat:no-repeat;
+      background-position:center top;
+      overflow:hidden;
+      /* width/height impostati via JS */
+    }
+
+    /* ── Stand: identici a .stand-box della mappa admin ─────────────────────
+       • left/top in % = centro dello stand sul contenitore
+       • transform: translate(-50%,-50%)  ← sempre presente nel CSS
+       • se map_rot != 0 l'inline style sovrascrive con rotate() */
     .sm-stand{
       position:absolute;
       transform:translate(-50%,-50%);
@@ -38,87 +74,127 @@
       z-index:10;
       display:flex;align-items:center;justify-content:center;
       overflow:visible;
-      transition:box-shadow .12s, filter .12s;
+      transition:box-shadow .12s,filter .12s;
     }
     .sm-stand:hover,.sm-stand.active{
-      filter:brightness(1.25);
-      box-shadow:0 0 0 2.5px #f5c842, 0 4px 14px rgba(0,0,0,.4);
+      filter:brightness(1.3);
+      box-shadow:0 0 0 2px #f5c842, 0 4px 14px rgba(0,0,0,.45);
       z-index:20;
     }
-    /* dot "ha eventi" */
     .sm-stand.has-events .sm-dot{
-      position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;
-      background:#f5c842;border:1.5px solid rgba(255,255,255,.9);
-      box-shadow:0 0 4px rgba(245,200,66,.8);pointer-events:none;z-index:5;
+      position:absolute;top:2px;right:2px;width:7px;height:7px;
+      border-radius:50%;background:#f5c842;
+      border:1.5px solid rgba(255,255,255,.9);
+      box-shadow:0 0 4px rgba(245,200,66,.8);
+      pointer-events:none;z-index:5;
     }
     .sm-lbl{
-      font-size:.6rem;font-weight:900;color:#fff;text-align:center;line-height:1.1;
+      font-size:.6rem;font-weight:900;color:#fff;
+      text-align:center;line-height:1.1;
       pointer-events:none;padding:1px 3px;
       text-shadow:0 1px 3px rgba(0,0,0,.85);
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;
-      position:relative;z-index:2;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+      max-width:100%;position:relative;z-index:2;
     }
 
-    /* tooltip desktop */
-    .sm-tip{position:fixed;z-index:900;background:#1e2d4e;color:#fff;
-      border:1.5px solid #f5c842;border-radius:10px;padding:.5rem .75rem;
+    /* ── Tooltip desktop ─────────────────────────────────────────────────────── */
+    .sm-tip{
+      position:fixed;z-index:900;
+      background:#1e2d4e;color:#fff;
+      border:1.5px solid #f5c842;border-radius:10px;
+      padding:.5rem .75rem;
       pointer-events:none;opacity:0;transition:opacity .15s;
-      max-width:220px;min-width:130px;box-shadow:0 4px 18px rgba(0,0,0,.45);font-size:.77rem}
+      max-width:220px;min-width:130px;
+      box-shadow:0 4px 18px rgba(0,0,0,.45);font-size:.77rem;
+    }
     .sm-tip.show{opacity:1}
     .sm-tip-code{font-size:.63rem;color:#f5c842;font-weight:800;margin-bottom:.15rem}
     .sm-tip-name{font-weight:700;line-height:1.2}
     .sm-tip-ev{font-size:.63rem;color:#a0aec0;margin-top:.2rem}
 
-    /* bottom sheet */
+    /* ── Bottom sheet ────────────────────────────────────────────────────────── */
     .sm-overlay{position:fixed;inset:0;z-index:700;pointer-events:none}
     .sm-overlay.open{pointer-events:auto}
-    .sm-sheet{position:fixed;bottom:0;left:0;right:0;z-index:750;background:#fff;
-      border-radius:20px 20px 0 0;box-shadow:0 -4px 32px rgba(0,0,0,.25);
-      transform:translateY(100%);transition:transform .32s cubic-bezier(.16,1,.3,1);
-      padding-bottom:env(safe-area-inset-bottom,16px);max-height:72vh;overflow-y:auto}
+    .sm-sheet{
+      position:fixed;bottom:0;left:0;right:0;z-index:750;
+      background:#fff;border-radius:20px 20px 0 0;
+      box-shadow:0 -4px 32px rgba(0,0,0,.25);
+      transform:translateY(100%);
+      transition:transform .32s cubic-bezier(.16,1,.3,1);
+      padding-bottom:env(safe-area-inset-bottom,16px);
+      max-height:72vh;overflow-y:auto;
+    }
     .sm-sheet.open{transform:translateY(0)}
     .sm-handle{width:38px;height:4px;background:#d1d9e6;border-radius:2px;margin:.7rem auto .4rem}
     .sm-body{padding:.5rem 1.2rem 1.4rem}
     .sm-shead{display:flex;align-items:flex-start;gap:.75rem;margin-bottom:.7rem}
-    .sm-badge{flex-shrink:0;min-width:44px;height:44px;border-radius:10px;background:#1e2d4e;
-      color:#f5c842;font-weight:900;font-size:.84rem;display:flex;align-items:center;
-      justify-content:center;padding:0 .5rem;letter-spacing:.5px}
+    .sm-badge{
+      flex-shrink:0;min-width:44px;height:44px;border-radius:10px;
+      background:#1e2d4e;color:#f5c842;font-weight:900;font-size:.84rem;
+      display:flex;align-items:center;justify-content:center;
+      padding:0 .5rem;letter-spacing:.5px;
+    }
     .sm-sname{font-size:1rem;font-weight:800;color:#1a2744;line-height:1.2}
     .sm-scat{font-size:.72rem;color:#718096;margin-top:.15rem}
     .sm-noev{font-size:.8rem;color:#a0aec0;text-align:center;padding:.75rem 0;font-style:italic}
 
-    /* zoom controls */
-    .sm-zooms{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px)+16px);right:12px;
-      z-index:500;display:flex;flex-direction:column;gap:4px}
-    .sm-zbtn{width:42px;height:42px;border-radius:10px;background:#fff;border:1.5px solid #e2e8f0;
-      font-size:1.3rem;cursor:pointer;color:#1a2744;display:flex;align-items:center;
-      justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.18)}
-    .sm-zbtn:active{background:#f0f4ff}
-    .sm-reset{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px)+120px);right:12px;
-      z-index:500;width:42px;height:42px;border-radius:10px;background:#1e2d4e;
-      border:1.5px solid #f5c842;color:#f5c842;cursor:pointer;
-      display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+    /* ── Controlli (bottom-right) ────────────────────────────────────────────── */
+    .sm-ctrl{
+      position:fixed;
+      right:12px;
+      bottom:calc(env(safe-area-inset-bottom,0px) + 12px);
+      z-index:500;
+      display:flex;flex-direction:column;gap:6px;
+    }
+    .sm-btn{
+      width:44px;height:44px;border-radius:11px;
+      background:#fff;border:1.5px solid #e2e8f0;
+      font-size:1.3rem;cursor:pointer;color:#1a2744;
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 2px 8px rgba(0,0,0,.18);
+      text-decoration:none;
+    }
+    .sm-btn:active{background:#f0f4ff}
+    .sm-btn.reset{background:#1e2d4e;border-color:#f5c842;color:#f5c842}
 
-    /* legend */
-    .sm-legend{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px)+16px);left:12px;
-      z-index:500;background:rgba(30,45,78,.88);border:1px solid rgba(245,200,66,.3);
-      border-radius:10px;padding:.45rem .7rem;font-size:.62rem;color:#cbd5e0}
+    /* ── Legend (bottom-left) ─────────────────────────────────────────────────── */
+    .sm-legend{
+      position:fixed;
+      left:12px;
+      bottom:calc(env(safe-area-inset-bottom,0px) + 12px);
+      z-index:500;
+      background:rgba(30,45,78,.88);
+      border:1px solid rgba(245,200,66,.3);
+      border-radius:10px;padding:.45rem .7rem;
+      font-size:.62rem;color:#cbd5e0;
+    }
     .sm-leg-row{display:flex;align-items:center;gap:.4rem;margin-bottom:.18rem}
     .sm-leg-row:last-child{margin-bottom:0}
-    .sm-leg-sq{width:10px;height:10px;border-radius:2px;flex-shrink:0;
-      background:rgba(30,45,78,.55);border:1.5px solid rgba(245,200,66,.7)}
+    .sm-leg-sq{
+      width:10px;height:10px;border-radius:2px;flex-shrink:0;
+      background:rgba(30,45,78,.55);border:1.5px solid rgba(245,200,66,.7);
+    }
 
-    /* loading */
-    #smLoad{position:fixed;inset:0;z-index:9999;background:#1e2d4e;display:flex;
-      flex-direction:column;align-items:center;justify-content:center;gap:1rem}
-    .spin{width:40px;height:40px;border-radius:50%;border:3px solid rgba(245,200,66,.2);
-      border-top-color:#f5c842;animation:spin .8s linear infinite}
+    /* ── Loading ─────────────────────────────────────────────────────────────── */
+    #smLoad{
+      position:fixed;inset:0;z-index:9999;background:#1e2d4e;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;
+    }
+    .spin{
+      width:40px;height:40px;border-radius:50%;
+      border:3px solid rgba(245,200,66,.2);border-top-color:#f5c842;
+      animation:spin .8s linear infinite;
+    }
     @keyframes spin{to{transform:rotate(360deg)}}
     #smLoad p{color:#a0aec0;font-size:.85rem}
 
     @media(min-width:769px){
-      .sm-sheet{left:auto;right:16px;bottom:16px;width:320px;border-radius:16px;
-        max-height:calc(100vh - 80px);transform:translateX(calc(100% + 20px))}
+      .sm-sheet{
+        left:auto;right:16px;bottom:calc(env(safe-area-inset-bottom,0px)+16px);
+        width:320px;border-radius:16px;
+        max-height:calc(100vh - 80px);
+        transform:translateX(calc(100% + 20px));
+      }
       .sm-sheet.open{transform:translateX(0)}
     }
   </style>
@@ -129,7 +205,7 @@
 
 <header class="sm-header">
   <div style="display:flex;align-items:center;gap:.55rem">
-    <img src="/img/logo.png" alt="Ludicomix" height="38"
+    <img src="/img/logo.png" alt="Ludicomix" height="36"
          style="object-fit:contain" onerror="this.style.display='none'">
     <div>
       <div class="sm-subtitle">Mappa Stand</div>
@@ -137,7 +213,8 @@
     </div>
   </div>
   <a href="/mappa-pubblica" class="sm-back">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2.5">
       <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
     </svg>
     Mappa
@@ -146,19 +223,23 @@
 
 <div id="mapWrap">
   <div id="mapInner">
-    <% if (zone.background_image) { %>
-    <img id="mapBg" src="/zone-bg/<%= zone.background_image %>"
-         alt="Planimetria <%= zone.name %>" draggable="false"
-         onload="onBgLoad(this)">
-    <% } else { %>
-    <div id="mapBg" style="width:900px;height:600px;background:#2d3a5a;border-radius:8px;
-         display:flex;align-items:center;justify-content:center;color:#4a5568;font-size:.9rem">
-      Nessuna planimetria disponibile
+    <div id="mapArea"
+      <% if (zone.background_image) { %>
+         style="background-image:url('/zone-bg/<%= zone.background_image %>')"
+      <% } %>
+    >
+      <!-- gli stand vengono iniettati qui da renderStands() -->
     </div>
-    <script>setTimeout(()=>onBgLoad(document.getElementById('mapBg')),50);</script>
-    <% } %>
   </div>
 </div>
+
+<!-- Precarica immagine per leggere naturalWidth/Height -->
+<% if (zone.background_image) { %>
+<img id="bgLoader" src="/zone-bg/<%= zone.background_image %>"
+     style="display:none" onload="onBgLoad(this)" alt="">
+<% } else { %>
+<script>setTimeout(()=>onBgLoad(null),50);</script>
+<% } %>
 
 <div class="sm-tip" id="smTip">
   <div class="sm-tip-code" id="tipCode"></div>
@@ -172,16 +253,18 @@
   <div class="sm-body" id="smBody"></div>
 </div>
 
-<div class="sm-zooms">
-  <button class="sm-zbtn" onclick="doZoom(1.25)">+</button>
-  <button class="sm-zbtn" onclick="doZoom(0.8)">−</button>
+<div class="sm-ctrl">
+  <button class="sm-btn reset" onclick="resetView()" title="Reset zoom"
+          aria-label="Reset zoom">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2.5">
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+      <path d="M3 3v5h5"/>
+    </svg>
+  </button>
+  <button class="sm-btn" onclick="doZoom(1.25)" aria-label="Zoom in">+</button>
+  <button class="sm-btn" onclick="doZoom(0.8)"  aria-label="Zoom out">−</button>
 </div>
-<button class="sm-reset" onclick="resetView()" title="Reset zoom">
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-    <path d="M3 3v5h5"/>
-  </svg>
-</button>
 
 <div class="sm-legend" id="smLegend" style="display:none">
   <div class="sm-leg-row"><div class="sm-leg-sq"></div>Stand</div>
@@ -197,87 +280,104 @@
 <script>
 const ZONE_ID = <%= zoneId %>;
 const isMobile = window.innerWidth <= 768;
-let stands = [];
-let bgW = 900, bgH = 600;
+
+let stands    = [];
+let areaW     = 900;   // larghezza del div#mapArea (come rect.width nella mappa admin)
+let areaH     = 600;   // altezza
 let sc = 1, tx = 0, ty = 0;
 
-// ── Carica stands ────────────────────────────────────────────────────────────
+const wrap  = document.getElementById('mapWrap');
+const inner = document.getElementById('mapInner');
+const area  = document.getElementById('mapArea');
+
+// ── 1. Carica stands ─────────────────────────────────────────────────────────
 fetch('/api/mappa-stand/' + ZONE_ID)
   .then(r => r.json())
   .then(d => {
     stands = d.stands || [];
-    const bg = document.getElementById('mapBg');
-    if (bg.complete && (bg.naturalWidth || bg.offsetWidth)) renderStands();
+    if (areaW > 0) renderStands();   // se bg già pronto
   })
   .catch(() => {
     document.getElementById('smLoad').innerHTML =
       '<p style="color:#fc8181">Errore caricamento mappa.</p>';
   });
 
-// ── BG caricato ───────────────────────────────────────────────────────────────
+// ── 2. BG pronto → calcola dimensioni contenitore ────────────────────────────
+// La logica chiave: nella mappa admin il contenitore .map-area ha width:100%
+// e min-height:520px. Le % degli stand sono relative a quel rettangolo.
+// Noi vogliamo che il nostro #mapArea abbia le stesse dimensioni proporzionali.
+// Usiamo naturalWidth/Height dell'immagine per calcolare l'aspect ratio,
+// poi impostiamo #mapArea con larghezza fissa = naturalWidth e altezza = naturalHeight.
+// In questo modo i % coincidono esattamente con la mappa admin a qualsiasi zoom.
 function onBgLoad(img) {
-  bgW = img.naturalWidth  || img.offsetWidth  || 900;
-  bgH = img.naturalHeight || img.offsetHeight || 600;
-  img.style.width  = bgW + 'px';
-  img.style.height = bgH + 'px';
-  const inn = document.getElementById('mapInner');
-  inn.style.width  = bgW + 'px';
-  inn.style.height = bgH + 'px';
+  if (img && img.naturalWidth) {
+    areaW = img.naturalWidth;
+    areaH = img.naturalHeight;
+  } else {
+    areaW = 1200;
+    areaH = 800;
+  }
+
+  // Imposta area con le dimensioni naturali dell'immagine
+  area.style.width  = areaW + 'px';
+  area.style.height = areaH + 'px';
+
+  // Il contenitore inner ha le stesse dimensioni
+  inner.style.width  = areaW + 'px';
+  inner.style.height = areaH + 'px';
+
   resetView(false);
+
   if (stands.length) renderStands();
+
   document.getElementById('smLoad').style.display   = 'none';
   document.getElementById('smLegend').style.display = 'block';
 }
 
-// ── Render stands ─────────────────────────────────────────────────────────────
-// Logica 1:1 con la mappa admin (mappa.ejs):
-//   left/top in % = CENTRO dello stand  →  transform: translate(-50%,-50%)
-//   map_shape = JSON array [[x%,y%],...] → clip-path: polygon(...)
-//   map_rot   = gradi                   → rotate(Xdeg) aggiunto al transform
+// ── 3. Render stands ──────────────────────────────────────────────────────────
+// REPLICA ESATTA della riga 168-171 di mappa.ejs (mappa admin):
+//   left  = map_x% del .map-area (= del div#mapArea)
+//   top   = map_y% del .map-area
+//   width = map_w%
+//   height= map_h%
+//   clip-path da JSON array [[x%,y%],...]
+//   transform: translate(-50%,-50%) [+ rotate se map_rot]
 function renderStands() {
-  const host = document.getElementById('mapInner');
-  host.querySelectorAll('.sm-stand').forEach(n => n.remove());
+  area.querySelectorAll('.sm-stand').forEach(n => n.remove());
 
   stands.forEach(s => {
     if (s.map_x == null || s.map_y == null) return;
 
-    const gw = s.map_w || 8;
-    const gh = s.map_h || 5;
-    const gr = s.map_rot || 0;
+    const gw = parseFloat(s.map_w || 8);
+    const gh = parseFloat(s.map_h || 5);
+    const gr = parseFloat(s.map_rot || 0);
 
-    // ── stile base (identico alla riga 168 di mappa.ejs) ─────────────────────
+    // Stile base (identico riga 168 mappa admin)
     let style =
-      'left:'  + parseFloat(s.map_x).toFixed(2) + '%;' +
-      'top:'   + parseFloat(s.map_y).toFixed(2) + '%;' +
-      'width:' + parseFloat(gw).toFixed(2) + '%;' +
-      'height:'+ parseFloat(gh).toFixed(2) + '%;' +
-      'background:' + standColor(s) + ';';
+      'left:'   + parseFloat(s.map_x).toFixed(2) + '%;' +
+      'top:'    + parseFloat(s.map_y).toFixed(2) + '%;' +
+      'width:'  + gw.toFixed(2) + '%;' +
+      'height:' + gh.toFixed(2) + '%;' +
+      'background:rgba(30,45,78,.62);';
 
-    // ── clip-path da map_shape (JSON array) ──────────────────────────────────
-    // identico alla riga 169 di mappa.ejs
-    let hasShape = false;
+    // clip-path da JSON array (identico riga 169 mappa admin)
     if (s.map_shape) {
       try {
         const sp = JSON.parse(s.map_shape);
         if (Array.isArray(sp) && sp.length >= 3) {
           const poly = sp.map(p => p[0] + '% ' + p[1] + '%').join(',');
           style += 'clip-path:polygon(' + poly + ');';
-          hasShape = true;
         }
       } catch(e) {}
     }
-    if (!hasShape) {
-      // nessuna shape custom = rettangolo → border-radius rimane da CSS
-    }
 
-    // ── rotazione ─────────────────────────────────────────────────────────────
-    // identico alle righe 171, 344 di mappa.ejs
+    // transform con rotazione (identico righe 170-171 mappa admin)
     if (gr) {
       style += 'transform:translate(-50%,-50%) rotate(' + gr + 'deg);';
     }
-    // (se gr=0 il transform viene dal CSS .sm-stand)
+    // se gr=0, il CSS .sm-stand fornisce già translate(-50%,-50%)
 
-    const hasEv = s.events && s.events.length > 0;
+    const hasEv = Array.isArray(s.events) && s.events.length > 0;
 
     const el = document.createElement('div');
     el.className = 'sm-stand' + (hasEv ? ' has-events' : '');
@@ -302,15 +402,8 @@ function renderStands() {
       el.addEventListener('mouseleave', ()  => hideTip());
     }
 
-    host.appendChild(el);
+    area.appendChild(el);
   });
-}
-
-// ── Colore stand (usa stand_code come seed o colore di categoria) ─────────────
-function standColor(s) {
-  // tentiamo di usare il colore del gruppo se disponibile (come nella mappa admin sc())
-  // altrimenti usiamo un colore fisso coerente col tema
-  return 'rgba(30,45,78,.62)';
 }
 
 // ── Tooltip ──────────────────────────────────────────────────────────────────
@@ -318,8 +411,10 @@ const tip = document.getElementById('smTip');
 function showTip(e, s) {
   document.getElementById('tipCode').textContent = s.stand_code || '';
   document.getElementById('tipName').textContent = s.name || '';
-  document.getElementById('tipEv').textContent   = s.events && s.events.length
-    ? '🗓 ' + s.events.length + (s.events.length === 1 ? ' evento' : ' eventi') : '';
+  document.getElementById('tipEv').textContent   =
+    Array.isArray(s.events) && s.events.length
+      ? '🗓 ' + s.events.length + (s.events.length === 1 ? ' evento' : ' eventi')
+      : '';
   tip.classList.add('show');
   moveTip(e);
 }
@@ -332,15 +427,17 @@ function moveTip(e) {
 }
 function hideTip() { tip.classList.remove('show'); }
 
-// ── Sheet ────────────────────────────────────────────────────────────────────
+// ── Sheet ─────────────────────────────────────────────────────────────────────
 function openSheet(s) {
   hideTip();
-  document.querySelectorAll('.sm-stand').forEach(el => el.classList.remove('active'));
+  area.querySelectorAll('.sm-stand').forEach(el => el.classList.remove('active'));
   const el = document.getElementById('smst-' + s.id);
   if (el) el.classList.add('active');
   document.getElementById('smBody').innerHTML =
     '<div class="sm-shead">' +
-      '<div class="sm-badge">' + (s.stand_code || (s.name || '').substring(0, 4)) + '</div>' +
+      '<div class="sm-badge">' +
+        (s.stand_code || (s.name || '').substring(0, 4)) +
+      '</div>' +
       '<div>' +
         '<div class="sm-sname">' + (s.name || '') + '</div>' +
         (s.stand_name    ? '<div class="sm-scat">📍 ' + s.stand_name    + '</div>' : '') +
@@ -354,114 +451,130 @@ function openSheet(s) {
 function closeSheet() {
   document.getElementById('smSheet').classList.remove('open');
   document.getElementById('smOverlay').classList.remove('open');
-  document.querySelectorAll('.sm-stand').forEach(el => el.classList.remove('active'));
+  area.querySelectorAll('.sm-stand').forEach(el => el.classList.remove('active'));
 }
-(function () {
+(function() {
   const sh = document.getElementById('smSheet');
   let sy = 0;
-  sh.addEventListener('touchstart', e => { sy = e.touches[0].clientY; }, { passive: true });
-  sh.addEventListener('touchmove',  e => { if (e.touches[0].clientY - sy > 60) closeSheet(); }, { passive: true });
+  sh.addEventListener('touchstart', e => { sy = e.touches[0].clientY; }, { passive:true });
+  sh.addEventListener('touchmove',  e => {
+    if (e.touches[0].clientY - sy > 60) closeSheet();
+  }, { passive:true });
 })();
-document.getElementById('mapWrap').addEventListener('click', closeSheet);
+wrap.addEventListener('click', closeSheet);
 
 // ── Pan & Zoom ────────────────────────────────────────────────────────────────
-const wrap = document.getElementById('mapWrap');
-const inn  = document.getElementById('mapInner');
-
-function applyT() { inn.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + sc + ')'; }
+function applyT() {
+  inner.style.transform =
+    'translate(' + tx + 'px,' + ty + 'px) scale(' + sc + ')';
+}
 
 function resetView(anim) {
   const vw = wrap.clientWidth, vh = wrap.clientHeight;
-  sc = Math.min(vw / bgW, vh / bgH) * 0.92;
-  tx = (vw - bgW * sc) / 2;
-  ty = (vh - bgH * sc) / 2;
-  if (anim !== false) inn.style.transition = 'transform .35s ease';
+  sc = Math.min(vw / areaW, vh / areaH) * 0.92;
+  tx = (vw - areaW * sc) / 2;
+  ty = (vh - areaH * sc) / 2;
+  if (anim !== false) inner.style.transition = 'transform .35s ease';
   applyT();
-  if (anim !== false) setTimeout(() => inn.style.transition = '', 360);
+  if (anim !== false) setTimeout(() => inner.style.transition = '', 360);
 }
 
 function doZoom(f) {
   const vw = wrap.clientWidth, vh = wrap.clientHeight;
   const cx = vw / 2, cy = vh / 2;
-  const ns = Math.min(5, Math.max(0.25, sc * f));
+  const ns = Math.min(5, Math.max(0.2, sc * f));
   const r  = ns / sc;
   tx = cx - r * (cx - tx);
   ty = cy - r * (cy - ty);
   sc = ns;
-  inn.style.transition = 'transform .2s ease';
+  inner.style.transition = 'transform .2s ease';
   applyT();
-  setTimeout(() => inn.style.transition = '', 220);
+  setTimeout(() => inner.style.transition = '', 220);
 }
 
-// mouse drag
+// Mouse drag
 let drag = false, dsx, dsy, dtx, dty;
 wrap.addEventListener('mousedown', e => {
   if (e.target.closest('.sm-stand')) return;
-  drag = true; dsx = e.clientX; dsy = e.clientY; dtx = tx; dty = ty;
+  drag = true;
+  dsx = e.clientX; dsy = e.clientY;
+  dtx = tx;        dty = ty;
   wrap.classList.add('grabbing');
 });
 window.addEventListener('mousemove', e => {
   if (!drag) return;
-  tx = dtx + (e.clientX - dsx); ty = dty + (e.clientY - dsy); applyT();
+  tx = dtx + (e.clientX - dsx);
+  ty = dty + (e.clientY - dsy);
+  applyT();
 });
-window.addEventListener('mouseup', () => { drag = false; wrap.classList.remove('grabbing'); });
+window.addEventListener('mouseup', () => {
+  drag = false;
+  wrap.classList.remove('grabbing');
+});
 
-// wheel
+// Wheel zoom
 wrap.addEventListener('wheel', e => {
   e.preventDefault();
   const r  = wrap.getBoundingClientRect();
   const cx = e.clientX - r.left, cy = e.clientY - r.top;
   const f  = e.deltaY < 0 ? 1.12 : 0.9;
-  const ns = Math.min(5, Math.max(0.25, sc * f));
+  const ns = Math.min(5, Math.max(0.2, sc * f));
   const ra = ns / sc;
-  tx = cx - ra * (cx - tx); ty = cy - ra * (cy - ty); sc = ns; applyT();
-}, { passive: false });
+  tx = cx - ra * (cx - tx);
+  ty = cy - ra * (cy - ty);
+  sc = ns; applyT();
+}, { passive:false });
 
-// touch
-let touches = {}, lDist = null, lMid = null, lSingle = null;
+// Touch pinch & pan
+let tch = {}, lDist = null, lMid = null, lSingle = null;
 wrap.addEventListener('touchstart', e => {
-  Array.from(e.changedTouches).forEach(t => { touches[t.identifier] = { x: t.clientX, y: t.clientY }; });
-  const ids = Object.keys(touches);
-  if (ids.length === 1) { lSingle = { x: touches[ids[0]].x, y: touches[ids[0]].y }; }
+  Array.from(e.changedTouches).forEach(t => {
+    tch[t.identifier] = { x:t.clientX, y:t.clientY };
+  });
+  const ids = Object.keys(tch);
+  if (ids.length === 1) lSingle = { x:tch[ids[0]].x, y:tch[ids[0]].y };
   if (ids.length >= 2) {
-    const a = touches[ids[0]], b = touches[ids[1]];
-    lDist = Math.hypot(b.x - a.x, b.y - a.y);
-    lMid  = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const a = tch[ids[0]], b = tch[ids[1]];
+    lDist = Math.hypot(b.x-a.x, b.y-a.y);
+    lMid  = { x:(a.x+b.x)/2, y:(a.y+b.y)/2 };
   }
-}, { passive: true });
+}, { passive:true });
 
 wrap.addEventListener('touchmove', e => {
   e.preventDefault();
-  Array.from(e.changedTouches).forEach(t => { touches[t.identifier] = { x: t.clientX, y: t.clientY }; });
-  const ids = Object.keys(touches);
+  Array.from(e.changedTouches).forEach(t => {
+    tch[t.identifier] = { x:t.clientX, y:t.clientY };
+  });
+  const ids = Object.keys(tch);
   if (ids.length === 1 && lSingle) {
-    const cur = touches[ids[0]];
-    tx += cur.x - lSingle.x; ty += cur.y - lSingle.y;
-    lSingle = { x: cur.x, y: cur.y };
+    const cur = tch[ids[0]];
+    tx += cur.x - lSingle.x;
+    ty += cur.y - lSingle.y;
+    lSingle = { x:cur.x, y:cur.y };
     applyT();
   } else if (ids.length >= 2) {
-    const a = touches[ids[0]], b = touches[ids[1]];
-    const dist = Math.hypot(b.x - a.x, b.y - a.y);
-    const mid  = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const a    = tch[ids[0]], b = tch[ids[1]];
+    const dist = Math.hypot(b.x-a.x, b.y-a.y);
+    const mid  = { x:(a.x+b.x)/2, y:(a.y+b.y)/2 };
     if (lDist && lMid) {
-      const r = wrap.getBoundingClientRect();
+      const r  = wrap.getBoundingClientRect();
       const cx = mid.x - r.left, cy = mid.y - r.top;
-      const ns = Math.min(5, Math.max(0.25, sc * (dist / lDist)));
+      const ns = Math.min(5, Math.max(0.2, sc * (dist/lDist)));
       const ra = ns / sc;
-      tx = cx - ra * (cx - tx) + (mid.x - lMid.x);
-      ty = cy - ra * (cy - ty) + (mid.y - lMid.y);
+      tx = cx - ra*(cx-tx) + (mid.x - lMid.x);
+      ty = cy - ra*(cy-ty) + (mid.y - lMid.y);
       sc = ns; applyT();
     }
     lDist = dist; lMid = mid; lSingle = null;
   }
-}, { passive: false });
+}, { passive:false });
 
 wrap.addEventListener('touchend', e => {
-  Array.from(e.changedTouches).forEach(t => { delete touches[t.identifier]; });
-  const ids = Object.keys(touches);
+  Array.from(e.changedTouches).forEach(t => { delete tch[t.identifier]; });
+  const ids = Object.keys(tch);
   if (ids.length < 2) { lDist = null; lMid = null; }
-  lSingle = ids.length === 1 ? { x: touches[ids[0]].x, y: touches[ids[0]].y } : null;
-}, { passive: true });
+  lSingle = ids.length === 1 ? { x:tch[ids[0]].x, y:tch[ids[0]].y } : null;
+}, { passive:true });
 </script>
 </body>
 </html>
