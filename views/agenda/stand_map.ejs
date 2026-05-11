@@ -5,221 +5,88 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Mappa Stand — <%= zone.name %> · Ludicomix</title>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body {
-      height: 100%; width: 100%; overflow: hidden;
-      font-family: -apple-system, 'Segoe UI', Arial, sans-serif;
-      background: #1e2d4e; color: #1a2744;
-    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;width:100%;overflow:hidden;font-family:-apple-system,'Segoe UI',Arial,sans-serif;background:#1e2d4e;color:#1a2744}
+    .sm-header{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:center;justify-content:space-between;padding:.55rem .9rem;background:linear-gradient(to bottom,rgba(30,45,78,.92) 70%,transparent);pointer-events:none}
+    .sm-header>*{pointer-events:auto}
+    .sm-header-logo{display:flex;align-items:center;gap:.55rem}
+    .sm-header-logo img{height:42px;width:auto;object-fit:contain}
+    .sm-header-title{color:#f5c842;font-size:.8rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px}
+    .sm-back-btn{display:flex;align-items:center;gap:.4rem;padding:.45rem .85rem;border-radius:10px;background:rgba(255,255,255,.12);border:1.5px solid rgba(245,200,66,.4);color:#f5c842;font-size:.78rem;font-weight:700;cursor:pointer;text-decoration:none;transition:background .15s}
+    .sm-back-btn:active{background:rgba(255,255,255,.2)}
 
-    /* ── HEADER ── */
-    .sm-header {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 500;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: .55rem .9rem;
-      background: linear-gradient(to bottom, rgba(30,45,78,.92) 70%, transparent);
-      pointer-events: none;
-    }
-    .sm-header > * { pointer-events: auto; }
-    .sm-header-logo { display: flex; align-items: center; gap: .55rem; }
-    .sm-header-logo img { height: 42px; width: auto; object-fit: contain; }
-    .sm-header-title {
-      color: #f5c842; font-size: .8rem; font-weight: 800;
-      text-transform: uppercase; letter-spacing: .5px;
-    }
-    .sm-back-btn {
-      display: flex; align-items: center; gap: .4rem;
-      padding: .45rem .85rem; border-radius: 10px;
-      background: rgba(255,255,255,.12); border: 1.5px solid rgba(245,200,66,.4);
-      color: #f5c842; font-size: .78rem; font-weight: 700;
-      cursor: pointer; text-decoration: none;
-      transition: background .15s;
-    }
-    .sm-back-btn:active { background: rgba(255,255,255,.2); }
+    #standMapWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:grab;touch-action:none}
+    #standMapWrap.grabbing{cursor:grabbing}
+    #standMapInner{position:relative;transform-origin:center center;will-change:transform;user-select:none}
+    #standMapBg{display:block;max-width:none;pointer-events:none;user-select:none;-webkit-user-drag:none}
 
-    /* ── CONTAINER MAPPA ── */
-    #standMapWrap {
-      position: fixed; inset: 0;
-      display: flex; align-items: center; justify-content: center;
-      overflow: hidden; cursor: grab;
-      touch-action: none;
+    /* ── STAND — stesso sistema della mappa admin: left/top = centro, transform -50%/-50% ── */
+    .sm-stand{
+      position:absolute;
+      transform:translate(-50%,-50%);
+      cursor:pointer;
+      border-radius:3px;
+      background:rgba(30,45,78,.55);
+      border:1.5px solid rgba(245,200,66,.72);
+      display:flex;align-items:center;justify-content:center;
+      transition:background .15s,border-color .15s,box-shadow .15s;
+      box-shadow:0 1px 3px rgba(0,0,0,.15);
+      overflow:hidden;
     }
-    #standMapWrap.grabbing { cursor: grabbing; }
-    #standMapInner {
-      position: relative;
-      transform-origin: center center;
-      will-change: transform;
-      user-select: none;
-    }
-    #standMapBg {
-      display: block; max-width: none;
-      pointer-events: none; user-select: none; -webkit-user-drag: none;
-    }
+    .sm-stand:hover,.sm-stand.active{background:rgba(245,200,66,.82);border-color:#f5c842;z-index:10}
+    .sm-stand.has-events::after{content:'';position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:#f5c842;border:1px solid #fff;box-shadow:0 0 4px rgba(245,200,66,.8)}
+    .sm-stand-label{position:relative;z-index:2;font-size:.6rem;font-weight:900;color:#fff;text-align:center;line-height:1.1;pointer-events:none;padding:1px 3px;text-shadow:0 1px 3px rgba(0,0,0,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+    .sm-stand:hover .sm-stand-label,.sm-stand.active .sm-stand-label{color:#1a2744;text-shadow:none}
 
-    /* ── STAND OVERLAY ── */
-    .sm-stand {
-      position: absolute; cursor: pointer;
-      border-radius: 3px;
-      background: rgba(30,45,78,.55);
-      border: 1.5px solid rgba(245,200,66,.7);
-      display: flex; align-items: center; justify-content: center;
-      transition: background .15s, border-color .15s;
-      overflow: hidden;
-    }
-    .sm-stand:hover, .sm-stand.active {
-      background: rgba(245,200,66,.82);
-      border-color: #f5c842;
-      z-index: 10;
-    }
-    .sm-stand.has-events::after {
-      content: '';
-      position: absolute; top: 3px; right: 3px;
-      width: 7px; height: 7px; border-radius: 50%;
-      background: #f5c842; border: 1px solid #fff;
-    }
-    .sm-stand-label {
-      font-size: .6rem; font-weight: 900;
-      color: #fff; text-align: center; line-height: 1.1;
-      pointer-events: none; padding: 1px;
-      text-shadow: 0 1px 3px rgba(0,0,0,.8);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      max-width: 100%;
-    }
-    .sm-stand:hover .sm-stand-label,
-    .sm-stand.active .sm-stand-label { color: #1a2744; text-shadow: none; }
+    .sm-stand.is-circle{border-radius:999px}
+    .sm-stand.is-diamond{clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+    .sm-stand.is-hex{clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
+    .sm-stand.is-l{background:transparent;border:none;box-shadow:none;overflow:visible}
+    .sm-stand.is-l .sm-l-shape{position:absolute;inset:0;background:rgba(30,45,78,.55);border:1.5px solid rgba(245,200,66,.72);clip-path:polygon(0 0,60% 0,60% 40%,100% 40%,100% 100%,0 100%)}
+    .sm-stand.is-l:hover .sm-l-shape,.sm-stand.is-l.active .sm-l-shape{background:rgba(245,200,66,.82);border-color:#f5c842}
 
-    /* ── TOOLTIP desktop ── */
-    .sm-tooltip {
-      position: fixed; z-index: 900;
-      background: #1e2d4e; color: #fff;
-      border: 1.5px solid #f5c842;
-      border-radius: 10px; padding: .55rem .8rem;
-      pointer-events: none; opacity: 0;
-      transition: opacity .15s;
-      max-width: 220px; min-width: 140px;
-      box-shadow: 0 4px 18px rgba(0,0,0,.4);
-      font-size: .78rem;
-    }
-    .sm-tooltip.visible { opacity: 1; }
-    .sm-tooltip-code { font-size: .65rem; color: #f5c842; font-weight: 800; margin-bottom: .18rem; }
-    .sm-tooltip-name { font-weight: 700; line-height: 1.2; }
-    .sm-tooltip-events { font-size: .65rem; color: #a0aec0; margin-top: .25rem; }
+    .sm-tooltip{position:fixed;z-index:900;background:#1e2d4e;color:#fff;border:1.5px solid #f5c842;border-radius:10px;padding:.55rem .8rem;pointer-events:none;opacity:0;transition:opacity .15s;max-width:220px;min-width:140px;box-shadow:0 4px 18px rgba(0,0,0,.4);font-size:.78rem}
+    .sm-tooltip.visible{opacity:1}
+    .sm-tooltip-code{font-size:.65rem;color:#f5c842;font-weight:800;margin-bottom:.18rem}
+    .sm-tooltip-name{font-weight:700;line-height:1.2}
+    .sm-tooltip-events{font-size:.65rem;color:#a0aec0;margin-top:.25rem}
 
-    /* ── BOTTOM SHEET ── */
-    .sm-sheet-overlay {
-      position: fixed; inset: 0; z-index: 700;
-      background: transparent; pointer-events: none;
-    }
-    .sm-sheet-overlay.open { pointer-events: auto; }
-    .sm-sheet {
-      position: fixed; bottom: 0; left: 0; right: 0; z-index: 750;
-      background: #fff; border-radius: 20px 20px 0 0;
-      box-shadow: 0 -4px 32px rgba(0,0,0,.25);
-      transform: translateY(100%);
-      transition: transform .32s cubic-bezier(.16,1,.3,1);
-      padding-bottom: env(safe-area-inset-bottom, 16px);
-      max-height: 70vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
-    }
-    .sm-sheet.open { transform: translateY(0); }
-    .sm-sheet-handle {
-      width: 38px; height: 4px; background: #d1d9e6;
-      border-radius: 2px; margin: .7rem auto .3rem;
-    }
-    .sm-sheet-body { padding: .5rem 1.2rem 1.4rem; }
-    .sm-sheet-head { display: flex; align-items: flex-start; gap: .75rem; margin-bottom: .65rem; }
-    .sm-sheet-badge {
-      flex-shrink: 0; min-width: 42px; height: 42px; border-radius: 10px;
-      background: #1e2d4e; color: #f5c842;
-      font-weight: 900; font-size: .85rem;
-      display: flex; align-items: center; justify-content: center; padding: 0 .4rem;
-    }
-    .sm-sheet-name { font-size: 1rem; font-weight: 800; color: #1a2744; line-height: 1.2; }
-    .sm-sheet-cat  { font-size: .72rem; color: #718096; margin-top: .1rem; }
-    .sm-events-title {
-      font-size: .7rem; font-weight: 800; text-transform: uppercase;
-      letter-spacing: .5px; color: #8896ab; margin: .75rem 0 .4rem;
-    }
-    .sm-event-card {
-      display: flex; align-items: flex-start; gap: .6rem;
-      padding: .6rem .75rem; border-radius: 10px;
-      background: #f8f9fc; margin-bottom: .35rem;
-      border-left: 3px solid #1e2d4e;
-    }
-    .sm-event-time { flex-shrink: 0; font-size: .68rem; font-weight: 800; color: #1e2d4e; white-space: nowrap; padding-top: .1rem; }
-    .sm-event-title { font-size: .82rem; font-weight: 700; color: #1a2744; line-height: 1.2; }
-    .sm-event-space { font-size: .68rem; color: #718096; margin-top: .1rem; }
-    .sm-event-tag {
-      display: inline-block; font-size: .58rem; font-weight: 700;
-      text-transform: uppercase; letter-spacing: .3px;
-      padding: .1rem .4rem; border-radius: 999px;
-      background: #f0f2f7; color: #4a5568; margin-top: .25rem; margin-right: .2rem;
-    }
-    .sm-no-events { font-size: .8rem; color: #a0aec0; text-align: center; padding: .75rem 0; font-style: italic; }
+    .sm-sheet-overlay{position:fixed;inset:0;z-index:700;background:transparent;pointer-events:none}
+    .sm-sheet-overlay.open{pointer-events:auto}
+    .sm-sheet{position:fixed;bottom:0;left:0;right:0;z-index:750;background:#fff;border-radius:20px 20px 0 0;box-shadow:0 -4px 32px rgba(0,0,0,.25);transform:translateY(100%);transition:transform .32s cubic-bezier(.16,1,.3,1);padding-bottom:env(safe-area-inset-bottom,16px);max-height:70vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .sm-sheet.open{transform:translateY(0)}
+    .sm-sheet-handle{width:38px;height:4px;background:#d1d9e6;border-radius:2px;margin:.7rem auto .3rem}
+    .sm-sheet-body{padding:.5rem 1.2rem 1.4rem}
+    .sm-sheet-head{display:flex;align-items:flex-start;gap:.75rem;margin-bottom:.65rem}
+    .sm-sheet-badge{flex-shrink:0;min-width:42px;height:42px;border-radius:10px;background:#1e2d4e;color:#f5c842;font-weight:900;font-size:.85rem;display:flex;align-items:center;justify-content:center;padding:0 .4rem}
+    .sm-sheet-name{font-size:1rem;font-weight:800;color:#1a2744;line-height:1.2}
+    .sm-sheet-cat{font-size:.72rem;color:#718096;margin-top:.1rem}
+    .sm-no-events{font-size:.8rem;color:#a0aec0;text-align:center;padding:.75rem 0;font-style:italic}
 
-    /* ── FAB ZOOM ── */
-    .sm-zoom-group {
-      position: fixed; bottom: calc(env(safe-area-inset-bottom,0px) + 16px); right: 12px;
-      z-index: 500; display: flex; flex-direction: column; gap: 4px;
-    }
-    .sm-zoom-btn {
-      width: 42px; height: 42px; border-radius: 10px;
-      background: #fff; border: 1.5px solid #e2e8f0;
-      font-size: 1.3rem; cursor: pointer; color: #1a2744;
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,.18);
-    }
-    .sm-fab-reset {
-      position: fixed; bottom: calc(env(safe-area-inset-bottom,0px) + 120px); right: 12px;
-      z-index: 500; width: 42px; height: 42px; border-radius: 10px;
-      background: #1e2d4e; border: 1.5px solid #f5c842;
-      color: #f5c842; font-size: 1rem; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,.3);
-    }
+    .sm-zoom-group{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);right:12px;z-index:500;display:flex;flex-direction:column;gap:4px}
+    .sm-zoom-btn{width:42px;height:42px;border-radius:10px;background:#fff;border:1.5px solid #e2e8f0;font-size:1.3rem;font-weight:300;cursor:pointer;color:#1a2744;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+    .sm-zoom-btn:active{background:#eef2ff}
+    .sm-fab-reset{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 120px);right:12px;z-index:500;width:42px;height:42px;border-radius:10px;background:#1e2d4e;border:1.5px solid #f5c842;color:#f5c842;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3)}
 
-    /* ── LEGENDA ── */
-    .sm-legend {
-      position: fixed; bottom: calc(env(safe-area-inset-bottom,0px) + 16px); left: 12px;
-      z-index: 500; background: rgba(30,45,78,.88);
-      border: 1px solid rgba(245,200,66,.3); border-radius: 10px;
-      padding: .45rem .7rem; font-size: .62rem; color: #cbd5e0;
-    }
-    .sm-legend-item { display: flex; align-items: center; gap: .4rem; margin-bottom: .2rem; }
-    .sm-legend-item:last-child { margin-bottom: 0; }
-    .sm-legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+    .sm-legend{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);left:12px;z-index:500;background:rgba(30,45,78,.88);border:1px solid rgba(245,200,66,.3);border-radius:10px;padding:.45rem .7rem;font-size:.62rem;color:#cbd5e0;max-width:140px}
+    .sm-legend-item{display:flex;align-items:center;gap:.4rem;margin-bottom:.2rem}
+    .sm-legend-item:last-child{margin-bottom:0}
+    .sm-legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
 
-    /* ── LOADING ── */
-    #smLoading {
-      position: fixed; inset: 0; z-index: 9999;
-      background: #1e2d4e; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 1rem;
-    }
-    #smLoading .spin {
-      width: 40px; height: 40px; border-radius: 50%;
-      border: 3px solid rgba(245,200,66,.25); border-top-color: #f5c842;
-      animation: spin .8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    #smLoading p { color: #a0aec0; font-size: .85rem; }
+    #smLoading{position:fixed;inset:0;z-index:9999;background:#1e2d4e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem}
+    #smLoading .spin{width:40px;height:40px;border-radius:50%;border:3px solid rgba(245,200,66,.25);border-top-color:#f5c842;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    #smLoading p{color:#a0aec0;font-size:.85rem}
 
-    @media (min-width: 769px) {
-      .sm-sheet {
-        left: auto; right: 16px; bottom: 16px;
-        width: 320px; border-radius: 16px;
-        max-height: calc(100vh - 80px);
-        transform: translateX(calc(100% + 20px));
-        transition: transform .3s cubic-bezier(.16,1,.3,1);
-      }
-      .sm-sheet.open { transform: translateX(0); }
+    @media (min-width:769px){
+      .sm-sheet{left:auto;right:16px;bottom:16px;width:320px;border-radius:16px;max-height:calc(100vh - 80px);transform:translateX(calc(100% + 20px));transition:transform .3s cubic-bezier(.16,1,.3,1)}
+      .sm-sheet.open{transform:translateX(0)}
     }
   </style>
 </head>
 <body>
 
-<div id="smLoading">
-  <div class="spin"></div>
-  <p>Caricamento mappa…</p>
-</div>
+<div id="smLoading"><div class="spin"></div><p>Caricamento mappa…</p></div>
 
 <header class="sm-header">
   <div class="sm-header-logo">
@@ -238,8 +105,11 @@
 <div id="standMapWrap">
   <div id="standMapInner">
     <% if (zone.background_image) { %>
-    <img id="standMapBg" src="/zone-bg/<%= zone.background_image %>" alt="Planimetria <%= zone.name %>"
-         draggable="false" onload="onBgLoad(this)">
+    <img id="standMapBg"
+         src="/zone-bg/<%= zone.background_image %>"
+         alt="Planimetria <%= zone.name %>"
+         draggable="false"
+         onload="onBgLoad(this)">
     <% } else { %>
     <div id="standMapBg" style="width:900px;height:600px;background:#2d3a5a;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#4a5568;font-size:.9rem">
       Nessuna planimetria disponibile
@@ -265,7 +135,7 @@
   <button class="sm-zoom-btn" onclick="doZoom(1.25)" aria-label="Zoom in">+</button>
   <button class="sm-zoom-btn" onclick="doZoom(0.8)" aria-label="Zoom out">−</button>
 </div>
-<button class="sm-fab-reset" onclick="resetView()" aria-label="Reset zoom" title="Reset zoom">
+<button class="sm-fab-reset" onclick="resetView()" aria-label="Reset vista" title="Reset zoom">
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
     <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
   </svg>
@@ -291,6 +161,7 @@ let standsData = [];
 let bgW = 900, bgH = 600;
 let scale = 1, tx = 0, ty = 0;
 
+// ── CARICA DATI ──────────────────────────────────────────────────────────────
 fetch('/api/mappa-stand/' + ZONE_ID)
   .then(r => r.json())
   .then(data => {
@@ -302,6 +173,7 @@ fetch('/api/mappa-stand/' + ZONE_ID)
     document.getElementById('smLoading').innerHTML = '<p style="color:#fc8181">Errore caricamento mappa.</p>';
   });
 
+// ── IMMAGINE CARICATA ────────────────────────────────────────────────────────
 function onBgLoad(img) {
   bgW = img.naturalWidth || img.offsetWidth || 900;
   bgH = img.naturalHeight || img.offsetHeight || 600;
@@ -312,71 +184,107 @@ function onBgLoad(img) {
   resetView(false);
   if (standsData.length) renderStands();
   document.getElementById('smLoading').style.display = 'none';
-  document.getElementById('smLegend').style.display = 'block';
+  document.getElementById('smLegend').style.display  = 'block';
 }
 
+// ── APPLICA SHAPE ─────────────────────────────────────────────────────────────
+// Identico alla logica della mappa admin interna
+function applyShape(el, shape) {
+  shape = (shape || '').trim();
+  const s = shape.toLowerCase();
+  el.classList.remove('is-circle', 'is-diamond', 'is-hex', 'is-l');
+  el.style.clipPath   = '';
+  el.style.borderRadius = '3px';
+  const prev = el.querySelector('.sm-l-shape');
+  if (prev) prev.remove();
+  if (!shape || s === 'rect' || s === 'rectangle') return;
+  if (s === 'circle' || s === 'round')  { el.classList.add('is-circle');  return; }
+  if (s === 'diamond')                  { el.classList.add('is-diamond'); return; }
+  if (s === 'hex' || s === 'hexagon')   { el.classList.add('is-hex');     return; }
+  if (s === 'l' || s === 'l-shape' || s === 'lshape') {
+    el.classList.add('is-l');
+    const inner = document.createElement('div');
+    inner.className = 'sm-l-shape';
+    el.prepend(inner);
+    return;
+  }
+  if (shape.startsWith('polygon(')) { el.style.clipPath = shape; return; }
+  if (shape.startsWith('clip:'))    { el.style.clipPath = shape.slice(5); return; }
+  if (shape.startsWith('poly:')) {
+    const pts = shape.slice(5).split(';').map(p => {
+      const v = p.trim().split(',');
+      return v.length === 2 ? (v[0].trim() + '% ' + v[1].trim() + '%') : null;
+    }).filter(Boolean);
+    if (pts.length >= 3) el.style.clipPath = 'polygon(' + pts.join(', ') + ')';
+  }
+}
+
+// ── RENDER STAND ─────────────────────────────────────────────────────────────
+// NOTA CRITICA: map_x/map_y sono il CENTRO dello stand (% sul contenitore)
+//              identico a come fa .stand-box nella mappa admin (transform: translate(-50%,-50%))
 function renderStands() {
+  const host = document.getElementById('standMapInner');
+  host.querySelectorAll('.sm-stand').forEach(n => n.remove());
   standsData.forEach(stand => {
     if (stand.map_x == null || stand.map_y == null) return;
     const el = document.createElement('div');
     el.className = 'sm-stand' + (stand.events && stand.events.length ? ' has-events' : '');
     el.id = 'smst-' + stand.id;
-    el.style.left   = ((stand.map_x / 100) * bgW) + 'px';
-    el.style.top    = ((stand.map_y / 100) * bgH) + 'px';
-    el.style.width  = (((stand.map_w || 5) / 100) * bgW) + 'px';
-    el.style.height = (((stand.map_h || 5) / 100) * bgH) + 'px';
+    // left/top in % = centro stand (come mappa admin)
+    el.style.left   = parseFloat(stand.map_x).toFixed(2) + '%';
+    el.style.top    = parseFloat(stand.map_y).toFixed(2) + '%';
+    el.style.width  = parseFloat(stand.map_w || 8).toFixed(2) + '%';
+    el.style.height = parseFloat(stand.map_h || 5).toFixed(2) + '%';
+    applyShape(el, stand.map_shape);
     const lbl = document.createElement('div');
-    lbl.className = 'sm-stand-label';
-    lbl.textContent = stand.stand_code || stand.name.substring(0, 6);
+    lbl.className   = 'sm-stand-label';
+    lbl.textContent = stand.stand_code || (stand.name || '').substring(0, 6);
     el.appendChild(lbl);
     el.addEventListener('click', e => { e.stopPropagation(); openSheet(stand); });
     if (!isMobile) {
       el.addEventListener('mouseenter', e => showTooltip(e, stand));
       el.addEventListener('mousemove',  e => moveTooltip(e));
-      el.addEventListener('mouseleave', ()=> hideTooltip());
+      el.addEventListener('mouseleave', ()  => hideTooltip());
     }
-    document.getElementById('standMapInner').appendChild(el);
+    host.appendChild(el);
   });
 }
 
-// ── TOOLTIP ──
+// ── TOOLTIP ──────────────────────────────────────────────────────────────────
 const tooltip = document.getElementById('smTooltip');
 function showTooltip(e, stand) {
-  document.getElementById('smTipCode').textContent = stand.stand_code || '';
-  document.getElementById('smTipName').textContent = stand.name;
-  document.getElementById('smTipEvents').textContent =
-    stand.events && stand.events.length ? '🗓 ' + stand.events.length + ' event' + (stand.events.length === 1 ? 'o' : 'i') : '';
+  document.getElementById('smTipCode').textContent   = stand.stand_code || '';
+  document.getElementById('smTipName').textContent   = stand.name || '';
+  document.getElementById('smTipEvents').textContent = stand.events && stand.events.length
+    ? '🗓 ' + stand.events.length + (stand.events.length === 1 ? ' evento' : ' eventi') : '';
   tooltip.classList.add('visible');
   moveTooltip(e);
 }
 function moveTooltip(e) {
   let x = e.clientX + 14, y = e.clientY - 10;
-  if (x + 230 > window.innerWidth) x = e.clientX - 234;
-  tooltip.style.left = x + 'px'; tooltip.style.top = y + 'px';
+  if (x + 230 > window.innerWidth)  x = e.clientX - 234;
+  if (y + 80  > window.innerHeight) y = e.clientY - 90;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top  = y + 'px';
 }
 function hideTooltip() { tooltip.classList.remove('visible'); }
 
-// ── SHEET ──
+// ── BOTTOM SHEET ──────────────────────────────────────────────────────────────
 function openSheet(stand) {
   hideTooltip();
   document.querySelectorAll('.sm-stand').forEach(el => el.classList.remove('active'));
   const el = document.getElementById('smst-' + stand.id);
   if (el) el.classList.add('active');
-  const eventsHtml = stand.events && stand.events.length
-    ? '<div class="sm-events-title">🗓 EVENTI COLLEGATI</div>' +
-      stand.events.map(ev => {
-        const tags = ev.tags ? ev.tags.split(',').map(t => '<span class="sm-event-tag">'+t.trim()+'</span>').join('') : '';
-        const timeStr = ev.start_time ? ev.start_time.slice(0,5) + (ev.end_time ? '–'+ev.end_time.slice(0,5) : '') : '';
-        const dateStr = ev.date ? new Date(ev.date).toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'}) : '';
-        return '<div class="sm-event-card"><div class="sm-event-time">'+dateStr+'<br>'+timeStr+'</div><div><div class="sm-event-title">'+ev.title+'</div><div class="sm-event-space">'+(ev.space_name||'')+'</div>'+(tags?'<div>'+tags+'</div>':'')+'</div></div>';
-      }).join('')
-    : '<div class="sm-no-events">Nessun evento in agenda</div>';
   document.getElementById('smSheetBody').innerHTML =
-    '<div class="sm-sheet-head"><div class="sm-sheet-badge">'+(stand.stand_code||stand.name.substring(0,4))+'</div>'+
-    '<div><div class="sm-sheet-name">'+stand.name+'</div>'+
-    (stand.stand_name?'<div class="sm-sheet-cat">📍 '+stand.stand_name+'</div>':'')+
-    (stand.category_name?'<div class="sm-sheet-cat">🏷 '+stand.category_name+'</div>':'')+
-    '</div></div>' + eventsHtml;
+    '<div class="sm-sheet-head">' +
+      '<div class="sm-sheet-badge">' + (stand.stand_code || (stand.name || '').substring(0, 4)) + '</div>' +
+      '<div>' +
+        '<div class="sm-sheet-name">' + (stand.name || '') + '</div>' +
+        (stand.stand_name    ? '<div class="sm-sheet-cat">📍 ' + stand.stand_name    + '</div>' : '') +
+        (stand.category_name ? '<div class="sm-sheet-cat">🏷 ' + stand.category_name + '</div>' : '') +
+      '</div>' +
+    '</div>' +
+    '<div class="sm-no-events">Nessun evento collegato.</div>';
   document.getElementById('smSheet').classList.add('open');
   document.getElementById('smSheetOverlay').classList.add('open');
 }
@@ -385,113 +293,114 @@ function closeSheet() {
   document.getElementById('smSheetOverlay').classList.remove('open');
   document.querySelectorAll('.sm-stand').forEach(el => el.classList.remove('active'));
 }
-
-// Swipe down per chiudere
-(function(){
+(function () {
   const sheet = document.getElementById('smSheet');
   let startY = 0;
-  sheet.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, {passive:true});
-  sheet.addEventListener('touchmove', e => { if (e.touches[0].clientY - startY > 60) closeSheet(); }, {passive:true});
+  sheet.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
+  sheet.addEventListener('touchmove',  e => { if (e.touches[0].clientY - startY > 60) closeSheet(); }, { passive: true });
 })();
-
 document.getElementById('standMapWrap').addEventListener('click', closeSheet);
 
-// ── PAN & ZOOM ──
+// ── PAN & ZOOM ────────────────────────────────────────────────────────────────
 const wrap  = document.getElementById('standMapWrap');
 const inner = document.getElementById('standMapInner');
 
-function applyTransform() {
-  inner.style.transform = 'translate('+tx+'px,'+ty+'px) scale('+scale+')';
-}
+function applyTransform() { inner.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`; }
+
 function resetView(animate) {
   const vw = wrap.clientWidth, vh = wrap.clientHeight;
-  scale = Math.min(vw/bgW, vh/bgH) * 0.92;
-  tx = (vw - bgW*scale)/2; ty = (vh - bgH*scale)/2;
+  scale = Math.min(vw / bgW, vh / bgH) * 0.92;
+  tx = (vw - bgW * scale) / 2;
+  ty = (vh - bgH * scale) / 2;
   if (animate !== false) inner.style.transition = 'transform .35s ease';
   applyTransform();
-  if (animate !== false) setTimeout(()=>inner.style.transition='', 360);
+  if (animate !== false) setTimeout(() => inner.style.transition = '', 360);
 }
 function doZoom(factor) {
   const vw = wrap.clientWidth, vh = wrap.clientHeight;
-  const newScale = Math.min(5, Math.max(0.3, scale*factor));
-  const ratio = newScale/scale;
-  tx = vw/2 - ratio*(vw/2 - tx);
-  ty = vh/2 - ratio*(vh/2 - ty);
+  const cx = vw / 2, cy = vh / 2;
+  const newScale = Math.min(5, Math.max(0.3, scale * factor));
+  const ratio    = newScale / scale;
+  tx = cx - ratio * (cx - tx);
+  ty = cy - ratio * (cy - ty);
   scale = newScale;
   inner.style.transition = 'transform .2s ease';
   applyTransform();
-  setTimeout(()=>inner.style.transition='', 220);
+  setTimeout(() => inner.style.transition = '', 220);
 }
 
 // Mouse drag
-let dragging=false, dragStartX, dragStartY, dragTx, dragTy;
+let dragging = false, dragStartX, dragStartY, dragTx, dragTy;
 wrap.addEventListener('mousedown', e => {
   if (e.target.closest('.sm-stand')) return;
-  dragging=true; dragStartX=e.clientX; dragStartY=e.clientY; dragTx=tx; dragTy=ty;
-  wrap.classList.add('grabbing');
+  dragging = true; dragStartX = e.clientX; dragStartY = e.clientY;
+  dragTx = tx; dragTy = ty; wrap.classList.add('grabbing');
 });
 window.addEventListener('mousemove', e => {
   if (!dragging) return;
-  tx=dragTx+(e.clientX-dragStartX); ty=dragTy+(e.clientY-dragStartY); applyTransform();
+  tx = dragTx + (e.clientX - dragStartX);
+  ty = dragTy + (e.clientY - dragStartY);
+  applyTransform();
 });
-window.addEventListener('mouseup', ()=>{ dragging=false; wrap.classList.remove('grabbing'); });
+window.addEventListener('mouseup', () => { dragging = false; wrap.classList.remove('grabbing'); });
 
 // Wheel zoom
 wrap.addEventListener('wheel', e => {
   e.preventDefault();
-  const rect=wrap.getBoundingClientRect(), cx=e.clientX-rect.left, cy=e.clientY-rect.top;
-  const delta=e.deltaY<0?1.12:0.9;
-  const newScale=Math.min(5,Math.max(0.3,scale*delta)), ratio=newScale/scale;
-  tx=cx-ratio*(cx-tx); ty=cy-ratio*(cy-ty); scale=newScale; applyTransform();
-}, {passive:false});
+  const rect = wrap.getBoundingClientRect();
+  const cx   = e.clientX - rect.left, cy = e.clientY - rect.top;
+  const delta = e.deltaY < 0 ? 1.12 : 0.9;
+  const newScale = Math.min(5, Math.max(0.3, scale * delta));
+  const ratio    = newScale / scale;
+  tx = cx - ratio * (cx - tx);
+  ty = cy - ratio * (cy - ty);
+  scale = newScale; applyTransform();
+}, { passive: false });
 
 // Touch pinch & pan
-let touches={}, lastDist=null, lastMid=null, lastSingle=null;
+let touches = {}, lastDist = null, lastMid = null, lastSingle = null;
 wrap.addEventListener('touchstart', e => {
-  Array.from(e.changedTouches).forEach(t => touches[t.identifier]={x:t.clientX,y:t.clientY});
-  const ids=Object.keys(touches);
-  if (ids.length===1) lastSingle={x:touches[ids[0]].x, y:touches[ids[0]].y};
-  if (ids.length===2) {
-    const a=touches[ids[0]],b=touches[ids[1]];
-    lastDist=Math.hypot(b.x-a.x,b.y-a.y);
-    lastMid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+  Array.from(e.changedTouches).forEach(t => { touches[t.identifier] = { x: t.clientX, y: t.clientY }; });
+  const ids = Object.keys(touches);
+  if (ids.length === 1) lastSingle = { x: touches[ids[0]].x, y: touches[ids[0]].y };
+  if (ids.length === 2) {
+    const a = touches[ids[0]], b = touches[ids[1]];
+    lastDist = Math.hypot(b.x - a.x, b.y - a.y);
+    lastMid  = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   }
-}, {passive:true});
-
+}, { passive: true });
 wrap.addEventListener('touchmove', e => {
   e.preventDefault();
-  const prevTouches = Object.assign({}, touches);
-  Array.from(e.changedTouches).forEach(t => touches[t.identifier]={x:t.clientX,y:t.clientY});
-  const ids=Object.keys(touches);
-  if (ids.length===1 && lastSingle) {
-    const cur=touches[ids[0]];
-    tx+=(cur.x-lastSingle.x); ty+=(cur.y-lastSingle.y);
-    lastSingle={x:cur.x,y:cur.y};
+  Array.from(e.changedTouches).forEach(t => { touches[t.identifier] = { x: t.clientX, y: t.clientY }; });
+  const ids = Object.keys(touches);
+  if (ids.length === 1 && lastSingle) {
+    const cur = touches[ids[0]];
+    tx += cur.x - lastSingle.x; ty += cur.y - lastSingle.y;
+    lastSingle = { x: cur.x, y: cur.y };
     applyTransform();
-  } else if (ids.length===2) {
-    const a=touches[ids[0]],b=touches[ids[1]];
-    const dist=Math.hypot(b.x-a.x,b.y-a.y);
-    const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+  } else if (ids.length === 2) {
+    const a = touches[ids[0]], b = touches[ids[1]];
+    const dist = Math.hypot(b.x - a.x, b.y - a.y);
+    const mid  = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
     if (lastDist && lastMid) {
-      const rect=wrap.getBoundingClientRect();
-      const cx=mid.x-rect.left,cy=mid.y-rect.top;
-      const ratio=dist/lastDist,newScale=Math.min(5,Math.max(0.3,scale*ratio));
-      const sr=newScale/scale;
-      tx=cx-sr*(cx-tx)+(mid.x-lastMid.x);
-      ty=cy-sr*(cy-ty)+(mid.y-lastMid.y);
-      scale=newScale; applyTransform();
+      const rect   = wrap.getBoundingClientRect();
+      const cx     = mid.x - rect.left, cy = mid.y - rect.top;
+      const ratio  = dist / lastDist;
+      const newScale = Math.min(5, Math.max(0.3, scale * ratio));
+      const sr     = newScale / scale;
+      tx = cx - sr * (cx - tx) + (mid.x - lastMid.x);
+      ty = cy - sr * (cy - ty) + (mid.y - lastMid.y);
+      scale = newScale; applyTransform();
     }
-    lastDist=dist; lastMid=mid; lastSingle=null;
+    lastDist = dist; lastMid = mid; lastSingle = null;
   }
-}, {passive:false});
-
+}, { passive: false });
 wrap.addEventListener('touchend', e => {
-  Array.from(e.changedTouches).forEach(t => delete touches[t.identifier]);
-  const ids=Object.keys(touches);
-  if (ids.length<2) { lastDist=null; lastMid=null; }
-  if (ids.length===1) lastSingle={x:touches[ids[0]].x,y:touches[ids[0]].y};
-  else lastSingle=null;
-}, {passive:true});
+  Array.from(e.changedTouches).forEach(t => { delete touches[t.identifier]; });
+  const ids = Object.keys(touches);
+  if (ids.length < 2) { lastDist = null; lastMid = null; }
+  lastSingle = ids.length === 1 ? { x: touches[ids[0]].x, y: touches[ids[0]].y } : null;
+}, { passive: true });
 </script>
 </body>
 </html>
