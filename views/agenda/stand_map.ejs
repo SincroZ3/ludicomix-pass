@@ -431,11 +431,21 @@ const IS_AUTH = <%- isAuthenticated ? 'true' : 'false' %>;
 const bgImg = document.getElementById('mapBgImg');
 
 // ── Carica stands ─────────────────────────────────────────────────────────────
+let standsReady = false;
+let layoutReady = false;
+
+function tryRender() {
+  if (!standsReady || !layoutReady) return;
+  if (stands.length) renderStands();
+  document.getElementById('smLoad').style.display = 'none';
+}
+
 fetch('/api/mappa-stand/' + ZONE_ID)
   .then(r => r.json())
   .then(d => {
     stands = d.stands || [];
-    if (areaW > 0) renderStands();
+    standsReady = true;
+    tryRender();
   })
   .catch(() => {
     document.getElementById('smLoad').innerHTML =
@@ -503,8 +513,8 @@ function initLayout(natW, natH) {
   inner.insertBefore(bgImg, inner.firstChild);
 
   resetView(false);
-  if (stands.length) renderStands();
-  document.getElementById('smLoad').style.display = 'none';
+  layoutReady = true;
+  tryRender();
   document.getElementById('smLegend').style.display = 'block';
 }
 
