@@ -1286,18 +1286,16 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
               return res.json({ zone, stands: stands.map(s => ({ ...s, events: [], excluded_events: [] })) });
             }
             const allEvents = events || [];
-            // Carica esclusioni per tutti gli stand di questa zona
+            // Carica esclusioni — usa pura callback SQLite (no Promise) per evitare
+            // che un errore sincrono blocchi la risposta
             const placeholders = groupIds.map(() => '?').join(',');
             const exclSql = groupIds.length > 0
               ? `SELECT assignment_group_id, event_id FROM stand_event_exclusions WHERE assignment_group_id IN (${placeholders})`
               : null;
-            const exclQuery = exclSql
-              ? new Promise((resolve, reject) => db.all(exclSql, groupIds, (e, rows) => e ? reject(e) : resolve(rows || [])))
-              : Promise.resolve([]);
-            exclQuery.then(exclRows => {
-              // Mappa: groupId → Set di event_id esclusi
+
+            function buildResponse(exclRows) {
               const exclMap = {};
-              exclRows.forEach(r => {
+              (exclRows || []).forEach(r => {
                 if (!exclMap[r.assignment_group_id]) exclMap[r.assignment_group_id] = new Set();
                 exclMap[r.assignment_group_id].add(r.event_id);
               });
@@ -1366,12 +1364,17 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
               const excludedEvents = allEvents.filter(ev => excluded.has(ev.id));
               return { ...ag, events: unique, excluded_events: excludedEvents };
             });
-            res.json({ zone, stands: standsWithEvents });
-            }).catch(() => {
-              // Fallback se la query esclusioni fallisce (tabella non ancora creata)
-              const standsPlain = stands.map(ag => ({ ...ag, events: [], excluded_events: [] }));
-              res.json({ zone, stands: standsPlain });
-            });
+              res.json({ zone, stands: standsWithEvents });
+            }
+
+            if (exclSql) {
+              db.all(exclSql, groupIds, (exclErr, exclRows) => {
+                // Se la tabella non esiste ancora, usa array vuoto (nessuna esclusione)
+                buildResponse(exclErr ? [] : exclRows);
+              });
+            } else {
+              buildResponse([]);
+            }
           }
         );
       }
