@@ -1070,4 +1070,15 @@ db.run(`ALTER TABLE zones ADD COLUMN stand_map_public INTEGER DEFAULT 0`, ()=>{}
 db.run(`ALTER TABLE zones ADD COLUMN map_ref_w INTEGER DEFAULT NULL`, ()=>{});
 db.run(`ALTER TABLE zones ADD COLUMN map_ref_h INTEGER DEFAULT NULL`, ()=>{});
 
+// ── Esclusioni manuali stand↔evento (override del matching automatico) ─────────
+db.run(`CREATE TABLE IF NOT EXISTS stand_event_exclusions (
+  assignment_group_id INTEGER NOT NULL,
+  event_id            INTEGER NOT NULL,
+  excluded_at         TEXT    DEFAULT (datetime('now')),
+  excluded_by         INTEGER,
+  PRIMARY KEY (assignment_group_id, event_id),
+  FOREIGN KEY (assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE,
+  FOREIGN KEY (event_id)            REFERENCES events(id)            ON DELETE CASCADE
+)`, err => { if (err && !err.message.includes('already exists')) console.warn('[DB] stand_event_exclusions:', err.message); });
+
 module.exports = db;

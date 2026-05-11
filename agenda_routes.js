@@ -1270,9 +1270,8 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
         if (err2) return res.status(500).json({ error: 'Errore DB stands' });
         if (!stands || stands.length === 0) return res.json({ zone, stands: [] });
 
-        // Recupera tutti gli eventi pubblicati per matchare agli stand
-        // Match 1 (esatto):    location_text == stand_code | stand_name | name
-        // Match 2 (description): description LIKE %stand_code% (solo se stand_code >= 3 chars)
+        // Recupera tutti gli eventi pubblicati + le esclusioni manuali per gli stand di questa zona
+        const groupIds = stands.map(s => s.id);
         db.all(
           `SELECT e.id, e.title, e.description, e.date, e.start_time, e.end_time,
                   e.location_text, e.location_type, e.event_type,
@@ -1284,14 +1283,32 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
           [],
           (err3, events) => {
             if (err3) {
-              return res.json({ zone, stands: stands.map(s => ({ ...s, events: [] })) });
+              return res.json({ zone, stands: stands.map(s => ({ ...s, events: [], excluded_events: [] })) });
             }
             const allEvents = events || [];
-            const standsWithEvents = stands.map(ag => {
+            // Carica esclusioni per tutti gli stand di questa zona
+            const placeholders = groupIds.map(() => '?').join(',');
+            const exclSql = groupIds.length > 0
+              ? `SELECT assignment_group_id, event_id FROM stand_event_exclusions WHERE assignment_group_id IN (${placeholders})`
+              : null;
+            const exclQuery = exclSql
+              ? new Promise((resolve, reject) => db.all(exclSql, groupIds, (e, rows) => e ? reject(e) : resolve(rows || [])))
+              : Promise.resolve([]);
+            exclQuery.then(exclRows => {
+              // Mappa: groupId → Set di event_id esclusi
+              const exclMap = {};
+              exclRows.forEach(r => {
+                if (!exclMap[r.assignment_group_id]) exclMap[r.assignment_group_id] = new Set();
+                exclMap[r.assignment_group_id].add(r.event_id);
+              });
+              const standsWithEvents = stands.map(ag => {
               const code   = (ag.stand_code || '').trim().toLowerCase();
               const sname  = (ag.stand_name || '').trim().toLowerCase();
               const gname  = (ag.name       || '').trim().toLowerCase();
+              const excluded = exclMap[ag.id] || new Set();
               const agEvents = allEvents.filter(ev => {
+                // Se esplicitamente escluso, non mostrare
+                if (excluded.has(ev.id)) return false;
                 const lt    = (ev.location_text || '').trim().toLowerCase();
                 const title = (ev.title         || '').toLowerCase();
                 const desc  = (ev.description   || '').toLowerCase();
@@ -1342,12 +1359,19 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
 
                 return false;
               });
-              // Rimuovi duplicati (stesso id evento)
+              // Rimuovi duplicati
               const seen = new Set();
               const unique = agEvents.filter(ev => seen.has(ev.id) ? false : seen.add(ev.id));
-              return { ...ag, events: unique };
+              // Raccogli gli eventi esclusi (per mostrare il pannello ripristina)
+              const excludedEvents = allEvents.filter(ev => excluded.has(ev.id));
+              return { ...ag, events: unique, excluded_events: excludedEvents };
             });
             res.json({ zone, stands: standsWithEvents });
+            }).catch(() => {
+              // Fallback se la query esclusioni fallisce (tabella non ancora creata)
+              const standsPlain = stands.map(ag => ({ ...ag, events: [], excluded_events: [] }));
+              res.json({ zone, stands: standsPlain });
+            });
           }
         );
       }
@@ -1355,12 +1379,48 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
   });
 });
 
+// ── API: escludi evento da stand (solo utenti autenticati) ─────────────────────
+router.post('/api/stand-event-exclude', (req, res) => {
+  if (!req.session || !req.session.user) return res.status(401).json({ ok: false, error: 'Non autorizzato' });
+  const groupId = parseInt(req.body.group_id, 10);
+  const eventId = parseInt(req.body.event_id, 10);
+  if (!groupId || !eventId) return res.status(400).json({ ok: false, error: 'Parametri mancanti' });
+  db.run(
+    `INSERT OR IGNORE INTO stand_event_exclusions (assignment_group_id, event_id, excluded_by) VALUES (?,?,?)`,
+    [groupId, eventId, req.session.user.id],
+    (err) => {
+      if (err) return res.status(500).json({ ok: false, error: err.message });
+      logAction(req.session.user.id, 'stand_event_exclude', 'stand_event_exclusions', groupId,
+        `Escluso evento #${eventId} da stand #${groupId}`);
+      res.json({ ok: true });
+    }
+  );
+});
+
+// ── API: ripristina evento per stand ────────────────────────────────────────
+router.post('/api/stand-event-unexclude', (req, res) => {
+  if (!req.session || !req.session.user) return res.status(401).json({ ok: false, error: 'Non autorizzato' });
+  const groupId = parseInt(req.body.group_id, 10);
+  const eventId = parseInt(req.body.event_id, 10);
+  if (!groupId || !eventId) return res.status(400).json({ ok: false, error: 'Parametri mancanti' });
+  db.run(
+    `DELETE FROM stand_event_exclusions WHERE assignment_group_id=? AND event_id=?`,
+    [groupId, eventId],
+    (err) => {
+      if (err) return res.status(500).json({ ok: false, error: err.message });
+      logAction(req.session.user.id, 'stand_event_unexclude', 'stand_event_exclusions', groupId,
+        `Ripristinato evento #${eventId} per stand #${groupId}`);
+      res.json({ ok: true });
+    }
+  );
+});
+
 // Pagina pubblica mappa stand per zona
 router.get('/mappa-stand/:zoneId', (req, res) => {
   const zoneId = parseInt(req.params.zoneId, 10);
   db.get('SELECT * FROM zones WHERE id=? AND stand_map_public=1', [zoneId], (err, zone) => {
     if (err || !zone) return res.status(404).render('404', { title: 'Zona non trovata' });
-    res.render('agenda/stand_map', { zone, zoneId, title: `Mappa Stand — ${zone.name}` });
+    res.render('agenda/stand_map', { zone, zoneId, title: `Mappa Stand — ${zone.name}`, isAuthenticated: !!(req.session && req.session.user) });
   });
 });
 

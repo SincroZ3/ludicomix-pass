@@ -265,6 +265,34 @@
       transition:background .12s;margin:0 -.4rem;padding:0 .4rem}
     .sm-ev-link:active,.sm-ev-link:hover{background:#f0f4ff}
     .sm-ev-arrow{font-size:.65rem;color:#4f98a3;margin-top:.18rem}
+    .sm-ev-excl{
+      flex-shrink:0;margin-left:.4rem;align-self:flex-start;margin-top:.3rem;
+      width:20px;height:20px;border-radius:4px;border:1px solid #e2e8f0;
+      background:none;cursor:pointer;color:#a0aec0;font-size:.7rem;
+      display:flex;align-items:center;justify-content:center;
+      transition:background .12s,color .12s;
+    }
+    .sm-ev-excl:hover{background:#fff1f1;color:#e53e3e;border-color:#fed7d7}
+    .sm-excl-section{margin-top:.85rem;border-top:1px dashed #e2e8f0;padding-top:.6rem}
+    .sm-excl-toggle{
+      font-size:.68rem;color:#a0aec0;cursor:pointer;
+      display:flex;align-items:center;gap:.3rem;background:none;border:none;padding:0;
+    }
+    .sm-excl-toggle:hover{color:#718096}
+    .sm-excl-list{margin-top:.5rem;display:none}
+    .sm-excl-list.open{display:block}
+    .sm-excl-item{
+      display:flex;align-items:center;gap:.5rem;
+      padding:.35rem 0;border-bottom:1px solid #f0f4ff;font-size:.75rem;color:#a0aec0;
+    }
+    .sm-excl-item:last-child{border-bottom:none}
+    .sm-excl-name{flex:1;font-style:italic}
+    .sm-excl-restore{
+      font-size:.65rem;color:#4f98a3;background:none;border:1px solid #bee3f8;
+      border-radius:4px;padding:.1rem .4rem;cursor:pointer;white-space:nowrap;
+      transition:background .12s;
+    }
+    .sm-excl-restore:hover{background:#ebf8ff}
 
     /* ── Loading ─────────────────────────────────────────────────────── */
     #smLoad{position:fixed;inset:0;z-index:9999;background:#1e2d4e;
@@ -399,6 +427,7 @@ let sc = 1, tx = 0, ty = 0;
 const wrap  = document.getElementById('mapWrap');
 const inner = document.getElementById('mapInner');
 const area  = document.getElementById('mapArea');
+const IS_AUTH = <%- isAuthenticated ? 'true' : 'false' %>;
 const bgImg = document.getElementById('mapBgImg');
 
 // ── Carica stands ─────────────────────────────────────────────────────────────
@@ -594,17 +623,39 @@ function openSheet(s) {
         : '';
       const evUrl = '/programma#evento-' + ev.id;
       html +=
-        '<a class="sm-ev-link" href="' + evUrl + '" target="_blank" rel="noopener noreferrer">' +
-          '<div class="sm-ev-item">' +
-            (orario ? '<div class="sm-ev-time">' + esc(ev.date ? ev.date.substring(5).replace('-','/') : '') + '<br>' + esc(orario) + '</div>' : '') +
-            '<div style="min-width:0;flex:1">' +
-              '<div class="sm-ev-title">' + esc(ev.title || '') + '</div>' +
-              (ev.space_name ? '<div class="sm-ev-space">🏛 ' + esc(ev.space_name) + '</div>' : '') +
-              '<div class="sm-ev-arrow">Vai al programma →</div>' +
+        '<div style="display:flex;align-items:flex-start;gap:.2rem">' +
+          '<a class="sm-ev-link" href="' + evUrl + '" target="_blank" rel="noopener noreferrer" style="flex:1">' +
+            '<div class="sm-ev-item">' +
+              (orario ? '<div class="sm-ev-time">' + esc(ev.date ? ev.date.substring(5).replace('-','/') : '') + '<br>' + esc(orario) + '</div>' : '') +
+              '<div style="min-width:0;flex:1">' +
+                '<div class="sm-ev-title">' + esc(ev.title || '') + '</div>' +
+                (ev.space_name ? '<div class="sm-ev-space">🏛 ' + esc(ev.space_name) + '</div>' : '') +
+                '<div class="sm-ev-arrow">Vai al programma →</div>' +
+              '</div>' +
             '</div>' +
-          '</div>' +
-        '</a>';
+          '</a>' +
+          (IS_AUTH
+            ? '<button class="sm-ev-excl" title="Scollega questo evento dallo stand" onclick="excludeEvent(' + s.id + ',' + ev.id + ',this)">✕</button>'
+            : '') +
+        '</div>';
     });
+
+    // Sezione eventi esclusi (solo per utenti autenticati)
+    if (IS_AUTH && Array.isArray(s.excluded_events) && s.excluded_events.length > 0) {
+      const excl = s.excluded_events;
+      html += '<div class="sm-excl-section">' +
+        '<button class="sm-excl-toggle" onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('span').textContent=this.nextElementSibling.classList.contains('open')?'▲':'▼'">' +
+          '🚫 <span>▼</span> ' + excl.length + ' event' + (excl.length===1?'o':'i') + ' scollegat' + (excl.length===1?'o':'i') +
+        '</button>' +
+        '<div class="sm-excl-list">';
+      excl.forEach(ev => {
+        html += '<div class="sm-excl-item">' +
+          '<span class="sm-excl-name">' + esc(ev.title || '') + '</span>' +
+          '<button class="sm-excl-restore" onclick="unexcludeEvent(' + s.id + ',' + ev.id + ',this)">↩ Ripristina</button>' +
+        '</div>';
+      });
+      html += '</div></div>';
+    }
   }
 
   document.getElementById('smBody').innerHTML = html;
@@ -670,6 +721,53 @@ function filterDrawer(q) {
     const text = item.textContent.toLowerCase();
     item.style.display = (!term || text.includes(term)) ? '' : 'none';
   });
+}
+
+// ── Esclusioni stand↔evento ──────────────────────────────────────────────────
+function excludeEvent(groupId, eventId, btn) {
+  if (!confirm('Scollega questo evento dallo stand?')) return;
+  btn.disabled = true;
+  fetch('/agenda/api/stand-event-exclude', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ group_id: groupId, event_id: eventId })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      // Aggiorna il dato in memoria e riapri la sheet
+      const st = stands.find(x => x.id === groupId);
+      if (st) {
+        const ev = (st.events || []).find(e => e.id === eventId);
+        st.events = (st.events || []).filter(e => e.id !== eventId);
+        if (ev) { if (!st.excluded_events) st.excluded_events = []; st.excluded_events.push(ev); }
+        openSheet(st);
+      }
+    } else { btn.disabled = false; alert('Errore: ' + (data.error || 'sconosciuto')); }
+  })
+  .catch(() => { btn.disabled = false; alert('Errore di rete.'); });
+}
+
+function unexcludeEvent(groupId, eventId, btn) {
+  btn.disabled = true;
+  fetch('/agenda/api/stand-event-unexclude', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ group_id: groupId, event_id: eventId })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      const st = stands.find(x => x.id === groupId);
+      if (st) {
+        const ev = (st.excluded_events || []).find(e => e.id === eventId);
+        st.excluded_events = (st.excluded_events || []).filter(e => e.id !== eventId);
+        if (ev) { if (!st.events) st.events = []; st.events.push(ev); st.events.sort((a,b) => (a.date+a.start_time).localeCompare(b.date+b.start_time)); }
+        openSheet(st);
+      }
+    } else { btn.disabled = false; alert('Errore: ' + (data.error || 'sconosciuto')); }
+  })
+  .catch(() => { btn.disabled = false; alert('Errore di rete.'); });
 }
 
 function focusStand(id) {
