@@ -247,10 +247,17 @@ module.exports = function registerMappaRoutes(
 
     db.run('UPDATE assignment_groups SET ' + fields + ' WHERE id=?', params, (err) => {
       if (err) return res.json({ ok: false, error: err.message });
-      // Salva dimensioni reference div per allineamento portale
+      // Salva refW/refH sulla zona dello stand (per allineamento mappa pubblica)
       if (refW && refH && x !== null) {
-        db.run('INSERT OR REPLACE INTO app_settings(key,value) VALUES(?,?)', ['map_ref_w', String(refW)]);
-        db.run('INSERT OR REPLACE INTO app_settings(key,value) VALUES(?,?)', ['map_ref_h', String(refH)]);
+        db.get('SELECT zone FROM assignment_groups WHERE id=?', [id], (_e, ag) => {
+          if (ag?.zone) {
+            db.run(
+              'UPDATE zones SET map_ref_w=?, map_ref_h=? WHERE name=?',
+              [refW, refH, ag.zone],
+              () => {}
+            );
+          }
+        });
       }
       res.json({ ok: true });
     });

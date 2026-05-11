@@ -1067,5 +1067,7 @@ db.run(`ALTER TABLE assignment_groups ADD COLUMN portal_docs_enabled    INTEGER 
 
 // ── Mappa stand pubblica: toggle visibilità per zona ─────────────────────────
 db.run(`ALTER TABLE zones ADD COLUMN stand_map_public INTEGER DEFAULT 0`, ()=>{});
+db.run(`ALTER TABLE zones ADD COLUMN map_ref_w INTEGER DEFAULT NULL`, ()=>{});
+db.run(`ALTER TABLE zones ADD COLUMN map_ref_h INTEGER DEFAULT NULL`, ()=>{});
 
 module.exports = db;
