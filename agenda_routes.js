@@ -1292,33 +1292,54 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
               const sname  = (ag.stand_name || '').trim().toLowerCase();
               const gname  = (ag.name       || '').trim().toLowerCase();
               const agEvents = allEvents.filter(ev => {
-                // Match 1 — location_text ESATTO vs stand_code / stand_name / nome gruppo
-                const lt = (ev.location_text || '').trim().toLowerCase();
+                const lt    = (ev.location_text || '').trim().toLowerCase();
+                const title = (ev.title         || '').toLowerCase();
+                const desc  = (ev.description   || '').toLowerCase();
+
+                // Tokenizza location_text splittando su separatori comuni
+                // es. "Stand A4/Disney Animation lcg" → ["stand a4", "disney animation lcg"]
+                // es. "Stand A4 - Fantasy Store"      → ["stand a4", "fantasy store"]
+                const ltParts = lt.split(/[/\\|,;\-–—]/).map(p => p.trim()).filter(p => p.length > 0);
+
+                // Match 1 — location_text o una sua parte ESATTA vs stand_code / stand_name / gname
                 if (lt) {
-                  if (code  && lt === code)  return true;
-                  if (sname && lt === sname) return true;
-                  if (gname && lt === gname) return true;
+                  if (code  && (lt === code  || ltParts.some(p => p === code)))  return true;
+                  if (sname && (lt === sname || ltParts.some(p => p === sname))) return true;
+                  if (gname && (lt === gname || ltParts.some(p => p === gname))) return true;
                 }
-                // Match 2 — stand_code nel titolo, descrizione o nome associazione evento
-                // (solo se stand_code >= 3 chars per evitare falsi positivi)
-                if (code.length >= 3) {
-                  const title = (ev.title            || '').toLowerCase();
-                  const desc  = (ev.description      || '').toLowerCase();
-                  const locT  = (ev.location_text    || '').toLowerCase();
-                  if (title.includes(code) || desc.includes(code) || locT.includes(code)) return true;
+
+                // Match 2 — stand_code contenuto in lt o in una parte di lt (es. "stand a4" contiene "a4")
+                if (code.length >= 2 && lt) {
+                  if (lt.includes(code) || ltParts.some(p => p.includes(code))) return true;
                 }
-                // Match 3 — stand_name o nome gruppo nel titolo o descrizione
-                // (solo se almeno 5 chars per ridurre falsi positivi)
-                if (sname.length >= 5) {
-                  const title = (ev.title       || '').toLowerCase();
-                  const desc  = (ev.description || '').toLowerCase();
-                  if (title.includes(sname) || desc.includes(sname)) return true;
+
+                // Match 3 — una parte di lt contenuta in stand_name o gname
+                // es. parte "disney animation lcg" contenuta in gname "disney animation lcg"
+                if (ltParts.length > 0) {
+                  for (const part of ltParts) {
+                    if (part.length >= 3) {
+                      if (sname && sname.includes(part)) return true;
+                      if (gname && gname.includes(part)) return true;
+                    }
+                    // o viceversa: stand_name/gname contenuto nella parte
+                    if (sname.length >= 4 && part.includes(sname)) return true;
+                    if (gname.length >= 4 && part.includes(gname)) return true;
+                  }
                 }
-                if (gname.length >= 5) {
-                  const title = (ev.title       || '').toLowerCase();
-                  const desc  = (ev.description || '').toLowerCase();
-                  if (title.includes(gname) || desc.includes(gname)) return true;
+
+                // Match 4 — stand_code nel titolo o descrizione (solo se >= 2 chars)
+                if (code.length >= 2) {
+                  if (title.includes(code) || desc.includes(code)) return true;
                 }
+
+                // Match 5 — stand_name o gname (>= 4 chars) in titolo, descrizione o lt
+                if (sname.length >= 4) {
+                  if (title.includes(sname) || desc.includes(sname) || lt.includes(sname)) return true;
+                }
+                if (gname.length >= 4) {
+                  if (title.includes(gname) || desc.includes(gname) || lt.includes(gname)) return true;
+                }
+
                 return false;
               });
               // Rimuovi duplicati (stesso id evento)
