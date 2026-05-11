@@ -267,6 +267,27 @@
       <% if (!z.map_lat || !z.map_lng) { %>
       <div class="no-coords">⚠️ Coordinate non impostate — non visibile sulla mappa</div>
       <% } %>
+      <!-- TOGGLE MAPPA STAND PUBBLICA -->
+      <div style="display:flex;align-items:center;gap:.45rem;margin-top:.4rem;padding-top:.35rem;border-top:1px solid #f0f2f7">
+        <div id="smtSwitch-<%= z.id %>"
+             onclick="toggleStandMap(<%= z.id %>, this); event.stopPropagation();"
+             data-val="<%= z.stand_map_public || 0 %>"
+             style="position:relative;width:32px;height:17px;border-radius:999px;cursor:pointer;flex-shrink:0;
+                    background:<%= (z.stand_map_public) ? '#1e2d4e' : '#cbd5e0' %>;transition:background .2s">
+          <div style="position:absolute;top:2px;left:<%= (z.stand_map_public) ? '17px' : '2px' %>;
+                      width:13px;height:13px;border-radius:50%;background:#fff;
+                      box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .2s"></div>
+        </div>
+        <span style="font-size:.68rem;color:#4a5568;font-weight:700">🗺️ Mappa Stand pubblica</span>
+        <% if (z.stand_map_public) { %>
+        <a href="/mappa-stand/<%= z.id %>" target="_blank"
+           onclick="event.stopPropagation()"
+           style="font-size:.62rem;color:#1d6fa4;text-decoration:none;padding:.1rem .35rem;
+                  border-radius:4px;border:1px solid #bfdbfe;background:#eff6ff;margin-left:auto">
+          ↗ Anteprima
+        </a>
+        <% } %>
+      </div>
     </div>
     <% }); %>
   </div>
@@ -561,6 +582,37 @@ document.getElementById('ef_color').addEventListener('input', function() {
     setTimeout(function() { fm.style.display = 'none'; }, 420);
   }, 5000);
 })();
+
+function toggleStandMap(zoneId, switchEl) {
+  const current = parseInt(switchEl.getAttribute('data-val')) || 0;
+  const newVal = current === 1 ? 0 : 1;
+  fetch('/admin/mappa-pubblica/zone/' + zoneId + '/stand-map-toggle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'stand_map_public=' + newVal
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (!d.ok) return alert('Errore salvataggio.');
+    switchEl.setAttribute('data-val', newVal);
+    switchEl.style.background = newVal ? '#1e2d4e' : '#cbd5e0';
+    switchEl.querySelector('div').style.left = newVal ? '17px' : '2px';
+    const wrap = switchEl.closest('div[style*="border-top"]');
+    const existing = wrap ? wrap.querySelector('a[href^="/mappa-stand/"]') : null;
+    if (newVal && !existing) {
+      const a = document.createElement('a');
+      a.href = '/mappa-stand/' + zoneId;
+      a.target = '_blank';
+      a.textContent = '\u2197 Anteprima';
+      a.style.cssText = 'font-size:.62rem;color:#1d6fa4;text-decoration:none;padding:.1rem .35rem;border-radius:4px;border:1px solid #bfdbfe;background:#eff6ff;margin-left:auto';
+      a.onclick = e => e.stopPropagation();
+      if (wrap) wrap.appendChild(a);
+    } else if (!newVal && existing) {
+      existing.remove();
+    }
+  })
+  .catch(() => alert('Errore di rete.'));
+}
 </script>
 </body>
 </html>

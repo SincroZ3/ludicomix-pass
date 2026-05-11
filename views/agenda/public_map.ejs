@@ -680,9 +680,15 @@ function openSheet(z) {
     '</div></div>' +
     (z.map_desc ? '<div class="sheet-desc">'+linkify(z.map_desc)+'</div>' : '') +
     (tags ? '<div class="sheet-tags">'+tags+'</div>' : '') +
-    '<a href="'+mapsUrl+'" target="_blank" rel="noopener noreferrer" class="btn-directions">'+
+    '<div style="display:flex;flex-direction:column;gap:.5rem;margin-top:.9rem">' +
+    '<a href="'+mapsUrl+'" target="_blank" rel="noopener noreferrer" class="btn-directions" style="margin-top:0">'+
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M3 12l9-9 9 9"/><path d="M9 21V12h6v9"/></svg>'+
-    ' Portami qui</a>';
+    ' Portami qui</a>' +
+    (z.stand_map_public ?
+    '<a href="/mappa-stand/'+z.id+'" class="btn-directions" style="margin-top:0;background:#f5c842;color:#1a2744;border:none">'+
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>'+
+    ' Mappa Stand</a>' : '') +
+    '</div>';
   document.getElementById('bottomSheet').classList.add('open');
   document.getElementById('sheetOverlay').classList.add('open');
 }

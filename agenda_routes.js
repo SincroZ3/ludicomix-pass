@@ -1234,5 +1234,54 @@ router.get('/api/agenda/search-participants', requireAuth, (req, res) => {
   });
 });
 
+
+// ══════════════════════════════════════════════════════════════
+// MAPPA STAND PUBBLICA
+// ══════════════════════════════════════════════════════════════
+
+// Admin: toggle stand_map_public per zona (AJAX)
+router.post('/admin/mappa-pubblica/zone/:id/stand-map-toggle', requireAuth, requireAdmin, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const val = req.body.stand_map_public === '1' ? 1 : 0;
+  db.run('UPDATE zones SET stand_map_public=? WHERE id=?', [val, id], (err) => {
+    if (err) return res.status(500).json({ ok: false, error: err.message });
+    logAction(req.session.user?.id, 'toggle_stand_map_public', 'zone', id,
+      `Mappa stand pubblica zona #${id}: ${val ? 'ON' : 'OFF'}`);
+    res.json({ ok: true, stand_map_public: val });
+  });
+});
+
+// API JSON: stand per zona (no auth, solo se stand_map_public=1)
+router.get('/api/mappa-stand/:zoneId', (req, res) => {
+  const zoneId = parseInt(req.params.zoneId, 10);
+  if (!zoneId) return res.status(400).json({ error: 'zoneId non valido' });
+  db.get('SELECT * FROM zones WHERE id=? AND stand_map_public=1', [zoneId], (err, zone) => {
+    if (err || !zone) return res.status(404).json({ error: 'Zona non trovata o non pubblica' });
+    db.all(
+      `SELECT ag.id, ag.name, ag.stand_name, ag.stand_code,
+              ag.map_x, ag.map_y, ag.map_w, ag.map_h, ag.map_shape,
+              g.name AS category_name, g.id AS group_id
+       FROM assignment_groups ag
+       LEFT JOIN groups g ON g.id = ag.group_id
+       WHERE ag.zone=? AND ag.map_x IS NOT NULL AND ag.map_y IS NOT NULL
+       ORDER BY ag.stand_code, ag.name`,
+      [zone.name],
+      (err2, stands) => {
+        if (err2) return res.status(500).json({ error: 'Errore DB stands' });
+        res.json({ zone, stands: stands || [] });
+      }
+    );
+  });
+});
+
+// Pagina pubblica mappa stand per zona
+router.get('/mappa-stand/:zoneId', (req, res) => {
+  const zoneId = parseInt(req.params.zoneId, 10);
+  db.get('SELECT * FROM zones WHERE id=? AND stand_map_public=1', [zoneId], (err, zone) => {
+    if (err || !zone) return res.status(404).render('404', { title: 'Zona non trovata' });
+    res.render('agenda/stand_map', { zone, zoneId, title: `Mappa Stand — ${zone.name}` });
+  });
+});
+
 return router;
 };
