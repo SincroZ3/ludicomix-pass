@@ -262,6 +262,30 @@
     .sm-ev-title{font-size:.8rem;font-weight:700;color:#1a2744;line-height:1.25}
     .sm-ev-space{font-size:.65rem;color:#718096;margin-top:.1rem}
     .sm-ev-link{display:block;text-decoration:none;color:inherit;border-radius:6px;
+      transition:background .12s;margin:0 -.4rem;padding:0 .4rem;flex:1}
+    .sm-ev-link:active,.sm-ev-link:hover{background:#f0f4ff}
+    .sm-ev-arrow{font-size:.65rem;color:#4f98a3;margin-top:.18rem}
+    .sm-ev-excl{flex-shrink:0;margin-left:.4rem;align-self:flex-start;margin-top:.3rem;
+      width:20px;height:20px;border-radius:4px;border:1px solid #e2e8f0;
+      background:none;cursor:pointer;color:#a0aec0;font-size:.7rem;
+      display:flex;align-items:center;justify-content:center;
+      transition:background .12s,color .12s}
+    .sm-ev-excl:hover{background:#fff1f1;color:#e53e3e;border-color:#fed7d7}
+    .sm-excl-section{margin-top:.85rem;border-top:1px dashed #e2e8f0;padding-top:.6rem}
+    .sm-excl-toggle{font-size:.68rem;color:#a0aec0;cursor:pointer;
+      display:flex;align-items:center;gap:.3rem;background:none;border:none;padding:0}
+    .sm-excl-toggle:hover{color:#718096}
+    .sm-excl-list{margin-top:.5rem;display:none}
+    .sm-excl-list.open{display:block}
+    .sm-excl-item{display:flex;align-items:center;gap:.5rem;padding:.35rem 0;
+      border-bottom:1px solid #f0f4ff;font-size:.75rem;color:#a0aec0}
+    .sm-excl-item:last-child{border-bottom:none}
+    .sm-excl-name{flex:1;font-style:italic}
+    .sm-excl-restore{font-size:.65rem;color:#4f98a3;background:none;
+      border:1px solid #bee3f8;border-radius:4px;padding:.1rem .4rem;
+      cursor:pointer;white-space:nowrap;transition:background .12s}
+    .sm-excl-restore:hover{background:#ebf8ff}
+    .sm-ev-link{display:block;text-decoration:none;color:inherit;border-radius:6px;
       transition:background .12s;margin:0 -.4rem;padding:0 .4rem}
     .sm-ev-link:active,.sm-ev-link:hover{background:#f0f4ff}
     .sm-ev-arrow{font-size:.65rem;color:#4f98a3;margin-top:.18rem}
@@ -428,6 +452,7 @@ const wrap  = document.getElementById('mapWrap');
 const inner = document.getElementById('mapInner');
 const area  = document.getElementById('mapArea');
 const IS_AUTH = <%- isAuthenticated ? 'true' : 'false' %>;
+const IS_AUTH = <%- typeof isAuthenticated !== 'undefined' && isAuthenticated ? 'true' : 'false' %>;
 const bgImg = document.getElementById('mapBgImg');
 
 // ── Carica stands ─────────────────────────────────────────────────────────────
