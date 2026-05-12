@@ -532,6 +532,7 @@ function renderStands() {
 
     // Click → apri scheda stand
     standsCanvas.addEventListener('click', function(e) {
+      e.stopPropagation(); // impedisce che il click arrivi a leafMap.on('click', closeSheet)
       const hit = hitTestStand(e);
       if (hit) {
         _activeStandId = hit.s.id;
@@ -551,6 +552,21 @@ function renderStands() {
       });
       standsCanvas.addEventListener('mouseleave', hideTip);
     }
+
+    // Touch (mobile) → tap su stand
+    standsCanvas.addEventListener('touchend', function(e) {
+      e.stopPropagation();
+      e.preventDefault();
+      const touch = e.changedTouches[0];
+      const hit = hitTestStand(touch);
+      if (hit) {
+        _activeStandId = hit.s.id;
+        drawStands();
+        openSheet(hit.s);
+      } else {
+        closeSheet();
+      }
+    }, { passive: false });
   }
 
   const wrap = document.getElementById('mapWrap');
