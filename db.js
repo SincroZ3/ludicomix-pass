@@ -1070,7 +1070,7 @@ db.run(`ALTER TABLE zones ADD COLUMN stand_map_public INTEGER DEFAULT 0`, ()=>{}
 db.run(`ALTER TABLE zones ADD COLUMN map_ref_w INTEGER DEFAULT NULL`, ()=>{});
 db.run(`ALTER TABLE zones ADD COLUMN map_ref_h INTEGER DEFAULT NULL`, ()=>{});
 
-// ── Esclusioni manuali stand↔evento (override del matching automatico) ─────────
+// ── Esclusioni manuali stand↔evento ──────────────────────────────────────────
 db.run(`CREATE TABLE IF NOT EXISTS stand_event_exclusions (
   assignment_group_id INTEGER NOT NULL,
   event_id            INTEGER NOT NULL,

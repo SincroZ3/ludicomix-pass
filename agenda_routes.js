@@ -1269,8 +1269,6 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
       (err2, stands) => {
         if (err2) return res.status(500).json({ error: 'Errore DB stands' });
         if (!stands || stands.length === 0) return res.json({ zone, stands: [] });
-
-        // Recupera tutti gli eventi pubblicati + le esclusioni manuali per gli stand di questa zona
         const groupIds = stands.map(s => s.id);
         db.all(
           `SELECT e.id, e.title, e.description, e.date, e.start_time, e.end_time,
@@ -1282,99 +1280,51 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
            ORDER BY e.date, e.start_time`,
           [],
           (err3, events) => {
-            if (err3) {
-              return res.json({ zone, stands: stands.map(s => ({ ...s, events: [], excluded_events: [] })) });
-            }
+            if (err3) return res.json({ zone, stands: stands.map(s => ({ ...s, events: [], excluded_events: [] })) });
             const allEvents = events || [];
-            // Carica esclusioni — usa pura callback SQLite (no Promise) per evitare
-            // che un errore sincrono blocchi la risposta
             const placeholders = groupIds.map(() => '?').join(',');
-            const exclSql = groupIds.length > 0
-              ? `SELECT assignment_group_id, event_id FROM stand_event_exclusions WHERE assignment_group_id IN (${placeholders})`
-              : null;
-
-            function buildResponse(exclRows) {
+            const exclSql = `SELECT assignment_group_id, event_id FROM stand_event_exclusions WHERE assignment_group_id IN (${placeholders})`;
+            db.all(exclSql, groupIds, (exclErr, exclRows) => {
               const exclMap = {};
-              (exclRows || []).forEach(r => {
+              (exclErr ? [] : (exclRows || [])).forEach(r => {
                 if (!exclMap[r.assignment_group_id]) exclMap[r.assignment_group_id] = new Set();
                 exclMap[r.assignment_group_id].add(r.event_id);
               });
               const standsWithEvents = stands.map(ag => {
-              const code   = (ag.stand_code || '').trim().toLowerCase();
-              const sname  = (ag.stand_name || '').trim().toLowerCase();
-              const gname  = (ag.name       || '').trim().toLowerCase();
-              const excluded = exclMap[ag.id] || new Set();
-              const agEvents = allEvents.filter(ev => {
-                // Se esplicitamente escluso, non mostrare
-                if (excluded.has(ev.id)) return false;
-                const lt    = (ev.location_text || '').trim().toLowerCase();
-                const title = (ev.title         || '').toLowerCase();
-                const desc  = (ev.description   || '').toLowerCase();
-
-                // Tokenizza location_text splittando su separatori comuni
-                // es. "Stand A4/Disney Animation lcg" → ["stand a4", "disney animation lcg"]
-                // es. "Stand A4 - Fantasy Store"      → ["stand a4", "fantasy store"]
-                const ltParts = lt.split(/[/\\|,;\-–—]/).map(p => p.trim()).filter(p => p.length > 0);
-
-                // Match 1 — location_text o una sua parte ESATTA vs stand_code / stand_name / gname
-                if (lt) {
-                  if (code  && (lt === code  || ltParts.some(p => p === code)))  return true;
-                  if (sname && (lt === sname || ltParts.some(p => p === sname))) return true;
-                  if (gname && (lt === gname || ltParts.some(p => p === gname))) return true;
-                }
-
-                // Match 2 — stand_code contenuto in lt o in una parte di lt (es. "stand a4" contiene "a4")
-                if (code.length >= 2 && lt) {
-                  if (lt.includes(code) || ltParts.some(p => p.includes(code))) return true;
-                }
-
-                // Match 3 — una parte di lt contenuta in stand_name o gname
-                // es. parte "disney animation lcg" contenuta in gname "disney animation lcg"
-                if (ltParts.length > 0) {
+                const code    = (ag.stand_code || '').trim().toLowerCase();
+                const sname   = (ag.stand_name || '').trim().toLowerCase();
+                const gname   = (ag.name       || '').trim().toLowerCase();
+                const excluded = exclMap[ag.id] || new Set();
+                const agEvents = allEvents.filter(ev => {
+                  if (excluded.has(ev.id)) return false;
+                  const lt    = (ev.location_text || '').trim().toLowerCase();
+                  const title = (ev.title         || '').toLowerCase();
+                  const desc  = (ev.description   || '').toLowerCase();
+                  const ltParts = lt.split(/[\/\|,;\-–—]/).map(p => p.trim()).filter(p => p.length > 0);
+                  if (lt) {
+                    if (code  && (lt === code  || ltParts.some(p => p === code)))  return true;
+                    if (sname && (lt === sname || ltParts.some(p => p === sname))) return true;
+                    if (gname && (lt === gname || ltParts.some(p => p === gname))) return true;
+                  }
+                  if (code.length >= 2 && lt && (lt.includes(code) || ltParts.some(p => p.includes(code)))) return true;
                   for (const part of ltParts) {
-                    if (part.length >= 3) {
-                      if (sname && sname.includes(part)) return true;
-                      if (gname && gname.includes(part)) return true;
-                    }
-                    // o viceversa: stand_name/gname contenuto nella parte
+                    if (part.length >= 3 && sname && sname.includes(part)) return true;
+                    if (part.length >= 3 && gname && gname.includes(part)) return true;
                     if (sname.length >= 4 && part.includes(sname)) return true;
                     if (gname.length >= 4 && part.includes(gname)) return true;
                   }
-                }
-
-                // Match 4 — stand_code nel titolo o descrizione (solo se >= 2 chars)
-                if (code.length >= 2) {
-                  if (title.includes(code) || desc.includes(code)) return true;
-                }
-
-                // Match 5 — stand_name o gname (>= 4 chars) in titolo, descrizione o lt
-                if (sname.length >= 4) {
-                  if (title.includes(sname) || desc.includes(sname) || lt.includes(sname)) return true;
-                }
-                if (gname.length >= 4) {
-                  if (title.includes(gname) || desc.includes(gname) || lt.includes(gname)) return true;
-                }
-
-                return false;
+                  if (code.length >= 2 && (title.includes(code) || desc.includes(code))) return true;
+                  if (sname.length >= 4 && (title.includes(sname) || desc.includes(sname) || lt.includes(sname))) return true;
+                  if (gname.length >= 4 && (title.includes(gname) || desc.includes(gname) || lt.includes(gname))) return true;
+                  return false;
+                });
+                const seen = new Set();
+                const unique = agEvents.filter(ev => seen.has(ev.id) ? false : seen.add(ev.id));
+                const excludedEvents = allEvents.filter(ev => excluded.has(ev.id));
+                return { ...ag, events: unique, excluded_events: excludedEvents };
               });
-              // Rimuovi duplicati
-              const seen = new Set();
-              const unique = agEvents.filter(ev => seen.has(ev.id) ? false : seen.add(ev.id));
-              // Raccogli gli eventi esclusi (per mostrare il pannello ripristina)
-              const excludedEvents = allEvents.filter(ev => excluded.has(ev.id));
-              return { ...ag, events: unique, excluded_events: excludedEvents };
-            });
               res.json({ zone, stands: standsWithEvents });
-            }
-
-            if (exclSql) {
-              db.all(exclSql, groupIds, (exclErr, exclRows) => {
-                // Se la tabella non esiste ancora, usa array vuoto (nessuna esclusione)
-                buildResponse(exclErr ? [] : exclRows);
-              });
-            } else {
-              buildResponse([]);
-            }
+            });
           }
         );
       }
@@ -1382,7 +1332,8 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
   });
 });
 
-// ── API: escludi evento da stand (solo utenti autenticati) ─────────────────────
+// Pagina pubblica mappa stand per zona
+// ── API: scollega evento da stand ────────────────────────────────────────────
 router.post('/api/stand-event-exclude', (req, res) => {
   if (!req.session || !req.session.user) return res.status(401).json({ ok: false, error: 'Non autorizzato' });
   const groupId = parseInt(req.body.group_id, 10);
@@ -1400,7 +1351,6 @@ router.post('/api/stand-event-exclude', (req, res) => {
   );
 });
 
-// ── API: ripristina evento per stand ────────────────────────────────────────
 router.post('/api/stand-event-unexclude', (req, res) => {
   if (!req.session || !req.session.user) return res.status(401).json({ ok: false, error: 'Non autorizzato' });
   const groupId = parseInt(req.body.group_id, 10);
@@ -1418,7 +1368,6 @@ router.post('/api/stand-event-unexclude', (req, res) => {
   );
 });
 
-// Pagina pubblica mappa stand per zona
 router.get('/mappa-stand/:zoneId', (req, res) => {
   const zoneId = parseInt(req.params.zoneId, 10);
   db.get('SELECT * FROM zones WHERE id=? AND stand_map_public=1', [zoneId], (err, zone) => {
