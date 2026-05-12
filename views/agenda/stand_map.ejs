@@ -955,7 +955,15 @@ wrap.addEventListener('wheel', e => {
   e.preventDefault();
   const r=wrap.getBoundingClientRect();
   const cx=e.clientX-r.left, cy=e.clientY-r.top;
-  const f=e.deltaY<0?1.12:0.9;
+  let f;
+  if (e.ctrlKey) {
+    // Pinch trackpad: deltaY proporzionale, deltaMode 1=lines 0=pixels
+    const delta = e.deltaMode === 1 ? e.deltaY * 15 : e.deltaY;
+    f = Math.pow(0.99, delta);
+  } else {
+    // Scroll mouse/trackpad normale
+    f = e.deltaY < 0 ? 1.12 : 0.9;
+  }
   const ns=Math.min(5,Math.max(0.2,sc*f));
   const ra=ns/sc;
   tx=cx-ra*(cx-tx); ty=cy-ra*(cy-ty); sc=ns; applyT();
@@ -967,12 +975,12 @@ wrap.addEventListener('touchstart', e => {
   Array.from(e.changedTouches).forEach(t=>{tch[t.identifier]={x:t.clientX,y:t.clientY};});
   const ids=Object.keys(tch);
   if(ids.length===1) lSingle={x:tch[ids[0]].x,y:tch[ids[0]].y};
-  if(ids.length>=2){
+  if(ids.length>=2){ e.preventDefault();
     const a=tch[ids[0]],b=tch[ids[1]];
     lDist=Math.hypot(b.x-a.x,b.y-a.y);
     lMid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
   }
-},{passive:true});
+},{passive:false});
 wrap.addEventListener('touchmove', e => {
   e.preventDefault();
   Array.from(e.changedTouches).forEach(t=>{tch[t.identifier]={x:t.clientX,y:t.clientY};});
