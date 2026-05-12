@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Mappa Stand — <%= zone.name %> · Ludicomix</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     html,body{height:100%;width:100%;overflow:hidden;
@@ -30,10 +31,14 @@
     }
     .sm-back:active{background:rgba(255,255,255,.2)}
 
-    /* ── Pan/zoom wrapper ────────────────────────────────────────────── */
-    #mapWrap{position:fixed;inset:0;overflow:hidden;cursor:grab;touch-action:none;}
-    #mapWrap.grabbing{cursor:grabbing}
-    #mapInner{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform;user-select:none;touch-action:none;}
+    /* ── Leaflet map container ───────────────────────────────────────── */
+    #mapWrap{position:fixed;inset:0;}
+    /* Nasconde attribution Leaflet (mappa non geografica) */
+    .leaflet-control-attribution{display:none!important}
+    /* Nasconde zoom control Leaflet (usiamo i nostri bottoni .sm-ctrl) */
+    .leaflet-control-zoom{display:none!important}
+    /* Stand come DivIcon Leaflet */
+    .leaflet-div-icon{background:none!important;border:none!important;}
 
     /*
      * #mapBg è l'immagine di sfondo come un vero <img> — occupa esattamente
@@ -77,19 +82,7 @@
      * (se salvata) oppure usiamo il default 1400.
      */
 
-    #mapArea{
-      position:absolute;
-      inset:0;
-      touch-action:none;
-      /* nessun background: l'immagine è un <img> separato */
-    }
-    #mapBgImg{
-      position:absolute;
-      display:block;
-      touch-action:none;
-      pointer-events:none;
-      /* left/top/width/height impostati via JS dopo calcolo delle bande */
-    }
+    /* #mapArea e #mapBgImg gestiti da Leaflet ImageOverlay */
 
     /* ── Stand ───────────────────────────────────────────────────────── */
     .sm-stand{
@@ -358,15 +351,12 @@
   </a>
 </header>
 
-<div id="mapWrap">
-  <div id="mapInner">
-    <!-- L'immagine viene posizionata via JS per replicare il contain admin -->
-    <img id="mapBgImg" alt="Planimetria" draggable="false"
-         <% if (zone.background_image) { %>src="/zone-bg/<%= zone.background_image %>"<% } %>
-         style="display:none">
-    <div id="mapArea"></div>
-  </div>
-</div>
+<div id="mapWrap"></div>
+<% if (zone.background_image) { %>
+<script>var BG_URL = "/zone-bg/<%= zone.background_image %>";</script>
+<% } else { %>
+<script>var BG_URL = null;</script>
+<% } %>
 
 <div class="sm-tip" id="smTip">
   <div class="sm-tip-code" id="tipCode"></div>
@@ -430,171 +420,175 @@
   </div>
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WLcE=" crossorigin=""></script>
 <script>
 // ── Configurazione ────────────────────────────────────────────────────────────
-const ZONE_ID = <%= zoneId %>;
-const isMobile = window.innerWidth <= 768;
-
-// ADMIN_REF_W = larghezza del div .map-area nella pagina admin al momento
-// in cui gli stand sono stati posizionati tramite drag & drop.
-// Idealmente questo valore dovrebbe essere salvato nel DB (col. map_ref_w nella
-// tabella zones) e passato dal template. Se non disponibile, usiamo 1400px
-// che è una stima ragionevole per un desktop admin a schermo intero.
-// ADMIN_MIN_H = min-height del .map-area admin (dal CSS: min-height:520px).
+const ZONE_ID   = <%= zoneId %>;
+const isMobile  = window.innerWidth <= 768;
 const ADMIN_REF_W = <%= (zone.map_ref_w || 1400) %>;
 const ADMIN_MIN_H = 520;
+const IS_AUTH   = <%- typeof isAuthenticated !== 'undefined' && isAuthenticated ? 'true' : 'false' %>;
 
-let stands    = [];
-let areaW = 0, areaH = 0;   // dimensioni del div admin (= "virtuale" del nostro #mapArea)
-let imgOffX = 0, imgOffY = 0, imgRenW = 0, imgRenH = 0; // posizione immagine nel div admin
-let sc = 1, tx = 0, ty = 0;
-
-const wrap  = document.getElementById('mapWrap');
-const inner = document.getElementById('mapInner');
-const area  = document.getElementById('mapArea');
-const IS_AUTH = <%- typeof isAuthenticated !== 'undefined' && isAuthenticated ? 'true' : 'false' %>;
-const bgImg = document.getElementById('mapBgImg');
+let stands  = [];
+let areaW   = 0, areaH = 0;
+let leafMap = null;       // istanza Leaflet
+let imgBounds = null;     // bounds [[0,0],[areaH,areaW]] in CRS.Simple
+let standMarkers = {};    // id → L.marker
 
 // ── Carica stands ─────────────────────────────────────────────────────────────
 fetch('/api/mappa-stand/' + ZONE_ID)
   .then(r => r.json())
   .then(d => {
     stands = d.stands || [];
-    if (areaW > 0) renderStands();
+    if (leafMap) renderStands();
   })
   .catch(() => {
     document.getElementById('smLoad').innerHTML =
       '<p style="color:#fc8181">Errore caricamento mappa.</p>';
   });
 
-// ── Setup dopo caricamento immagine ──────────────────────────────────────────
-bgImg.addEventListener('load', () => initLayout(bgImg.naturalWidth, bgImg.naturalHeight));
-bgImg.addEventListener('error', () => initLayout(1200, 800));
-if (!bgImg.src || bgImg.complete) {
-  setTimeout(() => initLayout(bgImg.naturalWidth || 1200, bgImg.naturalHeight || 800), 50);
-}
-
-function initLayout(natW, natH) {
+// ── Inizializza Leaflet dopo che conosciamo dimensioni immagine ───────────────
+function initLeaflet(natW, natH) {
   if (!natW || !natH) { natW = 1200; natH = 800; }
 
-  // ── Replica esatta del div .map-area dell'admin ───────────────────────────
-  //
-  // CSS admin:  width:100%  →  ADMIN_REF_W
-  //             min-height:520px
-  //             background-size:contain
-  //             background-position:center top
-  //
-  // Con background-size:contain l'immagine è scalata per stare dentro il div:
-  const imgAR   = natW / natH;
-  const divAR   = ADMIN_REF_W / ADMIN_MIN_H;
-
-  let renderedW, renderedH;
+  // Stessa logica di calcolo dell'admin per replicare esattamente
+  // il posizionamento degli stand (background-size:contain, center top)
+  const imgAR = natW / natH;
+  const divAR = ADMIN_REF_W / ADMIN_MIN_H;
+  let renderedH;
   if (imgAR > divAR) {
-    // Immagine più larga del div → scalata per width
-    renderedW = ADMIN_REF_W;
     renderedH = ADMIN_REF_W / imgAR;
   } else {
-    // Immagine più alta (o stessa AR) → scalata per height
     renderedH = ADMIN_MIN_H;
-    renderedW = ADMIN_MIN_H * imgAR;
   }
-
-  // Dimensioni reali del div admin
   areaW = ADMIN_REF_W;
   areaH = Math.max(ADMIN_MIN_H, renderedH);
 
-  // Offset dell'immagine nel div admin (center top)
-  imgOffX = (areaW - renderedW) / 2;
-  imgOffY = 0; // background-position:top
-  imgRenW = renderedW;
-  imgRenH = renderedH;
+  // In CRS.Simple y cresce verso il basso → bounds [y1,x1],[y2,x2]
+  // ma Leaflet ha y che cresce verso l'alto per default.
+  // Usiamo bounds con y invertito: [[-areaH,0],[0,areaW]]
+  // così il punto [0,0] dell'immagine corrisponde a lat=0,lng=0 in basso a sinistra
+  // e il punto [areaH,areaW] corrisponde a lat=-areaH,lng=areaW.
+  // Più semplice: usiamo [0,0] come top-left con transformation personalizzata
+  // → convenzione standard: bounds = [[0,0],[areaH,areaW]] con maxBounds simmetrico
 
-  // ── Imposta dimensioni del contenitore virtuale ───────────────────────────
-  inner.style.width  = areaW + 'px';
-  inner.style.height = areaH + 'px';
-  area.style.width   = areaW + 'px';
-  area.style.height  = areaH + 'px';
+  imgBounds = [[0, 0], [areaH, areaW]];
 
-  // ── Posiziona l'immagine esattamente come la vedeva l'admin ──────────────
-  bgImg.style.display = 'block';
-  bgImg.style.position = 'absolute';
-  bgImg.style.left   = imgOffX + 'px';
-  bgImg.style.top    = imgOffY + 'px';
-  bgImg.style.width  = imgRenW + 'px';
-  bgImg.style.height = imgRenH + 'px';
-  bgImg.style.pointerEvents = 'none';
-  bgImg.style.userSelect    = 'none';
-  bgImg.style.webkitUserDrag = 'none';
-  inner.insertBefore(bgImg, inner.firstChild);
+  leafMap = L.map('mapWrap', {
+    crs: L.CRS.Simple,
+    minZoom: -3,
+    maxZoom: 3,
+    zoomSnap: 0.1,
+    zoomDelta: 0.5,
+    scrollWheelZoom: true,
+    doubleClickZoom: false,
+    attributionControl: false,
+    zoomControl: false,
+  });
 
-  resetView(false);
-  if (stands.length) renderStands();
+  if (BG_URL) {
+    L.imageOverlay(BG_URL, imgBounds).addTo(leafMap);
+  } else {
+    // Nessuna immagine: sfondo scuro
+    document.getElementById('mapWrap').style.background = '#1e2d4e';
+  }
+
+  // Centra la mappa sull'immagine con padding
+  leafMap.fitBounds(imgBounds, { padding: [24, 24] });
+
+  // Chiudi sheet cliccando sulla mappa (non su uno stand)
+  leafMap.on('click', closeSheet);
+
   document.getElementById('smLoad').style.display = 'none';
   document.getElementById('smLegend').style.display = 'block';
+
+  if (stands.length) renderStands();
 }
 
-// ── Render stands ──────────────────────────────────────────────────────────────
-// Le coordinate left/top % sono relative ad #mapArea (= div admin virtuale).
-// Non serve nessuna correzione: il div ha esattamente le stesse dimensioni
-// che aveva il .map-area dell'admin al momento del drop.
+// Carica l'immagine per ottenere le dimensioni naturali
+(function() {
+  if (!BG_URL) { initLeaflet(1200, 800); return; }
+  const probe = new Image();
+  probe.onload  = () => initLeaflet(probe.naturalWidth, probe.naturalHeight);
+  probe.onerror = () => initLeaflet(1200, 800);
+  probe.src = BG_URL;
+})();
+
+// ── Render stands — Leaflet DivIcon markers ──────────────────────────────────
 function renderStands() {
-  area.querySelectorAll('.sm-stand').forEach(n => n.remove());
+  // Rimuovi marker esistenti
+  Object.values(standMarkers).forEach(m => m.remove());
+  standMarkers = {};
 
   stands.forEach(s => {
     if (s.map_x == null || s.map_y == null) return;
 
-    const gw = parseFloat(s.map_w || 8);
-    const gh = parseFloat(s.map_h || 5);
-    const gr = parseFloat(s.map_rot || 0);
-
-    // Colore solido opaco — usa il colore del gruppo se disponibile
+    const gw  = parseFloat(s.map_w  || 8);
+    const gh  = parseFloat(s.map_h  || 5);
+    const gr  = parseFloat(s.map_rot || 0);
     const color = s.color || '#1e2d4e';
 
-    let style =
-      'left:'   + parseFloat(s.map_x).toFixed(2) + '%;' +
-      'top:'    + parseFloat(s.map_y).toFixed(2) + '%;' +
-      'width:'  + gw.toFixed(2) + '%;' +
-      'height:' + gh.toFixed(2) + '%;' +
-      'background:' + color + ';';
+    // Coordinate % → pixel nel sistema admin
+    // In Leaflet CRS.Simple: lat = y_pixel (dall'alto), lng = x_pixel
+    const px = parseFloat(s.map_x) / 100 * areaW;
+    const py = parseFloat(s.map_y) / 100 * areaH;
 
+    // Dimensioni in pixel dello stand
+    const sw = gw / 100 * areaW;
+    const sh = gh / 100 * areaH;
+
+    const hasEv = Array.isArray(s.events) && s.events.length > 0;
+
+    // Costruisce HTML del marker
+    let innerStyle = 'width:100%;height:100%;background:' + color + ';border-radius:4px;' +
+      'display:flex;align-items:center;justify-content:center;overflow:visible;position:relative;';
+    if (gr) innerStyle += 'transform:rotate(' + gr + 'deg);';
+
+    let clipPath = '';
     if (s.map_shape) {
       try {
         const sp = JSON.parse(s.map_shape);
         if (Array.isArray(sp) && sp.length >= 3) {
-          const poly = sp.map(p => p[0] + '% ' + p[1] + '%').join(',');
-          style += 'clip-path:polygon(' + poly + ');';
+          clipPath = 'clip-path:polygon(' + sp.map(p => p[0] + '% ' + p[1] + '%').join(',') + ');';
         }
       } catch(e) {}
     }
+    if (clipPath) innerStyle += clipPath;
 
-    if (gr) {
-      style += 'transform:translate(-50%,-50%) rotate(' + gr + 'deg);';
-    }
+    const dotHtml  = hasEv
+      ? '<div class="sm-dot" style="position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:#f5c842;border:1.5px solid rgba(255,255,255,.9);box-shadow:0 0 4px rgba(245,200,66,.8);pointer-events:none;z-index:5;"></div>'
+      : '';
+    const lblHtml  = '<div class="sm-lbl">' + (s.stand_code || s.name || '') + '</div>';
+    const iconHtml = '<div id="smst-' + s.id + '" class="sm-stand' + (hasEv ? ' has-events' : '') +
+      '" style="width:' + sw + 'px;height:' + sh + 'px;">' +
+      '<div style="' + innerStyle + '">' + dotHtml + lblHtml + '</div>' +
+      '</div>';
 
-    const hasEv = Array.isArray(s.events) && s.events.length > 0;
-    const el    = document.createElement('div');
-    el.className = 'sm-stand' + (hasEv ? ' has-events' : '');
-    el.id = 'smst-' + s.id;
-    el.setAttribute('style', style);
+    const icon = L.divIcon({
+      html: iconHtml,
+      className: '',
+      iconSize:   [sw, sh],
+      iconAnchor: [sw/2, sh/2],
+    });
 
-    if (hasEv) {
-      const dot = document.createElement('div');
-      dot.className = 'sm-dot';
-      el.appendChild(dot);
-    }
+    // In Leaflet CRS.Simple lat=y, lng=x
+    // Nota: Leaflet ha y che cresce verso l'alto, ma noi usiamo bounds [[0,0],[areaH,areaW]]
+    // con CRS.Simple non invertito → lat=areaH-py per convertire da top-left a bottom-left
+    const marker = L.marker([areaH - py, px], { icon: icon, interactive: true })
+      .addTo(leafMap);
 
-    const lbl = document.createElement('div');
-    lbl.className   = 'sm-lbl';
-    lbl.textContent = s.stand_code || s.name || '';
-    el.appendChild(lbl);
+    marker.on('click', function(e) {
+      L.DomEvent.stopPropagation(e);
+      openSheet(s);
+    });
 
-    el.addEventListener('click', e => { e.stopPropagation(); openSheet(s); });
     if (!isMobile) {
-      el.addEventListener('mouseenter', e => showTip(e, s));
-      el.addEventListener('mousemove',  e => moveTip(e));
-      el.addEventListener('mouseleave', ()  => hideTip());
+      marker.on('mouseover', function(e) { showTip(e.originalEvent, s); });
+      marker.on('mousemove', function(e) { moveTip(e.originalEvent); });
+      marker.on('mouseout',  function()  { hideTip(); });
     }
-    area.appendChild(el);
+
+    standMarkers[s.id] = marker;
   });
 }
 
@@ -893,18 +887,11 @@ document.getElementById('smLinkModal').addEventListener('click', function(e) {
 function focusStand(id) {
   closeDrawer();
   const s = stands.find(x => x.id === id);
-  if (!s || s.map_x == null) return;
-  // Centra la vista sullo stand e apre la sheet
-  const vw = wrap.clientWidth, vh = wrap.clientHeight;
-  const px = (s.map_x / 100) * areaW;
-  const py = (s.map_y / 100) * areaH;
-  const targetSc = Math.max(sc, 1.5);
-  tx = vw / 2 - px * targetSc;
-  ty = vh / 2 - py * targetSc;
-  sc = targetSc;
-  inner.style.transition = 'transform .4s cubic-bezier(.16,1,.3,1)';
-  applyT();
-  setTimeout(() => { inner.style.transition = ''; openSheet(s); }, 420);
+  if (!s || s.map_x == null || !leafMap) return;
+  const px = parseFloat(s.map_x) / 100 * areaW;
+  const py = parseFloat(s.map_y) / 100 * areaH;
+  leafMap.setView([areaH - py, px], Math.max(leafMap.getZoom(), 0.5), { animate: true });
+  setTimeout(() => openSheet(s), 380);
 }
 (function(){
   const sh = document.getElementById('smSheet');
@@ -914,136 +901,20 @@ function focusStand(id) {
     if (e.touches[0].clientY - sy > 60) closeSheet();
   }, {passive:true});
 })();
-wrap.addEventListener('click', closeSheet);
+// click su mappa → closeSheet gestito da leafMap.on('click') in initLeaflet
 
-// ── Pan & Zoom ───────────────────────────────────────────────────────────────
-function applyT(anim) {
-  inner.style.transition = anim ? 'transform .32s ease' : 'none';
-  inner.style.transform  = 'translate('+tx+'px,'+ty+'px) scale('+sc+')';
-}
-function resetView(anim) {
-  if (!areaW || !areaH) return;
-  const vw = wrap.clientWidth, vh = wrap.clientHeight;
-  sc = Math.min(vw/areaW, vh/areaH) * 0.92;
-  tx = (vw - areaW*sc) / 2;
-  ty = (vh - areaH*sc) / 2;
-  applyT(anim !== false);
+// ── Pan & Zoom — gestiti da Leaflet ──────────────────────────────────────────
+// Leaflet gestisce nativamente touch (iOS Safari incluso), mouse, trackpad e wheel.
+// resetView e doZoom sono wrapper sui metodi Leaflet usati dai bottoni .sm-ctrl.
+function resetView() {
+  if (!leafMap || !imgBounds) return;
+  leafMap.fitBounds(imgBounds, { padding: [24, 24], animate: true });
 }
 function doZoom(f) {
-  const vw = wrap.clientWidth, vh = wrap.clientHeight;
-  const cx = vw/2, cy = vh/2;
-  const ns = Math.min(5, Math.max(0.2, sc*f));
-  const ra = ns/sc;
-  tx = cx - ra*(cx-tx); ty = cy - ra*(cy-ty); sc = ns;
-  applyT(true);
+  if (!leafMap) return;
+  if (f > 1) leafMap.zoomIn(0.5);
+  else       leafMap.zoomOut(0.5);
 }
-
-// ── MOUSE (desktop) ───────────────────────────────────────────────────────────
-let drag=false, dsx=0, dsy=0, dtx=0, dty=0;
-wrap.addEventListener('mousedown', e => {
-  if (e.target.closest('.sm-stand,.sm-ctrl,.sm-legend,.sm-header')) return;
-  drag=true; dsx=e.clientX; dsy=e.clientY; dtx=tx; dty=ty;
-  wrap.classList.add('grabbing');
-  e.preventDefault();
-});
-window.addEventListener('mousemove', e => {
-  if (!drag) return;
-  tx = dtx+(e.clientX-dsx); ty = dty+(e.clientY-dsy); applyT(false);
-});
-window.addEventListener('mouseup', () => { drag=false; wrap.classList.remove('grabbing'); });
-
-// ── WHEEL (trackpad + scroll) ─────────────────────────────────────────────────
-wrap.addEventListener('wheel', e => {
-  e.preventDefault();
-  const r  = wrap.getBoundingClientRect();
-  const cx = e.clientX - r.left;
-  const cy = e.clientY - r.top;
-  if (e.ctrlKey || e.metaKey) {
-    const delta = e.deltaMode === 1 ? e.deltaY*15 : e.deltaY;
-    const f  = Math.pow(0.99, delta);
-    const ns = Math.min(5, Math.max(0.2, sc*f));
-    const ra = ns/sc;
-    tx = cx - ra*(cx-tx); ty = cy - ra*(cy-ty); sc = ns;
-  } else {
-    const mul = e.deltaMode===1 ? 15 : e.deltaMode===2 ? 100 : 1;
-    tx -= e.deltaX*mul; ty -= e.deltaY*mul;
-  }
-  applyT(false);
-}, {passive:false});
-
-// ── TOUCH (iOS Safari + Android) ─────────────────────────────────────────────
-// Usa touch events nativi — unica API affidabile su Safari iOS
-let t1=null, t2=null;          // touch attivi (oggetti {id,x,y})
-let tPinchDist=null, tPinchMid=null;
-
-function getTouchById(list, id) {
-  for (let i=0;i<list.length;i++) if(list[i].identifier===id) return list[i];
-  return null;
-}
-
-wrap.addEventListener('touchstart', e => {
-  e.preventDefault();
-  const touches = e.touches;
-  if (touches.length === 1) {
-    t1 = {id:touches[0].identifier, x:touches[0].clientX, y:touches[0].clientY};
-    t2 = null; tPinchDist=null; tPinchMid=null;
-  } else if (touches.length >= 2) {
-    t1 = {id:touches[0].identifier, x:touches[0].clientX, y:touches[0].clientY};
-    t2 = {id:touches[1].identifier, x:touches[1].clientX, y:touches[1].clientY};
-    tPinchDist = Math.hypot(t2.x-t1.x, t2.y-t1.y);
-    tPinchMid  = {x:(t1.x+t2.x)/2, y:(t1.y+t2.y)/2};
-  }
-}, {passive:false});
-
-wrap.addEventListener('touchmove', e => {
-  e.preventDefault();
-  const touches = e.touches;
-
-  if (touches.length === 1 && t1) {
-    // PAN con 1 dito
-    const cx = touches[0].clientX, cy = touches[0].clientY;
-    tx += cx - t1.x; ty += cy - t1.y;
-    t1.x = cx; t1.y = cy;
-    applyT(false);
-
-  } else if (touches.length >= 2 && t1 && t2) {
-    // PINCH ZOOM con 2 dita
-    // Trova le due touch aggiornate
-    const a = getTouchById(touches, t1.id) || touches[0];
-    const b = getTouchById(touches, t2.id) || touches[1];
-
-    const ax=a.clientX, ay=a.clientY, bx=b.clientX, by=b.clientY;
-    const dist = Math.hypot(bx-ax, by-ay);
-    const mid  = {x:(ax+bx)/2, y:(ay+by)/2};
-
-    if (tPinchDist && tPinchMid) {
-      const r  = wrap.getBoundingClientRect();
-      const cx = mid.x - r.left;
-      const cy = mid.y - r.top;
-      const ns = Math.min(5, Math.max(0.2, sc*(dist/tPinchDist)));
-      const ra = ns/sc;
-      tx = cx - ra*(cx-tx) + (mid.x - tPinchMid.x);
-      ty = cy - ra*(cy-ty) + (mid.y - tPinchMid.y);
-      sc = ns; applyT(false);
-    }
-    tPinchDist = dist; tPinchMid = mid;
-    t1.x=ax; t1.y=ay; t2.x=bx; t2.y=by;
-  }
-}, {passive:false});
-
-wrap.addEventListener('touchend', e => {
-  const touches = e.touches;
-  if (touches.length === 0) {
-    t1=null; t2=null; tPinchDist=null; tPinchMid=null;
-  } else if (touches.length === 1) {
-    t2=null; tPinchDist=null; tPinchMid=null;
-    t1 = {id:touches[0].identifier, x:touches[0].clientX, y:touches[0].clientY};
-  }
-}, {passive:false});
-
-wrap.addEventListener('touchcancel', () => {
-  t1=null; t2=null; tPinchDist=null; tPinchMid=null;
-}, {passive:true});
 
 </script>
 <!-- Modale aggancio manuale eventi -->
