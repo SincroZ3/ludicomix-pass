@@ -85,7 +85,10 @@
     /* #mapArea e #mapBgImg gestiti da Leaflet ImageOverlay */
 
     /* ── Stand SVG layer ─────────────────────────────────────────────── */
+    /* canvas stand layer — rendering via drawStands() */
     #mapWrap > canvas { display:block; }
+    .leaflet-overlay-pane { pointer-events: none; }
+
 
     /* ── Tooltip ─────────────────────────────────────────────────────── */
     .sm-tip{
@@ -401,7 +404,8 @@ const ADMIN_MIN_H = 520;
 const IS_AUTH   = <%- typeof isAuthenticated !== 'undefined' && isAuthenticated ? 'true' : 'false' %>;
 
 let stands  = [];
-let areaW   = 0, areaH = 0;
+let areaW = 0, areaH = 0;
+let _natW = 0, _natH = 0, _rImgW = 0, _rImgH = 0, _offX = 0;
 let leafMap = null;       // istanza Leaflet
 let imgBounds = null;     // bounds [[0,0],[areaH,areaW]] in CRS.Simple
 let standMarkers = {};    // id → L.marker
@@ -422,28 +426,20 @@ fetch('/api/mappa-stand/' + ZONE_ID)
 function initLeaflet(natW, natH) {
   if (!natW || !natH) { natW = 1200; natH = 800; }
 
-  // Stessa logica di calcolo dell'admin per replicare esattamente
-  // il posizionamento degli stand (background-size:contain, center top)
-  const imgAR = natW / natH;
-  const divAR = ADMIN_REF_W / ADMIN_MIN_H;
-  let renderedH;
-  if (imgAR > divAR) {
-    renderedH = ADMIN_REF_W / imgAR;
-  } else {
-    renderedH = ADMIN_MIN_H;
-  }
-  areaW = ADMIN_REF_W;
-  areaH = Math.max(ADMIN_MIN_H, renderedH);
+  _natW = natW; _natH = natH;
 
-  // In CRS.Simple y cresce verso il basso → bounds [y1,x1],[y2,x2]
-  // ma Leaflet ha y che cresce verso l'alto per default.
-  // Usiamo bounds con y invertito: [[-areaH,0],[0,areaW]]
-  // così il punto [0,0] dell'immagine corrisponde a lat=0,lng=0 in basso a sinistra
-  // e il punto [areaH,areaW] corrisponde a lat=-areaH,lng=areaW.
-  // Più semplice: usiamo [0,0] come top-left con transformation personalizzata
-  // → convenzione standard: bounds = [[0,0],[areaH,areaW]] con maxBounds simmetrico
+  // Replica esatta dell'admin: div ADMIN_REF_W × ADMIN_MIN_H,
+  // immagine con background-size:contain background-position:center top
+  const contScale = Math.min(ADMIN_REF_W / natW, ADMIN_MIN_H / natH);
+  _rImgW = natW * contScale;              // larghezza immagine resa nel div admin
+  _rImgH = natH * contScale;              // altezza  immagine resa nel div admin
+  _offX  = (ADMIN_REF_W - _rImgW) / 2;  // margine orizzontale (contain + center)
+  // offY = 0 → background-position:top, nessun margine sopra
 
-  imgBounds = [[0, 0], [areaH, areaW]];
+  // CRS Leaflet = pixel nativi dell'immagine
+  areaW = natW;
+  areaH = natH;
+  imgBounds = [[0, 0], [natH, natW]];
 
   leafMap = L.map('mapWrap', {
     crs: L.CRS.Simple,
@@ -466,7 +462,7 @@ function initLeaflet(natW, natH) {
 
   // Centra la mappa sull'immagine con padding
   leafMap.fitBounds(imgBounds, { padding: [24, 24] });
-  setTimeout(function() { leafMap.invalidateSize(); if (typeof drawStands==='function') drawStands(); }, 50);
+  setTimeout(function(){ leafMap.invalidateSize(); if (typeof drawStands === 'function') drawStands(); }, 60);
 
   // Chiudi sheet cliccando sulla mappa (non su uno stand)
   leafMap.on('click', closeSheet);
@@ -493,32 +489,65 @@ function initLeaflet(natW, natH) {
   }
 })();
 
-// ── Render stands — canvas sovrapposto, ridisegnato su ogni evento ───────────
-// Un <canvas> fisso sopra la mappa viene ridisegnato a ogni zoom/pan/resize.
-// latLngToContainerPoint converte CRS → pixel schermo → scala sempre corretta.
+// ── Conversione coordinate: admin % → LatLng Leaflet ──────────────────────────
+//
+// L'admin salva map_x/map_y come % del div (.map-area: ADMIN_REF_W × ADMIN_MIN_H)
+// con l'immagine in background-size:contain background-position:center top.
+// Qui convertiamo quelle % in coordinate Leaflet CRS.Simple (pixel nativi).
+//
+// Formula:
+//   scale  = min(ADMIN_REF_W/natW, ADMIN_MIN_H/natH)
+//   rImgW  = natW * scale,  rImgH = natH * scale
+//   offX   = (ADMIN_REF_W - rImgW) / 2           (margine sinistro contain+center)
+//   lng    = (map_x/100 * ADMIN_REF_W - offX) / rImgW * natW
+//   lat    = natH - (map_y/100 * ADMIN_MIN_H)     / rImgH * natH
 
-let standsCanvas = null;
-let standsCtx    = null;
+function adminPctToLatLng(pctX, pctY) {
+  const sx = pctX / 100 * ADMIN_REF_W;
+  const sy = pctY / 100 * ADMIN_MIN_H;
+  const lng = (sx - _offX) / _rImgW * _natW;
+  const lat = _natH - (sy / _rImgH * _natH);
+  return L.latLng(lat, lng);
+}
+
+function adminPctSizeToNat(pctW, pctH) {
+  return {
+    w: pctW / 100 * ADMIN_REF_W / _rImgW * _natW,
+    h: pctH / 100 * ADMIN_MIN_H / _rImgH * _natH
+  };
+}
+
+// ── Canvas stands layer ───────────────────────────────────────────────────────
+let standsCanvas   = null;
+let standsCtx      = null;
 let _activeStandId = null;
 
 function renderStands() {
   if (!standsCanvas) {
     standsCanvas = document.createElement('canvas');
-    standsCanvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:all;z-index:400;';
+    standsCanvas.style.cssText =
+      'position:absolute;top:0;left:0;pointer-events:all;z-index:450;';
     document.getElementById('mapWrap').appendChild(standsCanvas);
     standsCtx = standsCanvas.getContext('2d');
 
+    // Click → apri scheda stand
     standsCanvas.addEventListener('click', function(e) {
       const hit = hitTestStand(e);
-      if (hit) { _activeStandId = hit.s.id; drawStands(); openSheet(hit.s); }
-      else      { closeSheet(); }
+      if (hit) {
+        _activeStandId = hit.s.id;
+        drawStands();
+        openSheet(hit.s);
+      } else {
+        closeSheet();
+      }
     });
 
+    // Hover (desktop) → tooltip
     if (!isMobile) {
       standsCanvas.addEventListener('mousemove', function(e) {
         const hit = hitTestStand(e);
         if (hit) { showTip(e, hit.s); standsCanvas.style.cursor = 'pointer'; }
-        else      { hideTip();         standsCanvas.style.cursor = 'default'; }
+        else      { hideTip();         standsCanvas.style.cursor = 'default';  }
       });
       standsCanvas.addEventListener('mouseleave', hideTip);
     }
@@ -528,8 +557,8 @@ function renderStands() {
   standsCanvas.width  = wrap.offsetWidth;
   standsCanvas.height = wrap.offsetHeight;
 
-  leafMap.off('viewreset zoom move resize', _onMapRedraw);
-  leafMap.on( 'viewreset zoom move resize', _onMapRedraw);
+  leafMap.off('viewreset zoomend moveend resize', _onMapRedraw);
+  leafMap.on( 'viewreset zoomend moveend resize', _onMapRedraw);
 
   drawStands();
 }
@@ -543,96 +572,96 @@ function _onMapRedraw() {
 }
 
 function drawStands() {
-  if (!standsCtx || !leafMap) return;
+  if (!standsCtx || !leafMap || !_natW) return;
   const ctx = standsCtx;
   ctx.clearRect(0, 0, standsCanvas.width, standsCanvas.height);
   standMarkers = {};
 
-  stands.forEach(s => {
+  stands.forEach(function(s) {
     if (s.map_x == null || s.map_y == null) return;
 
-    const gw     = parseFloat(s.map_w   || 8);
-    const gh     = parseFloat(s.map_h   || 5);
-    const gr     = parseFloat(s.map_rot || 0) * Math.PI / 180;
-    const color  = s.color || '#1e2d4e';
-    const hasEv  = Array.isArray(s.events) && s.events.length > 0;
-    const label  = s.stand_code || s.name || '';
+    const gw    = parseFloat(s.map_w   || 8);
+    const gh    = parseFloat(s.map_h   || 5);
+    const rot   = parseFloat(s.map_rot || 0) * Math.PI / 180;
+    const color = s.color || '#1e2d4e';
+    const label = s.stand_code || s.name || '';
+    const hasEv = Array.isArray(s.events) && s.events.length > 0;
     const isActive = (s.id === _activeStandId);
 
-    const cx_px = parseFloat(s.map_x) / 100 * areaW;
-    const cy_px = parseFloat(s.map_y) / 100 * areaH;
-    const sw_px = gw / 100 * areaW;
-    const sh_px = gh / 100 * areaH;
+    // Centro in CRS nativi
+    const center = adminPctToLatLng(parseFloat(s.map_x), parseFloat(s.map_y));
+    // Half-size in unità native
+    const sz  = adminPctSizeToNat(gw, gh);
+    const hw  = sz.w / 2, hh = sz.h / 2;
 
-    // Coordinate schermo (pixel canvas) tramite Leaflet
-    const cCenter = leafMap.latLngToContainerPoint(L.latLng(areaH - cy_px, cx_px));
-    const cTL     = leafMap.latLngToContainerPoint(L.latLng(areaH - (cy_px - sh_px/2), cx_px - sw_px/2));
-    const cBR     = leafMap.latLngToContainerPoint(L.latLng(areaH - (cy_px + sh_px/2), cx_px + sw_px/2));
+    // Converti i 4 angoli in pixel schermo per trovare w/h canvas
+    const cCenter = leafMap.latLngToContainerPoint(center);
+    const cTL = leafMap.latLngToContainerPoint(L.latLng(center.lat + hh, center.lng - hw));
+    const cBR = leafMap.latLngToContainerPoint(L.latLng(center.lat - hh, center.lng + hw));
     const w = Math.abs(cBR.x - cTL.x);
     const h = Math.abs(cBR.y - cTL.y);
     if (w < 1 || h < 1) return;
 
     ctx.save();
     ctx.translate(cCenter.x, cCenter.y);
-    if (gr) ctx.rotate(gr);
+    if (rot) ctx.rotate(rot);
 
-    // Forma
+    // Forma (custom polygon o rettangolo arrotondato)
     ctx.beginPath();
-    let customShape = false;
+    let usedCustom = false;
     if (s.map_shape) {
       try {
         const sp = JSON.parse(s.map_shape);
         if (Array.isArray(sp) && sp.length >= 3) {
-          sp.forEach((p, i) => {
-            const px_ = (p[0]/100 - 0.5) * w;
-            const py_ = (p[1]/100 - 0.5) * h;
-            i === 0 ? ctx.moveTo(px_, py_) : ctx.lineTo(px_, py_);
+          sp.forEach(function(p, i) {
+            const px = (p[0] / 100 - 0.5) * w;
+            const py = (p[1] / 100 - 0.5) * h;
+            i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
           });
           ctx.closePath();
-          customShape = true;
+          usedCustom = true;
         }
       } catch(e) {}
     }
-    if (!customShape) {
-      const r = Math.min(3, w * 0.07, h * 0.07);
-      const x = -w/2, y = -h/2;
-      ctx.moveTo(x+r, y);
-      ctx.lineTo(x+w-r, y); ctx.arcTo(x+w, y,   x+w, y+r,   r);
-      ctx.lineTo(x+w, y+h-r); ctx.arcTo(x+w, y+h, x+w-r, y+h, r);
-      ctx.lineTo(x+r, y+h); ctx.arcTo(x,   y+h, x,   y+h-r, r);
-      ctx.lineTo(x, y+r);   ctx.arcTo(x,   y,   x+r, y,     r);
+    if (!usedCustom) {
+      const r = Math.min(3, w * 0.08, h * 0.08);
+      const x = -w / 2, y = -h / 2;
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y,     x + w, y + r,   r);
+      ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+      ctx.lineTo(x + r, y + h); ctx.arcTo(x,     y + h, x,     y + h - r, r);
+      ctx.lineTo(x, y + r);   ctx.arcTo(x,     y,     x + r, y,         r);
       ctx.closePath();
     }
 
     ctx.fillStyle = color;
     ctx.fill();
 
+    // Bordo attivo / hover
     if (isActive) {
       ctx.strokeStyle = '#f5c842';
-      ctx.lineWidth   = Math.max(2, Math.min(w, h) * 0.06);
+      ctx.lineWidth   = Math.max(2, Math.min(w, h) * 0.07);
       ctx.stroke();
     }
 
-    // Label
-    if (label && w > 12 && h > 8) {
-      const fs = Math.max(8, Math.min(w * 0.22, h * 0.4, 18));
-      ctx.font          = 'bold ' + fs + 'px -apple-system,sans-serif';
-      ctx.fillStyle     = '#fff';
-      ctx.textAlign     = 'center';
-      ctx.textBaseline  = 'middle';
-      ctx.shadowColor   = 'rgba(0,0,0,0.85)';
-      ctx.shadowBlur    = 3;
+    // Etichetta
+    if (label && w > 14 && h > 9) {
+      const fs = Math.max(8, Math.min(w * 0.24, h * 0.42, 18));
+      ctx.font         = 'bold ' + fs + 'px -apple-system,sans-serif';
+      ctx.fillStyle    = '#fff';
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor  = 'rgba(0,0,0,0.85)';
+      ctx.shadowBlur   = 3;
       ctx.fillText(label, 0, 0, w - 4);
-      ctx.shadowBlur    = 0;
+      ctx.shadowBlur   = 0;
     }
 
     // Dot eventi
     if (hasEv) {
-      const r  = Math.max(4, Math.min(7, Math.min(w, h) * 0.12));
-      const dx = w/2 - r - 1;
-      const dy = -(h/2) + r + 1;
+      const dr = Math.max(4, Math.min(7, Math.min(w, h) * 0.12));
       ctx.beginPath();
-      ctx.arc(dx, dy, r, 0, Math.PI * 2);
+      ctx.arc(w / 2 - dr - 1, -(h / 2) + dr + 1, dr, 0, Math.PI * 2);
       ctx.fillStyle   = '#f5c842';
       ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,0.9)';
@@ -643,22 +672,22 @@ function drawStands() {
     ctx.restore();
 
     // Salva per hit-test
-    standMarkers[s.id] = { s, cx: cCenter.x, cy: cCenter.y, w, h, gr };
+    standMarkers[s.id] = { s: s, cx: cCenter.x, cy: cCenter.y, w: w, h: h, rot: rot };
   });
 }
 
+// Hit test con rotazione
 function hitTestStand(e) {
   const rect = standsCanvas.getBoundingClientRect();
   const mx = e.clientX - rect.left;
   const my = e.clientY - rect.top;
-  const keys = Object.keys(standMarkers).reverse();
-  for (const id of keys) {
-    const m  = standMarkers[id];
-    const dx = mx - m.cx;
-    const dy = my - m.cy;
-    const lx =  dx * Math.cos(-m.gr) - dy * Math.sin(-m.gr);
-    const ly =  dx * Math.sin(-m.gr) + dy * Math.cos(-m.gr);
-    if (Math.abs(lx) <= m.w/2 + 2 && Math.abs(ly) <= m.h/2 + 2) return m;
+  const ids = Object.keys(standMarkers).reverse();
+  for (var i = 0; i < ids.length; i++) {
+    const m  = standMarkers[ids[i]];
+    const dx = mx - m.cx, dy = my - m.cy;
+    const lx =  dx * Math.cos(-m.rot) - dy * Math.sin(-m.rot);
+    const ly =  dx * Math.sin(-m.rot) + dy * Math.cos(-m.rot);
+    if (Math.abs(lx) <= m.w / 2 + 4 && Math.abs(ly) <= m.h / 2 + 4) return m;
   }
   return null;
 }
@@ -930,7 +959,8 @@ function linkEvent(eventId, btn) {
           st.events.push(ev);
           st.events.sort((a,b) => ((a.date||'')+(a.start_time||'')).localeCompare((b.date||'')+(b.start_time||'')));
           // Aggiorna dot sulla mappa
-          drawStands();
+          // Ridisegna tutti gli stand per aggiornare il dot
+          renderStands();
         }
       }
       // Rimuovi dall'elenco disponibili e aggiorna la lista
@@ -955,9 +985,8 @@ function focusStand(id) {
   closeDrawer();
   const s = stands.find(x => x.id === id);
   if (!s || s.map_x == null || !leafMap) return;
-  const px = parseFloat(s.map_x) / 100 * areaW;
-  const py = parseFloat(s.map_y) / 100 * areaH;
-  leafMap.setView([areaH - py, px], Math.max(leafMap.getZoom(), 0.5), { animate: true });
+  const ll = adminPctToLatLng(parseFloat(s.map_x), parseFloat(s.map_y));
+  leafMap.setView(ll, Math.max(leafMap.getZoom(), 0.5), { animate: true });
   setTimeout(() => openSheet(s), 380);
 }
 (function(){
