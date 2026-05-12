@@ -33,7 +33,7 @@
     /* ── Pan/zoom wrapper ────────────────────────────────────────────── */
     #mapWrap{position:fixed;inset:0;overflow:hidden;cursor:grab;touch-action:none;}
     #mapWrap.grabbing{cursor:grabbing}
-    #mapInner{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform;user-select:none;}
+    #mapInner{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform;user-select:none;touch-action:none;}
 
     /*
      * #mapBg è l'immagine di sfondo come un vero <img> — occupa esattamente
@@ -80,6 +80,7 @@
     #mapArea{
       position:absolute;
       inset:0;
+      touch-action:none;
       /* nessun background: l'immagine è un <img> separato */
     }
     #mapBgImg{
@@ -914,6 +915,7 @@ wrap.addEventListener('click', closeSheet);
 
 // ── Pan & Zoom ─────────────────────────────────────────────────────────────────
 function applyT() {
+  inner.style.transition = '';
   inner.style.transform = 'translate('+tx+'px,'+ty+'px) scale('+sc+')';
 }
 function resetView(anim) {
@@ -978,6 +980,7 @@ wrap.addEventListener('wheel', e => {
 let tch={}, lDist=null, lMid=null, lSingle=null;
 
 wrap.addEventListener('touchstart', e => {
+  e.preventDefault();
   Array.from(e.changedTouches).forEach(t => { tch[t.identifier]={x:t.clientX,y:t.clientY}; });
   const ids = Object.keys(tch);
   if (ids.length === 1) {
@@ -989,7 +992,6 @@ wrap.addEventListener('touchstart', e => {
     const a=tch[ids[0]], b=tch[ids[1]];
     lDist = Math.hypot(b.x-a.x, b.y-a.y);
     lMid  = {x:(a.x+b.x)/2, y:(a.y+b.y)/2};
-    e.preventDefault();
   }
 }, {passive: false});
 
