@@ -711,7 +711,7 @@ function filterDrawer(q) {
 function excludeEvent(groupId, eventId, btn) {
   if (!confirm('Scollega questo evento dallo stand?')) return;
   btn.disabled = true;
-  fetch('/agenda/api/stand-event-exclude', {
+  fetch('/api/stand-event-exclude', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ group_id: groupId, event_id: eventId })
   })
@@ -732,7 +732,7 @@ function excludeEvent(groupId, eventId, btn) {
 
 function unexcludeEvent(groupId, eventId, btn) {
   btn.disabled = true;
-  fetch('/agenda/api/stand-event-unexclude', {
+  fetch('/api/stand-event-unexclude', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ group_id: groupId, event_id: eventId })
   })
