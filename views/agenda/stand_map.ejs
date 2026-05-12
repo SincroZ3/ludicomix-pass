@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Mappa Stand — <%= zone.name %> · Ludicomix</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     html,body{height:100%;width:100%;overflow:hidden;
@@ -420,7 +420,7 @@
   </div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WLcE=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ── Configurazione ────────────────────────────────────────────────────────────
 const ZONE_ID   = <%= zoneId %>;
@@ -624,7 +624,7 @@ function hideTip() { tip.classList.remove('show'); }
 function openSheet(s) {
   hideTip();
   closeDrawer();
-  area.querySelectorAll('.sm-stand').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.sm-stand').forEach(el => el.classList.remove('active'));
   const el = document.getElementById('smst-' + s.id);
   if (el) el.classList.add('active');
 
@@ -691,7 +691,7 @@ function esc(str) {
 function closeSheet() {
   document.getElementById('smSheet').classList.remove('open');
   document.getElementById('smOverlay').classList.remove('open');
-  area.querySelectorAll('.sm-stand').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.sm-stand').forEach(el => el.classList.remove('active'));
 }
 
 // ── Drawer lista stand ─────────────────────────────────────────────────────────
