@@ -556,7 +556,8 @@ function renderStands() {
 
     const lbl = document.createElement('div');
     lbl.className   = 'sm-lbl';
-    lbl.textContent = s.stand_code || (s.name || '').substring(0, 6);
+    const displayName = (s.stand_name && s.stand_name !== s.stand_code) ? s.stand_name : (s.stand_code || s.name || '');
+    lbl.textContent = displayName.length > 10 ? displayName.substring(0, 9) + '…' : displayName;
     el.appendChild(lbl);
 
     el.addEventListener('click', e => { e.stopPropagation(); openSheet(s); });
@@ -572,8 +573,9 @@ function renderStands() {
 // ── Tooltip ───────────────────────────────────────────────────────────────────
 const tip = document.getElementById('smTip');
 function showTip(e, s) {
-  document.getElementById('tipCode').textContent = s.stand_code || '';
-  document.getElementById('tipName').textContent = s.stand_name || s.stand_code || '';
+  document.getElementById('tipCode').textContent = s.stand_code || s.name || '';
+  const tName = (s.stand_name && s.stand_name !== s.stand_code && s.stand_name !== s.name) ? s.stand_name : '';
+  document.getElementById('tipName').textContent = tName;
   document.getElementById('tipEv').textContent   =
     Array.isArray(s.events) && s.events.length
       ? '🗓 ' + s.events.length + (s.events.length === 1 ? ' evento' : ' eventi') : '';
@@ -602,7 +604,7 @@ function openSheet(s) {
     '<div class="sm-shead">' +
       '<div class="sm-badge">' + esc(s.stand_code || '') + '</div>' +
       '<div>' +
-        '<div class="sm-sname">' + esc(s.stand_name || s.stand_code || '') + '</div>' +
+        '<div class="sm-sname">' + esc((s.stand_name && s.stand_name !== s.stand_code) ? s.stand_name : (s.name && s.name !== s.stand_code ? s.name : '')) + '</div>' +
         (s.zone ? '<div class="sm-scat">🗺 ' + esc(s.zone) + '</div>' : '') +
       '</div>' +
     '</div>';
