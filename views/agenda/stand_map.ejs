@@ -574,7 +574,7 @@ function renderStands() {
 const tip = document.getElementById('smTip');
 function showTip(e, s) {
   document.getElementById('tipCode').textContent = s.stand_code || s.name || '';
-  const tName = (s.stand_name && s.stand_name !== s.stand_code && s.stand_name !== s.name) ? s.stand_name : '';
+  const tName = (s.stand_name && s.stand_name !== s.stand_code) ? s.stand_name : (s.name && s.name !== s.stand_code ? s.name : '');
   document.getElementById('tipName').textContent = tName;
   document.getElementById('tipEv').textContent   =
     Array.isArray(s.events) && s.events.length
@@ -681,7 +681,7 @@ function openDrawer() {
           '<div style="min-width:0;flex:1">' +
             '<div style="display:flex;align-items:center;gap:.35rem">' +
               (s.stand_code ? '<span class="sm-drawer-code">' + esc(s.stand_code) + '</span>' : '') +
-              '<span class="sm-drawer-name">' + esc(s.stand_name || s.stand_code || '') + '</span>' +
+              '<span class="sm-drawer-name">' + esc((s.stand_name && s.stand_name !== s.stand_code) ? s.stand_name : (s.name && s.name !== s.stand_code ? s.name : '')) + '</span>' +
             '</div>' +
             (s.zone ? '<div class="sm-drawer-loc">🗺 ' + esc(s.zone) + '</div>' : '') +
           '</div>' +
