@@ -96,6 +96,13 @@
 .map-toolbar{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin-bottom:.6rem}
 .leg{display:inline-flex;padding:.2rem .65rem;border-radius:9999px;font-size:.75rem;font-weight:700;color:#fff}
 .save-badge{position:fixed;bottom:1.2rem;right:1.2rem;background:#2d6a4f;color:#fff;padding:.4rem .9rem;border-radius:9999px;font-size:.78rem;font-weight:700;display:none;box-shadow:0 3px 12px rgba(0,0,0,.25);z-index:9999}
+.oob-tray{margin-top:.6rem;background:#fffbeb;border:1.5px solid #f59e0b;border-radius:var(--radius-lg,10px);padding:.55rem .75rem}
+.oob-tray-hdr{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#92400e;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
+.oob-badge{background:#f59e0b;color:#fff;border-radius:999px;padding:0 .45rem;font-size:.68rem;font-weight:800;line-height:1.6}
+.oob-chips{display:flex;flex-direction:column;gap:.35rem}
+.oob-chip{display:flex;align-items:center;gap:.5rem;background:#fff;border:1px solid #fde68a;border-radius:8px;padding:.35rem .6rem}
+.oob-reset-btn{margin-left:auto;background:#f59e0b;color:#fff;border:none;border-radius:6px;padding:.25rem .6rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:background .15s}
+.oob-reset-btn:hover{background:#d97706}
 @media(max-width:680px){.map-wrap{flex-direction:column}.map-sidebar{width:100%}}
 </style>
 
@@ -220,6 +227,37 @@ var noZoneGroups=groups.filter(function(g){return !g.zone||zoneNames.indexOf(g.z
       <% });} %>
     </div>
   </div>
+  <!-- Tray stand fuori mappa (map_x/map_y fuori range) -->
+  <%
+    var outOfBounds = positioned.filter(function(g){
+      return g.map_x < 0 || g.map_x > 100 || g.map_y < 0 || g.map_y > 100;
+    });
+  %>
+  <% if(outOfBounds.length > 0){ %>
+  <div class="oob-tray" id="oob-tray-<%=z.id%>">
+    <div class="oob-tray-hdr">
+      &#9888;&#65039; Stand fuori dalla mappa
+      <span class="oob-badge"><%=outOfBounds.length%></span>
+      <span style="font-size:.65rem;font-weight:400;margin-left:.3rem;color:#92400e">coordinate fuori dal range — clicca per riportare al centro</span>
+    </div>
+    <div class="oob-chips">
+      <% outOfBounds.forEach(function(g){ %>
+        <div class="oob-chip">
+          <span class="chip-dot" style="background:<%=sc(g)%>"></span>
+          <div class="chip-info">
+            <div class="chip-name"><%=g.stand_name%></div>
+            <div class="chip-stat">map_x=<%=g.map_x!=null?g.map_x.toFixed(1):'null'%>% map_y=<%=g.map_y!=null?g.map_y.toFixed(1):'null'%>%</div>
+          </div>
+          <% if(canEdit){ %>
+          <button class="oob-reset-btn" onclick="resetStandToCenter(<%=g.id%>, <%=z.id%>)" title="Riporta al centro della mappa">
+            &#8982; Riporta al centro
+          </button>
+          <% } %>
+        </div>
+      <% }); %>
+    </div>
+  </div>
+  <% } %>
   <% } %>
 </div>
 <% }); %>
@@ -380,6 +418,38 @@ function removeFromMap(gid,zid){
 }
 function gColor(g){if(!g.pass_count)return'#9ca3af';var p=g.consegnati/g.pass_count;return p>=.8?'#2d6a4f':p>0?'#c9a227':'#c0392b';}
 function showSaved(){var b=document.getElementById('save-badge');b.style.display='block';clearTimeout(b._t);b._t=setTimeout(function(){b.style.display='none';},2000);}
+
+function resetStandToCenter(gid, zid){
+  if(!confirm('Riportare lo stand al centro della mappa (50%, 50%)? Potrai poi riposizionarlo manualmente.')) return;
+  var g = GDATA.find(function(x){return x.id==gid;});
+  fetch('/admin/groups/'+gid+'/map-xy',{
+    method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:'map_x=50.00&map_y=50.00'
+  }).then(function(r){return r.json();}).then(function(d){
+    if(!d.ok){alert('Errore nel salvataggio'); return;}
+    if(g){g.map_x=50;g.map_y=50;}
+    // Rimuovi l'oob-tray se ora non ci sono più stand fuori
+    var tray = document.getElementById('oob-tray-'+zid);
+    var chip = tray ? tray.querySelector('[data-gid="'+gid+'"]') : null;
+    if(tray){
+      var remaining = tray.querySelectorAll('.oob-chip');
+      if(remaining.length <= 1) tray.style.display='none';
+      else if(chip) chip.remove();
+    }
+    // Aggiungi lo stand alla mappa visivamente
+    var ma = document.getElementById('map-area-'+zid);
+    var existing = document.getElementById('sbox-'+gid);
+    if(existing) existing.remove();
+    if(ma && g){
+      var box = _mkBox(g, 50, 50, zid);
+      ma.appendChild(box);
+      var hint = document.getElementById('hint-'+zid);
+      if(hint) hint.style.display='none';
+    }
+    showSaved();
+  }).catch(function(){alert('Errore di rete');});
+}
 document.addEventListener('dragend',function(){document.querySelectorAll('.stand-box,.sidebar-box').forEach(function(el){el.classList.remove('dragging');});activeDragId=null;});
 </script>
 <% } %>
@@ -626,6 +696,9 @@ function resetShape(){
 function saveShape(){
   if(!SS.active)return;
   var gid=SS.gid;
+  // Clamp mx/my: se il centro è uscito dal div, riportalo entro [2,98]
+  SS.mx=Math.max(2,Math.min(98,SS.mx));
+  SS.my=Math.max(2,Math.min(96,SS.my));
   var ir=_isRect(SS.shape);
   var rshape=SS.shape.map(function(p){return[Math.round(p[0]*10)/10,Math.round(p[1]*10)/10];});
   var body='map_x='+SS.mx.toFixed(3)+'&map_y='+SS.my.toFixed(3)+
@@ -714,7 +787,7 @@ function _mv(cx,cy,shiftKey){
     else if(i===1){nw=Math.max(1.5,SS.startMw+dxP);nh=Math.max(1.5,SS.startMh-dyP);nx=SS.startMx+(nw-SS.startMw)/2;ny=SS.startMy+(SS.startMh-nh)/2;}
     else if(i===2){nw=Math.max(1.5,SS.startMw+dxP);nh=Math.max(1.5,SS.startMh+dyP);nx=SS.startMx+(nw-SS.startMw)/2;ny=SS.startMy+(nh-SS.startMh)/2;}
     else{nw=Math.max(1.5,SS.startMw-dxP);nh=Math.max(1.5,SS.startMh+dyP);nx=SS.startMx+(SS.startMw-nw)/2;ny=SS.startMy+(nh-SS.startMh)/2;}
-    SS.mx=nx;SS.my=ny;SS.mw=nw;SS.mh=nh;SS.shape=[[0,0],[100,0],[100,100],[0,100]];
+    SS.mx=Math.max(0.5,Math.min(99.5,nx));SS.my=Math.max(0.5,Math.min(99.5,ny));SS.mw=nw;SS.mh=nh;SS.shape=[[0,0],[100,0],[100,100],[0,100]];
   }else{
     var bwPx=SS.startMw/100*d.w,bhPx=SS.startMh/100*d.h;
     var ns=JSON.parse(JSON.stringify(SS.startShape));
