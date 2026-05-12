@@ -913,9 +913,9 @@ function focusStand(id) {
 })();
 wrap.addEventListener('click', closeSheet);
 
-// ── Pan & Zoom ─────────────────────────────────────────────────────────────────
-function applyT() {
-  inner.style.transition = '';
+// ── Pan & Zoom — Pointer Events API (mouse + touch + trackpad) ──────────────
+function applyT(animated) {
+  if (!animated) inner.style.transition = 'none';
   inner.style.transform = 'translate('+tx+'px,'+ty+'px) scale('+sc+')';
 }
 function resetView(anim) {
@@ -924,36 +924,93 @@ function resetView(anim) {
   sc = Math.min(vw/areaW, vh/areaH) * 0.92;
   tx = (vw - areaW*sc) / 2;
   ty = (vh - areaH*sc) / 2;
-  if (anim !== false) inner.style.transition = 'transform .35s ease';
-  applyT();
-  if (anim !== false) setTimeout(() => inner.style.transition = '', 360);
+  inner.style.transition = anim !== false ? 'transform .35s ease' : 'none';
+  inner.style.transform  = 'translate('+tx+'px,'+ty+'px) scale('+sc+')';
 }
 function doZoom(f) {
   const vw = wrap.clientWidth, vh = wrap.clientHeight;
   const cx = vw/2, cy = vh/2;
   const ns = Math.min(5, Math.max(0.2, sc*f));
-  const r  = ns/sc;
-  tx = cx - r*(cx-tx); ty = cy - r*(cy-ty); sc = ns;
+  const ra = ns/sc;
+  tx = cx - ra*(cx-tx); ty = cy - ra*(cy-ty); sc = ns;
   inner.style.transition = 'transform .2s ease';
-  applyT();
-  setTimeout(() => inner.style.transition = '', 220);
+  inner.style.transform  = 'translate('+tx+'px,'+ty+'px) scale('+sc+')';
 }
 
-// ── Mouse drag (area vuota) ──────────────────────────────────────
-let drag=false, dsx=0, dsy=0, dtx=0, dty=0;
-wrap.addEventListener('mousedown', e => {
-  if (e.target.closest('.sm-stand,.sm-sheet,.sm-drawer,.sm-ctrl,.sm-legend,.sm-header,.sm-drawer-overlay')) return;
-  drag=true; dsx=e.clientX; dsy=e.clientY; dtx=tx; dty=ty;
-  wrap.classList.add('grabbing');
-  e.preventDefault();
-});
-window.addEventListener('mousemove', e => {
-  if (!drag) return;
-  tx=dtx+(e.clientX-dsx); ty=dty+(e.clientY-dsy); applyT();
-});
-window.addEventListener('mouseup', () => { drag=false; wrap.classList.remove('grabbing'); });
+// ── Pointer Events: gestisce mouse E touch con un unico set di listener ───────
+// activePointers tiene traccia di tutti i puntatori attivi (dita/mouse)
+const activePointers = new Map(); // pointerId → {x, y}
+let lastPinchDist = null;
+let lastPinchMid  = null;
 
-// ── Wheel: trackpad two-finger scroll = PAN; pinch/ctrl+wheel = ZOOM ──
+wrap.addEventListener('pointerdown', e => {
+  // Ignora click su stand, controlli, overlay aperti
+  if (e.target.closest('.sm-stand,.sm-ctrl,.sm-legend,.sm-header')) return;
+  if (document.getElementById('smSheet').classList.contains('open') && e.target.closest('.sm-sheet')) return;
+  if (document.getElementById('smDrawer').classList.contains('open') && e.target.closest('.sm-drawer')) return;
+
+  wrap.setPointerCapture(e.pointerId);
+  activePointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+
+  if (activePointers.size === 1) {
+    // Un solo dito/mouse: prepara pan
+    wrap.classList.add('grabbing');
+    lastPinchDist = null;
+    lastPinchMid  = null;
+  } else if (activePointers.size === 2) {
+    // Due dita: prepara pinch
+    const pts = [...activePointers.values()];
+    lastPinchDist = Math.hypot(pts[1].x-pts[0].x, pts[1].y-pts[0].y);
+    lastPinchMid  = {x:(pts[0].x+pts[1].x)/2, y:(pts[0].y+pts[1].y)/2};
+  }
+  e.preventDefault();
+}, {passive: false});
+
+wrap.addEventListener('pointermove', e => {
+  if (!activePointers.has(e.pointerId)) return;
+
+  const prev = activePointers.get(e.pointerId);
+  activePointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+
+  if (activePointers.size === 1) {
+    // PAN con 1 puntatore
+    tx += e.clientX - prev.x;
+    ty += e.clientY - prev.y;
+    applyT(false);
+
+  } else if (activePointers.size === 2) {
+    // PINCH ZOOM con 2 puntatori
+    const pts = [...activePointers.values()];
+    const dist = Math.hypot(pts[1].x-pts[0].x, pts[1].y-pts[0].y);
+    const mid  = {x:(pts[0].x+pts[1].x)/2, y:(pts[0].y+pts[1].y)/2};
+
+    if (lastPinchDist && lastPinchMid) {
+      const r  = wrap.getBoundingClientRect();
+      const cx = mid.x - r.left;
+      const cy = mid.y - r.top;
+      const ns = Math.min(5, Math.max(0.2, sc * (dist / lastPinchDist)));
+      const ra = ns / sc;
+      // Zoom centrato sul punto medio + pan simultaneo
+      tx = cx - ra*(cx-tx) + (mid.x - lastPinchMid.x);
+      ty = cy - ra*(cy-ty) + (mid.y - lastPinchMid.y);
+      sc = ns;
+      applyT(false);
+    }
+    lastPinchDist = dist;
+    lastPinchMid  = mid;
+  }
+  e.preventDefault();
+}, {passive: false});
+
+function _pointerUp(e) {
+  activePointers.delete(e.pointerId);
+  if (activePointers.size < 2) { lastPinchDist = null; lastPinchMid = null; }
+  if (activePointers.size === 0) wrap.classList.remove('grabbing');
+}
+wrap.addEventListener('pointerup',     _pointerUp, {passive: true});
+wrap.addEventListener('pointercancel', _pointerUp, {passive: true});
+
+// ── Wheel: trackpad two-finger scroll = PAN; pinch/ctrl+wheel = ZOOM ─────────
 wrap.addEventListener('wheel', e => {
   e.preventDefault();
   const r  = wrap.getBoundingClientRect();
@@ -966,75 +1023,16 @@ wrap.addEventListener('wheel', e => {
     const f  = Math.pow(0.99, delta);
     const ns = Math.min(5, Math.max(0.2, sc * f));
     const ra = ns / sc;
-    tx = cx - ra*(cx-tx); ty = cy - ra*(cy-ty); sc = ns; applyT();
+    tx = cx - ra*(cx-tx); ty = cy - ra*(cy-ty); sc = ns;
   } else {
-    // Two-finger scroll senza modificatori → PAN
+    // Two-finger scroll trackpad → PAN
     const mul = e.deltaMode === 1 ? 15 : e.deltaMode === 2 ? 100 : 1;
     tx -= e.deltaX * mul;
     ty -= e.deltaY * mul;
-    applyT();
   }
+  applyT(false);
 }, {passive: false});
 
-// ── Touch: 1 dito = pan, 2 dita = pinch zoom ────────────────────
-let tch={}, lDist=null, lMid=null, lSingle=null;
-
-wrap.addEventListener('touchstart', e => {
-  e.preventDefault();
-  Array.from(e.changedTouches).forEach(t => { tch[t.identifier]={x:t.clientX,y:t.clientY}; });
-  const ids = Object.keys(tch);
-  if (ids.length === 1) {
-    lSingle = {x:tch[ids[0]].x, y:tch[ids[0]].y};
-    lDist = null; lMid = null;
-  }
-  if (ids.length >= 2) {
-    lSingle = null;
-    const a=tch[ids[0]], b=tch[ids[1]];
-    lDist = Math.hypot(b.x-a.x, b.y-a.y);
-    lMid  = {x:(a.x+b.x)/2, y:(a.y+b.y)/2};
-  }
-}, {passive: false});
-
-wrap.addEventListener('touchmove', e => {
-  e.preventDefault();
-  Array.from(e.changedTouches).forEach(t => { tch[t.identifier]={x:t.clientX,y:t.clientY}; });
-  const ids = Object.keys(tch);
-
-  if (ids.length === 1 && lSingle) {
-    const cur = tch[ids[0]];
-    tx += cur.x - lSingle.x;
-    ty += cur.y - lSingle.y;
-    lSingle = {x:cur.x, y:cur.y};
-    applyT();
-  } else if (ids.length >= 2) {
-    const a=tch[ids[0]], b=tch[ids[1]];
-    const dist = Math.hypot(b.x-a.x, b.y-a.y);
-    const mid  = {x:(a.x+b.x)/2, y:(a.y+b.y)/2};
-    if (lDist && lMid) {
-      const r  = wrap.getBoundingClientRect();
-      const cx = mid.x - r.left;
-      const cy = mid.y - r.top;
-      const ns = Math.min(5, Math.max(0.2, sc*(dist/lDist)));
-      const ra = ns/sc;
-      tx = cx - ra*(cx-tx) + (mid.x - lMid.x);
-      ty = cy - ra*(cy-ty) + (mid.y - lMid.y);
-      sc = ns; applyT();
-    }
-    lDist = dist; lMid = mid; lSingle = null;
-  }
-}, {passive: false});
-
-wrap.addEventListener('touchend', e => {
-  Array.from(e.changedTouches).forEach(t => { delete tch[t.identifier]; });
-  const ids = Object.keys(tch);
-  if (ids.length < 2) { lDist=null; lMid=null; }
-  lSingle = ids.length===1 ? {x:tch[ids[0]].x, y:tch[ids[0]].y} : null;
-}, {passive: false});
-
-wrap.addEventListener('touchcancel', e => {
-  Array.from(e.changedTouches).forEach(t => { delete tch[t.identifier]; });
-  lDist=null; lMid=null; lSingle=null;
-}, {passive: true});
 </script>
 <!-- Modale aggancio manuale eventi -->
 <div class="sm-link-modal" id="smLinkModal">
