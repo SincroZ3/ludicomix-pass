@@ -84,37 +84,18 @@
 
     /* #mapArea e #mapBgImg gestiti da Leaflet ImageOverlay */
 
-    /* ── Stand ───────────────────────────────────────────────────────── */
-    .sm-stand{
-      position:absolute;
-      transform:translate(-50%,-50%);
-      border-radius:4px;
-      padding:0;cursor:pointer;z-index:10;
-      display:flex;align-items:center;justify-content:center;
-      overflow:visible;
-      touch-action:none;
-      transition:box-shadow .12s,filter .12s;
+    /* ── Stand SVG layer ─────────────────────────────────────────────── */
+    .sm-stand-svg { cursor:pointer; }
+    .sm-stand-svg:hover > rect,
+    .sm-stand-svg:hover > polygon,
+    .sm-stand-svg.active > rect,
+    .sm-stand-svg.active > polygon {
+      filter: brightness(1.35);
+      stroke: #f5c842;
+      stroke-width: 2.5px;
     }
-    .sm-stand:hover,.sm-stand.active{
-      filter:brightness(1.35);
-      box-shadow:0 0 0 2.5px #f5c842,0 4px 14px rgba(0,0,0,.5);
-      z-index:20;
-    }
-    .sm-stand.has-events .sm-dot{
-      position:absolute;top:2px;right:2px;width:7px;height:7px;
-      border-radius:50%;background:#f5c842;
-      border:1.5px solid rgba(255,255,255,.9);
-      box-shadow:0 0 4px rgba(245,200,66,.8);
-      pointer-events:none;z-index:5;
-    }
-    .sm-lbl{
-      font-size:.6rem;font-weight:900;color:#fff;
-      text-align:center;line-height:1.1;
-      pointer-events:none;padding:1px 3px;
-      text-shadow:0 1px 3px rgba(0,0,0,.9);
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-      max-width:100%;position:relative;z-index:2;
-    }
+    .leaflet-overlay-pane { pointer-events: none; }
+    .leaflet-overlay-pane svg { overflow: visible; }
 
     /* ── Tooltip ─────────────────────────────────────────────────────── */
     .sm-tip{
@@ -521,81 +502,163 @@ function initLeaflet(natW, natH) {
   }
 })();
 
-// ── Render stands — Leaflet DivIcon markers ──────────────────────────────────
+// ── Render stands — SVG layer su overlayPane, aggiornato da Leaflet ──────────
+// Usiamo un singolo <svg> fisso nell'overlayPane di Leaflet.
+// Su ogni 'viewreset'/'zoom'/'move' ricalcoliamo le posizioni con
+// map.latLngToLayerPoint() → gli stand restano solidali alla mappa al 100%.
+
+let standsSvgRoot = null;  // il <svg> globale nel pane
+
 function renderStands() {
-  // Rimuovi marker esistenti
-  Object.values(standMarkers).forEach(m => m.remove());
-  standMarkers = {};
+  // Crea (o svuota) il root SVG nel pane di Leaflet
+  const pane = leafMap.getPanes().overlayPane;
+  if (standsSvgRoot) {
+    standsSvgRoot.remove();
+  }
+  const svgNS = 'http://www.w3.org/2000/svg';
+  standsSvgRoot = document.createElementNS(svgNS, 'svg');
+  standsSvgRoot.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;overflow:visible;pointer-events:none;';
+  pane.appendChild(standsSvgRoot);
+
+  standMarkers = {};   // id → { s, gEl, cx_crs, cy_crs, sw_crs, sh_crs, gr }
 
   stands.forEach(s => {
     if (s.map_x == null || s.map_y == null) return;
 
-    const gw  = parseFloat(s.map_w  || 8);
-    const gh  = parseFloat(s.map_h  || 5);
-    const gr  = parseFloat(s.map_rot || 0);
+    const gw    = parseFloat(s.map_w  || 8);
+    const gh    = parseFloat(s.map_h  || 5);
+    const gr    = parseFloat(s.map_rot || 0);
     const color = s.color || '#1e2d4e';
-
-    // Coordinate % → pixel nel sistema admin
-    // In Leaflet CRS.Simple: lat = y_pixel (dall'alto), lng = x_pixel
-    const px = parseFloat(s.map_x) / 100 * areaW;
-    const py = parseFloat(s.map_y) / 100 * areaH;
-
-    // Dimensioni in pixel dello stand
-    const sw = gw / 100 * areaW;
-    const sh = gh / 100 * areaH;
-
     const hasEv = Array.isArray(s.events) && s.events.length > 0;
+    const label = s.stand_code || s.name || '';
 
-    // Costruisce HTML del marker
-    let innerStyle = 'width:100%;height:100%;background:' + color + ';border-radius:4px;' +
-      'display:flex;align-items:center;justify-content:center;overflow:visible;position:relative;';
-    if (gr) innerStyle += 'transform:rotate(' + gr + 'deg);';
+    // Coordinate centro in pixel admin (y verso il basso)
+    const cx_px = parseFloat(s.map_x) / 100 * areaW;
+    const cy_px = parseFloat(s.map_y) / 100 * areaH;
+    const sw_px = gw / 100 * areaW;
+    const sh_px = gh / 100 * areaH;
 
-    let clipPath = '';
+    // Punto centro in CRS.Simple (lat = areaH - cy perché Leaflet ha y verso l'alto)
+    const crs_lat = areaH - cy_px;
+    const crs_lng = cx_px;
+
+    // Costruiamo il <g> SVG per questo stand (in coordinate "virtuale" - scalato da updateStands)
+    const g = document.createElementNS(svgNS, 'g');
+    g.setAttribute('id', 'smst-' + s.id);
+    g.setAttribute('class', 'sm-stand-svg' + (hasEv ? ' has-events' : ''));
+    g.style.cursor = 'pointer';
+    g.style.pointerEvents = 'all';
+
+    // Shape: rect o polygon custom
+    let shapeEl;
     if (s.map_shape) {
       try {
         const sp = JSON.parse(s.map_shape);
         if (Array.isArray(sp) && sp.length >= 3) {
-          clipPath = 'clip-path:polygon(' + sp.map(p => p[0] + '% ' + p[1] + '%').join(',') + ');';
+          // sp è in % del bounding box 0-100, convertiamo in pixel relativi al centro
+          const ptsList = sp.map(p => {
+            const px_ = (p[0]/100 - 0.5) * sw_px;
+            const py_ = (0.5 - p[1]/100) * sh_px;  // y invertita per SVG
+            return px_ + ',' + py_;
+          }).join(' ');
+          shapeEl = document.createElementNS(svgNS, 'polygon');
+          shapeEl.setAttribute('points', ptsList);
+          shapeEl.setAttribute('fill', color);
         }
       } catch(e) {}
     }
-    if (clipPath) innerStyle += clipPath;
+    if (!shapeEl) {
+      shapeEl = document.createElementNS(svgNS, 'rect');
+      shapeEl.setAttribute('x', -sw_px/2);
+      shapeEl.setAttribute('y', -sh_px/2);
+      shapeEl.setAttribute('width', sw_px);
+      shapeEl.setAttribute('height', sh_px);
+      shapeEl.setAttribute('fill', color);
+      shapeEl.setAttribute('rx', Math.min(3, sw_px * 0.04));
+    }
+    g.appendChild(shapeEl);
 
-    const dotHtml  = hasEv
-      ? '<div class="sm-dot" style="position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:#f5c842;border:1.5px solid rgba(255,255,255,.9);box-shadow:0 0 4px rgba(245,200,66,.8);pointer-events:none;z-index:5;"></div>'
-      : '';
-    const lblHtml  = '<div class="sm-lbl">' + (s.stand_code || s.name || '') + '</div>';
-    const iconHtml = '<div id="smst-' + s.id + '" class="sm-stand' + (hasEv ? ' has-events' : '') +
-      '" style="width:' + sw + 'px;height:' + sh + 'px;">' +
-      '<div style="' + innerStyle + '">' + dotHtml + lblHtml + '</div>' +
-      '</div>';
-
-    const icon = L.divIcon({
-      html: iconHtml,
-      className: '',
-      iconSize:   [sw, sh],
-      iconAnchor: [sw/2, sh/2],
-    });
-
-    // In Leaflet CRS.Simple lat=y, lng=x
-    // Nota: Leaflet ha y che cresce verso l'alto, ma noi usiamo bounds [[0,0],[areaH,areaW]]
-    // con CRS.Simple non invertito → lat=areaH-py per convertire da top-left a bottom-left
-    const marker = L.marker([areaH - py, px], { icon: icon, interactive: true })
-      .addTo(leafMap);
-
-    marker.on('click', function(e) {
-      L.DomEvent.stopPropagation(e);
-      openSheet(s);
-    });
-
-    if (!isMobile) {
-      marker.on('mouseover', function(e) { showTip(e.originalEvent, s); });
-      marker.on('mousemove', function(e) { moveTip(e.originalEvent); });
-      marker.on('mouseout',  function()  { hideTip(); });
+    // Dot eventi (angolo top-right)
+    if (hasEv) {
+      const dot = document.createElementNS(svgNS, 'circle');
+      const r = Math.max(4, Math.min(8, sw_px * 0.08));
+      dot.setAttribute('cx', sw_px/2 - r);
+      dot.setAttribute('cy', -sh_px/2 + r);
+      dot.setAttribute('r', r);
+      dot.setAttribute('fill', '#f5c842');
+      dot.setAttribute('stroke', 'rgba(255,255,255,0.9)');
+      dot.setAttribute('stroke-width', '1.5');
+      dot.style.pointerEvents = 'none';
+      g.appendChild(dot);
     }
 
-    standMarkers[s.id] = marker;
+    // Label testo
+    if (label) {
+      const txt = document.createElementNS(svgNS, 'text');
+      txt.setAttribute('x', '0');
+      txt.setAttribute('y', '0');
+      txt.setAttribute('text-anchor', 'middle');
+      txt.setAttribute('dominant-baseline', 'middle');
+      const fs = Math.max(8, Math.min(sw_px * 0.18, sh_px * 0.35, 20));
+      txt.setAttribute('font-size', fs);
+      txt.setAttribute('font-weight', '900');
+      txt.setAttribute('fill', '#fff');
+      txt.setAttribute('font-family', '-apple-system,sans-serif');
+      txt.style.pointerEvents = 'none';
+      txt.style.filter = 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))';
+      txt.textContent = label;
+      g.appendChild(txt);
+    }
+
+    // Rotazione attorno al centro
+    if (gr) g.setAttribute('transform', 'rotate(' + gr + ')');
+
+    standsSvgRoot.appendChild(g);
+
+    // Click / hover
+    g.addEventListener('click', function(e) {
+      e.stopPropagation();
+      document.querySelectorAll('.sm-stand-svg').forEach(el => el.classList.remove('active'));
+      g.classList.add('active');
+      openSheet(s);
+    });
+    if (!isMobile) {
+      g.addEventListener('mouseenter', function(e) { showTip(e, s); });
+      g.addEventListener('mousemove',  function(e) { moveTip(e); });
+      g.addEventListener('mouseleave', function()  { hideTip(); });
+    }
+
+    standMarkers[s.id] = { s, g, crs_lat, crs_lng, sw_px, sh_px, gr };
+  });
+
+  // Primo posizionamento
+  updateStandPositions();
+
+  // Aggiorna posizioni ad ogni zoom/pan/resize
+  leafMap.off('viewreset zoom move', updateStandPositions);
+  leafMap.on('viewreset zoom move',  updateStandPositions);
+}
+
+function updateStandPositions() {
+  if (!standsSvgRoot || !leafMap) return;
+  // Offset del pane (Leaflet muove il pane durante il pan per efficienza)
+  const panePos = L.DomUtil.getPosition(leafMap.getPanes().overlayPane);
+  Object.values(standMarkers).forEach(function(m) {
+    // Converte coordinate CRS nel punto pixel del pane
+    const pt = leafMap.latLngToLayerPoint([m.crs_lat, m.crs_lng]);
+    // Sottrae l'offset del pane perché il SVG è già figlio del pane
+    const x = pt.x - (panePos ? panePos.x : 0);
+    const y = pt.y - (panePos ? panePos.y : 0);
+    // Calcola scala corrente rispetto alle dimensioni native degli stand
+    // (sw_px e sh_px sono in pixel admin; ora dobbiamo scalare al zoom corrente)
+    const p1 = leafMap.latLngToLayerPoint([m.crs_lat - m.sh_px/2, m.crs_lng - m.sw_px/2]);
+    const p2 = leafMap.latLngToLayerPoint([m.crs_lat + m.sh_px/2, m.crs_lng + m.sw_px/2]);
+    const scaleX = Math.abs(p2.x - p1.x) / m.sw_px;
+    const scaleY = Math.abs(p2.y - p1.y) / m.sh_px;
+    // Aggiorna transform del <g>: translate al centro, scala, poi rotazione
+    const rot = m.gr ? ' rotate(' + m.gr + ')' : '';
+    m.g.setAttribute('transform',
+      'translate(' + x + ',' + y + ') scale(' + scaleX + ',' + scaleY + ')' + rot);
   });
 }
 
@@ -624,7 +687,7 @@ function hideTip() { tip.classList.remove('show'); }
 function openSheet(s) {
   hideTip();
   closeDrawer();
-  document.querySelectorAll('.sm-stand').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.sm-stand-svg').forEach(el => el.classList.remove('active'));
   const el = document.getElementById('smst-' + s.id);
   if (el) el.classList.add('active');
 
@@ -691,7 +754,7 @@ function esc(str) {
 function closeSheet() {
   document.getElementById('smSheet').classList.remove('open');
   document.getElementById('smOverlay').classList.remove('open');
-  document.querySelectorAll('.sm-stand').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.sm-stand-svg').forEach(el => el.classList.remove('active'));
 }
 
 // ── Drawer lista stand ─────────────────────────────────────────────────────────
@@ -866,11 +929,8 @@ function linkEvent(eventId, btn) {
           st.events.push(ev);
           st.events.sort((a,b) => ((a.date||'')+(a.start_time||'')).localeCompare((b.date||'')+(b.start_time||'')));
           // Aggiorna dot sulla mappa
-          const el = document.getElementById('smst-' + st.id);
-          if (el && !el.classList.contains('has-events')) {
-            el.classList.add('has-events');
-            const dot = document.createElement('div'); dot.className = 'sm-dot'; el.prepend(dot);
-          }
+          // Ridisegna tutti gli stand per aggiornare il dot
+          renderStands();
         }
       }
       // Rimuovi dall'elenco disponibili e aggiorna la lista
