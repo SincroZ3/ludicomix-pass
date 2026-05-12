@@ -633,14 +633,14 @@ function openSheet(s) {
           (IS_AUTH ? '<button class="sm-ev-excl" title="Scollega evento" onclick="excludeEvent('+s.id+','+ev.id+',this)">✕</button>' : '') +
         '</div>';
     });
-    if (IS_AUTH && Array.isArray(s.excluded_events) && s.excluded_events.length > 0) {
-      const excl = s.excluded_events;
-      html += '<div class="sm-excl-section"><button class="sm-excl-toggle" onclick="this.nextElementSibling.classList.toggle(\'open\')">🚫 ' + excl.length + ' scollegat' + (excl.length===1?'o':'i') + ' ▼</button><div class="sm-excl-list">';
-      excl.forEach(ev => {
-        html += '<div class="sm-excl-item"><span class="sm-excl-name">' + esc(ev.title||'') + '</span><button class="sm-excl-restore" onclick="unexcludeEvent('+s.id+','+ev.id+',this)">↩ Ripristina</button></div>';
-      });
-      html += '</div></div>';
-    }
+  }
+  if (IS_AUTH && Array.isArray(s.excluded_events) && s.excluded_events.length > 0) {
+    const excl = s.excluded_events;
+    html += '<div class="sm-excl-section"><button class="sm-excl-toggle" onclick="this.nextElementSibling.classList.toggle(\'open\')">🚫 ' + excl.length + ' scollegat' + (excl.length===1?'o':'i') + ' ▼</button><div class="sm-excl-list">';
+    excl.forEach(ev => {
+      html += '<div class="sm-excl-item"><span class="sm-excl-name">' + esc(ev.title||'') + '</span><button class="sm-excl-restore" onclick="unexcludeEvent('+s.id+','+ev.id+',this)">↩ Ripristina</button></div>';
+    });
+    html += '</div></div>';
   }
 
   document.getElementById('smBody').innerHTML = html;
