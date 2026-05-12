@@ -159,6 +159,10 @@
     .sm-sname{font-size:1rem;font-weight:800;color:#1a2744;line-height:1.2}
     .sm-scat{font-size:.72rem;color:#718096;margin-top:.15rem}
     .sm-noev{font-size:.8rem;color:#a0aec0;text-align:center;padding:.75rem 0;font-style:italic}
+    .sm-link-open-btn{display:block;width:100%;margin-top:1rem;padding:.55rem 1rem;border-radius:8px;
+      border:1.5px dashed #4f98a3;background:none;color:#4f98a3;font-size:.8rem;font-weight:700;
+      cursor:pointer;text-align:center;transition:background .14s,color .14s}
+    .sm-link-open-btn:hover{background:#4f98a3;color:#fff}
 
     /* ── Controlli (bottom-right, NON sovrapposti all'header) ─────────── */
     .sm-ctrl{
@@ -285,6 +289,27 @@
       border:1px solid #bee3f8;border-radius:4px;padding:.1rem .4rem;
       cursor:pointer;white-space:nowrap;transition:background .12s}
     .sm-excl-restore:hover{background:#ebf8ff}
+    /* Modale aggancio manuale */
+    .sm-link-modal{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .18s}
+    .sm-link-modal.open{opacity:1;pointer-events:auto}
+    .sm-link-box{background:#fff;border-radius:14px;width:min(420px,92vw);max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.22);overflow:hidden}
+    .sm-link-head{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1rem .7rem;border-bottom:1px solid #e2e8f0;flex-shrink:0}
+    .sm-link-title{font-size:.95rem;font-weight:800;color:#1a2744}
+    .sm-link-close{width:28px;height:28px;border-radius:50%;border:none;background:#f0f4ff;color:#4a5568;cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center}
+    .sm-link-close:hover{background:#e2e8f0}
+    .sm-link-search{padding:.65rem 1rem;border-bottom:1px solid #e2e8f0;flex-shrink:0}
+    .sm-link-search input{width:100%;padding:.45rem .75rem;border-radius:8px;border:1px solid #cbd5e0;font-size:.85rem;outline:none;color:#1a2744}
+    .sm-link-search input:focus{border-color:#4f98a3;box-shadow:0 0 0 2px rgba(79,152,163,.15)}
+    .sm-link-list{overflow-y:auto;flex:1;padding:.5rem 0}
+    .sm-link-item{display:flex;align-items:center;gap:.7rem;padding:.6rem 1rem;cursor:pointer;transition:background .12s}
+    .sm-link-item:hover{background:#f7fafc}
+    .sm-link-item-info{flex:1;min-width:0}
+    .sm-link-item-title{font-size:.82rem;font-weight:700;color:#1a2744;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sm-link-item-meta{font-size:.7rem;color:#718096;margin-top:.1rem}
+    .sm-link-btn{flex-shrink:0;padding:.3rem .75rem;border-radius:6px;border:none;background:#4f98a3;color:#fff;font-size:.75rem;font-weight:700;cursor:pointer;transition:background .12s}
+    .sm-link-btn:hover{background:#3a7f8a}
+    .sm-link-btn:disabled{background:#a0aec0;cursor:not-allowed}
+    .sm-link-empty{text-align:center;color:#a0aec0;font-size:.82rem;padding:2rem 1rem}
     .sm-ev-link{display:block;text-decoration:none;color:inherit;border-radius:6px;
       transition:background .12s;margin:0 -.4rem;padding:0 .4rem}
     .sm-ev-link:active,.sm-ev-link:hover{background:#f0f4ff}
@@ -644,6 +669,12 @@ function openSheet(s) {
     html += '</div></div>';
   }
 
+  // Pulsante aggancio manuale (solo utenti autenticati)
+  if (IS_AUTH) {
+    html += '<button class="sm-link-open-btn" onclick="openLinkModal(' + s.id + ',\'' + esc(s.stand_code || s.name || '') + '\')">' +
+            '➕ Collega evento</button>';
+  }
+
   document.getElementById('smBody').innerHTML = html;
   document.getElementById('smSheet').classList.add('open');
   document.getElementById('smOverlay').classList.add('open');
@@ -751,6 +782,109 @@ function unexcludeEvent(groupId, eventId, btn) {
   })
   .catch(() => { btn.disabled = false; alert('Errore di rete.'); });
 }
+
+// ── Aggancio manuale ──────────────────────────────────────────────────────────
+let _linkGroupId   = null;
+let _linkAllEvents = [];
+
+function openLinkModal(groupId, standCode) {
+  _linkGroupId = groupId;
+  document.getElementById('smLinkStandName').textContent = standCode;
+  document.getElementById('smLinkSearch').value = '';
+  document.getElementById('smLinkList').innerHTML = '<div class="sm-link-empty">Caricamento…</div>';
+  document.getElementById('smLinkModal').classList.add('open');
+
+  fetch('/api/stand-eventi-disponibili/' + groupId)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) { document.getElementById('smLinkList').innerHTML = '<div class="sm-link-empty">Errore caricamento.</div>'; return; }
+      _linkAllEvents = data.events || [];
+      renderLinkList(_linkAllEvents);
+    })
+    .catch(() => { document.getElementById('smLinkList').innerHTML = '<div class="sm-link-empty">Errore di rete.</div>'; });
+}
+
+function closeLinkModal() {
+  document.getElementById('smLinkModal').classList.remove('open');
+  _linkGroupId = null;
+  _linkAllEvents = [];
+}
+
+function filterLinkModal(q) {
+  const term = (q || '').trim().toLowerCase();
+  const filtered = !term ? _linkAllEvents : _linkAllEvents.filter(ev =>
+    (ev.title || '').toLowerCase().includes(term) ||
+    (ev.date  || '').includes(term) ||
+    (ev.space_name || '').toLowerCase().includes(term)
+  );
+  renderLinkList(filtered);
+}
+
+function renderLinkList(events) {
+  const list = document.getElementById('smLinkList');
+  if (!events || events.length === 0) {
+    list.innerHTML = '<div class="sm-link-empty">Nessun evento disponibile da collegare.</div>';
+    return;
+  }
+  list.innerHTML = events.map(ev => {
+    const date  = ev.date  ? ev.date.substring(5).replace('-', '/') : '';
+    const time  = ev.start_time ? ev.start_time.substring(0,5) : '';
+    const meta  = [date, time, ev.space_name].filter(Boolean).join(' · ');
+    return '<div class="sm-link-item">' +
+      '<div class="sm-link-item-info">' +
+        '<div class="sm-link-item-title">' + esc(ev.title || '') + '</div>' +
+        (meta ? '<div class="sm-link-item-meta">' + esc(meta) + '</div>' : '') +
+      '</div>' +
+      '<button class="sm-link-btn" onclick="linkEvent(' + ev.id + ',this)">Collega</button>' +
+    '</div>';
+  }).join('');
+}
+
+function linkEvent(eventId, btn) {
+  if (!_linkGroupId) return;
+  btn.disabled = true;
+  btn.textContent = '…';
+  fetch('/api/stand-event-link', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ group_id: _linkGroupId, event_id: eventId })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      // Aggiorna stand in memoria
+      const st = stands.find(x => x.id === _linkGroupId);
+      if (st) {
+        const ev = _linkAllEvents.find(e => e.id === eventId);
+        if (ev) {
+          if (!st.events) st.events = [];
+          st.events.push(ev);
+          st.events.sort((a,b) => ((a.date||'')+(a.start_time||'')).localeCompare((b.date||'')+(b.start_time||'')));
+          // Aggiorna dot sulla mappa
+          const el = document.getElementById('smst-' + st.id);
+          if (el && !el.classList.contains('has-events')) {
+            el.classList.add('has-events');
+            const dot = document.createElement('div'); dot.className = 'sm-dot'; el.prepend(dot);
+          }
+        }
+      }
+      // Rimuovi dall'elenco disponibili e aggiorna la lista
+      _linkAllEvents = _linkAllEvents.filter(e => e.id !== eventId);
+      renderLinkList(_linkAllEvents);
+      // Riapri la scheda per aggiornare
+      if (st) openSheet(st);
+    } else {
+      btn.disabled = false; btn.textContent = 'Collega';
+      alert('Errore: ' + (data.error || ''));
+    }
+  })
+  .catch(() => { btn.disabled = false; btn.textContent = 'Collega'; alert('Errore di rete.'); });
+}
+
+// Chiudi modale cliccando fuori
+document.getElementById('smLinkModal').addEventListener('click', function(e) {
+  if (e.target === this) closeLinkModal();
+});
 
 function focusStand(id) {
   closeDrawer();
@@ -870,5 +1004,18 @@ wrap.addEventListener('touchend', e => {
   lSingle=ids.length===1?{x:tch[ids[0]].x,y:tch[ids[0]].y}:null;
 },{passive:true});
 </script>
+<!-- Modale aggancio manuale eventi -->
+<div class="sm-link-modal" id="smLinkModal">
+  <div class="sm-link-box">
+    <div class="sm-link-head">
+      <span class="sm-link-title">➕ Collega evento a <span id="smLinkStandName"></span></span>
+      <button class="sm-link-close" onclick="closeLinkModal()">✕</button>
+    </div>
+    <div class="sm-link-search">
+      <input type="search" id="smLinkSearch" placeholder="Cerca per titolo o data…" oninput="filterLinkModal(this.value)">
+    </div>
+    <div class="sm-link-list" id="smLinkList"></div>
+  </div>
+</div>
 </body>
 </html>

@@ -1284,19 +1284,28 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
             const allEvents = events || [];
             const placeholders = groupIds.map(() => '?').join(',');
             const exclSql = `SELECT assignment_group_id, event_id FROM stand_event_exclusions WHERE assignment_group_id IN (${placeholders})`;
+            const linkSql = `SELECT assignment_group_id, event_id FROM stand_event_links WHERE assignment_group_id IN (${placeholders})`;
             db.all(exclSql, groupIds, (exclErr, exclRows) => {
               const exclMap = {};
               (exclErr ? [] : (exclRows || [])).forEach(r => {
                 if (!exclMap[r.assignment_group_id]) exclMap[r.assignment_group_id] = new Set();
                 exclMap[r.assignment_group_id].add(r.event_id);
               });
+              db.all(linkSql, groupIds, (linkErr, linkRows) => {
+              const linkMap = {};
+              (linkErr ? [] : (linkRows || [])).forEach(r => {
+                if (!linkMap[r.assignment_group_id]) linkMap[r.assignment_group_id] = new Set();
+                linkMap[r.assignment_group_id].add(r.event_id);
+              });
               const standsWithEvents = stands.map(ag => {
                 const code    = (ag.stand_code || '').trim().toLowerCase();
                 const sname   = (ag.stand_name || '').trim().toLowerCase();
                 const gname   = (ag.name       || '').trim().toLowerCase();
                 const excluded = exclMap[ag.id] || new Set();
+                const manualLinked = linkMap[ag.id] || new Set();
                 const agEvents = allEvents.filter(ev => {
                   if (excluded.has(ev.id)) return false;
+                  if (manualLinked.has(ev.id)) return true; // aggancio manuale forzato
                   const lt    = (ev.location_text || '').trim().toLowerCase();
                   const title = (ev.title         || '').toLowerCase();
                   const desc  = (ev.description   || '').toLowerCase();
@@ -1324,6 +1333,7 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
                 return { ...ag, events: unique, excluded_events: excludedEvents };
               });
               res.json({ zone, stands: standsWithEvents });
+              }); // close linkSql
             });
           }
         );
@@ -1363,6 +1373,116 @@ router.post('/api/stand-event-unexclude', (req, res) => {
       if (err) return res.status(500).json({ ok: false, error: err.message });
       logAction(req.session.user.id, 'stand_event_unexclude', 'stand_event_exclusions', groupId,
         `Ripristinato evento #${eventId} per stand #${groupId}`);
+      res.json({ ok: true });
+    }
+  );
+});
+
+// ── API: eventi disponibili per aggancio manuale ─────────────────────────────
+router.get('/api/stand-eventi-disponibili/:groupId', requireAuth, (req, res) => {
+  const groupId = parseInt(req.params.groupId, 10);
+  if (!groupId) return res.status(400).json({ ok: false, error: 'groupId non valido' });
+
+  // Prendi tutti gli eventi pubblicati, escludi quelli già agganciati (auto o manuale) o esclusi
+  db.all(
+    `SELECT e.id, e.title, e.date, e.start_time, e.end_time, s.name AS space_name
+     FROM events e
+     LEFT JOIN spaces s ON s.id = e.space_id
+     WHERE e.published = 1
+     ORDER BY e.date, e.start_time`,
+    [],
+    (err, allEvents) => {
+      if (err) return res.status(500).json({ ok: false, error: err.message });
+
+      // Recupera esclusioni e link manuali già presenti per questo stand
+      db.all(
+        `SELECT event_id FROM stand_event_exclusions WHERE assignment_group_id = ?`,
+        [groupId],
+        (err2, exclRows) => {
+          const excludedIds = new Set((exclRows || []).map(r => r.event_id));
+
+          db.all(
+            `SELECT event_id FROM stand_event_links WHERE assignment_group_id = ?`,
+            [groupId],
+            (err3, linkRows) => {
+              const linkedIds = new Set((linkRows || []).map(r => r.event_id));
+
+              // Recupera lo stand per sapere il suo codice/nome e fare il matching auto
+              db.get(
+                `SELECT name, stand_name, stand_code FROM assignment_groups WHERE id = ?`,
+                [groupId],
+                (err4, ag) => {
+                  const code  = ag ? (ag.stand_code || '').trim().toLowerCase() : '';
+                  const sname = ag ? (ag.stand_name || '').trim().toLowerCase() : '';
+                  const gname = ag ? (ag.name       || '').trim().toLowerCase() : '';
+
+                  const available = (allEvents || []).filter(ev => {
+                    if (excludedIds.has(ev.id)) return false; // escluso manualmente
+                    if (linkedIds.has(ev.id))   return false; // già agganciato manualmente
+
+                    // Escludi anche quelli già auto-agganciati (location_text match)
+                    const lt    = (ev.location_text || '').trim().toLowerCase();
+                    const title = (ev.title         || '').toLowerCase();
+                    const ltParts = lt.split(/[\/|,;\-–—]/).map(p => p.trim()).filter(p => p.length > 0);
+
+                    const autoLinked =
+                      (code  && (lt === code  || ltParts.some(p => p === code)))  ||
+                      (sname && (lt === sname || ltParts.some(p => p === sname))) ||
+                      (code.length >= 2  && lt && ltParts.some(p => p.includes(code))) ||
+                      (sname.length >= 4 && (lt.includes(sname) || title.includes(sname))) ||
+                      (gname.length >= 4 && (lt.includes(gname) || title.includes(gname)));
+
+                    return !autoLinked; // mostra solo quelli NON già agganciati
+                  });
+
+                  res.json({ ok: true, events: available });
+                }
+              );
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
+// ── API: aggancia manualmente un evento a uno stand ───────────────────────────
+router.post('/api/stand-event-link', requireAuth, (req, res) => {
+  const groupId = parseInt(req.body.group_id, 10);
+  const eventId = parseInt(req.body.event_id, 10);
+  if (!groupId || !eventId) return res.status(400).json({ ok: false, error: 'Parametri mancanti' });
+
+  // Se era escluso, rimuovi l'esclusione prima
+  db.run(
+    `DELETE FROM stand_event_exclusions WHERE assignment_group_id=? AND event_id=?`,
+    [groupId, eventId],
+    () => {
+      db.run(
+        `INSERT OR IGNORE INTO stand_event_links (assignment_group_id, event_id, linked_by) VALUES (?,?,?)`,
+        [groupId, eventId, req.session.user.id],
+        (err) => {
+          if (err) return res.status(500).json({ ok: false, error: err.message });
+          logAction(req.session.user.id, 'stand_event_link', 'stand_event_links', groupId,
+            `Agganciato manualmente evento #${eventId} a stand #${groupId}`);
+          res.json({ ok: true });
+        }
+      );
+    }
+  );
+});
+
+// ── API: rimuovi aggancio manuale ─────────────────────────────────────────────
+router.post('/api/stand-event-unlink', requireAuth, (req, res) => {
+  const groupId = parseInt(req.body.group_id, 10);
+  const eventId = parseInt(req.body.event_id, 10);
+  if (!groupId || !eventId) return res.status(400).json({ ok: false, error: 'Parametri mancanti' });
+  db.run(
+    `DELETE FROM stand_event_links WHERE assignment_group_id=? AND event_id=?`,
+    [groupId, eventId],
+    (err) => {
+      if (err) return res.status(500).json({ ok: false, error: err.message });
+      logAction(req.session.user.id, 'stand_event_unlink', 'stand_event_links', groupId,
+        `Rimosso aggancio manuale evento #${eventId} da stand #${groupId}`);
       res.json({ ok: true });
     }
   );

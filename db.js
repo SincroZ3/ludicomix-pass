@@ -1081,4 +1081,15 @@ db.run(`CREATE TABLE IF NOT EXISTS stand_event_exclusions (
   FOREIGN KEY (event_id)            REFERENCES events(id)            ON DELETE CASCADE
 )`, err => { if (err && !err.message.includes('already exists')) console.warn('[DB] stand_event_exclusions:', err.message); });
 
+// ── Agganci manuali stand↔evento ─────────────────────────────────────────────
+db.run(`CREATE TABLE IF NOT EXISTS stand_event_links (
+  assignment_group_id INTEGER NOT NULL,
+  event_id            INTEGER NOT NULL,
+  linked_at           TEXT    DEFAULT (datetime('now')),
+  linked_by           INTEGER,
+  PRIMARY KEY (assignment_group_id, event_id),
+  FOREIGN KEY (assignment_group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE,
+  FOREIGN KEY (event_id)            REFERENCES events(id)            ON DELETE CASCADE
+)`, err => { if (err && !err.message.includes('already exists')) console.warn('[DB] stand_event_links:', err.message); });
+
 module.exports = db;
