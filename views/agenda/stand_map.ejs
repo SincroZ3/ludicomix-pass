@@ -556,8 +556,7 @@ function renderStands() {
 
     const lbl = document.createElement('div');
     lbl.className   = 'sm-lbl';
-    const displayName = (s.stand_name && s.stand_name !== s.stand_code) ? s.stand_name : (s.stand_code || s.name || '');
-    lbl.textContent = displayName.length > 10 ? displayName.substring(0, 9) + '…' : displayName;
+    lbl.textContent = s.stand_code || s.name || '';
     el.appendChild(lbl);
 
     el.addEventListener('click', e => { e.stopPropagation(); openSheet(s); });
