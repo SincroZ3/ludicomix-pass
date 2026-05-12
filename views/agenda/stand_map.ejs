@@ -85,17 +85,7 @@
     /* #mapArea e #mapBgImg gestiti da Leaflet ImageOverlay */
 
     /* ── Stand SVG layer ─────────────────────────────────────────────── */
-    .sm-stand-svg { cursor:pointer; }
-    .sm-stand-svg:hover > rect,
-    .sm-stand-svg:hover > polygon,
-    .sm-stand-svg.active > rect,
-    .sm-stand-svg.active > polygon {
-      filter: brightness(1.35);
-      stroke: #f5c842;
-      stroke-width: 2.5px;
-    }
-    .leaflet-overlay-pane { pointer-events: none; }
-    .leaflet-overlay-pane svg { overflow: visible; }
+    #mapWrap > canvas { display:block; }
 
     /* ── Tooltip ─────────────────────────────────────────────────────── */
     .sm-tip{
@@ -476,6 +466,7 @@ function initLeaflet(natW, natH) {
 
   // Centra la mappa sull'immagine con padding
   leafMap.fitBounds(imgBounds, { padding: [24, 24] });
+  setTimeout(function() { leafMap.invalidateSize(); if (typeof drawStands==='function') drawStands(); }, 50);
 
   // Chiudi sheet cliccando sulla mappa (non su uno stand)
   leafMap.on('click', closeSheet);
@@ -502,164 +493,174 @@ function initLeaflet(natW, natH) {
   }
 })();
 
-// ── Render stands — SVG layer su overlayPane, aggiornato da Leaflet ──────────
-// Usiamo un singolo <svg> fisso nell'overlayPane di Leaflet.
-// Su ogni 'viewreset'/'zoom'/'move' ricalcoliamo le posizioni con
-// map.latLngToLayerPoint() → gli stand restano solidali alla mappa al 100%.
+// ── Render stands — canvas sovrapposto, ridisegnato su ogni evento ───────────
+// Un <canvas> fisso sopra la mappa viene ridisegnato a ogni zoom/pan/resize.
+// latLngToContainerPoint converte CRS → pixel schermo → scala sempre corretta.
 
-let standsSvgRoot = null;  // il <svg> globale nel pane
+let standsCanvas = null;
+let standsCtx    = null;
+let _activeStandId = null;
 
 function renderStands() {
-  // Crea (o svuota) il root SVG nel pane di Leaflet
-  const pane = leafMap.getPanes().overlayPane;
-  if (standsSvgRoot) {
-    standsSvgRoot.remove();
-  }
-  const svgNS = 'http://www.w3.org/2000/svg';
-  standsSvgRoot = document.createElementNS(svgNS, 'svg');
-  standsSvgRoot.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;overflow:visible;pointer-events:none;';
-  pane.appendChild(standsSvgRoot);
+  if (!standsCanvas) {
+    standsCanvas = document.createElement('canvas');
+    standsCanvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:all;z-index:400;';
+    document.getElementById('mapWrap').appendChild(standsCanvas);
+    standsCtx = standsCanvas.getContext('2d');
 
-  standMarkers = {};   // id → { s, gEl, cx_crs, cy_crs, sw_crs, sh_crs, gr }
+    standsCanvas.addEventListener('click', function(e) {
+      const hit = hitTestStand(e);
+      if (hit) { _activeStandId = hit.s.id; drawStands(); openSheet(hit.s); }
+      else      { closeSheet(); }
+    });
+
+    if (!isMobile) {
+      standsCanvas.addEventListener('mousemove', function(e) {
+        const hit = hitTestStand(e);
+        if (hit) { showTip(e, hit.s); standsCanvas.style.cursor = 'pointer'; }
+        else      { hideTip();         standsCanvas.style.cursor = 'default'; }
+      });
+      standsCanvas.addEventListener('mouseleave', hideTip);
+    }
+  }
+
+  const wrap = document.getElementById('mapWrap');
+  standsCanvas.width  = wrap.offsetWidth;
+  standsCanvas.height = wrap.offsetHeight;
+
+  leafMap.off('viewreset zoom move resize', _onMapRedraw);
+  leafMap.on( 'viewreset zoom move resize', _onMapRedraw);
+
+  drawStands();
+}
+
+function _onMapRedraw() {
+  if (!standsCanvas) return;
+  const wrap = document.getElementById('mapWrap');
+  standsCanvas.width  = wrap.offsetWidth;
+  standsCanvas.height = wrap.offsetHeight;
+  drawStands();
+}
+
+function drawStands() {
+  if (!standsCtx || !leafMap) return;
+  const ctx = standsCtx;
+  ctx.clearRect(0, 0, standsCanvas.width, standsCanvas.height);
+  standMarkers = {};
 
   stands.forEach(s => {
     if (s.map_x == null || s.map_y == null) return;
 
-    const gw    = parseFloat(s.map_w  || 8);
-    const gh    = parseFloat(s.map_h  || 5);
-    const gr    = parseFloat(s.map_rot || 0);
-    const color = s.color || '#1e2d4e';
-    const hasEv = Array.isArray(s.events) && s.events.length > 0;
-    const label = s.stand_code || s.name || '';
+    const gw     = parseFloat(s.map_w   || 8);
+    const gh     = parseFloat(s.map_h   || 5);
+    const gr     = parseFloat(s.map_rot || 0) * Math.PI / 180;
+    const color  = s.color || '#1e2d4e';
+    const hasEv  = Array.isArray(s.events) && s.events.length > 0;
+    const label  = s.stand_code || s.name || '';
+    const isActive = (s.id === _activeStandId);
 
-    // Coordinate centro in pixel admin (y verso il basso)
     const cx_px = parseFloat(s.map_x) / 100 * areaW;
     const cy_px = parseFloat(s.map_y) / 100 * areaH;
     const sw_px = gw / 100 * areaW;
     const sh_px = gh / 100 * areaH;
 
-    // Punto centro in CRS.Simple (lat = areaH - cy perché Leaflet ha y verso l'alto)
-    const crs_lat = areaH - cy_px;
-    const crs_lng = cx_px;
+    // Coordinate schermo (pixel canvas) tramite Leaflet
+    const cCenter = leafMap.latLngToContainerPoint(L.latLng(areaH - cy_px, cx_px));
+    const cTL     = leafMap.latLngToContainerPoint(L.latLng(areaH - (cy_px - sh_px/2), cx_px - sw_px/2));
+    const cBR     = leafMap.latLngToContainerPoint(L.latLng(areaH - (cy_px + sh_px/2), cx_px + sw_px/2));
+    const w = Math.abs(cBR.x - cTL.x);
+    const h = Math.abs(cBR.y - cTL.y);
+    if (w < 1 || h < 1) return;
 
-    // Costruiamo il <g> SVG per questo stand (in coordinate "virtuale" - scalato da updateStands)
-    const g = document.createElementNS(svgNS, 'g');
-    g.setAttribute('id', 'smst-' + s.id);
-    g.setAttribute('class', 'sm-stand-svg' + (hasEv ? ' has-events' : ''));
-    g.style.cursor = 'pointer';
-    g.style.pointerEvents = 'all';
+    ctx.save();
+    ctx.translate(cCenter.x, cCenter.y);
+    if (gr) ctx.rotate(gr);
 
-    // Shape: rect o polygon custom
-    let shapeEl;
+    // Forma
+    ctx.beginPath();
+    let customShape = false;
     if (s.map_shape) {
       try {
         const sp = JSON.parse(s.map_shape);
         if (Array.isArray(sp) && sp.length >= 3) {
-          // sp è in % del bounding box 0-100, convertiamo in pixel relativi al centro
-          const ptsList = sp.map(p => {
-            const px_ = (p[0]/100 - 0.5) * sw_px;
-            const py_ = (0.5 - p[1]/100) * sh_px;  // y invertita per SVG
-            return px_ + ',' + py_;
-          }).join(' ');
-          shapeEl = document.createElementNS(svgNS, 'polygon');
-          shapeEl.setAttribute('points', ptsList);
-          shapeEl.setAttribute('fill', color);
+          sp.forEach((p, i) => {
+            const px_ = (p[0]/100 - 0.5) * w;
+            const py_ = (p[1]/100 - 0.5) * h;
+            i === 0 ? ctx.moveTo(px_, py_) : ctx.lineTo(px_, py_);
+          });
+          ctx.closePath();
+          customShape = true;
         }
       } catch(e) {}
     }
-    if (!shapeEl) {
-      shapeEl = document.createElementNS(svgNS, 'rect');
-      shapeEl.setAttribute('x', -sw_px/2);
-      shapeEl.setAttribute('y', -sh_px/2);
-      shapeEl.setAttribute('width', sw_px);
-      shapeEl.setAttribute('height', sh_px);
-      shapeEl.setAttribute('fill', color);
-      shapeEl.setAttribute('rx', Math.min(3, sw_px * 0.04));
+    if (!customShape) {
+      const r = Math.min(3, w * 0.07, h * 0.07);
+      const x = -w/2, y = -h/2;
+      ctx.moveTo(x+r, y);
+      ctx.lineTo(x+w-r, y); ctx.arcTo(x+w, y,   x+w, y+r,   r);
+      ctx.lineTo(x+w, y+h-r); ctx.arcTo(x+w, y+h, x+w-r, y+h, r);
+      ctx.lineTo(x+r, y+h); ctx.arcTo(x,   y+h, x,   y+h-r, r);
+      ctx.lineTo(x, y+r);   ctx.arcTo(x,   y,   x+r, y,     r);
+      ctx.closePath();
     }
-    g.appendChild(shapeEl);
 
-    // Dot eventi (angolo top-right)
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    if (isActive) {
+      ctx.strokeStyle = '#f5c842';
+      ctx.lineWidth   = Math.max(2, Math.min(w, h) * 0.06);
+      ctx.stroke();
+    }
+
+    // Label
+    if (label && w > 12 && h > 8) {
+      const fs = Math.max(8, Math.min(w * 0.22, h * 0.4, 18));
+      ctx.font          = 'bold ' + fs + 'px -apple-system,sans-serif';
+      ctx.fillStyle     = '#fff';
+      ctx.textAlign     = 'center';
+      ctx.textBaseline  = 'middle';
+      ctx.shadowColor   = 'rgba(0,0,0,0.85)';
+      ctx.shadowBlur    = 3;
+      ctx.fillText(label, 0, 0, w - 4);
+      ctx.shadowBlur    = 0;
+    }
+
+    // Dot eventi
     if (hasEv) {
-      const dot = document.createElementNS(svgNS, 'circle');
-      const r = Math.max(4, Math.min(8, sw_px * 0.08));
-      dot.setAttribute('cx', sw_px/2 - r);
-      dot.setAttribute('cy', -sh_px/2 + r);
-      dot.setAttribute('r', r);
-      dot.setAttribute('fill', '#f5c842');
-      dot.setAttribute('stroke', 'rgba(255,255,255,0.9)');
-      dot.setAttribute('stroke-width', '1.5');
-      dot.style.pointerEvents = 'none';
-      g.appendChild(dot);
+      const r  = Math.max(4, Math.min(7, Math.min(w, h) * 0.12));
+      const dx = w/2 - r - 1;
+      const dy = -(h/2) + r + 1;
+      ctx.beginPath();
+      ctx.arc(dx, dy, r, 0, Math.PI * 2);
+      ctx.fillStyle   = '#f5c842';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
     }
 
-    // Label testo
-    if (label) {
-      const txt = document.createElementNS(svgNS, 'text');
-      txt.setAttribute('x', '0');
-      txt.setAttribute('y', '0');
-      txt.setAttribute('text-anchor', 'middle');
-      txt.setAttribute('dominant-baseline', 'middle');
-      const fs = Math.max(8, Math.min(sw_px * 0.18, sh_px * 0.35, 20));
-      txt.setAttribute('font-size', fs);
-      txt.setAttribute('font-weight', '900');
-      txt.setAttribute('fill', '#fff');
-      txt.setAttribute('font-family', '-apple-system,sans-serif');
-      txt.style.pointerEvents = 'none';
-      txt.style.filter = 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))';
-      txt.textContent = label;
-      g.appendChild(txt);
-    }
+    ctx.restore();
 
-    // Rotazione attorno al centro
-    if (gr) g.setAttribute('transform', 'rotate(' + gr + ')');
-
-    standsSvgRoot.appendChild(g);
-
-    // Click / hover
-    g.addEventListener('click', function(e) {
-      e.stopPropagation();
-      document.querySelectorAll('.sm-stand-svg').forEach(el => el.classList.remove('active'));
-      g.classList.add('active');
-      openSheet(s);
-    });
-    if (!isMobile) {
-      g.addEventListener('mouseenter', function(e) { showTip(e, s); });
-      g.addEventListener('mousemove',  function(e) { moveTip(e); });
-      g.addEventListener('mouseleave', function()  { hideTip(); });
-    }
-
-    standMarkers[s.id] = { s, g, crs_lat, crs_lng, sw_px, sh_px, gr };
+    // Salva per hit-test
+    standMarkers[s.id] = { s, cx: cCenter.x, cy: cCenter.y, w, h, gr };
   });
-
-  // Primo posizionamento
-  updateStandPositions();
-
-  // Aggiorna posizioni ad ogni zoom/pan/resize
-  leafMap.off('viewreset zoom move', updateStandPositions);
-  leafMap.on('viewreset zoom move',  updateStandPositions);
 }
 
-function updateStandPositions() {
-  if (!standsSvgRoot || !leafMap) return;
-  // Offset del pane (Leaflet muove il pane durante il pan per efficienza)
-  const panePos = L.DomUtil.getPosition(leafMap.getPanes().overlayPane);
-  Object.values(standMarkers).forEach(function(m) {
-    // Converte coordinate CRS nel punto pixel del pane
-    const pt = leafMap.latLngToLayerPoint([m.crs_lat, m.crs_lng]);
-    // Sottrae l'offset del pane perché il SVG è già figlio del pane
-    const x = pt.x - (panePos ? panePos.x : 0);
-    const y = pt.y - (panePos ? panePos.y : 0);
-    // Calcola scala corrente rispetto alle dimensioni native degli stand
-    // (sw_px e sh_px sono in pixel admin; ora dobbiamo scalare al zoom corrente)
-    const p1 = leafMap.latLngToLayerPoint([m.crs_lat - m.sh_px/2, m.crs_lng - m.sw_px/2]);
-    const p2 = leafMap.latLngToLayerPoint([m.crs_lat + m.sh_px/2, m.crs_lng + m.sw_px/2]);
-    const scaleX = Math.abs(p2.x - p1.x) / m.sw_px;
-    const scaleY = Math.abs(p2.y - p1.y) / m.sh_px;
-    // Aggiorna transform del <g>: translate al centro, scala, poi rotazione
-    const rot = m.gr ? ' rotate(' + m.gr + ')' : '';
-    m.g.setAttribute('transform',
-      'translate(' + x + ',' + y + ') scale(' + scaleX + ',' + scaleY + ')' + rot);
-  });
+function hitTestStand(e) {
+  const rect = standsCanvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const keys = Object.keys(standMarkers).reverse();
+  for (const id of keys) {
+    const m  = standMarkers[id];
+    const dx = mx - m.cx;
+    const dy = my - m.cy;
+    const lx =  dx * Math.cos(-m.gr) - dy * Math.sin(-m.gr);
+    const ly =  dx * Math.sin(-m.gr) + dy * Math.cos(-m.gr);
+    if (Math.abs(lx) <= m.w/2 + 2 && Math.abs(ly) <= m.h/2 + 2) return m;
+  }
+  return null;
 }
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
@@ -687,9 +688,8 @@ function hideTip() { tip.classList.remove('show'); }
 function openSheet(s) {
   hideTip();
   closeDrawer();
-  document.querySelectorAll('.sm-stand-svg').forEach(el => el.classList.remove('active'));
-  const el = document.getElementById('smst-' + s.id);
-  if (el) el.classList.add('active');
+  _activeStandId = s.id;
+  if (typeof drawStands === 'function') drawStands();
 
   // Header: solo codice e nome stand (senza gruppo/associazione)
   let html =
@@ -754,7 +754,8 @@ function esc(str) {
 function closeSheet() {
   document.getElementById('smSheet').classList.remove('open');
   document.getElementById('smOverlay').classList.remove('open');
-  document.querySelectorAll('.sm-stand-svg').forEach(el => el.classList.remove('active'));
+  _activeStandId = null;
+  if (typeof drawStands === 'function') drawStands();
 }
 
 // ── Drawer lista stand ─────────────────────────────────────────────────────────
@@ -929,8 +930,7 @@ function linkEvent(eventId, btn) {
           st.events.push(ev);
           st.events.sort((a,b) => ((a.date||'')+(a.start_time||'')).localeCompare((b.date||'')+(b.start_time||'')));
           // Aggiorna dot sulla mappa
-          // Ridisegna tutti gli stand per aggiornare il dot
-          renderStands();
+          drawStands();
         }
       }
       // Rimuovi dall'elenco disponibili e aggiorna la lista
