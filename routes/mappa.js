@@ -48,6 +48,14 @@ module.exports = function registerMappaRoutes(
       [],
       (err, zones) => {
         if (err) return res.status(500).send('Errore DB');
+        // edFilterMappa: include stand dell'edizione corrente + stand senza edizione (edition_id IS NULL)
+        // Necessario per mostrare stand creati prima del sistema multi-edizione
+        const edFilterMappa = () => {
+          const cur = edFilter();
+          if (!cur) return '';
+          // Estrai l'id dall'edFilter: "AND ag.edition_id = X" → aggiungi OR IS NULL
+          return cur.replace(/AND ag\.edition_id = (\d+)/, 'AND (ag.edition_id = $1 OR ag.edition_id IS NULL)');
+        };
         db.all(
           `SELECT ag.id, ag.name AS stand_name, ag.stand_name AS stand_loc, ag.stand_code,
                   ag.zone, ag.map_x, ag.map_y, ag.map_w, ag.map_h, ag.map_shape, ag.map_rot,
@@ -57,7 +65,7 @@ module.exports = function registerMappaRoutes(
            FROM assignment_groups ag
            LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
            LEFT JOIN passes p ON p.participant_id = pa.id
-           WHERE (1=1) ${edFilter()}
+           WHERE (1=1) ${edFilterMappa()}
            GROUP BY ag.id ORDER BY ag.zone, ag.name`,
           [],
           (err2, groups) => {
