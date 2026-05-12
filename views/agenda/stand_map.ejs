@@ -32,7 +32,7 @@
     .sm-back:active{background:rgba(255,255,255,.2)}
 
     /* ── Leaflet map container ───────────────────────────────────────── */
-    #mapWrap{position:fixed;inset:0;}
+    #mapWrap{position:fixed;inset:0;width:100%;height:100%;}
     /* Nasconde attribution Leaflet (mappa non geografica) */
     .leaflet-control-attribution{display:none!important}
     /* Nasconde zoom control Leaflet (usiamo i nostri bottoni .sm-ctrl) */
@@ -506,12 +506,19 @@ function initLeaflet(natW, natH) {
 }
 
 // Carica l'immagine per ottenere le dimensioni naturali
+// Nota: su Safari iOS con immagini in cache, .onload non si triggera se src
+// viene impostato prima del listener → assegniamo src per ultimi,
+// poi controlliamo .complete per gestire la cache
 (function() {
   if (!BG_URL) { initLeaflet(1200, 800); return; }
   const probe = new Image();
-  probe.onload  = () => initLeaflet(probe.naturalWidth, probe.naturalHeight);
-  probe.onerror = () => initLeaflet(1200, 800);
+  probe.onload  = function() { initLeaflet(probe.naturalWidth, probe.naturalHeight); };
+  probe.onerror = function() { initLeaflet(1200, 800); };
   probe.src = BG_URL;
+  // Gestisce il caso in cui l'immagine è già in cache (Safari iOS)
+  if (probe.complete && probe.naturalWidth) {
+    initLeaflet(probe.naturalWidth, probe.naturalHeight);
+  }
 })();
 
 // ── Render stands — Leaflet DivIcon markers ──────────────────────────────────
