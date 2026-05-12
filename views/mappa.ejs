@@ -40,6 +40,8 @@
   background:#f8fafc;font-size:.74rem;font-weight:600;cursor:pointer;color:#374151;line-height:1.4}
 .stp-btn:hover{background:#e8ecf3}.stp-btn.primary{background:#1e2d4e;color:#fff;border-color:#1e2d4e}
 .stp-btn.primary:hover{background:#162340}
+.stp-btn.danger{background:#dc2626;color:#fff;border-radius:6px;padding:.28rem .65rem;font-size:.72rem;font-weight:700;cursor:pointer;border:none;transition:background .15s}
+.stp-btn.danger:hover{background:#b91c1c}
 .stp-close{position:absolute;top:.4rem;right:.55rem;cursor:pointer;color:#9ca3af;
   font-size:.95rem;background:none;border:none;line-height:1;padding:0}
 .stp-close:hover{color:#1e2d4e}
@@ -419,6 +421,34 @@ function removeFromMap(gid,zid){
 function gColor(g){if(!g.pass_count)return'#9ca3af';var p=g.consegnati/g.pass_count;return p>=.8?'#2d6a4f':p>0?'#c9a227':'#c0392b';}
 function showSaved(){var b=document.getElementById('save-badge');b.style.display='block';clearTimeout(b._t);b._t=setTimeout(function(){b.style.display='none';},2000);}
 
+function resetStandShape(gid){
+  if(!confirm('Resettare la forma personalizzata di questo stand? Tornerà rettangolare. La posizione rimarrà invariata.')) return;
+  var g=GDATA.find(function(x){return x.id==gid;});
+  fetch('/admin/groups/'+gid+'/map-xy',{
+    method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:'map_x='+(g?g.map_x.toFixed(3):'50')+'&map_y='+(g?g.map_y.toFixed(3):'50')
+      +'&map_w='+(g&&g.map_w?g.map_w.toFixed(3):'8')+'&map_h='+(g&&g.map_h?g.map_h.toFixed(3):'5')
+      +'&map_shape=&map_rot=0'
+  }).then(function(r){return r.json();}).then(function(d){
+    if(!d.ok){alert('Errore nel salvataggio');return;}
+    if(g){g.map_shape=null;g.map_rot=0;}
+    // Aggiorna il box visivamente: rimuovi clip-path e transform rotation
+    var el=document.getElementById('sbox-'+gid);
+    if(el){
+      el.style.clipPath='';
+      el.style.transform='translate(-50%,-50%)';
+      el.removeAttribute('data-map-shape');
+      el.setAttribute('data-rot','0');
+    }
+    // Nascondi il bottone reset nel popup
+    var resetBtn=document.querySelector('.stp-reset-shape-btn');
+    if(resetBtn)resetBtn.style.display='none';
+    closeStandPopup();
+    showSaved();
+  }).catch(function(){alert('Errore di rete');});
+}
+
 function resetStandToCenter(gid, zid){
   if(!confirm('Riportare lo stand al centro della mappa (50%, 50%)? Potrai poi riposizionarlo manualmente.')) return;
   var g = GDATA.find(function(x){return x.id==gid;});
@@ -485,6 +515,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeNoteMod
   <div class="stp-notes" style="display:none"></div>
   <div class="stp-actions" style="display:none">
     <button class="stp-btn primary stp-edit-btn" onclick="enterShapeMode(this.getAttribute('data-gid'))">&#9999;&#65039; Modifica forma</button>
+    <button class="stp-btn danger stp-reset-shape-btn" onclick="resetStandShape(this.getAttribute('data-gid'))" style="display:none">&#128473;&#65039; Reset forma</button>
   </div>
 </div>
 
@@ -516,6 +547,13 @@ function openStandPopup(e,el){
   if(typeof GDATA!=='undefined'){
     act.style.display='flex';
     act.querySelector('.stp-edit-btn').setAttribute('data-gid',gid);
+    var resetBtn=act.querySelector('.stp-reset-shape-btn');
+    if(resetBtn){
+      resetBtn.setAttribute('data-gid',gid);
+      var gd=GDATA.find(function(x){return x.id==gid;});
+      // Mostra il bottone solo se lo stand ha una shape poligonale non-rettangolare
+      resetBtn.style.display=(gd&&gd.map_shape)?'':'none';
+    }
   }else act.style.display='none';
   p.style.display='block';
   var rect=el.getBoundingClientRect();
