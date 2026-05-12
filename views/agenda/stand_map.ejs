@@ -937,12 +937,13 @@ function doZoom(f) {
   setTimeout(() => inner.style.transition = '', 220);
 }
 
-// Mouse drag
-let drag=false,dsx,dsy,dtx,dty;
+// ── Mouse drag (area vuota) ──────────────────────────────────────
+let drag=false, dsx=0, dsy=0, dtx=0, dty=0;
 wrap.addEventListener('mousedown', e => {
-  if (e.target.closest('.sm-stand')) return;
+  if (e.target.closest('.sm-stand,.sm-sheet,.sm-drawer,.sm-ctrl,.sm-legend,.sm-header,.sm-drawer-overlay')) return;
   drag=true; dsx=e.clientX; dsy=e.clientY; dtx=tx; dty=ty;
   wrap.classList.add('grabbing');
+  e.preventDefault();
 });
 window.addEventListener('mousemove', e => {
   if (!drag) return;
@@ -950,67 +951,88 @@ window.addEventListener('mousemove', e => {
 });
 window.addEventListener('mouseup', () => { drag=false; wrap.classList.remove('grabbing'); });
 
-// Wheel zoom
+// ── Wheel: trackpad two-finger scroll = PAN; pinch/ctrl+wheel = ZOOM ──
 wrap.addEventListener('wheel', e => {
   e.preventDefault();
-  const r=wrap.getBoundingClientRect();
-  const cx=e.clientX-r.left, cy=e.clientY-r.top;
-  let f;
-  if (e.ctrlKey) {
-    // Pinch trackpad: deltaY proporzionale, deltaMode 1=lines 0=pixels
-    const delta = e.deltaMode === 1 ? e.deltaY * 15 : e.deltaY;
-    f = Math.pow(0.99, delta);
-  } else {
-    // Scroll mouse/trackpad normale
-    f = e.deltaY < 0 ? 1.12 : 0.9;
-  }
-  const ns=Math.min(5,Math.max(0.2,sc*f));
-  const ra=ns/sc;
-  tx=cx-ra*(cx-tx); ty=cy-ra*(cy-ty); sc=ns; applyT();
-},{passive:false});
+  const r  = wrap.getBoundingClientRect();
+  const cx = e.clientX - r.left;
+  const cy = e.clientY - r.top;
 
-// Touch pinch
-let tch={},lDist=null,lMid=null,lSingle=null;
-wrap.addEventListener('touchstart', e => {
-  Array.from(e.changedTouches).forEach(t=>{tch[t.identifier]={x:t.clientX,y:t.clientY};});
-  const ids=Object.keys(tch);
-  if(ids.length===1) lSingle={x:tch[ids[0]].x,y:tch[ids[0]].y};
-  if(ids.length>=2){ e.preventDefault();
-    const a=tch[ids[0]],b=tch[ids[1]];
-    lDist=Math.hypot(b.x-a.x,b.y-a.y);
-    lMid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+  if (e.ctrlKey || e.metaKey) {
+    // Pinch trackpad (ctrlKey=true) o Ctrl+scroll → ZOOM centrato sul cursore
+    const delta = e.deltaMode === 1 ? e.deltaY * 15 : e.deltaY;
+    const f  = Math.pow(0.99, delta);
+    const ns = Math.min(5, Math.max(0.2, sc * f));
+    const ra = ns / sc;
+    tx = cx - ra*(cx-tx); ty = cy - ra*(cy-ty); sc = ns; applyT();
+  } else {
+    // Two-finger scroll senza modificatori → PAN
+    const mul = e.deltaMode === 1 ? 15 : e.deltaMode === 2 ? 100 : 1;
+    tx -= e.deltaX * mul;
+    ty -= e.deltaY * mul;
+    applyT();
   }
-},{passive:false});
+}, {passive: false});
+
+// ── Touch: 1 dito = pan, 2 dita = pinch zoom ────────────────────
+let tch={}, lDist=null, lMid=null, lSingle=null;
+
+wrap.addEventListener('touchstart', e => {
+  Array.from(e.changedTouches).forEach(t => { tch[t.identifier]={x:t.clientX,y:t.clientY}; });
+  const ids = Object.keys(tch);
+  if (ids.length === 1) {
+    lSingle = {x:tch[ids[0]].x, y:tch[ids[0]].y};
+    lDist = null; lMid = null;
+  }
+  if (ids.length >= 2) {
+    lSingle = null;
+    const a=tch[ids[0]], b=tch[ids[1]];
+    lDist = Math.hypot(b.x-a.x, b.y-a.y);
+    lMid  = {x:(a.x+b.x)/2, y:(a.y+b.y)/2};
+    e.preventDefault();
+  }
+}, {passive: false});
+
 wrap.addEventListener('touchmove', e => {
   e.preventDefault();
-  Array.from(e.changedTouches).forEach(t=>{tch[t.identifier]={x:t.clientX,y:t.clientY};});
-  const ids=Object.keys(tch);
-  if(ids.length===1&&lSingle){
-    const cur=tch[ids[0]];
-    tx+=cur.x-lSingle.x; ty+=cur.y-lSingle.y;
-    lSingle={x:cur.x,y:cur.y}; applyT();
-  } else if(ids.length>=2){
-    const a=tch[ids[0]],b=tch[ids[1]];
-    const dist=Math.hypot(b.x-a.x,b.y-a.y);
-    const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
-    if(lDist&&lMid){
-      const r=wrap.getBoundingClientRect();
-      const cx=mid.x-r.left,cy=mid.y-r.top;
-      const ns=Math.min(5,Math.max(0.2,sc*(dist/lDist)));
-      const ra=ns/sc;
-      tx=cx-ra*(cx-tx)+(mid.x-lMid.x);
-      ty=cy-ra*(cy-ty)+(mid.y-lMid.y);
-      sc=ns; applyT();
+  Array.from(e.changedTouches).forEach(t => { tch[t.identifier]={x:t.clientX,y:t.clientY}; });
+  const ids = Object.keys(tch);
+
+  if (ids.length === 1 && lSingle) {
+    const cur = tch[ids[0]];
+    tx += cur.x - lSingle.x;
+    ty += cur.y - lSingle.y;
+    lSingle = {x:cur.x, y:cur.y};
+    applyT();
+  } else if (ids.length >= 2) {
+    const a=tch[ids[0]], b=tch[ids[1]];
+    const dist = Math.hypot(b.x-a.x, b.y-a.y);
+    const mid  = {x:(a.x+b.x)/2, y:(a.y+b.y)/2};
+    if (lDist && lMid) {
+      const r  = wrap.getBoundingClientRect();
+      const cx = mid.x - r.left;
+      const cy = mid.y - r.top;
+      const ns = Math.min(5, Math.max(0.2, sc*(dist/lDist)));
+      const ra = ns/sc;
+      tx = cx - ra*(cx-tx) + (mid.x - lMid.x);
+      ty = cy - ra*(cy-ty) + (mid.y - lMid.y);
+      sc = ns; applyT();
     }
-    lDist=dist; lMid=mid; lSingle=null;
+    lDist = dist; lMid = mid; lSingle = null;
   }
-},{passive:false});
+}, {passive: false});
+
 wrap.addEventListener('touchend', e => {
-  Array.from(e.changedTouches).forEach(t=>{delete tch[t.identifier];});
-  const ids=Object.keys(tch);
-  if(ids.length<2){lDist=null;lMid=null;}
-  lSingle=ids.length===1?{x:tch[ids[0]].x,y:tch[ids[0]].y}:null;
-},{passive:true});
+  Array.from(e.changedTouches).forEach(t => { delete tch[t.identifier]; });
+  const ids = Object.keys(tch);
+  if (ids.length < 2) { lDist=null; lMid=null; }
+  lSingle = ids.length===1 ? {x:tch[ids[0]].x, y:tch[ids[0]].y} : null;
+}, {passive: false});
+
+wrap.addEventListener('touchcancel', e => {
+  Array.from(e.changedTouches).forEach(t => { delete tch[t.identifier]; });
+  lDist=null; lMid=null; lSingle=null;
+}, {passive: true});
 </script>
 <!-- Modale aggancio manuale eventi -->
 <div class="sm-link-modal" id="smLinkModal">
