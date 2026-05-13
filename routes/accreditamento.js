@@ -193,7 +193,7 @@ module.exports = function registerAccreditamentoRoutes(
       );
       await dbRun(
         `UPDATE accreditation_requests
-         SET status='approvato', reviewed_by=?, reviewed_at=datetime('now','localtime'), assignment_group_id=?
+         SET status='portale_attivato', reviewed_by=?, reviewed_at=datetime('now','localtime'), assignment_group_id=?
          WHERE id=?`,
         [req.session.user.id, result.lastID, id]
       );
