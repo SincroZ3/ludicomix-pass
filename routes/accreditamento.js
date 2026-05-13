@@ -243,4 +243,23 @@ module.exports = function registerAccreditamentoRoutes(
     }
   });
 
+  // ── Fix temporaneo: migra status 'approvato' → 'portale_attivato' ──────────
+  // Chiamare UNA VOLTA da browser: GET /admin/accreditamento/fix-status-approvato
+  // Può essere rimossa dopo l'uso.
+  app.get('/admin/accreditamento/fix-status-approvato', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const result = await dbRun(
+        `UPDATE accreditation_requests SET status='portale_attivato' WHERE status='approvato'`
+      );
+      const count = result.changes ?? 0;
+      res.send(`
+        <h2>&#x2705; Fix completato</h2>
+        <p>Richieste migrate da <code>approvato</code> a <code>portale_attivato</code>: <strong>${count}</strong></p>
+        <a href="/admin/accreditamento">&#8592; Torna alla dashboard accreditamenti</a>
+      `);
+    } catch (e) {
+      res.status(500).send('Errore: ' + e.message);
+    }
+  });
+
 };
