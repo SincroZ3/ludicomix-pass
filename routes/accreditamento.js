@@ -246,7 +246,7 @@ module.exports = function registerAccreditamentoRoutes(
   // ── Fix temporaneo: migra status 'approvato' → 'portale_attivato' ──────────
   // Chiamare UNA VOLTA da browser: GET /admin/accreditamento/fix-status-approvato
   // Può essere rimossa dopo l'uso.
-  app.get('/admin/accreditamento/fix-status-approvato', requireAuth, requireAdmin, async (req, res) => {
+  app.get('/admin/accreditamento/fix-status-approvato', requireAuth, requireOrganizer, async (req, res) => {
     try {
       const result = await dbRun(
         `UPDATE accreditation_requests SET status='portale_attivato' WHERE status='approvato'`
