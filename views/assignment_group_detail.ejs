@@ -462,6 +462,13 @@
       <button type="button" class="secondary" onclick="deselectAll()" style="font-size:.82rem;">
         &#10005; Deseleziona tutti
       </button>
+      <button type="button" onclick="downloadSelected()"
+        style="display:inline-flex;align-items:center;gap:.35rem;padding:.42rem 1rem;
+               background:#2d6a4f;color:#fff;border:none;border-radius:7px;
+               font-size:.82rem;font-weight:700;cursor:pointer;transition:background .15s;"
+        onmouseover="this.style.background='#1b4332'" onmouseout="this.style.background='#2d6a4f'">
+        &#11015; Scarica PDF selezionati
+      </button>
     </div>
     <div class="table-wrapper">
       <table>
@@ -1800,6 +1807,27 @@ function applyBulkStatus(){
   addF('status',status);
   addF('group_id','<%= groupInfo.id %>');
   document.body.appendChild(form); form.submit();
+}
+function downloadSelected(){
+  var checked=document.querySelectorAll('.chk-group:checked');
+  if(!checked.length){alert('Seleziona almeno un pass da scaricare.');return;}
+  var passIds=[];
+  checked.forEach(function(c){
+    var pid=c.getAttribute('data-pass-id');
+    if(pid&&pid!=='0') passIds.push(pid);
+  });
+  if(!passIds.length){alert('I partecipanti selezionati non hanno ancora un PDF generato.');return;}
+  var form=document.createElement('form');
+  form.method='POST'; form.action='/passes/batch-selected';
+  form.target='_blank';
+  passIds.forEach(function(id){
+    var inp=document.createElement('input');
+    inp.type='hidden'; inp.name='pass_ids'; inp.value=id;
+    form.appendChild(inp);
+  });
+  document.body.appendChild(form);
+  form.submit();
+  document.body.removeChild(form);
 }
 </script>
 

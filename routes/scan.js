@@ -228,6 +228,69 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
     });
   });
 
+
+  // ── Batch PDF selezione manuale ──────────────────────────────────
+  // Riceve pass_ids[] via POST, restituisce un PDF merged con i pass scelti.
+  // NON tocca la route GET /assignment-groups/:id/batch-pdf esistente.
+  app.post('/passes/batch-selected', requireAuth, async (req, res) => {
+    try {
+      let ids = req.body.pass_ids;
+      if (!ids) return res.status(400).send('Nessun pass selezionato');
+      if (!Array.isArray(ids)) ids = [ids];
+      ids = ids.map(function(x){ return parseInt(x,10); }).filter(function(x){ return !isNaN(x) && x > 0; });
+      if (!ids.length) return res.status(400).send('Nessun ID valido');
+
+      const placeholders = ids.map(function(){ return '?'; }).join(',');
+      const passes = await new Promise(function(resolve, reject){
+        db.all(
+          `SELECT p.id, p.pdf_file, p.status, pa.first_name, pa.last_name
+           FROM passes p
+           JOIN participants pa ON pa.id = p.participant_id
+           WHERE p.id IN (${placeholders})
+             AND p.pdf_file IS NOT NULL
+             AND p.status != 'INVALIDATO'
+           ORDER BY pa.last_name, pa.first_name`,
+          ids,
+          function(err, rows){ if (err) return reject(err); resolve(rows || []); }
+        );
+      });
+
+      if (!passes.length) return res.status(404).send('Nessun PDF disponibile per i pass selezionati');
+
+      const merged = await PDFDocument.create();
+      for (const p of passes) {
+        const fp = path.join(process.env.DATA_DIR || path.join(__dirname, '..'), 'generated', p.pdf_file);
+        if (!fs.existsSync(fp)) continue;
+        const bytes = fs.readFileSync(fp);
+        const doc   = await PDFDocument.load(bytes);
+        const pages = await merged.copyPages(doc, doc.getPageIndices());
+        pages.forEach(function(pg){ merged.addPage(pg); });
+      }
+
+      const out = await merged.save();
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="pass_selezionati_${Date.now()}.pdf"`);
+      res.send(Buffer.from(out));
+
+      // Aggiorna GENERATO → SCARICATO per i pass inclusi
+      passes.forEach(function(p){
+        if (p.status === 'GENERATO') {
+          db.run("UPDATE passes SET status='SCARICATO' WHERE id=?", [p.id]);
+          db.run('INSERT INTO pass_status_history(pass_id,status,user_id) VALUES(?,?,?)',
+            [p.id, 'SCARICATO', req.session.user.id]);
+          logAction(req.session.user.id, 'batch_selected_pdf_scaricato', 'pass', p.id,
+            'Stato aggiornato GENERATO->SCARICATO via batch selezionati');
+        }
+      });
+      logAction(req.session.user.id, 'batch_selected_pdf', 'pass', null,
+        'Batch PDF selezionati (' + passes.length + ' pass)');
+
+    } catch (e) {
+      console.error('[batch-selected]', e);
+      res.status(500).send('Errore generazione PDF: ' + e.message);
+    }
+  });
+
   // ── Cronologia tentativi scan ────────────────────────────────────
   app.get('/scan-attempts', requireAuth, requireAdmin, (req, res) => {
     db.all(
