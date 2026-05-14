@@ -857,6 +857,7 @@ db.serialize(() => {
 
 // ── Migrazione bacheca: target per gruppo specifico ──────────────────────────
 db.run(`ALTER TABLE announcements ADD COLUMN target_group_id INTEGER REFERENCES assignment_groups(id)`, () => {});
+db.run(`ALTER TABLE announcements ADD COLUMN show_on_public INTEGER DEFAULT 0`, () => {});
 
 // ── Modulo 7: Servizi & Logistica ────────────────────────────────────────────
 db.run(`CREATE TABLE IF NOT EXISTS service_requests (

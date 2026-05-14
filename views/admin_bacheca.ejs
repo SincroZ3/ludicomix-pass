@@ -57,6 +57,9 @@
               <% if(a.is_pinned){ %>
                 <span style="font-size:.65rem;background:#1e2d4e;color:#f5c842;padding:.15rem .5rem;border-radius:9999px;font-weight:800;letter-spacing:.3px;">📌 FISSATO</span>
               <% } %>
+              <% if(a.show_on_public){ %>
+                <span style="font-size:.65rem;background:#d1fae5;color:#065f46;padding:.15rem .5rem;border-radius:9999px;font-weight:800;letter-spacing:.3px;">🌐 POPUP PUBBLICO</span>
+              <% } %>
               <span style="font-size:.68rem;font-weight:800;padding:.15rem .55rem;border-radius:9999px;
                            background:<%= tb %>;color:<%= tc %>;letter-spacing:.3px;"><%= tl %></span>
               <% if(isExpired){ %>
@@ -149,6 +152,14 @@
         <label style="margin-top:.75rem;">
           <input type="checkbox" name="is_pinned" value="1" style="width:auto;display:inline;margin-right:.35rem;">
           📌 Fissa in cima (visibile prima degli altri)
+        </label>
+
+        <label style="margin-top:.75rem;">
+          <input type="checkbox" name="show_on_public" value="1" style="width:auto;display:inline;margin-right:.35rem;" id="chk-public">
+          🌐 Mostra come popup sul <strong>Programma Pubblico</strong>
+          <span style="display:block;font-size:.7rem;color:var(--text-muted);margin-top:.2rem;">
+            Apparirà come avviso all'apertura della pagina pubblica del programma
+          </span>
         </label>
 
         <label style="margin-top:.75rem;">Scadenza (opzionale)

@@ -64,11 +64,12 @@ module.exports = function registerBachecaRoutes(app, db, { requireAuth, requireO
     if (!title || !message) return res.redirect('/admin/bacheca?saved=err');
 
     try {
+      const show_on_public = req.body.show_on_public ? 1 : 0;
       await dbRun(
-        `INSERT INTO announcements (title, message, emoji, type, is_pinned, expires_at, created_by, target_group_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO announcements (title, message, emoji, type, is_pinned, expires_at, created_by, target_group_id, show_on_public)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [title, message, emoji || '📣', type || 'info', is_pinned ? 1 : 0, expires_at || null,
-         req.session.user.id, target_group_id]
+         req.session.user.id, target_group_id, show_on_public]
       );
       logAction(req.session.user.id, 'create_announcement', 'announcement', null,
         `"${title}"${target_group_id ? ' → gruppo ' + target_group_id : ''}`);

@@ -858,20 +858,31 @@ router.get('/programma', (req, res) => {
               grouped[ev.date][ev.space_name].push(ev);
             });
 
-            res.render('agenda/public_program', {
-              currentUser: null,
-              grouped,
-              events: events || [],
-              dates: dates || [],
-              spaces: spaces || [],
-              filters: { date: selectedDate, space: selectedSpace, q: searchQuery },
-              selectedDate,
-              selectedSpace,
-              searchQuery: searchQuery || '',
-              featuredGuests: featuredGuests || [],
-              allSpeakers: allSpeakers || [],
-              title: 'Programma Ludicomix'
-            });
+            // Legge eventuale annuncio pubblico attivo
+            db.get(
+              `SELECT title, message, emoji, type FROM announcements
+               WHERE show_on_public = 1
+                 AND (expires_at IS NULL OR expires_at > datetime('now','localtime'))
+               ORDER BY is_pinned DESC, created_at DESC LIMIT 1`,
+              [],
+              (errAnn, publicAnnouncement) => {
+                res.render('agenda/public_program', {
+                  currentUser: null,
+                  grouped,
+                  events: events || [],
+                  dates: dates || [],
+                  spaces: spaces || [],
+                  filters: { date: selectedDate, space: selectedSpace, q: searchQuery },
+                  selectedDate,
+                  selectedSpace,
+                  searchQuery: searchQuery || '',
+                  featuredGuests: featuredGuests || [],
+                  allSpeakers: allSpeakers || [],
+                  publicAnnouncement: publicAnnouncement || null,
+                  title: 'Programma Ludicomix'
+                });
+              }
+            );
           });
         });
       });
