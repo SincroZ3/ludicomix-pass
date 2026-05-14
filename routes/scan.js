@@ -108,7 +108,7 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
           return;
         }
 
-        // Pass già ENTRATO: warning duplicato — non cambia stato, registra tentativo
+        // Pass già ENTRATO: controlla se l'accesso è di oggi o di un giorno precedente
         if (pass.status === 'ENTRATO') {
           db.get(
             `SELECT created_at FROM scan_attempts
@@ -117,14 +117,33 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
              ORDER BY id DESC LIMIT 1`,
             [pass.id],
             (err2, lastAccess) => {
-              db.run('INSERT INTO scan_attempts(code,result,pass_id,participant_name,group_name,user_id,ip) VALUES(?,?,?,?,?,?,?)',
-                [code, 'DUPLICATO', pass.id, pname, pass.group_name, uid, ip]);
-              res.status(409).json({
-                error: 'Pass già entrato oggi',
-                status: 'ENTRATO',
-                duplicate: true,
-                lastAccess: lastAccess ? lastAccess.created_at : null,
-                pass: { first_name: pass.first_name, last_name: pass.last_name, group_name: pass.group_name }
+              if (lastAccess) {
+                // Accesso già registrato oggi → duplicato
+                db.run('INSERT INTO scan_attempts(code,result,pass_id,participant_name,group_name,user_id,ip) VALUES(?,?,?,?,?,?,?)',
+                  [code, 'DUPLICATO', pass.id, pname, pass.group_name, uid, ip]);
+                return res.status(409).json({
+                  error: 'Pass già entrato oggi',
+                  status: 'ENTRATO',
+                  duplicate: true,
+                  lastAccess: lastAccess.created_at,
+                  pass: { first_name: pass.first_name, last_name: pass.last_name, group_name: pass.group_name }
+                });
+              }
+              // Nessun accesso oggi → giorno nuovo, reset a CONSEGNATO
+              db.run('UPDATE passes SET status=? WHERE id=?', ['CONSEGNATO', pass.id], function(err3) {
+                if (err3) return res.status(500).json({ error: 'Errore DB' });
+                db.run('INSERT INTO pass_status_history(pass_id,status,user_id) VALUES(?,?,?)',
+                  [pass.id, 'CONSEGNATO', uid]);
+                logAction(uid, 'scan_reset_giornaliero', 'pass', pass.id,
+                  'Pass resettato ENTRATO→CONSEGNATO per nuovo giorno');
+                // Restituisce il pass aggiornato così il client mostra "segna accesso"
+                res.json({
+                  pass: {
+                    id: pass.id, code, status: 'CONSEGNATO',
+                    first_name: pass.first_name, last_name: pass.last_name,
+                    group_name: pass.group_name
+                  }
+                });
               });
             }
           );
