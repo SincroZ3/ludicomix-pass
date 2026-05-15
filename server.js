@@ -92,10 +92,23 @@ function createNotification(type, title, message, rT, rI) {
   );
 }
 
+function nowIT() {
+  // Timestamp ora italiana formattato come YYYY-MM-DD HH:MM:SS
+  // Forza Europe/Rome indipendentemente dalla TZ del container
+  const d = new Date();
+  const fmt = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Europe/Rome',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false
+  });
+  return fmt.format(d).replace('T', ' ');
+}
+
 function logAction(userId, action, entityType, entityId, details) {
   db.run(
-    'INSERT INTO action_logs(user_id,action,entity_type,entity_id,details) VALUES(?,?,?,?,?)',
-    [userId || null, action, entityType || null, entityId || null, details || null],
+    'INSERT INTO action_logs(user_id,action,entity_type,entity_id,details,created_at) VALUES(?,?,?,?,?,?)',
+    [userId || null, action, entityType || null, entityId || null, details || null, nowIT()],
     err => { if (err) console.error('[logAction]', err.message); }
   );
 }
