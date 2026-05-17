@@ -28,10 +28,10 @@ function todayMidnight() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} 00:00:00`;
 }
 
-module.exports = function registerContatoreRoutes(app, db, { requireAuth, requireAdmin, requireNotViewer, logAction, getCurrent }) {
+module.exports = function registerContatoreRoutes(app, db, { requireAuth, requireAdmin, requireNotViewer, requireCanScan, logAction, getCurrent }) {
 
   // ── Registra un singolo tap (IN o OUT) ──────────────────────────
-  app.post('/api/visitors/tap', requireAuth, requireNotViewer, (req, res) => {
+  app.post('/api/visitors/tap', requireAuth, requireCanScan, (req, res) => {
     const { area, gate = 'main', direction } = req.body;
     if (!area || !['IN', 'OUT'].includes(direction)) {
       return res.status(400).json({ error: 'area e direction (IN/OUT) richiesti' });
