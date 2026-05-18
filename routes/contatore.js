@@ -134,6 +134,30 @@ module.exports = function registerContatoreRoutes(app, db, { requireAuth, requir
     );
   });
 
+
+  // ── Storico accessi per data (tutte le giornate, senza filtro oggi) ──
+  app.get('/api/visitors/storico', requireAuth, (req, res) => {
+    const edId = getCurrent()?.id || null;
+
+    db.all(
+      `SELECT
+         date(counted_at) AS giorno,
+         area,
+         SUM(CASE WHEN direction='IN'  THEN 1 ELSE 0 END) AS entrate,
+         SUM(CASE WHEN direction='OUT' THEN 1 ELSE 0 END) AS uscite,
+         COUNT(*) AS totale_tap
+       FROM visitor_counts
+       WHERE (edition_id = ? OR edition_id IS NULL)
+       GROUP BY giorno, area
+       ORDER BY giorno DESC, area ASC`,
+      [edId],
+      (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows || []);
+      }
+    );
+  });
+
   // ── Pagina contatore (view mobile per volontari) ─────────────────
   app.get('/contatore', requireAuth, (req, res) => {
     res.render('contatore', { user: req.session.user, areas: VISITOR_AREAS });

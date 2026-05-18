@@ -110,6 +110,7 @@
   <button class="ltab active" onclick="switchLiveTab('presenze',this)">🎡 Presenze live per area</button>
   <button class="ltab" onclick="switchLiveTab('ingressi',this)">📊 Ingressi per ora</button>
   <button class="ltab" onclick="switchLiveTab('alert',this)">⚠️ Alert intelligenti</button>
+  <button class="ltab" onclick="switchLiveTab('storico',this);loadStorico()">📅 Storico giorni</button>
 </div>
 
 <!-- Panel: Presenze live per area -->
@@ -157,6 +158,39 @@
       <div id="pass-nc-list"></div>
     </div>
     <div id="alert-empty" style="color:var(--text-muted);font-size:.82rem">✅ Nessun alert attivo</div>
+  </div>
+</div>
+
+
+<!-- Panel: Storico accessi per giornata -->
+<div class="live-panel" id="tab-storico">
+  <div class="dash-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem;">
+      <span style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);">Accessi storici per area e giornata</span>
+      <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;">
+        <input type="date" id="storico-filter-from" style="font-size:.75rem;padding:.25rem .5rem;border:1px solid var(--border);border-radius:6px;background:var(--bg-section);color:var(--text);" oninput="renderStorico()">
+        <span style="font-size:.7rem;color:var(--text-muted)">→</span>
+        <input type="date" id="storico-filter-to"   style="font-size:.75rem;padding:.25rem .5rem;border:1px solid var(--border);border-radius:6px;background:var(--bg-section);color:var(--text);" oninput="renderStorico()">
+        <button onclick="document.getElementById('storico-filter-from').value='';document.getElementById('storico-filter-to').value='';renderStorico();"
+          style="font-size:.72rem;padding:.25rem .6rem;border:1px solid var(--border);border-radius:6px;background:var(--bg-section);color:var(--text-muted);cursor:pointer;">✕ Reset</button>
+      </div>
+    </div>
+    <div id="storico-loading" style="color:var(--text-muted);font-size:.82rem;display:none;">Caricamento...</div>
+    <div id="storico-empty"   style="color:var(--text-muted);font-size:.82rem;display:none;">Nessun dato storico disponibile.</div>
+    <div id="storico-table-wrap" style="overflow-x:auto;">
+      <table id="storico-table" style="display:none;width:100%;border-collapse:collapse;font-size:.8rem;">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border);">
+            <th style="text-align:left;padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);white-space:nowrap;">Data</th>
+            <th style="text-align:left;padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);">Area</th>
+            <th style="text-align:right;padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:#2d6a4f;white-space:nowrap;">↑ Entrate</th>
+            <th style="text-align:right;padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:#c9a227;white-space:nowrap;">↓ Uscite</th>
+            <th style="text-align:right;padding:.4rem .6rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:#1d6fa4;white-space:nowrap;">Δ Presenti</th>
+          </tr>
+        </thead>
+        <tbody id="storico-tbody"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -419,5 +453,116 @@ function switchLiveTab(name, btn) {
   refresh();
   setInterval(refresh, 15000);
 })();
+
+// ── Storico accessi ──────────────────────────────────────────
+var _storicoData = null;
+var _storicoLoaded = false;
+
+function loadStorico() {
+  if (_storicoLoaded) { renderStorico(); return; }
+  document.getElementById('storico-loading').style.display = 'block';
+  document.getElementById('storico-table').style.display   = 'none';
+  document.getElementById('storico-empty').style.display   = 'none';
+  fetch('/api/visitors/storico')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      _storicoData   = data;
+      _storicoLoaded = true;
+      document.getElementById('storico-loading').style.display = 'none';
+      renderStorico();
+    })
+    .catch(function(){
+      document.getElementById('storico-loading').style.display = 'none';
+      document.getElementById('storico-empty').style.display   = 'block';
+      document.getElementById('storico-empty').textContent     = '⚠️ Errore nel caricamento dei dati storici.';
+    });
+}
+
+function renderStorico() {
+  if (!_storicoData) return;
+  var from = document.getElementById('storico-filter-from').value; // YYYY-MM-DD
+  var to   = document.getElementById('storico-filter-to').value;
+
+  var areaLabel = {
+    mariambini: '🎡 Mariambini',
+    palazzetto: '🏟️ Palazzetto',
+    la_perla:   '🎬 La Perla',
+    ludostria:  '🎲 Ludostria'
+  };
+
+  var filtered = _storicoData.filter(function(r){
+    if (from && r.giorno < from) return false;
+    if (to   && r.giorno > to)   return false;
+    return true;
+  });
+
+  var tbody = document.getElementById('storico-tbody');
+  var table = document.getElementById('storico-table');
+  var empty = document.getElementById('storico-empty');
+
+  if (!filtered.length) {
+    table.style.display = 'none';
+    empty.style.display = 'block';
+    empty.textContent   = 'Nessun dato per il periodo selezionato.';
+    return;
+  }
+
+  empty.style.display = 'none';
+  table.style.display = 'table';
+
+  // Raggruppa per giorno per righe totale
+  var giorni = {};
+  filtered.forEach(function(r){
+    if (!giorni[r.giorno]) giorni[r.giorno] = { entrate: 0, uscite: 0 };
+    giorni[r.giorno].entrate += r.entrate;
+    giorni[r.giorno].uscite  += r.uscite;
+  });
+
+  var html = '';
+  var prevGiorno = null;
+  filtered.forEach(function(r){
+    var isNewDay = r.giorno !== prevGiorno;
+    if (isNewDay && prevGiorno !== null) {
+      // Riga totale del giorno precedente
+      var tot = giorni[prevGiorno];
+      var delta = tot.entrate - tot.uscite;
+      html += '<tr style="border-top:1px solid var(--border);background:color-mix(in srgb,var(--bg-section) 60%,transparent);">'
+        + '<td style="padding:.35rem .6rem;font-size:.72rem;font-weight:700;color:var(--text-muted);" colspan="2">Totale ' + fmtDay(prevGiorno) + '</td>'
+        + '<td style="padding:.35rem .6rem;text-align:right;font-weight:800;color:#2d6a4f;">' + tot.entrate + '</td>'
+        + '<td style="padding:.35rem .6rem;text-align:right;font-weight:800;color:#c9a227;">' + tot.uscite + '</td>'
+        + '<td style="padding:.35rem .6rem;text-align:right;font-weight:800;color:#1d6fa4;">' + Math.max(0, delta) + '</td>'
+        + '</tr>';
+    }
+    var presenti = Math.max(0, r.entrate - r.uscite);
+    var bgRow = isNewDay ? '' : 'background:var(--bg-section);';
+    html += '<tr style="border-top:1px solid var(--border-light);' + bgRow + '">'
+      + '<td style="padding:.35rem .6rem;white-space:nowrap;color:var(--text);">' + (isNewDay ? '<strong>' + fmtDay(r.giorno) + '</strong>' : '') + '</td>'
+      + '<td style="padding:.35rem .6rem;color:var(--text-muted);">' + (areaLabel[r.area] || r.area) + '</td>'
+      + '<td style="padding:.35rem .6rem;text-align:right;font-variant-numeric:tabular-nums;color:#2d6a4f;">' + r.entrate + '</td>'
+      + '<td style="padding:.35rem .6rem;text-align:right;font-variant-numeric:tabular-nums;color:#c9a227;">' + r.uscite + '</td>'
+      + '<td style="padding:.35rem .6rem;text-align:right;font-variant-numeric:tabular-nums;color:#1d6fa4;">' + presenti + '</td>'
+      + '</tr>';
+    prevGiorno = r.giorno;
+  });
+  // Riga totale ultimo giorno
+  if (prevGiorno) {
+    var tot = giorni[prevGiorno];
+    var delta = tot.entrate - tot.uscite;
+    html += '<tr style="border-top:1px solid var(--border);background:color-mix(in srgb,var(--bg-section) 60%,transparent);">'
+      + '<td style="padding:.35rem .6rem;font-size:.72rem;font-weight:700;color:var(--text-muted);" colspan="2">Totale ' + fmtDay(prevGiorno) + '</td>'
+      + '<td style="padding:.35rem .6rem;text-align:right;font-weight:800;color:#2d6a4f;">' + tot.entrate + '</td>'
+      + '<td style="padding:.35rem .6rem;text-align:right;font-weight:800;color:#c9a227;">' + tot.uscite + '</td>'
+      + '<td style="padding:.35rem .6rem;text-align:right;font-weight:800;color:#1d6fa4;">' + Math.max(0, delta) + '</td>'
+      + '</tr>';
+  }
+  tbody.innerHTML = html;
+}
+
+function fmtDay(iso) {
+  // YYYY-MM-DD → GG/MM/YYYY
+  if (!iso) return iso;
+  var p = iso.split('-');
+  return p[2] + '/' + p[1] + '/' + p[0];
+}
 </script>
 <%- include('partials/footer') %>
