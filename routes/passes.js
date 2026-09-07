@@ -41,7 +41,8 @@ function generateRandomCode(len) {
 
 module.exports = function registerPassesRoutes(
   app, db,
-  { requireAuth, requireAdmin, requireOrganizer, requireNotViewer, logAction, createNotification }
+  { requireAuth, requireAdmin, requireOrganizer, requireNotViewer, logAction, createNotification,
+    edVal, getCurrent } // FIX bug gestore edizioni
 ) {
   const DATA_DIR = process.env.DATA_DIR || __dirname.replace('/routes', '');
   const dbGet    = promisify(db.get.bind(db));
@@ -125,7 +126,9 @@ module.exports = function registerPassesRoutes(
     drawCentered(code, 10, regFont, qrY - 18);
 
     const pdfBytes = await pdfDoc.save();
-    const result   = await dbRun('INSERT INTO passes (participant_id, pass_type_id, code, status, pdf_file) VALUES (?,?,?,?,?)', [participantId, passTypeId, code, 'GENERATO', '']);
+    // FIX bug gestore edizioni: ogni pass generato viene taggato con l'edizione attiva
+    const passEditionId = edVal ? edVal() : null;
+    const result   = await dbRun('INSERT INTO passes (participant_id, pass_type_id, code, status, pdf_file, edition_id) VALUES (?,?,?,?,?,?)', [participantId, passTypeId, code, 'GENERATO', '', passEditionId]);
     const passId   = result.lastID;
     const filename = `pass_${passId}.pdf`;
     fs.mkdirSync(path.join(DATA_DIR, 'generated'), { recursive: true });
@@ -171,6 +174,11 @@ module.exports = function registerPassesRoutes(
 
   // ── GET /passes — lista ───────────────────────────────────────────
   app.get('/passes', requireAuth, (req, res) => {
+    // FIX bug gestore edizioni: mostra solo i pass dell'edizione attiva (storici NULL restano visibili)
+    const cur = getCurrent ? getCurrent() : null;
+    const params = [];
+    let edClause = '';
+    if (cur) { edClause = 'AND (p.edition_id = ? OR p.edition_id IS NULL)'; params.push(cur.id); }
     db.all(
       `SELECT p.id, p.created_at, p.pdf_file, p.code, p.status,
               pt.name AS pass_type_name,
@@ -178,8 +186,9 @@ module.exports = function registerPassesRoutes(
        FROM passes p
        JOIN pass_types pt ON pt.id=p.pass_type_id
        JOIN participants pa ON pa.id=p.participant_id
+       WHERE 1=1 ${edClause}
        ORDER BY p.id DESC`,
-      [],
+      params,
       (err, passes) => {
         if (err) return res.status(500).send('Errore DB pass');
         res.render('passes', { passes, statuses: PASS_STATUSES, replaced: req.query.replaced || null });

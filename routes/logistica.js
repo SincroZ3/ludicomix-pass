@@ -16,7 +16,7 @@
 
 const { promisify } = require('util');
 
-module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requireOrganizer, logAction }) {
+module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requireOrganizer, logAction, edVal, edFilter }) {
 
   const dbAll = promisify(db.all.bind(db));
   const dbGet = promisify(db.get.bind(db));
@@ -36,12 +36,20 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
 
   app.get('/admin/logistica', requireAuth, requireOrganizer, async (req, res) => {
     try {
+      // FIX bug gestore edizioni: service_requests ha una propria colonna edition_id (vedi db.js);
+      // filtriamo su quella direttamente invece di passare per assignment_groups, così restano
+      // visibili anche le eventuali richieste generiche non legate a uno stand specifico.
+      const curEdId = edVal ? edVal() : null;
+      const reqParams = [];
+      let reqEdClause = '';
+      if (curEdId) { reqEdClause = 'AND (sr.edition_id = ? OR sr.edition_id IS NULL)'; reqParams.push(curEdId); }
       const requests = await dbAll(`
         SELECT sr.*, sr.service_type AS type, ag.name AS group_name
         FROM service_requests sr
         LEFT JOIN assignment_groups ag ON ag.id = sr.assignment_group_id
+        WHERE 1=1 ${reqEdClause}
         ORDER BY sr.requested_at DESC
-      `);
+      `, reqParams);
       const equipment = await dbAll(`SELECT * FROM equipment ORDER BY category, name`);
       const loans = await dbAll(`
         SELECT el.*, e.name AS equipment_name, e.category, ag.name AS group_name
@@ -50,7 +58,8 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
         LEFT JOIN assignment_groups ag ON ag.id = el.assignment_group_id
         ORDER BY el.loaned_at DESC
       `);
-      const groups = await dbAll(`SELECT id, name FROM assignment_groups ORDER BY name`);
+      // Elenco gruppi per i form (creazione richiesta/prestito): solo edizione attiva
+      const groups = await dbAll(`SELECT id, name FROM assignment_groups ag WHERE 1=1 ${edFilter ? edFilter() : ''} ORDER BY name`);
       const materialTypes = await dbAll(`SELECT * FROM logistic_categories ORDER BY sort_order, label`);
       const storageLocations = await dbAll(`SELECT * FROM logistic_locations ORDER BY sort_order, label`);
       res.render('admin-logistica', { requests, equipment, loans, groups, materialTypes, storageLocations, saved: req.query.saved || null });

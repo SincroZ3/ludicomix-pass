@@ -17,8 +17,11 @@ const router  = express.Router();
 const db      = require('./db');
 const bwipjs  = require('bwip-js');
 
-module.exports = function agendaRoutes(logActionFn) {
+module.exports = function agendaRoutes(logActionFn, getCurrentEdition) {
 const logAction = logActionFn || function(){};
+// FIX bug gestore edizioni: getter dell'edizione attiva, iniettato da server.js
+// (la colonna events.edition_id e la relativa migrazione sono centralizzate in db.js)
+const getCurrent = getCurrentEdition || function () { return null; };
 
   // ── Migration sicura: aggiunge location_type se non esiste ──
   db.run("ALTER TABLE events ADD COLUMN location_type TEXT DEFAULT 'sala'", function() {});
@@ -378,6 +381,8 @@ router.post('/agenda/guests/:id/toggle-featured', requireAuth, (req, res) => {
 
 router.get('/agenda/events', requireAuth, (req, res) => {
   const { date, space_id, published } = req.query;
+  // FIX bug gestore edizioni: mostra solo gli eventi dell'edizione attiva (storici NULL restano visibili)
+  const curEd = getCurrent();
   let sql = `SELECT e.*, s.name AS space_name, s.color AS space_color,
     COUNT(r.id) AS seats_taken,
     GROUP_CONCAT(sp.name, ', ') AS speakers_list
@@ -388,6 +393,7 @@ router.get('/agenda/events', requireAuth, (req, res) => {
     LEFT JOIN speakers sp ON sp.id = es.speaker_id
     WHERE 1=1`;
   const params = [];
+  if (curEd) { sql += ` AND (e.edition_id = ? OR e.edition_id IS NULL)`; params.push(curEd.id); }
   if (date) { sql += ` AND e.date = ?`; params.push(date); }
   if (space_id) { sql += ` AND e.space_id = ?`; params.push(space_id); }
   if (published !== undefined && published !== '') {
@@ -454,16 +460,19 @@ router.post('/agenda/events', requireAuth, (req, res) => {
       return res.redirect('/agenda/events/new');
     }
 
+    // FIX bug gestore edizioni: tagga il nuovo evento con l'edizione attiva
+    const newEventEditionId = getCurrent() ? getCurrent().id : null;
     db.run(
       `INSERT INTO events (title, description, space_id, date, start_time, end_time,
-        max_seats, event_type, is_public, published, registrations_open, featured, image_url, tags, notes, location_text, location_type, free_entry, ticketed_area, registration_form_type)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        max_seats, event_type, is_public, published, registrations_open, featured, image_url, tags, notes, location_text, location_type, free_entry, ticketed_area, registration_form_type, edition_id)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [title.trim(), description || '', parseInt(space_id), date, start_time, end_time,
        parseInt(max_seats) || 0, event_type || 'panel',
        is_public ? 1 : 0, published ? 1 : 0, registrations_open ? 1 : 0, featured ? 1 : 0,
        image_url || '', tags || '', notes || '', locationTextVal, locationTypeVal,
        free_entry ? 1 : 0, ticketed_area ? 1 : 0,
-       ['standard','cosplay','quiz_musicale'].includes(req.body.registration_form_type) ? req.body.registration_form_type : 'standard'],
+       ['standard','cosplay','quiz_musicale'].includes(req.body.registration_form_type) ? req.body.registration_form_type : 'standard',
+       newEventEditionId],
       function(err2) {
         if (err2) {
           flash(req, 'error', 'Errore salvataggio evento.');
@@ -816,9 +825,13 @@ router.get('/programma', (req, res) => {
   const selectedDate  = date  || null;
   const selectedSpace = space || null;
   const searchQuery   = q ? q.trim() : null;
+  // FIX bug gestore edizioni: la view v_public_program ora espone edition_id (vedi db.js) —
+  // il programma pubblico mostra solo l'edizione attiva (eventi storici senza edizione restano visibili)
+  const curEdProgramma = getCurrent();
 
   let sql = `SELECT * FROM v_public_program WHERE 1=1`;
   const params = [];
+  if (curEdProgramma) { sql += ` AND (edition_id = ? OR edition_id IS NULL)`; params.push(curEdProgramma.id); }
   if (selectedDate)  { sql += ` AND date = ?`;       params.push(selectedDate); }
   if (selectedSpace) { sql += ` AND space_name = ?`; params.push(selectedSpace); }
   if (searchQuery)   {
@@ -831,21 +844,28 @@ router.get('/programma', (req, res) => {
   db.all(sql, params, (err, events) => {
     if (err) { console.error('[Agenda]', err.message); return res.status(500).send('Errore interno'); }
 
-    db.all(`SELECT DISTINCT date FROM events WHERE published=1 AND is_public=1 ORDER BY date`,
-      [], (err2, dates) => {
+    // FIX bug gestore edizioni: dropdown date/sale, ospiti in evidenza e annuncio pubblico
+    // solo per l'edizione attiva (record senza edizione restano visibili per retrocompatibilità)
+    const curEd = getCurrent();
+    const edEventsParams = curEd ? [curEd.id] : [];
+    const edEventsClause = curEd ? 'AND (e.edition_id = ? OR e.edition_id IS NULL)' : '';
+    const edAgClause     = curEd ? 'AND (ag.edition_id = ? OR ag.edition_id IS NULL)' : '';
+
+    db.all(`SELECT DISTINCT date FROM events e WHERE published=1 AND is_public=1 ${edEventsClause} ORDER BY date`,
+      edEventsParams, (err2, dates) => {
       db.all(`SELECT DISTINCT s.name FROM spaces s
         JOIN events e ON e.space_id=s.id
-        WHERE e.published=1 AND e.is_public=1
-        ORDER BY s.name`, [], (err3, spaces) => {
+        WHERE e.published=1 AND e.is_public=1 ${edEventsClause}
+        ORDER BY s.name`, edEventsParams, (err3, spaces) => {
 
         // Ospiti in evidenza: guest_profiles.featured=1 + active=1 join assignment_groups
         db.all(
           `SELECT gp.*, ag.name AS group_name
            FROM guest_profiles gp
            JOIN assignment_groups ag ON ag.id = gp.assignment_group_id
-           WHERE gp.featured = 1 AND gp.active = 1
+           WHERE gp.featured = 1 AND gp.active = 1 ${edAgClause}
            ORDER BY gp.sort_order ASC, ag.name ASC`,
-          [], (err4, featuredGuests) => {
+          curEd ? [curEd.id] : [], (err4, featuredGuests) => {
 
           // Tutti i relatori attivi (per modale click sul nome)
           db.all(`SELECT id, name, bio, photo_url, social_url FROM speakers WHERE active=1 ORDER BY name`,
@@ -858,13 +878,15 @@ router.get('/programma', (req, res) => {
               grouped[ev.date][ev.space_name].push(ev);
             });
 
-            // Legge eventuale annuncio pubblico attivo
+            // Legge eventuale annuncio pubblico attivo (solo edizione corrente o senza edizione)
+            const annEdClause = curEd ? 'AND (edition_id = ? OR edition_id IS NULL)' : '';
             db.get(
               `SELECT title, message, emoji, type FROM announcements
                WHERE show_on_public = 1
                  AND (expires_at IS NULL OR expires_at > datetime('now','localtime'))
+                 ${annEdClause}
                ORDER BY is_pinned DESC, created_at DESC LIMIT 1`,
-              [],
+              curEd ? [curEd.id] : [],
               (errAnn, publicAnnouncement) => {
                 res.render('agenda/public_program', {
                   currentUser: null,
@@ -1028,14 +1050,17 @@ router.post('/admin/mappa-pubblica/zone/:id', requireAuth, requireAdmin, (req, r
 router.get('/ospiti', (req, res) => {
   const { category } = req.query;
   const selectedCat = category || null;
+  // FIX bug gestore edizioni: mostra solo gli ospiti dell'edizione attiva
+  const curEdOspiti = getCurrent();
+  const ospitiEdClause = curEdOspiti ? 'AND (ag.edition_id = ? OR ag.edition_id IS NULL)' : '';
 
   db.all(
     `SELECT gp.*, ag.name AS group_name
      FROM guest_profiles gp
      JOIN assignment_groups ag ON ag.id = gp.assignment_group_id
-     WHERE gp.active = 1
+     WHERE gp.active = 1 ${ospitiEdClause}
      ORDER BY gp.sort_order ASC, ag.name ASC`,
-    [], (err, guests) => {
+    curEdOspiti ? [curEdOspiti.id] : [], (err, guests) => {
       if (err) { console.error('[Ospiti]', err.message); return res.status(500).send('Errore interno'); }
 
       // Categorie uniche per filtro — split per virgola
@@ -1266,6 +1291,10 @@ router.post('/admin/mappa-pubblica/zone/:id/stand-map-toggle', requireAuth, requ
 router.get('/api/mappa-stand/:zoneId', (req, res) => {
   const zoneId = parseInt(req.params.zoneId, 10);
   if (!zoneId) return res.status(400).json({ error: 'zoneId non valido' });
+  // FIX bug gestore edizioni: mappa stand pubblica limitata a stand ed eventi dell'edizione attiva
+  const curEdMappa = getCurrent();
+  const mappaAgEdClause = curEdMappa ? 'AND (ag.edition_id = ? OR ag.edition_id IS NULL)' : '';
+  const mappaEvEdClause = curEdMappa ? 'AND (e.edition_id = ? OR e.edition_id IS NULL)' : '';
   db.get('SELECT * FROM zones WHERE id=? AND stand_map_public=1', [zoneId], (err, zone) => {
     if (err || !zone) return res.status(404).json({ error: 'Zona non trovata o non pubblica' });
     db.all(
@@ -1274,9 +1303,9 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
               g.id AS group_id
        FROM assignment_groups ag
        LEFT JOIN groups g ON g.id = ag.group_id
-       WHERE ag.zone=? AND ag.map_x IS NOT NULL AND ag.map_y IS NOT NULL
+       WHERE ag.zone=? AND ag.map_x IS NOT NULL AND ag.map_y IS NOT NULL ${mappaAgEdClause}
        ORDER BY ag.stand_code, ag.name`,
-      [zone.name],
+      curEdMappa ? [zone.name, curEdMappa.id] : [zone.name],
       (err2, stands) => {
         if (err2) return res.status(500).json({ error: 'Errore DB stands' });
         if (!stands || stands.length === 0) return res.json({ zone, stands: [] });
@@ -1287,9 +1316,9 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
                   s.name AS space_name
            FROM events e
            LEFT JOIN spaces s ON s.id = e.space_id
-           WHERE e.published = 1
+           WHERE e.published = 1 ${mappaEvEdClause}
            ORDER BY e.date, e.start_time`,
-          [],
+          curEdMappa ? [curEdMappa.id] : [],
           (err3, events) => {
             if (err3) return res.json({ zone, stands: stands.map(s => ({ ...s, events: [], excluded_events: [] })) });
             const allEvents = events || [];

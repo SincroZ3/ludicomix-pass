@@ -58,6 +58,12 @@ db.run(`CREATE TABLE IF NOT EXISTS passes (
   FOREIGN KEY(pass_type_id) REFERENCES pass_types(id)
 )`);
 
+// FIX bug gestore edizioni: i pass non avevano una colonna edizione propria.
+// Migrazione sicura (no-op se già presente). Popolata da routes/passes.js alla generazione.
+db.run(`ALTER TABLE passes ADD COLUMN edition_id INTEGER`, err => {
+  if (err && !err.message.includes('duplicate column')) console.warn('[Migration] passes.edition_id:', err.message);
+});
+
 db.run(`CREATE TABLE IF NOT EXISTS groups (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
@@ -326,6 +332,11 @@ db.run(`CREATE TABLE IF NOT EXISTS accreditation_requests (
   created_at TEXT DEFAULT (datetime('now','localtime'))
 )`);
 
+// FIX bug gestore edizioni: le richieste di accreditamento non avevano una colonna edizione.
+db.run(`ALTER TABLE accreditation_requests ADD COLUMN edition_id INTEGER`, err => {
+  if (err && !err.message.includes('duplicate column')) console.warn('[Migration] accreditation_requests.edition_id:', err.message);
+});
+
 // ═══════════════════════════════════════════════════════
 // MULTI-EDIZIONE
 // ═══════════════════════════════════════════════════════
@@ -539,11 +550,18 @@ db.serialize(function() {
 // VIEWS — agenda
 // ═══════════════════════════════════════════════════════
 
+// FIX bug gestore edizioni: aggiunge edition_id agli eventi PRIMA di ricreare la view,
+// così le route pubbliche (programma, mappa stand) possono filtrare per edizione attiva.
+db.run(`ALTER TABLE events ADD COLUMN edition_id INTEGER`, err => {
+  if (err && !err.message.includes('duplicate column')) console.warn('[Migration] events.edition_id:', err.message);
+});
+
 // Ricrea sempre la view per aggiornare la definizione dopo migrazioni
 db.run(`DROP VIEW IF EXISTS v_public_program`, () => {
   db.run(`CREATE VIEW v_public_program AS
     SELECT
       e.id, e.title, e.description, e.date, e.start_time, e.end_time,
+      e.edition_id,
       e.event_type, e.image_url, e.tags, e.max_seats, e.registrations_open,
       e.featured,
       e.featured AS isfeatured,
@@ -858,6 +876,10 @@ db.serialize(() => {
 // ── Migrazione bacheca: target per gruppo specifico ──────────────────────────
 db.run(`ALTER TABLE announcements ADD COLUMN target_group_id INTEGER REFERENCES assignment_groups(id)`, () => {});
 db.run(`ALTER TABLE announcements ADD COLUMN show_on_public INTEGER DEFAULT 0`, () => {});
+// FIX bug gestore edizioni: gli annunci non avevano una colonna edizione.
+db.run(`ALTER TABLE announcements ADD COLUMN edition_id INTEGER`, err => {
+  if (err && !err.message.includes('duplicate column')) console.warn('[Migration] announcements.edition_id:', err.message);
+});
 
 // ── Modulo 7: Servizi & Logistica ────────────────────────────────────────────
 db.run(`CREATE TABLE IF NOT EXISTS service_requests (

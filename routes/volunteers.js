@@ -49,31 +49,86 @@ module.exports = function registerVolunteersRoutes(
   // ── GET /volunteers ──────────────────────────────────────────────
   app.get('/volunteers', requireAuth, async (req, res) => {
     try {
-      const [volunteers, pending, shifts, zones] = await Promise.all([
+      // FIX bug gestore edizioni: mostra solo i volontari/candidature dell'edizione attiva
+      const edId = await resolveEditionId();
+      const [volunteers, pending, shifts, zones, otherEditionsCount] = await Promise.all([
         dbAll(`
           SELECT v.*,
                  (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
                  (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
           FROM volunteers v
-          WHERE v.status NOT IN ('pending','rejected')
-          ORDER BY v.last_name, v.first_name`),
-        dbAll("SELECT * FROM volunteers WHERE status='pending' ORDER BY rowid DESC"),
+          WHERE v.status NOT IN ('pending','rejected') AND (v.edition_id = ? OR v.edition_id IS NULL)
+          ORDER BY v.last_name, v.first_name`, [edId]),
+        dbAll("SELECT * FROM volunteers WHERE status='pending' AND (edition_id = ? OR edition_id IS NULL) ORDER BY rowid DESC", [edId]),
         dbAll(`
           SELECT s.*, z.name AS zone_name,
                  (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
           FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
           ORDER BY s.start_at, s.name`),
         dbAll("SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope='internal' OR zone_scope='both') ORDER BY sort_order, name"),
+        dbGet(`SELECT COUNT(*) AS n FROM volunteers WHERE edition_id IS NOT NULL AND edition_id != ?`, [edId]),
       ]);
       res.render('volunteers', {
         volunteers: volunteers || [],
         shifts:     shifts     || [],
         zones:      zones      || [],
         pending:    pending    || [],
+        otherEditionsCount: otherEditionsCount?.n || 0,
       });
     } catch (err) {
       console.error('[Volunteers GET]', err.stack || err.message);
       res.status(500).type('text/plain').send('Errore caricamento volontari: ' + (err.message || err));
+    }
+  });
+
+  // ── GET /volunteers/altre-edizioni — attingi a un volontario di edizioni precedenti ──
+  app.get('/volunteers/altre-edizioni', requireAuth, async (req, res) => {
+    try {
+      const edId = await resolveEditionId();
+      const rows = await dbAll(`
+        SELECT v.*, e.name AS edition_name, e.year AS edition_year
+        FROM volunteers v
+        LEFT JOIN editions e ON e.id = v.edition_id
+        WHERE v.edition_id IS NOT NULL AND v.edition_id != ?
+          AND NOT EXISTS (
+            SELECT 1 FROM volunteers v2
+            WHERE v2.edition_id = ? AND lower(v2.email) = lower(v.email) AND v.email IS NOT NULL AND v.email != ''
+          )
+        ORDER BY e.year DESC, v.last_name, v.first_name`, [edId, edId]);
+      res.json({ volunteers: rows || [] });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── POST /volunteers/importa/:id — copia un volontario nell'edizione attiva ──
+  app.post('/volunteers/importa/:id', requireAuth, requireNotViewer, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    try {
+      const src = await dbGet('SELECT * FROM volunteers WHERE id=?', [id]);
+      if (!src) return res.status(404).json({ error: 'Volontario non trovato' });
+      const edId = await resolveEditionId();
+      if (src.email) {
+        const dup = await dbGet('SELECT id FROM volunteers WHERE edition_id=? AND lower(email)=lower(?)', [edId, src.email]);
+        if (dup) return res.status(409).json({ error: 'Volontario già presente in questa edizione' });
+      }
+      const result = await new Promise((resolve, reject) => {
+        db.run(
+          `INSERT INTO volunteers
+             (edition_id, first_name, last_name, email, phone, availability, skills,
+              tshirt_size, status, notes, import_batch_id, active,
+              birth_date, birth_place, fiscal_code, residence)
+           VALUES (?,?,?,?,?,?,?,?,'pending',?,NULL,1,?,?,?,?)`,
+          [edId, src.first_name, src.last_name, src.email, src.phone, src.availability, src.skills,
+           src.tshirt_size, src.notes, src.birth_date, src.birth_place, src.fiscal_code, src.residence],
+          function (err) { err ? reject(err) : resolve(this.lastID); }
+        );
+      });
+      logAction(req.session.user.id, 'import_volunteer', 'volunteer', result,
+        `Volontario ${src.first_name} ${src.last_name} importato da edizione precedente`);
+      res.json({ ok: true, id: result });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
   });
 
@@ -295,13 +350,15 @@ module.exports = function registerVolunteersRoutes(
   // ── GET /volunteers/storico ──────────────────────────────────────
   app.get('/volunteers/storico', requireAuth, async (req, res) => {
     try {
+      // FIX bug gestore edizioni
+      const edId = await resolveEditionId();
       const history = await dbAll(`
         SELECT v.*, u.username AS reviewed_by_name
         FROM volunteers v
         LEFT JOIN users u ON u.id=v.reviewed_by
-        WHERE v.status IN ('approved','rejected')
+        WHERE v.status IN ('approved','rejected') AND (v.edition_id = ? OR v.edition_id IS NULL)
         ORDER BY v.reviewed_at DESC, v.id DESC
-      `);
+      `, [edId]);
       res.render('volunteers_storico', { history: history || [] });
     } catch (err) {
       res.status(500).send('Errore: ' + err.message);

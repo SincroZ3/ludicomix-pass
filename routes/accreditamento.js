@@ -58,19 +58,20 @@ module.exports = function registerAccreditamentoRoutes(
 
   // ── Helper invio DB + email ──────────────────────────────────────
   async function insertRequest(fields) {
+    // FIX bug gestore edizioni: tagga la richiesta con l'edizione attiva al momento dell'invio
     await dbRun(
       `INSERT INTO accreditation_requests
         (company_name, contact_name, email, phone, stand_type, stand_size,
          accreditation_type, media_outlet, press_role, publisher, genre,
-         channel_url, platform, subscribers, notes)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+         channel_url, platform, subscribers, notes, edition_id)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [fields.company_name, fields.contact_name, fields.email, fields.phone || null,
        fields.stand_type || null, fields.stand_size || null,
        fields.accreditation_type || 'espositore',
        fields.media_outlet || null, fields.press_role || null,
        fields.publisher || null, fields.genre || null,
        fields.channel_url || null, fields.platform || null, fields.subscribers || null,
-       fields.notes || null]
+       fields.notes || null, edVal ? edVal() : null]
     );
     createNotification(
       'accreditation', 'Nuova richiesta accreditamento',
@@ -150,11 +151,17 @@ module.exports = function registerAccreditamentoRoutes(
   // ── Dashboard admin accreditamento ──────────────────────────────
   app.get('/admin/accreditamento', requireAuth, requireOrganizer, async (req, res) => {
     try {
+      // FIX bug gestore edizioni: mostra solo le richieste dell'edizione attiva (storiche NULL restano visibili)
+      const curId = edVal ? edVal() : null;
+      const params = [];
+      let edClause = '';
+      if (curId) { edClause = 'WHERE (ar.edition_id = ? OR ar.edition_id IS NULL)'; params.push(curId); }
       const requests = await dbAll(
         `SELECT ar.*, u.username AS reviewer_name
          FROM accreditation_requests ar
          LEFT JOIN users u ON u.id = ar.reviewed_by
-         ORDER BY CASE ar.status WHEN 'in_attesa' THEN 0 ELSE 1 END, ar.created_at DESC`
+         ${edClause}
+         ORDER BY CASE ar.status WHEN 'in_attesa' THEN 0 ELSE 1 END, ar.created_at DESC`, params
       );
       const groups = await dbAll('SELECT id, name FROM groups ORDER BY priority, name');
       res.render('admin-accreditamento', { requests, groups, saved: req.query.saved || null });

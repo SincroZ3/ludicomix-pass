@@ -15,7 +15,7 @@
 
 const { promisify } = require('util');
 
-module.exports = function registerBachecaRoutes(app, db, { requireAuth, requireOrganizer, logAction }) {
+module.exports = function registerBachecaRoutes(app, db, { requireAuth, requireOrganizer, logAction, edVal, getCurrent }) {
 
   const dbGet = promisify(db.get.bind(db));
   const dbAll = promisify(db.all.bind(db));
@@ -32,12 +32,18 @@ module.exports = function registerBachecaRoutes(app, db, { requireAuth, requireO
   // ── Elenco annunci admin ─────────────────────────────────────────
   app.get('/admin/bacheca', requireAuth, requireOrganizer, async (req, res) => {
     try {
+      // FIX bug gestore edizioni: mostra solo gli annunci dell'edizione attiva (storici NULL restano visibili)
+      const cur = getCurrent ? getCurrent() : null;
+      const params = [];
+      let edClause = '';
+      if (cur) { edClause = 'WHERE (a.edition_id = ? OR a.edition_id IS NULL)'; params.push(cur.id); }
       const announcements = await dbAll(`
         SELECT a.*, u.username AS author, ag.name AS target_group_name
         FROM announcements a
         LEFT JOIN users u ON u.id = a.created_by
         LEFT JOIN assignment_groups ag ON ag.id = a.target_group_id
-        ORDER BY a.is_pinned DESC, a.created_at DESC`);
+        ${edClause}
+        ORDER BY a.is_pinned DESC, a.created_at DESC`, params);
 
       const readCounts = await dbAll(`
         SELECT announcement_id, COUNT(*) AS cnt
@@ -65,11 +71,12 @@ module.exports = function registerBachecaRoutes(app, db, { requireAuth, requireO
 
     try {
       const show_on_public = req.body.show_on_public ? 1 : 0;
+      const edId = edVal ? edVal() : null; // FIX bug gestore edizioni
       await dbRun(
-        `INSERT INTO announcements (title, message, emoji, type, is_pinned, expires_at, created_by, target_group_id, show_on_public)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO announcements (title, message, emoji, type, is_pinned, expires_at, created_by, target_group_id, show_on_public, edition_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [title, message, emoji || '📣', type || 'info', is_pinned ? 1 : 0, expires_at || null,
-         req.session.user.id, target_group_id, show_on_public]
+         req.session.user.id, target_group_id, show_on_public, edId]
       );
       logAction(req.session.user.id, 'create_announcement', 'announcement', null,
         `"${title}"${target_group_id ? ' → gruppo ' + target_group_id : ''}`);
@@ -106,9 +113,14 @@ module.exports = function registerBachecaRoutes(app, db, { requireAuth, requireO
         'SELECT id FROM assignment_groups WHERE portal_token=? AND portal_enabled=1', [token]);
       if (!group) return res.status(404).json({ error: 'not found' });
 
+      // FIX bug gestore edizioni
+      const cur = getCurrent ? getCurrent() : null;
+      const annParams = [];
+      let annEdClause = '';
+      if (cur) { annEdClause = 'AND (edition_id = ? OR edition_id IS NULL)'; annParams.push(cur.id); }
       const anns = await dbAll(
         `SELECT id FROM announcements
-         WHERE expires_at IS NULL OR expires_at > datetime('now','localtime')`);
+         WHERE (expires_at IS NULL OR expires_at > datetime('now','localtime')) ${annEdClause}`, annParams);
 
       for (const a of anns) {
         await dbRun(
@@ -125,17 +137,21 @@ module.exports = function registerBachecaRoutes(app, db, { requireAuth, requireO
   app.get('/api/portale/:token/unread', async (req, res) => {
     const token = req.params.token;
     try {
+      // FIX bug gestore edizioni
+      const cur = getCurrent ? getCurrent() : null;
+      const unreadEdClause = cur ? 'AND (a.edition_id = ? OR a.edition_id IS NULL)' : '';
       const row = await dbGet(
         `SELECT COUNT(*) AS cnt FROM announcements a
          WHERE (a.expires_at IS NULL OR a.expires_at > datetime('now','localtime'))
            AND (a.target_group_id IS NULL OR a.target_group_id = (
              SELECT id FROM assignment_groups WHERE portal_token=? LIMIT 1
            ))
+           ${unreadEdClause}
            AND NOT EXISTS (
              SELECT 1 FROM announcement_reads ar
              WHERE ar.announcement_id = a.id AND ar.portal_token = ?
            )`,
-        [token, token]);
+        cur ? [token, cur.id, token] : [token, token]);
       res.set('Cache-Control', 'no-store, no-cache, must-revalidate').json({ unread: row ? row.cnt : 0 });
     } catch (err) {
       res.set('Cache-Control', 'no-store').json({ unread: 0 });
