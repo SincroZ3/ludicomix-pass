@@ -18,7 +18,7 @@ const path       = require('path');
 const fs         = require('fs');
 const { PDFDocument } = require('pdf-lib');
 
-module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmin, requireCanScan, requireNotViewer, logAction, edFilter }) {
+module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmin, requireCanScan, requireNotViewer, logAction, edFilter, getCurrent }) {
 
   // ── Pagina scan ──────────────────────────────────────────────────
   app.get('/scan', requireAuth, requireCanScan, (req, res) => {
@@ -311,6 +311,12 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
     if (!q || q.length < 2) return res.json({ passes: [], participants: [], groups: [] });
     const like = `%${q}%`;
 
+    // FIX bug gestore edizioni: ricerca rapida (pulsante mobile) limitata all'edizione attiva
+    const curEdScan = getCurrent ? getCurrent() : null;
+    const scanEdClauseAg = curEdScan ? 'AND (ag.edition_id = ? OR ag.edition_id IS NULL)' : '';
+    const scanEdClauseEv = curEdScan ? 'AND (e.edition_id = ? OR e.edition_id IS NULL)' : '';
+    const scanEdParam = curEdScan ? [curEdScan.id] : [];
+
     const sqlP = `
       SELECT p.id, p.code, p.status, pt.name AS pass_type_name,
              pa.first_name||' '||pa.last_name AS participant_name, ag.stand_name
@@ -318,15 +324,17 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
       JOIN pass_types pt ON pt.id = p.pass_type_id
       JOIN participants pa ON pa.id = p.participant_id
       LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
-      WHERE pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ?
-         OR pt.name LIKE ? OR p.code LIKE ? OR ag.name LIKE ? OR ag.stand_name LIKE ?
+      WHERE (pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ?
+         OR pt.name LIKE ? OR p.code LIKE ? OR ag.name LIKE ? OR ag.stand_name LIKE ?)
+        ${scanEdClauseAg}
       ORDER BY p.id DESC LIMIT 8`;
 
     const sqlPa = `
       SELECT pa.id, pa.first_name, pa.last_name, pa.role, ag.stand_name
       FROM participants pa
       LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
-      WHERE pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ? OR pa.role LIKE ?
+      WHERE (pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ? OR pa.role LIKE ?)
+        ${scanEdClauseAg}
       ORDER BY pa.last_name LIMIT 6`;
 
     const sqlG = `
@@ -341,13 +349,14 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
              s.name AS space_name
       FROM events e
       LEFT JOIN spaces s ON s.id = e.space_id
-      WHERE e.title LIKE ? OR s.name LIKE ? OR e.event_type LIKE ? OR e.description LIKE ?
+      WHERE (e.title LIKE ? OR s.name LIKE ? OR e.event_type LIKE ? OR e.description LIKE ?)
+        ${scanEdClauseEv}
       ORDER BY e.date, e.start_time LIMIT 6`;
 
-    db.all(sqlP, [like, like, like, like, like, like, like], (e1, passes) => {
-      db.all(sqlPa, [like, like, like, like], (e2, participants) => {
+    db.all(sqlP, [like, like, like, like, like, like, like, ...scanEdParam], (e1, passes) => {
+      db.all(sqlPa, [like, like, like, like, ...scanEdParam], (e2, participants) => {
         db.all(sqlG, [like, like, like, like], (e3, groups) => {
-          db.all(sqlEv, [like, like, like, like], (e4, events) => {
+          db.all(sqlEv, [like, like, like, like, ...scanEdParam], (e4, events) => {
             res.json({ passes: passes || [], participants: participants || [], groups: groups || [], events: events || [] });
           });
         });

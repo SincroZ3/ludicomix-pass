@@ -19,7 +19,6 @@ const bwipjs  = require('bwip-js');
 
 module.exports = function agendaRoutes(logActionFn, getCurrentEdition) {
 const logAction = logActionFn || function(){};
-// FIX bug gestore edizioni: getter dell'edizione attiva, iniettato da server.js
 const getCurrent = getCurrentEdition || function () { return null; };
 
   // ── Migration sicura: aggiunge location_type se non esiste ──
@@ -82,6 +81,9 @@ function getFlash(req) {
 
 router.get('/agenda', requireAuth, (req, res) => {
   const date = req.query.date || new Date().toISOString().slice(0, 10);
+  const curEdDash = getCurrent();
+  const dashEdClause = curEdDash ? 'AND (e.edition_id = ? OR e.edition_id IS NULL)' : '';
+  const dashEdParams  = curEdDash ? [curEdDash.id] : [];
 
   // Tutti gli eventi (per il calendario) + eventi del giorno selezionato
   db.all(`SELECT e.*, s.name AS space_name, s.color AS space_color, s.capacity AS space_capacity,
@@ -89,12 +91,15 @@ router.get('/agenda', requireAuth, (req, res) => {
     FROM events e
     JOIN spaces s ON s.id = e.space_id
     LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'confirmed'
+    WHERE 1=1 ${dashEdClause}
     GROUP BY e.id
-    ORDER BY e.date, e.start_time`, [], (err, allEvents) => {
+    ORDER BY e.date, e.start_time`, dashEdParams, (err, allEvents) => {
 
     db.all(`SELECT * FROM spaces WHERE active = 1 ORDER BY name`, [], (err2, spaces) => {
-      db.get(`SELECT COUNT(*) AS total FROM events`, [], (err3, totRow) => {
-        db.get(`SELECT COUNT(*) AS total FROM registrations WHERE status='confirmed'`, [], (err4, regRow) => {
+      db.get(`SELECT COUNT(*) AS total FROM events e WHERE 1=1 ${dashEdClause}`, dashEdParams, (err3, totRow) => {
+        db.get(`SELECT COUNT(*) AS total FROM registrations r
+                JOIN events e ON e.id = r.event_id
+                WHERE r.status='confirmed' ${dashEdClause}`, dashEdParams, (err4, regRow) => {
           res.render('agenda/dashboard', {
             currentUser: req.session.user,
             flash: getFlash(req),
@@ -908,9 +913,6 @@ router.get('/programma', (req, res) => {
 
 // ── MAPPA PUBBLICA (dati da DB) ────────────────────────────────────────────
 router.get('/mappa-pubblica', (req, res) => {
-  // FIX bug gestore edizioni: la mappa pubblica ora mostra solo le zone dell'edizione attiva
-  // (zone senza edition_id, create prima del fix, restano visibili solo dopo il backfill in db.js).
-  // NB: non tocca la "mappa stand" (assignment_groups.edition_id), già corretta.
   const curEdMappaPub = getCurrent();
   const mappaPubEdClause = curEdMappaPub ? 'AND (edition_id = ? OR edition_id IS NULL)' : '';
   db.all(
@@ -929,7 +931,6 @@ router.get('/mappa-pubblica', (req, res) => {
 
 // ── ADMIN MAPPA PUBBLICA ────────────────────────────────────────────────────
 router.get('/admin/mappa-pubblica', requireAuth, requireAdmin, (req, res) => {
-  // FIX bug gestore edizioni: l'admin gestisce solo i pin dell'edizione attiva
   const curEdMappaAdmin = getCurrent();
   const mappaAdminEdClause = curEdMappaAdmin ? 'AND (edition_id = ? OR edition_id IS NULL)' : '';
   db.all(`SELECT * FROM zones WHERE 1=1 ${mappaAdminEdClause} ORDER BY sort_order ASC, name ASC`,
@@ -957,7 +958,6 @@ router.post('/admin/mappa-pubblica/zone/new', requireAuth, requireAdmin, (req, r
   doCheckNew((errChk, existing) => {
     if (errChk) return res.redirect('/admin/mappa-pubblica?flash=error');
     if (existing) return res.redirect('/admin/mappa-pubblica?flash=order_conflict&order=' + sortVal);
-    // FIX bug gestore edizioni: tagga la nuova zona/pin con l'edizione attiva
     const newZoneEditionId = getCurrent() ? getCurrent().id : null;
     db.run(
       `INSERT INTO zones (name, sort_order, map_lat, map_lng, map_zoom, map_label, map_type, map_desc, map_address, map_tags, map_active, map_color, edition_id)

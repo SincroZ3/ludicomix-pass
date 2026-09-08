@@ -58,12 +58,8 @@ db.run(`CREATE TABLE IF NOT EXISTS passes (
   FOREIGN KEY(pass_type_id) REFERENCES pass_types(id)
 )`);
 
-// FIX bug gestore edizioni: i pass non avevano una colonna edizione propria.
 db.run(`ALTER TABLE passes ADD COLUMN edition_id INTEGER`, err => {
   if (err && !err.message.includes('duplicate column')) console.warn('[Migration] passes.edition_id:', err.message);
-  // Backfill (stesso pattern usato per assignment_groups): i pass creati prima di questo fix
-  // vengono assegnati all'edizione corrente al deploy, altrimenti resterebbero NULL per sempre
-  // e continuerebbero a comparire in ogni edizione.
   db.run(`UPDATE passes SET edition_id = (SELECT id FROM editions WHERE is_current=1 LIMIT 1) WHERE edition_id IS NULL`);
 });
 
@@ -335,7 +331,6 @@ db.run(`CREATE TABLE IF NOT EXISTS accreditation_requests (
   created_at TEXT DEFAULT (datetime('now','localtime'))
 )`);
 
-// FIX bug gestore edizioni: le richieste di accreditamento non avevano una colonna edizione.
 db.run(`ALTER TABLE accreditation_requests ADD COLUMN edition_id INTEGER`, err => {
   if (err && !err.message.includes('duplicate column')) console.warn('[Migration] accreditation_requests.edition_id:', err.message);
   db.run(`UPDATE accreditation_requests SET edition_id = (SELECT id FROM editions WHERE is_current=1 LIMIT 1) WHERE edition_id IS NULL`);
@@ -554,8 +549,6 @@ db.serialize(function() {
 // VIEWS — agenda
 // ═══════════════════════════════════════════════════════
 
-// FIX bug gestore edizioni: aggiunge edition_id agli eventi PRIMA di ricreare la view,
-// con backfill (stesso pattern usato per assignment_groups).
 db.run(`ALTER TABLE events ADD COLUMN edition_id INTEGER`, err => {
   if (err && !err.message.includes('duplicate column')) console.warn('[Migration] events.edition_id:', err.message);
   db.run(`UPDATE events SET edition_id = (SELECT id FROM editions WHERE is_current=1 LIMIT 1) WHERE edition_id IS NULL`);
@@ -805,7 +798,6 @@ db.serialize(() => {
     });
   });
 
-  // FIX bug gestore edizioni: backfill turni (stesso pattern usato per assignment_groups)
   db.run(`UPDATE shifts SET edition_id = (SELECT id FROM editions WHERE is_current=1 LIMIT 1) WHERE edition_id IS NULL`);
 
   db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_shift_assignments_unique ON shift_assignments(shift_id, volunteer_id)', function(err) {
@@ -885,7 +877,6 @@ db.serialize(() => {
 // ── Migrazione bacheca: target per gruppo specifico ──────────────────────────
 db.run(`ALTER TABLE announcements ADD COLUMN target_group_id INTEGER REFERENCES assignment_groups(id)`, () => {});
 db.run(`ALTER TABLE announcements ADD COLUMN show_on_public INTEGER DEFAULT 0`, () => {});
-// FIX bug gestore edizioni: gli annunci non avevano una colonna edizione.
 db.run(`ALTER TABLE announcements ADD COLUMN edition_id INTEGER`, err => {
   if (err && !err.message.includes('duplicate column')) console.warn('[Migration] announcements.edition_id:', err.message);
   db.run(`UPDATE announcements SET edition_id = (SELECT id FROM editions WHERE is_current=1 LIMIT 1) WHERE edition_id IS NULL`);
@@ -1074,14 +1065,8 @@ db.run(`ALTER TABLE zones ADD COLUMN map_tags     TEXT`,                    () =
 db.run(`ALTER TABLE zones ADD COLUMN map_active   INTEGER DEFAULT 1`,       () => {});
 db.run(`ALTER TABLE zones ADD COLUMN map_color    TEXT`,                    () => {});
 
-// FIX bug gestore edizioni: la mappa pubblica (zone con coordinate GPS, tabella "zones")
-// non aveva alcun legame con l'edizione — le zone create in un'edizione precedente restavano
-// visibili per sempre. NB: questa colonna NON influisce sulla "mappa stand" (che usa
-// assignment_groups.edition_id ed è già corretta), riguarda solo le zone della mappa pubblica.
 db.run(`ALTER TABLE zones ADD COLUMN edition_id INTEGER`, err => {
   if (err && !err.message.includes('duplicate column')) console.warn('[Migration] zones.edition_id:', err.message);
-  // Backfill (stesso pattern usato per assignment_groups): le zone create prima di questo fix
-  // vengono assegnate all'edizione corrente al deploy, altrimenti resterebbero NULL per sempre.
   db.run(`UPDATE zones SET edition_id = (SELECT id FROM editions WHERE is_current=1 LIMIT 1) WHERE edition_id IS NULL`);
 });
 

@@ -12,7 +12,7 @@
  * ──────────────────────────────────────────────────────────────────
  */
 
-module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter }) {
+module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter, edFilterP, getCurrent }) {
 
   // ── Pagina ricerca fulltext ──────────────────────────────────────
   app.get('/search', requireAuth, (req, res) => {
@@ -21,6 +21,10 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter 
     if (!q) return res.render('search', { q: '', tab, passes: [], participants: [], groups: [], events: [] });
 
     const like = `%${q}%`;
+
+    const curEdSearch = getCurrent ? getCurrent() : null;
+    const searchEdClauseAg = curEdSearch ? 'AND (ag.edition_id = ? OR ag.edition_id IS NULL)' : '';
+    const searchEdParam = curEdSearch ? [curEdSearch.id] : [];
 
     const sqlP = `
       SELECT p.id, p.created_at, p.pdf_file, p.code, p.status,
@@ -31,8 +35,9 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter 
       JOIN pass_types pt ON pt.id = p.pass_type_id
       JOIN participants pa ON pa.id = p.participant_id
       LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
-      WHERE pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ?
-         OR pt.name LIKE ? OR p.code LIKE ? OR ag.name LIKE ? OR ag.stand_name LIKE ?
+      WHERE (pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ?
+         OR pt.name LIKE ? OR p.code LIKE ? OR ag.name LIKE ? OR ag.stand_name LIKE ?)
+        ${searchEdClauseAg}
       ORDER BY p.id DESC LIMIT 300`;
 
     const sqlPa = `
@@ -41,8 +46,9 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter 
              (SELECT COUNT(*) FROM passes pp WHERE pp.participant_id=pa.id AND pp.status!='INVALIDATO') AS pass_count
       FROM participants pa
       LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
-      WHERE pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ?
-         OR pa.role LIKE ? OR pa.ref_code LIKE ?
+      WHERE (pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ?
+         OR pa.role LIKE ? OR pa.ref_code LIKE ?)
+        ${searchEdClauseAg}
       ORDER BY pa.last_name, pa.first_name LIMIT 100`;
 
     const sqlG = `
@@ -67,8 +73,8 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter 
       WHERE e.title LIKE ? OR s.name LIKE ? OR e.event_type LIKE ? OR e.description LIKE ?
       ORDER BY e.date, e.start_time LIMIT 100`;
 
-    db.all(sqlP, [like, like, like, like, like, like, like], (e1, passes) => {
-      db.all(sqlPa, [like, like, like, like, like], (e2, participants) => {
+    db.all(sqlP, [like, like, like, like, like, like, like, ...searchEdParam], (e1, passes) => {
+      db.all(sqlPa, [like, like, like, like, like, ...searchEdParam], (e2, participants) => {
         db.all(sqlG, [like, like, like, like], (e3, groups) => {
           db.all(sqlEv, [like, like, like, like], (e4, events) => {
             res.render('search', {
@@ -87,7 +93,7 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter 
   // ── Dashboard report ─────────────────────────────────────────────
   app.get('/reports', requireAuth, (req, res) => {
     db.all(
-      "SELECT status, COUNT(*) AS count FROM passes WHERE status!='INVALIDATO' GROUP BY status",
+      `SELECT status, COUNT(*) AS count FROM passes p WHERE status!='INVALIDATO' ${edFilterP ? edFilterP() : ''} GROUP BY status`,
       [],
       (e, statusCounts) => {
         db.all(
@@ -102,10 +108,14 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter 
            GROUP BY ag.id ORDER BY g.name, ag.name`,
           [],
           (e2, groupStats) => {
+            const curEdReports = getCurrent ? getCurrent() : null;
+            const reportsAgClause = curEdReports ? 'AND (ag.edition_id = ? OR ag.edition_id IS NULL)' : '';
             db.get(
-              `SELECT COUNT(*) AS total FROM participants
-               WHERE id NOT IN (SELECT DISTINCT participant_id FROM passes WHERE status!='INVALIDATO')`,
-              [],
+              `SELECT COUNT(*) AS total FROM participants pa
+               LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
+               WHERE pa.id NOT IN (SELECT DISTINCT participant_id FROM passes WHERE status!='INVALIDATO')
+                 ${reportsAgClause}`,
+              curEdReports ? [curEdReports.id] : [],
               (e3, r3) => {
                 res.render('reports', {
                   statusCounts: statusCounts || [],
@@ -130,6 +140,7 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter 
        JOIN pass_types pt ON pt.id = p.pass_type_id
        JOIN participants pa ON pa.id = p.participant_id
        LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
+       WHERE 1=1 ${edFilter()}
        ORDER BY p.id DESC`,
       [],
       (err, rows) => {
@@ -158,7 +169,7 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter 
               ag.name AS group_name, ag.stand_name, ag.zone
        FROM participants pa
        LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
-       WHERE pa.id NOT IN (SELECT DISTINCT participant_id FROM passes)
+       WHERE pa.id NOT IN (SELECT DISTINCT participant_id FROM passes) ${edFilter()}
        ORDER BY ag.name, pa.last_name, pa.first_name`,
       [],
       (err, rows) => {
