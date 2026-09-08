@@ -33,6 +33,11 @@ db.run(`CREATE TABLE IF NOT EXISTS participants (
   FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id)
 )`);
 
+db.run(`ALTER TABLE participants ADD COLUMN edition_id INTEGER`, err => {
+  if (err && !err.message.includes('duplicate column')) console.warn('[Migration] participants.edition_id:', err.message);
+  db.run(`UPDATE participants SET edition_id = (SELECT id FROM editions WHERE is_current=1 LIMIT 1) WHERE edition_id IS NULL`);
+});
+
 db.run(`CREATE TABLE IF NOT EXISTS pass_types (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,

@@ -224,10 +224,12 @@ module.exports = function registerParticipantsRoutes(
   app.post('/participants', requireAuth, requireNotViewer, (req, res) => {
     const { first_name, last_name, email, role, stand_name, zone, ref_code, notes, assignment_group_id, redirect_to_group } = req.body;
     if (!first_name || !last_name) return res.status(400).send('Nome e cognome obbligatori');
+    // FIX bug gestore edizioni: tagga il partecipante (incluso l'"ospite" senza stand) con l'edizione attiva
+    const participantEditionId = edVal ? edVal() : null;
     const doInsert = () => {
       db.run(
-        'INSERT INTO participants (first_name, last_name, email, role, stand_name, zone, ref_code, notes, assignment_group_id) VALUES (?,?,?,?,?,?,?,?,?)',
-        [first_name, last_name, email||null, role||null, stand_name||null, zone||null, ref_code||null, notes||null, assignment_group_id||null],
+        'INSERT INTO participants (first_name, last_name, email, role, stand_name, zone, ref_code, notes, assignment_group_id, edition_id) VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [first_name, last_name, email||null, role||null, stand_name||null, zone||null, ref_code||null, notes||null, assignment_group_id||null, participantEditionId],
         function (err) {
           if (err) return res.status(500).send('Errore salvataggio partecipante');
           logAction(req.session.user.id, 'create_participant', 'participant', this.lastID, `Creato partecipante ${first_name} ${last_name}`);
@@ -285,10 +287,12 @@ module.exports = function registerParticipantsRoutes(
         if (max != null && total > max && !force_over_limit) {
           return res.status(409).json({ warning: true, current: cnt, adding: parsed.length, total_after: total, max, over: total - max });
         }
+        // FIX bug gestore edizioni: tagga anche gli import massivi con l'edizione attiva
+        const bulkEditionId = edVal ? edVal() : null;
         const doInsertAll = () => {
-          const stmt = db.prepare('INSERT INTO participants (first_name, last_name, assignment_group_id) VALUES (?,?,?)');
+          const stmt = db.prepare('INSERT INTO participants (first_name, last_name, assignment_group_id, edition_id) VALUES (?,?,?,?)');
           let inserted = 0;
-          parsed.forEach(p => stmt.run([p.first_name, p.last_name, groupId], function (e) { if (!e) inserted++; }));
+          parsed.forEach(p => stmt.run([p.first_name, p.last_name, groupId, bulkEditionId], function (e) { if (!e) inserted++; }));
           stmt.finalize(() => res.json({ success: true, inserted: parsed.length }));
         };
         if (force_over_limit === '1' && new_max_passes) {
@@ -318,6 +322,8 @@ module.exports = function registerParticipantsRoutes(
   // ── Import CSV/Excel per stand ───────────────────────────────────
   app.post('/assignment-groups/:id/import', requireAuth, requireOrganizer, uploadMemory.single('file'), (req, res) => {
     const gid = parseInt(req.params.id, 10);
+    // FIX bug gestore edizioni: tagga anche l'import da file Excel/CSV con l'edizione attiva
+    const importEditionId = edVal ? edVal() : null;
     if (!gid || !req.file) return res.redirect('/assignment-groups/' + gid + '?import_errs=File+mancante');
     let rows;
     try {
@@ -346,8 +352,8 @@ module.exports = function registerParticipantsRoutes(
       db.get('SELECT id FROM participants WHERE LOWER(first_name)=? AND LOWER(last_name)=? AND assignment_group_id=?',
         [first.toLowerCase(), last.toLowerCase(), gid], (_e, dup) => {
           if (dup) { skip++; return ins(i + 1); }
-          db.run('INSERT INTO participants(first_name,last_name,email,role,assignment_group_id) VALUES(?,?,?,?,?)',
-            [first, last, email || null, role, gid], function (e2) {
+          db.run('INSERT INTO participants(first_name,last_name,email,role,assignment_group_id,edition_id) VALUES(?,?,?,?,?,?)',
+            [first, last, email || null, role, gid, importEditionId], function (e2) {
               if (e2) errors.push('Riga ' + (i + 2) + ': ' + e2.message); else ok++;
               ins(i + 1);
             });

@@ -311,9 +311,8 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
     if (!q || q.length < 2) return res.json({ passes: [], participants: [], groups: [] });
     const like = `%${q}%`;
 
-    // FIX bug gestore edizioni: ricerca rapida (pulsante mobile) limitata all'edizione attiva
     const curEdScan = getCurrent ? getCurrent() : null;
-    const scanEdClauseAg = curEdScan ? 'AND (ag.edition_id = ? OR ag.edition_id IS NULL)' : '';
+    const scanEdClausePa = curEdScan ? 'AND (pa.edition_id = ? OR pa.edition_id IS NULL)' : '';
     const scanEdClauseEv = curEdScan ? 'AND (e.edition_id = ? OR e.edition_id IS NULL)' : '';
     const scanEdParam = curEdScan ? [curEdScan.id] : [];
 
@@ -326,7 +325,7 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
       LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
       WHERE (pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ?
          OR pt.name LIKE ? OR p.code LIKE ? OR ag.name LIKE ? OR ag.stand_name LIKE ?)
-        ${scanEdClauseAg}
+        ${scanEdClausePa}
       ORDER BY p.id DESC LIMIT 8`;
 
     const sqlPa = `
@@ -334,7 +333,7 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
       FROM participants pa
       LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
       WHERE (pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ? OR pa.role LIKE ?)
-        ${scanEdClauseAg}
+        ${scanEdClausePa}
       ORDER BY pa.last_name LIMIT 6`;
 
     const sqlG = `

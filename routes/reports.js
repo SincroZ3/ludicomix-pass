@@ -23,7 +23,8 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter,
     const like = `%${q}%`;
 
     const curEdSearch = getCurrent ? getCurrent() : null;
-    const searchEdClauseAg = curEdSearch ? 'AND (ag.edition_id = ? OR ag.edition_id IS NULL)' : '';
+    const searchEdClausePa = curEdSearch ? 'AND (pa.edition_id = ? OR pa.edition_id IS NULL)' : '';
+    const searchEdClauseEv = curEdSearch ? 'AND (e.edition_id = ? OR e.edition_id IS NULL)' : '';
     const searchEdParam = curEdSearch ? [curEdSearch.id] : [];
 
     const sqlP = `
@@ -37,7 +38,7 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter,
       LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
       WHERE (pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ?
          OR pt.name LIKE ? OR p.code LIKE ? OR ag.name LIKE ? OR ag.stand_name LIKE ?)
-        ${searchEdClauseAg}
+        ${searchEdClausePa}
       ORDER BY p.id DESC LIMIT 300`;
 
     const sqlPa = `
@@ -48,7 +49,7 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter,
       LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
       WHERE (pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ?
          OR pa.role LIKE ? OR pa.ref_code LIKE ?)
-        ${searchEdClauseAg}
+        ${searchEdClausePa}
       ORDER BY pa.last_name, pa.first_name LIMIT 100`;
 
     const sqlG = `
@@ -70,13 +71,14 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter,
              e.description, s.name AS space_name
       FROM events e
       LEFT JOIN spaces s ON s.id = e.space_id
-      WHERE e.title LIKE ? OR s.name LIKE ? OR e.event_type LIKE ? OR e.description LIKE ?
+      WHERE (e.title LIKE ? OR s.name LIKE ? OR e.event_type LIKE ? OR e.description LIKE ?)
+        ${searchEdClauseEv}
       ORDER BY e.date, e.start_time LIMIT 100`;
 
     db.all(sqlP, [like, like, like, like, like, like, like, ...searchEdParam], (e1, passes) => {
       db.all(sqlPa, [like, like, like, like, like, ...searchEdParam], (e2, participants) => {
         db.all(sqlG, [like, like, like, like], (e3, groups) => {
-          db.all(sqlEv, [like, like, like, like], (e4, events) => {
+          db.all(sqlEv, [like, like, like, like, ...searchEdParam], (e4, events) => {
             res.render('search', {
               q, tab,
               passes:       passes       || [],
@@ -109,12 +111,11 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter,
           [],
           (e2, groupStats) => {
             const curEdReports = getCurrent ? getCurrent() : null;
-            const reportsAgClause = curEdReports ? 'AND (ag.edition_id = ? OR ag.edition_id IS NULL)' : '';
+            const reportsPaClause = curEdReports ? 'AND (pa.edition_id = ? OR pa.edition_id IS NULL)' : '';
             db.get(
               `SELECT COUNT(*) AS total FROM participants pa
-               LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
                WHERE pa.id NOT IN (SELECT DISTINCT participant_id FROM passes WHERE status!='INVALIDATO')
-                 ${reportsAgClause}`,
+                 ${reportsPaClause}`,
               curEdReports ? [curEdReports.id] : [],
               (e3, r3) => {
                 res.render('reports', {
@@ -140,7 +141,7 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter,
        JOIN pass_types pt ON pt.id = p.pass_type_id
        JOIN participants pa ON pa.id = p.participant_id
        LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
-       WHERE 1=1 ${edFilter()}
+       WHERE 1=1 ${edFilterP ? edFilterP() : ''}
        ORDER BY p.id DESC`,
       [],
       (err, rows) => {
@@ -164,14 +165,16 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter,
 
   // ── Export CSV: partecipanti senza pass ──────────────────────────
   app.get('/reports/senza-pass.csv', requireAuth, (req, res) => {
+    const curEdCsv = getCurrent ? getCurrent() : null;
+    const csvPaClause = curEdCsv ? 'AND (pa.edition_id = ? OR pa.edition_id IS NULL)' : '';
     db.all(
       `SELECT pa.id, pa.first_name, pa.last_name, pa.email, pa.role,
               ag.name AS group_name, ag.stand_name, ag.zone
        FROM participants pa
        LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
-       WHERE pa.id NOT IN (SELECT DISTINCT participant_id FROM passes) ${edFilter()}
+       WHERE pa.id NOT IN (SELECT DISTINCT participant_id FROM passes) ${csvPaClause}
        ORDER BY ag.name, pa.last_name, pa.first_name`,
-      [],
+      curEdCsv ? [curEdCsv.id] : [],
       (err, rows) => {
         if (err) return res.status(500).send('Errore generazione report');
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
