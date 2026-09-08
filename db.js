@@ -59,9 +59,12 @@ db.run(`CREATE TABLE IF NOT EXISTS passes (
 )`);
 
 // FIX bug gestore edizioni: i pass non avevano una colonna edizione propria.
-// Migrazione sicura (no-op se già presente). Popolata da routes/passes.js alla generazione.
 db.run(`ALTER TABLE passes ADD COLUMN edition_id INTEGER`, err => {
   if (err && !err.message.includes('duplicate column')) console.warn('[Migration] passes.edition_id:', err.message);
+  // Backfill (stesso pattern usato per assignment_groups): i pass creati prima di questo fix
+  // vengono assegnati all'edizione corrente al deploy, altrimenti resterebbero NULL per sempre
+  // e continuerebbero a comparire in ogni edizione.
+  db.run(`UPDATE passes SET edition_id = (SELECT id FROM editions WHERE is_current=1 LIMIT 1) WHERE edition_id IS NULL`);
 });
 
 db.run(`CREATE TABLE IF NOT EXISTS groups (
@@ -335,6 +338,7 @@ db.run(`CREATE TABLE IF NOT EXISTS accreditation_requests (
 // FIX bug gestore edizioni: le richieste di accreditamento non avevano una colonna edizione.
 db.run(`ALTER TABLE accreditation_requests ADD COLUMN edition_id INTEGER`, err => {
   if (err && !err.message.includes('duplicate column')) console.warn('[Migration] accreditation_requests.edition_id:', err.message);
+  db.run(`UPDATE accreditation_requests SET edition_id = (SELECT id FROM editions WHERE is_current=1 LIMIT 1) WHERE edition_id IS NULL`);
 });
 
 // ═══════════════════════════════════════════════════════
@@ -551,9 +555,10 @@ db.serialize(function() {
 // ═══════════════════════════════════════════════════════
 
 // FIX bug gestore edizioni: aggiunge edition_id agli eventi PRIMA di ricreare la view,
-// così le route pubbliche (programma, mappa stand) possono filtrare per edizione attiva.
+// con backfill (stesso pattern usato per assignment_groups).
 db.run(`ALTER TABLE events ADD COLUMN edition_id INTEGER`, err => {
   if (err && !err.message.includes('duplicate column')) console.warn('[Migration] events.edition_id:', err.message);
+  db.run(`UPDATE events SET edition_id = (SELECT id FROM editions WHERE is_current=1 LIMIT 1) WHERE edition_id IS NULL`);
 });
 
 // Ricrea sempre la view per aggiornare la definizione dopo migrazioni
@@ -780,6 +785,7 @@ db.serialize(() => {
     'ALTER TABLE volunteers ADD COLUMN active INTEGER NOT NULL DEFAULT 1',
     'ALTER TABLE volunteers ADD COLUMN created_at TEXT',
     'ALTER TABLE shifts ADD COLUMN active INTEGER NOT NULL DEFAULT 1',
+    'ALTER TABLE shifts ADD COLUMN edition_id INTEGER',
     'ALTER TABLE volunteers ADD COLUMN birth_date TEXT',
     'ALTER TABLE volunteers ADD COLUMN birth_place TEXT',
     'ALTER TABLE volunteers ADD COLUMN fiscal_code TEXT',
@@ -798,6 +804,9 @@ db.serialize(() => {
       }
     });
   });
+
+  // FIX bug gestore edizioni: backfill turni (stesso pattern usato per assignment_groups)
+  db.run(`UPDATE shifts SET edition_id = (SELECT id FROM editions WHERE is_current=1 LIMIT 1) WHERE edition_id IS NULL`);
 
   db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_shift_assignments_unique ON shift_assignments(shift_id, volunteer_id)', function(err) {
     if (err && !err.message.includes('already exists')) console.warn('[DB] idx_shift_assignments_unique:', err.message);
@@ -879,6 +888,7 @@ db.run(`ALTER TABLE announcements ADD COLUMN show_on_public INTEGER DEFAULT 0`, 
 // FIX bug gestore edizioni: gli annunci non avevano una colonna edizione.
 db.run(`ALTER TABLE announcements ADD COLUMN edition_id INTEGER`, err => {
   if (err && !err.message.includes('duplicate column')) console.warn('[Migration] announcements.edition_id:', err.message);
+  db.run(`UPDATE announcements SET edition_id = (SELECT id FROM editions WHERE is_current=1 LIMIT 1) WHERE edition_id IS NULL`);
 });
 
 // ── Modulo 7: Servizi & Logistica ────────────────────────────────────────────
@@ -926,7 +936,9 @@ db.run(`ALTER TABLE equipment_loans  ADD COLUMN loaned_at    TEXT DEFAULT (datet
 db.run(`ALTER TABLE equipment_loans  ADD COLUMN returned_at  TEXT`,                          () => {});
 db.run(`ALTER TABLE equipment_loans  ADD COLUMN notes        TEXT`,                          () => {});
 
-db.run(`ALTER TABLE service_requests ADD COLUMN edition_id    INTEGER`, () => {});
+db.run(`ALTER TABLE service_requests ADD COLUMN edition_id    INTEGER`, () => {
+  db.run(`UPDATE service_requests SET edition_id = (SELECT id FROM editions WHERE is_current=1 LIMIT 1) WHERE edition_id IS NULL`);
+});
 db.run(`ALTER TABLE service_requests ADD COLUMN service_type  TEXT`,    () => {});
 
 
@@ -1061,6 +1073,18 @@ db.run(`ALTER TABLE zones ADD COLUMN map_address  TEXT`,                    () =
 db.run(`ALTER TABLE zones ADD COLUMN map_tags     TEXT`,                    () => {});
 db.run(`ALTER TABLE zones ADD COLUMN map_active   INTEGER DEFAULT 1`,       () => {});
 db.run(`ALTER TABLE zones ADD COLUMN map_color    TEXT`,                    () => {});
+
+// FIX bug gestore edizioni: la mappa pubblica (zone con coordinate GPS, tabella "zones")
+// non aveva alcun legame con l'edizione — le zone create in un'edizione precedente restavano
+// visibili per sempre. NB: questa colonna NON influisce sulla "mappa stand" (che usa
+// assignment_groups.edition_id ed è già corretta), riguarda solo le zone della mappa pubblica.
+db.run(`ALTER TABLE zones ADD COLUMN edition_id INTEGER`, err => {
+  if (err && !err.message.includes('duplicate column')) console.warn('[Migration] zones.edition_id:', err.message);
+  // Backfill (stesso pattern usato per assignment_groups): le zone create prima di questo fix
+  // vengono assegnate all'edizione corrente al deploy, altrimenti resterebbero NULL per sempre.
+  db.run(`UPDATE zones SET edition_id = (SELECT id FROM editions WHERE is_current=1 LIMIT 1) WHERE edition_id IS NULL`);
+});
+
 // Migrazione zone_scope: separa zone interne (padiglioni/stand) da zone mappa pubblica
 // Discriminante: solo le zone della mappa pubblica hanno coordinate geografiche (map_lat)
 db.run(`ALTER TABLE zones ADD COLUMN zone_scope TEXT DEFAULT 'internal'`, () => {

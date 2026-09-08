@@ -61,7 +61,6 @@ function refreshCurrentEdition(cb) {
 }
 function getCurrent() { return _currentEdition; }
 function edFilter()   { return _currentEdition ? `AND ag.edition_id = ${_currentEdition.id}` : ''; }
-// FIX bug gestore edizioni: filtro dedicato per query sulla tabella "passes" (alias "p")
 function edFilterP()  { return _currentEdition ? `AND p.edition_id = ${_currentEdition.id}` : ''; }
 function edVal()      { return _currentEdition ? _currentEdition.id : null; }
 refreshCurrentEdition();
@@ -291,7 +290,7 @@ const uploadMemory = multer({
 crmRoutes(app, db, {
   requireAuth, requireNotViewer, requireOrganizer, logAction, uploadMemory, hasPerm, parsePerms,
 });
-app.use('/', agendaRoutes(logAction, getCurrent)); // FIX bug gestore edizioni: inietta l'edizione attiva nel modulo agenda
+app.use('/', agendaRoutes(logAction, getCurrent));
 
 // ── Oggetto middlewares completo (passato a tutti i moduli) ──────
 const middlewares = {
@@ -379,7 +378,6 @@ app.post('/logout', requireAuth, (req, res) => {
 app.get('/home', requireAuth, async (req, res) => {
   try {
     const [r1, r2, r3, r4, alertGroups, recentActivity] = await Promise.all([
-      // FIX bug gestore edizioni: statistiche live solo per l'edizione attiva
       dbGet(`SELECT COUNT(*) as total FROM participants pa
              LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
              WHERE 1=1 ${edFilter()}`),
@@ -450,7 +448,6 @@ app.get('/api/dashboard-stats', requireAuth, async (req, res) => {
     const edFilterAg = edId ? `AND ag.edition_id = ${edId}` : '';
 
     const [r1, r2, r3, r4] = await Promise.all([
-      // FIX bug gestore edizioni: card dashboard live devono seguire l'edizione attiva
       dbGet(`SELECT COUNT(*) as total FROM participants pa
              LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
              WHERE 1=1 ${edFilterAg}`),

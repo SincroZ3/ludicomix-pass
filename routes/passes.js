@@ -42,7 +42,7 @@ function generateRandomCode(len) {
 module.exports = function registerPassesRoutes(
   app, db,
   { requireAuth, requireAdmin, requireOrganizer, requireNotViewer, logAction, createNotification,
-    edVal, getCurrent } // FIX bug gestore edizioni
+    edVal, getCurrent }
 ) {
   const DATA_DIR = process.env.DATA_DIR || __dirname.replace('/routes', '');
   const dbGet    = promisify(db.get.bind(db));
@@ -126,7 +126,6 @@ module.exports = function registerPassesRoutes(
     drawCentered(code, 10, regFont, qrY - 18);
 
     const pdfBytes = await pdfDoc.save();
-    // FIX bug gestore edizioni: ogni pass generato viene taggato con l'edizione attiva
     const passEditionId = edVal ? edVal() : null;
     const result   = await dbRun('INSERT INTO passes (participant_id, pass_type_id, code, status, pdf_file, edition_id) VALUES (?,?,?,?,?,?)', [participantId, passTypeId, code, 'GENERATO', '', passEditionId]);
     const passId   = result.lastID;
@@ -174,7 +173,6 @@ module.exports = function registerPassesRoutes(
 
   // ── GET /passes — lista ───────────────────────────────────────────
   app.get('/passes', requireAuth, (req, res) => {
-    // FIX bug gestore edizioni: mostra solo i pass dell'edizione attiva (storici NULL restano visibili)
     const cur = getCurrent ? getCurrent() : null;
     const params = [];
     let edClause = '';

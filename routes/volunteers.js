@@ -49,7 +49,6 @@ module.exports = function registerVolunteersRoutes(
   // ── GET /volunteers ──────────────────────────────────────────────
   app.get('/volunteers', requireAuth, async (req, res) => {
     try {
-      // FIX bug gestore edizioni: mostra solo i volontari/candidature dell'edizione attiva
       const edId = await resolveEditionId();
       const [volunteers, pending, shifts, zones, otherEditionsCount] = await Promise.all([
         dbAll(`
@@ -64,7 +63,8 @@ module.exports = function registerVolunteersRoutes(
           SELECT s.*, z.name AS zone_name,
                  (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
           FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
-          ORDER BY s.start_at, s.name`),
+          WHERE (s.edition_id = ? OR s.edition_id IS NULL)
+          ORDER BY s.start_at, s.name`, [edId]),
         dbAll("SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope='internal' OR zone_scope='both') ORDER BY sort_order, name"),
         dbGet(`SELECT COUNT(*) AS n FROM volunteers WHERE edition_id IS NOT NULL AND edition_id != ?`, [edId]),
       ]);
@@ -81,7 +81,6 @@ module.exports = function registerVolunteersRoutes(
     }
   });
 
-  // ── GET /volunteers/altre-edizioni — attingi a un volontario di edizioni precedenti ──
   app.get('/volunteers/altre-edizioni', requireAuth, async (req, res) => {
     try {
       const edId = await resolveEditionId();
@@ -101,7 +100,6 @@ module.exports = function registerVolunteersRoutes(
     }
   });
 
-  // ── POST /volunteers/importa/:id — copia un volontario nell'edizione attiva ──
   app.post('/volunteers/importa/:id', requireAuth, requireNotViewer, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     try {
@@ -350,7 +348,6 @@ module.exports = function registerVolunteersRoutes(
   // ── GET /volunteers/storico ──────────────────────────────────────
   app.get('/volunteers/storico', requireAuth, async (req, res) => {
     try {
-      // FIX bug gestore edizioni
       const edId = await resolveEditionId();
       const history = await dbAll(`
         SELECT v.*, u.username AS reviewed_by_name

@@ -32,7 +32,6 @@ module.exports = function registerBachecaRoutes(app, db, { requireAuth, requireO
   // ── Elenco annunci admin ─────────────────────────────────────────
   app.get('/admin/bacheca', requireAuth, requireOrganizer, async (req, res) => {
     try {
-      // FIX bug gestore edizioni: mostra solo gli annunci dell'edizione attiva (storici NULL restano visibili)
       const cur = getCurrent ? getCurrent() : null;
       const params = [];
       let edClause = '';
@@ -71,7 +70,7 @@ module.exports = function registerBachecaRoutes(app, db, { requireAuth, requireO
 
     try {
       const show_on_public = req.body.show_on_public ? 1 : 0;
-      const edId = edVal ? edVal() : null; // FIX bug gestore edizioni
+      const edId = edVal ? edVal() : null;
       await dbRun(
         `INSERT INTO announcements (title, message, emoji, type, is_pinned, expires_at, created_by, target_group_id, show_on_public, edition_id)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -113,7 +112,6 @@ module.exports = function registerBachecaRoutes(app, db, { requireAuth, requireO
         'SELECT id FROM assignment_groups WHERE portal_token=? AND portal_enabled=1', [token]);
       if (!group) return res.status(404).json({ error: 'not found' });
 
-      // FIX bug gestore edizioni
       const cur = getCurrent ? getCurrent() : null;
       const annParams = [];
       let annEdClause = '';
@@ -137,7 +135,6 @@ module.exports = function registerBachecaRoutes(app, db, { requireAuth, requireO
   app.get('/api/portale/:token/unread', async (req, res) => {
     const token = req.params.token;
     try {
-      // FIX bug gestore edizioni
       const cur = getCurrent ? getCurrent() : null;
       const unreadEdClause = cur ? 'AND (a.edition_id = ? OR a.edition_id IS NULL)' : '';
       const row = await dbGet(

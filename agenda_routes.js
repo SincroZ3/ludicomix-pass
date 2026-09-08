@@ -20,7 +20,6 @@ const bwipjs  = require('bwip-js');
 module.exports = function agendaRoutes(logActionFn, getCurrentEdition) {
 const logAction = logActionFn || function(){};
 // FIX bug gestore edizioni: getter dell'edizione attiva, iniettato da server.js
-// (la colonna events.edition_id e la relativa migrazione sono centralizzate in db.js)
 const getCurrent = getCurrentEdition || function () { return null; };
 
   // ── Migration sicura: aggiunge location_type se non esiste ──
@@ -381,7 +380,6 @@ router.post('/agenda/guests/:id/toggle-featured', requireAuth, (req, res) => {
 
 router.get('/agenda/events', requireAuth, (req, res) => {
   const { date, space_id, published } = req.query;
-  // FIX bug gestore edizioni: mostra solo gli eventi dell'edizione attiva (storici NULL restano visibili)
   const curEd = getCurrent();
   let sql = `SELECT e.*, s.name AS space_name, s.color AS space_color,
     COUNT(r.id) AS seats_taken,
@@ -460,7 +458,6 @@ router.post('/agenda/events', requireAuth, (req, res) => {
       return res.redirect('/agenda/events/new');
     }
 
-    // FIX bug gestore edizioni: tagga il nuovo evento con l'edizione attiva
     const newEventEditionId = getCurrent() ? getCurrent().id : null;
     db.run(
       `INSERT INTO events (title, description, space_id, date, start_time, end_time,
@@ -825,8 +822,6 @@ router.get('/programma', (req, res) => {
   const selectedDate  = date  || null;
   const selectedSpace = space || null;
   const searchQuery   = q ? q.trim() : null;
-  // FIX bug gestore edizioni: la view v_public_program ora espone edition_id (vedi db.js) —
-  // il programma pubblico mostra solo l'edizione attiva (eventi storici senza edizione restano visibili)
   const curEdProgramma = getCurrent();
 
   let sql = `SELECT * FROM v_public_program WHERE 1=1`;
@@ -844,8 +839,6 @@ router.get('/programma', (req, res) => {
   db.all(sql, params, (err, events) => {
     if (err) { console.error('[Agenda]', err.message); return res.status(500).send('Errore interno'); }
 
-    // FIX bug gestore edizioni: dropdown date/sale, ospiti in evidenza e annuncio pubblico
-    // solo per l'edizione attiva (record senza edizione restano visibili per retrocompatibilità)
     const curEd = getCurrent();
     const edEventsParams = curEd ? [curEd.id] : [];
     const edEventsClause = curEd ? 'AND (e.edition_id = ? OR e.edition_id IS NULL)' : '';
@@ -878,7 +871,6 @@ router.get('/programma', (req, res) => {
               grouped[ev.date][ev.space_name].push(ev);
             });
 
-            // Legge eventuale annuncio pubblico attivo (solo edizione corrente o senza edizione)
             const annEdClause = curEd ? 'AND (edition_id = ? OR edition_id IS NULL)' : '';
             db.get(
               `SELECT title, message, emoji, type FROM announcements
@@ -916,10 +908,15 @@ router.get('/programma', (req, res) => {
 
 // ── MAPPA PUBBLICA (dati da DB) ────────────────────────────────────────────
 router.get('/mappa-pubblica', (req, res) => {
+  // FIX bug gestore edizioni: la mappa pubblica ora mostra solo le zone dell'edizione attiva
+  // (zone senza edition_id, create prima del fix, restano visibili solo dopo il backfill in db.js).
+  // NB: non tocca la "mappa stand" (assignment_groups.edition_id), già corretta.
+  const curEdMappaPub = getCurrent();
+  const mappaPubEdClause = curEdMappaPub ? 'AND (edition_id = ? OR edition_id IS NULL)' : '';
   db.all(
-    `SELECT * FROM zones WHERE map_active = 1 AND map_lat IS NOT NULL AND map_lng IS NOT NULL
+    `SELECT * FROM zones WHERE map_active = 1 AND map_lat IS NOT NULL AND map_lng IS NOT NULL ${mappaPubEdClause}
      ORDER BY sort_order ASC, name ASC`,
-    [], (err, zones) => {
+    curEdMappaPub ? [curEdMappaPub.id] : [], (err, zones) => {
       if (err) { console.error('[Mappa]', err.message); return res.status(500).send('Errore interno'); }
       res.render('agenda/public_map', {
         zones: zones || [],
@@ -932,7 +929,11 @@ router.get('/mappa-pubblica', (req, res) => {
 
 // ── ADMIN MAPPA PUBBLICA ────────────────────────────────────────────────────
 router.get('/admin/mappa-pubblica', requireAuth, requireAdmin, (req, res) => {
-  db.all(`SELECT * FROM zones ORDER BY sort_order ASC, name ASC`, [], (err, zones) => {
+  // FIX bug gestore edizioni: l'admin gestisce solo i pin dell'edizione attiva
+  const curEdMappaAdmin = getCurrent();
+  const mappaAdminEdClause = curEdMappaAdmin ? 'AND (edition_id = ? OR edition_id IS NULL)' : '';
+  db.all(`SELECT * FROM zones WHERE 1=1 ${mappaAdminEdClause} ORDER BY sort_order ASC, name ASC`,
+    curEdMappaAdmin ? [curEdMappaAdmin.id] : [], (err, zones) => {
     if (err) return res.status(500).send('Errore DB');
     res.render('agenda/admin_map', {
       zones: zones || [],
@@ -956,9 +957,11 @@ router.post('/admin/mappa-pubblica/zone/new', requireAuth, requireAdmin, (req, r
   doCheckNew((errChk, existing) => {
     if (errChk) return res.redirect('/admin/mappa-pubblica?flash=error');
     if (existing) return res.redirect('/admin/mappa-pubblica?flash=order_conflict&order=' + sortVal);
+    // FIX bug gestore edizioni: tagga la nuova zona/pin con l'edizione attiva
+    const newZoneEditionId = getCurrent() ? getCurrent().id : null;
     db.run(
-      `INSERT INTO zones (name, sort_order, map_lat, map_lng, map_zoom, map_label, map_type, map_desc, map_address, map_tags, map_active, map_color)
-       VALUES (?,?,?,?,?,?,?,?,?,?,1,?)`,
+      `INSERT INTO zones (name, sort_order, map_lat, map_lng, map_zoom, map_label, map_type, map_desc, map_address, map_tags, map_active, map_color, edition_id)
+       VALUES (?,?,?,?,?,?,?,?,?,?,1,?,?)`,
       [
         name.trim(),
         sortVal,
@@ -970,7 +973,8 @@ router.post('/admin/mappa-pubblica/zone/new', requireAuth, requireAdmin, (req, r
         map_desc   || null,
         map_address|| null,
         map_tags   || null,
-        map_color  || null
+        map_color  || null,
+        newZoneEditionId
       ],
       function(err) {
         if (err) { console.error('[Mappa/new]', err.message); return res.redirect('/admin/mappa-pubblica?flash=error'); }
@@ -1050,7 +1054,6 @@ router.post('/admin/mappa-pubblica/zone/:id', requireAuth, requireAdmin, (req, r
 router.get('/ospiti', (req, res) => {
   const { category } = req.query;
   const selectedCat = category || null;
-  // FIX bug gestore edizioni: mostra solo gli ospiti dell'edizione attiva
   const curEdOspiti = getCurrent();
   const ospitiEdClause = curEdOspiti ? 'AND (ag.edition_id = ? OR ag.edition_id IS NULL)' : '';
 
@@ -1291,10 +1294,6 @@ router.post('/admin/mappa-pubblica/zone/:id/stand-map-toggle', requireAuth, requ
 router.get('/api/mappa-stand/:zoneId', (req, res) => {
   const zoneId = parseInt(req.params.zoneId, 10);
   if (!zoneId) return res.status(400).json({ error: 'zoneId non valido' });
-  // FIX bug gestore edizioni: mappa stand pubblica limitata a stand ed eventi dell'edizione attiva
-  const curEdMappa = getCurrent();
-  const mappaAgEdClause = curEdMappa ? 'AND (ag.edition_id = ? OR ag.edition_id IS NULL)' : '';
-  const mappaEvEdClause = curEdMappa ? 'AND (e.edition_id = ? OR e.edition_id IS NULL)' : '';
   db.get('SELECT * FROM zones WHERE id=? AND stand_map_public=1', [zoneId], (err, zone) => {
     if (err || !zone) return res.status(404).json({ error: 'Zona non trovata o non pubblica' });
     db.all(
@@ -1303,9 +1302,9 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
               g.id AS group_id
        FROM assignment_groups ag
        LEFT JOIN groups g ON g.id = ag.group_id
-       WHERE ag.zone=? AND ag.map_x IS NOT NULL AND ag.map_y IS NOT NULL ${mappaAgEdClause}
+       WHERE ag.zone=? AND ag.map_x IS NOT NULL AND ag.map_y IS NOT NULL
        ORDER BY ag.stand_code, ag.name`,
-      curEdMappa ? [zone.name, curEdMappa.id] : [zone.name],
+      [zone.name],
       (err2, stands) => {
         if (err2) return res.status(500).json({ error: 'Errore DB stands' });
         if (!stands || stands.length === 0) return res.json({ zone, stands: [] });
@@ -1316,9 +1315,9 @@ router.get('/api/mappa-stand/:zoneId', (req, res) => {
                   s.name AS space_name
            FROM events e
            LEFT JOIN spaces s ON s.id = e.space_id
-           WHERE e.published = 1 ${mappaEvEdClause}
+           WHERE e.published = 1
            ORDER BY e.date, e.start_time`,
-          curEdMappa ? [curEdMappa.id] : [],
+          [],
           (err3, events) => {
             if (err3) return res.json({ zone, stands: stands.map(s => ({ ...s, events: [], excluded_events: [] })) });
             const allEvents = events || [];

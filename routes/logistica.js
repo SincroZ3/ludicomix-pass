@@ -36,9 +36,6 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
 
   app.get('/admin/logistica', requireAuth, requireOrganizer, async (req, res) => {
     try {
-      // FIX bug gestore edizioni: service_requests ha una propria colonna edition_id (vedi db.js);
-      // filtriamo su quella direttamente invece di passare per assignment_groups, così restano
-      // visibili anche le eventuali richieste generiche non legate a uno stand specifico.
       const curEdId = edVal ? edVal() : null;
       const reqParams = [];
       let reqEdClause = '';
@@ -58,7 +55,6 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
         LEFT JOIN assignment_groups ag ON ag.id = el.assignment_group_id
         ORDER BY el.loaned_at DESC
       `);
-      // Elenco gruppi per i form (creazione richiesta/prestito): solo edizione attiva
       const groups = await dbAll(`SELECT id, name FROM assignment_groups ag WHERE 1=1 ${edFilter ? edFilter() : ''} ORDER BY name`);
       const materialTypes = await dbAll(`SELECT * FROM logistic_categories ORDER BY sort_order, label`);
       const storageLocations = await dbAll(`SELECT * FROM logistic_locations ORDER BY sort_order, label`);

@@ -58,7 +58,6 @@ module.exports = function registerAccreditamentoRoutes(
 
   // ── Helper invio DB + email ──────────────────────────────────────
   async function insertRequest(fields) {
-    // FIX bug gestore edizioni: tagga la richiesta con l'edizione attiva al momento dell'invio
     await dbRun(
       `INSERT INTO accreditation_requests
         (company_name, contact_name, email, phone, stand_type, stand_size,
@@ -151,7 +150,6 @@ module.exports = function registerAccreditamentoRoutes(
   // ── Dashboard admin accreditamento ──────────────────────────────
   app.get('/admin/accreditamento', requireAuth, requireOrganizer, async (req, res) => {
     try {
-      // FIX bug gestore edizioni: mostra solo le richieste dell'edizione attiva (storiche NULL restano visibili)
       const curId = edVal ? edVal() : null;
       const params = [];
       let edClause = '';
