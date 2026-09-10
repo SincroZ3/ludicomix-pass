@@ -120,6 +120,10 @@ function importExp(id){
     body: 'assignment_group_id=' + id
   }).then(function(r){ return r.json(); }).then(function(d){
     if (d.ok) location.reload(); else alert(d.error || 'Errore import');
+  }).catch(function(){
+    // FIX: se il server risponde con HTML invece di JSON (es. route non trovata/errore
+    // inatteso), evitiamo un errore silenzioso in console e mostriamo un messaggio chiaro.
+    alert('Errore imprevisto durante l\'importazione. Riprova o ricarica la pagina.');
   });
 }
 </script>

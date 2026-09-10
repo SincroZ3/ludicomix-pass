@@ -244,6 +244,30 @@ module.exports = function registerAreaPersonaleRoutes(
     }
   });
 
+  // FIX bug "SyntaxError: The string did not match the expected pattern": questa route
+  // DEVE precedere '/area-personale/rubrica/:id' (modifica contatto). Prima era registrata
+  // dopo, quindi Express instradava ogni click su "Importa" verso la route :id (con
+  // id="importa-espositore"), che eseguiva un UPDATE a vuoto e rispondeva con un redirect
+  // HTML invece che JSON — da cui l'errore quando il client tentava .json() sulla pagina HTML.
+  app.post('/area-personale/rubrica/importa-espositore', requireAuth, requirePersonalArea, async (req, res) => {
+    const { assignment_group_id } = req.body;
+    const gid = parseInt(assignment_group_id, 10);
+    if (!gid) return res.status(400).json({ error: 'Gruppo non specificato' });
+    try {
+      const group = await dbGet('SELECT * FROM assignment_groups WHERE id=?', [gid]);
+      if (!group) return res.status(404).json({ error: 'Espositore non trovato' });
+      const r = await dbRun(
+        `INSERT INTO personal_contacts (user_id, first_name, last_name, company, email, notes, assignment_group_id)
+         VALUES (?,?,?,?,?,?,?)`,
+        [req.session.user.id, group.name, '', group.stand_name || null, group.email || null,
+         group.zone ? ('Zona: ' + group.zone) : null, gid]
+      );
+      res.json({ ok: true, id: r.lastID });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post('/area-personale/rubrica/:id', requireAuth, requirePersonalArea, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     const { first_name, last_name, role, company, email, phone, notes } = req.body;
@@ -255,15 +279,16 @@ module.exports = function registerAreaPersonaleRoutes(
     res.redirect('/area-personale/rubrica');
   });
 
+
+
   app.post('/area-personale/rubrica/:id/elimina', requireAuth, requirePersonalArea, async (req, res) => {
     await dbRun('DELETE FROM personal_contacts WHERE id=? AND user_id=?', [parseInt(req.params.id, 10), req.session.user.id]);
     res.redirect('/area-personale/rubrica');
   });
 
-  // FIX bug 404: questa route DEVE essere registrata PRIMA di '/api/area-personale/rubrica/:id',
-  // altrimenti Express interpreta "espositori" come se fosse un :id, la route sbagliata risponde
-  // prima e la ricerca fallisce sempre con 404 — indipendentemente da qualsiasi filtro edizione.
-  // La ricerca trova espositori di TUTTE le edizioni, ignorando volutamente edition_id.
+  // FIX bug 404: questa route DEVE precedere '/api/area-personale/rubrica/:id',
+  // altrimenti Express interpreta "espositori" come fosse un :id e la ricerca fallisce sempre.
+  // Cerca espositori di TUTTE le edizioni, ignorando volutamente edition_id.
   app.get('/api/area-personale/rubrica/espositori', requireAuth, requirePersonalArea, async (req, res) => {
     const q = (req.query.q || '').trim();
     if (q.length < 2) return res.json({ groups: [] });
@@ -289,24 +314,7 @@ module.exports = function registerAreaPersonaleRoutes(
     res.json(c);
   });
 
-  app.post('/area-personale/rubrica/importa-espositore', requireAuth, requirePersonalArea, async (req, res) => {
-    const { assignment_group_id } = req.body;
-    const gid = parseInt(assignment_group_id, 10);
-    if (!gid) return res.status(400).json({ error: 'Gruppo non specificato' });
-    try {
-      const group = await dbGet('SELECT * FROM assignment_groups WHERE id=?', [gid]);
-      if (!group) return res.status(404).json({ error: 'Espositore non trovato' });
-      const r = await dbRun(
-        `INSERT INTO personal_contacts (user_id, first_name, last_name, company, email, notes, assignment_group_id)
-         VALUES (?,?,?,?,?,?,?)`,
-        [req.session.user.id, group.name, '', group.stand_name || null, group.email || null,
-         group.zone ? ('Zona: ' + group.zone) : null, gid]
-      );
-      res.json({ ok: true, id: r.lastID });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+
 
   app.get('/area-personale/checklist', requireAuth, requirePersonalArea, async (req, res) => {
     try {
@@ -576,8 +584,6 @@ module.exports = function registerAreaPersonaleRoutes(
     }
   });
 
-  // NUOVO: annulla richiesta se ancora "in_attesa" — libera le spese (tornano disponibili)
-  // ed elimina il PDF generato. Consentito solo al proprietario della richiesta.
   app.post('/area-personale/richieste-rimborso/:id/annulla', requireAuth, requirePersonalArea, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     const uid = req.session.user.id;
@@ -690,9 +696,6 @@ module.exports = function registerAreaPersonaleRoutes(
     clearAndDraw(signPlace || '', 62.3, 171.7, 666.7, 676.7);
     clearAndDraw(new Date().toLocaleDateString('it-IT'), 176.5, 244.9, 666.7, 676.7);
 
-    // Firma digitale: dimensione aumentata al 150% rispetto all'area originale del campo
-    // "Firma del volontario" (124.6 x 30 -> 186.9 x 45), centrata sullo stesso punto di
-    // ancoraggio orizzontale/verticale cosi' da restare leggibile senza sovrapporsi al testo sopra.
     if (signDigitally && user.signature_file) {
       try {
         const sigPath = path.join(DATA_DIR, 'personal_uploads', 'signatures', user.signature_file);
@@ -700,10 +703,10 @@ module.exports = function registerAreaPersonaleRoutes(
           const sigBytes = fs.readFileSync(sigPath);
           const ext = path.extname(user.signature_file).toLowerCase();
           const sigImage = ext === '.png' ? await pdfDoc.embedPng(sigBytes) : await pdfDoc.embedJpg(sigBytes);
-          const boxW = 124.6 * 1.5, boxH = 30 * 1.5; // +150% rispetto alla dimensione originale del campo
+          const boxW = 124.6 * 1.5, boxH = 30 * 1.5;
           const scale = Math.min(boxW / sigImage.width, boxH / sigImage.height, 1);
           const w = sigImage.width * scale, h = sigImage.height * scale;
-          const anchorX = 386.3 - (boxW - 124.6) / 2; // ricentra sull'area originale espandendosi in entrambe le direzioni
+          const anchorX = 386.3 - (boxW - 124.6) / 2;
           const anchorBottom = 676.7 + (boxH - 30) / 2;
           page.drawRectangle({ x: anchorX - 3, y: yBottom(anchorBottom) - 3, width: boxW + 6, height: boxH + 6, color: white });
           page.drawImage(sigImage, { x: anchorX + (boxW - w) / 2, y: yBottom(anchorBottom) + (boxH - h) / 2, width: w, height: h });
