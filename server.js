@@ -187,7 +187,7 @@ const ROLES = {
   SCANNER:    'scanner',
   VIEWER:     'viewer',
   CUSTOM:     'custom',
-  ACCOUNTANT: 'accountant', // Amministrazione contabile: poteri come organizer + pagina Richieste rimborsi
+  ACCOUNTANT: 'accountant',
 };
 
 // Mappa middleware → permesso custom richiesto per quel livello di accesso
@@ -281,7 +281,6 @@ function requireCanScan(req, res, next) {
     : res.status(403).sendFile(path.join(__dirname, 'views', '403.html'));
 }
 
-// ── Area personale: tutti tranne viewer/scanner; i custom solo con permesso dedicato ──
 function requirePersonalArea(req, res, next) {
   const u = req.session.user;
   if (!u) return res.redirect('/login');
@@ -291,7 +290,6 @@ function requirePersonalArea(req, res, next) {
   return res.status(403).sendFile(path.join(__dirname, 'views', '403.html'));
 }
 
-// ── Sezione "Richieste rimborsi": solo admin e Amministrazione contabile ──
 function requireAccounting(req, res, next) {
   hasRole(req.session.user, ROLES.ADMIN, ROLES.ACCOUNTANT)
     ? next()

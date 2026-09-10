@@ -3,7 +3,7 @@
 <h1 class="page-title">📇 Rubrica Contatti</h1>
 
 <div style="display:flex;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap;">
-  <button class="primary" onclick="document.getElementById('modal-new-contact').style.display='flex'">➕ Nuovo contatto</button>
+  <button class="primary" onclick="openContactModal()">➕ Nuovo contatto</button>
   <button class="secondary" onclick="document.getElementById('modal-import-exp').style.display='flex'">🏪 Importa da espositori</button>
 </div>
 
@@ -19,7 +19,8 @@
         <td><%= c.phone || '—' %></td>
         <td><%= c.linked_stand_name || c.linked_group_name || '—' %></td>
         <td>
-          <a href="#" class="link-action" onclick="openContact(<%- JSON.stringify(c) %>); return false;">✏️</a>
+          <!-- FIX (stesso bug #1, corretto preventivamente): niente JSON in onclick, solo l'id -->
+          <a href="#" class="link-action" onclick="openContactModal(<%= c.id %>); return false;">✏️</a>
           <form method="POST" action="/area-personale/rubrica/<%= c.id %>/elimina" style="display:inline;" onsubmit="return confirm('Eliminare questo contatto?')">
             <button type="submit" class="btn-danger">🗑️</button>
           </form>
@@ -63,23 +64,32 @@
 </div>
 
 <script>
-function openContact(c){
-  document.getElementById('contact-modal-title').textContent = '✏️ Modifica contatto';
-  document.getElementById('contact-form').action = '/area-personale/rubrica/' + c.id;
-  document.getElementById('c-first').value = c.first_name || '';
-  document.getElementById('c-last').value = c.last_name || '';
-  document.getElementById('c-role').value = c.role || '';
-  document.getElementById('c-company').value = c.company || '';
-  document.getElementById('c-email').value = c.email || '';
-  document.getElementById('c-phone').value = c.phone || '';
-  document.getElementById('c-notes').value = c.notes || '';
-  document.getElementById('modal-new-contact').style.display = 'flex';
+function openContactModal(id){
+  document.getElementById('contact-form').reset();
+  if (!id) {
+    document.getElementById('contact-modal-title').textContent = '➕ Nuovo contatto';
+    document.getElementById('contact-form').action = '/area-personale/rubrica';
+    document.getElementById('modal-new-contact').style.display = 'flex';
+    return;
+  }
+  fetch('/api/area-personale/rubrica/' + id)
+    .then(function(r){ return r.json(); })
+    .then(function(c){
+      document.getElementById('contact-modal-title').textContent = '✏️ Modifica contatto';
+      document.getElementById('contact-form').action = '/area-personale/rubrica/' + id;
+      document.getElementById('c-first').value = c.first_name || '';
+      document.getElementById('c-last').value = c.last_name || '';
+      document.getElementById('c-role').value = c.role || '';
+      document.getElementById('c-company').value = c.company || '';
+      document.getElementById('c-email').value = c.email || '';
+      document.getElementById('c-phone').value = c.phone || '';
+      document.getElementById('c-notes').value = c.notes || '';
+      document.getElementById('modal-new-contact').style.display = 'flex';
+    })
+    .catch(function(){ alert('Errore nel caricamento del contatto.'); });
 }
 function closeContactModal(){
   document.getElementById('modal-new-contact').style.display = 'none';
-  document.getElementById('contact-form').action = '/area-personale/rubrica';
-  document.getElementById('contact-modal-title').textContent = '➕ Nuovo contatto';
-  document.getElementById('contact-form').reset();
 }
 (function(){
   var input = document.getElementById('exp-search');

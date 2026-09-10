@@ -7,7 +7,7 @@
 <h1 class="page-title">📝 Note (cartelle)</h1>
 
 <div style="display:flex;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap;">
-  <button class="primary" onclick="document.getElementById('modal-new-note').style.display='flex'">➕ Nuova nota</button>
+  <button class="primary" onclick="openNoteModal()">➕ Nuova nota</button>
   <button class="secondary" onclick="document.getElementById('modal-new-folder').style.display='flex'">📁 Nuova cartella</button>
   <% if (currentFolderId) { %>
     <a class="secondary" href="/area-personale/note<%= breadcrumb.length>1 ? '?folder='+breadcrumb[breadcrumb.length-2].id : '' %>" style="display:inline-flex;align-items:center;">⬅ Su</a>
@@ -36,7 +36,8 @@
         <% notes.forEach(function(n){ %>
         <tr>
           <td><%= n.is_pinned ? '📌' : '' %></td>
-          <td><a href="#" onclick="openNote(<%= n.id %>, '<%= (n.title||'').replace(/'/g,"\\'") %>', <%- JSON.stringify(n.body||'') %>, '<%= n.category||'' %>', <%= n.is_pinned %>); return false;"><%= n.title %></a></td>
+          <!-- FIX bug #1: niente più JSON dentro attributi onclick — solo l'id, dati via fetch -->
+          <td><a href="#" onclick="openNoteModal(<%= n.id %>); return false;"><%= n.title %></a></td>
           <td><span class="chip"><%= n.category || '—' %></span></td>
           <td><%= n.updated_at %></td>
           <td>
@@ -89,20 +90,32 @@
 </div>
 
 <script>
-function openNote(id, title, body, category, pinned){
-  document.getElementById('note-modal-title').textContent = '📝 Modifica nota';
-  document.getElementById('note-form').action = '/area-personale/note/' + id;
-  document.getElementById('note-title').value = title;
-  document.getElementById('note-body').value = body;
-  document.getElementById('note-category').value = category;
-  document.getElementById('note-pinned').checked = !!pinned;
-  document.getElementById('modal-new-note').style.display = 'flex';
+// FIX bug #1: i dati arrivano via fetch JSON, non iniettati in un attributo HTML —
+// prima causava "SyntaxError: Unexpected token '}'" con apici/virgolette nel testo.
+function openNoteModal(id){
+  document.getElementById('note-form').reset();
+  document.getElementById('note-pinned').checked = false;
+  if (!id) {
+    document.getElementById('note-modal-title').textContent = '📝 Nuova nota';
+    document.getElementById('note-form').action = '/area-personale/note';
+    document.getElementById('modal-new-note').style.display = 'flex';
+    return;
+  }
+  fetch('/api/area-personale/note/' + id)
+    .then(function(r){ return r.json(); })
+    .then(function(n){
+      document.getElementById('note-modal-title').textContent = '📝 Modifica nota';
+      document.getElementById('note-form').action = '/area-personale/note/' + id;
+      document.getElementById('note-title').value = n.title || '';
+      document.getElementById('note-body').value = n.body || '';
+      document.getElementById('note-category').value = n.category || '';
+      document.getElementById('note-pinned').checked = !!n.is_pinned;
+      document.getElementById('modal-new-note').style.display = 'flex';
+    })
+    .catch(function(){ alert('Errore nel caricamento della nota.'); });
 }
 function closeNoteModal(){
   document.getElementById('modal-new-note').style.display = 'none';
-  document.getElementById('note-form').action = '/area-personale/note';
-  document.getElementById('note-modal-title').textContent = '📝 Nuova nota';
-  document.getElementById('note-form').reset();
 }
 </script>
 

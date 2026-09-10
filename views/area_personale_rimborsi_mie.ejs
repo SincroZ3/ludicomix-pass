@@ -26,9 +26,11 @@
           </tbody>
         </table>
       </div>
-      <label style="margin-top:1rem;">Periodo di riferimento (es. "Maggio 2026")
-        <input type="text" name="period_label" maxlength="60">
-      </label>
+      <p class="help-text" style="margin-top:1rem;">Il modulo PDF di autocertificazione riporta mese/anno di riferimento e l'importo totale — compilalo come indicato nel modulo cartaceo:</p>
+      <div style="display:flex;gap:.6rem;">
+        <label style="flex:1;">Mese <input type="text" name="period_month" maxlength="20" placeholder="es. Maggio"></label>
+        <label style="flex:1;">Anno <input type="text" name="period_year" maxlength="4" placeholder="es. 2026"></label>
+      </div>
       <label style="margin-top:.6rem;">IBAN per il bonifico
         <input type="text" name="iban" value="<%= user.iban || '' %>" maxlength="34" style="text-transform:uppercase;">
       </label>

@@ -2,9 +2,8 @@
  * routes/area-personale.js
  * ──────────────────────────────────────────────────────────────────
  * Area Personale: note a cartelle, rubrica contatti, contabilità
- * spese personali e richieste di rimborso con generazione PDF.
- * Ogni dato è isolato per user_id. La vista "Richieste rimborsi"
- * è riservata a admin/accountant (requireAccounting).
+ * spese personali e richieste di rimborso con compilazione del
+ * modulo PDF originale (autocertificazione ETS).
  * ──────────────────────────────────────────────────────────────────
  */
 'use strict';
@@ -13,6 +12,7 @@ const fs   = require('fs');
 const path = require('path');
 const { promisify } = require('util');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
+const { base64: TEMPLATE_PDF_B64 } = require('./_modulo_rimborso_base64');
 
 module.exports = function registerAreaPersonaleRoutes(
   app, db,
@@ -30,13 +30,6 @@ module.exports = function registerAreaPersonaleRoutes(
         resolve({ lastID: this.lastID, changes: this.changes });
       });
     });
-  }
-
-  function sanitizeForPdf(text) {
-    if (!text) return '';
-    return String(text)
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^\x20-\x7E]/g, '?');
   }
 
   app.get('/area-personale', requireAuth, requirePersonalArea, async (req, res) => {
@@ -155,6 +148,13 @@ module.exports = function registerAreaPersonaleRoutes(
     }
   });
 
+  // FIX bug #1: dati nota via JSON, non iniettati in attributi HTML onclick
+  app.get('/api/area-personale/note/:id', requireAuth, requirePersonalArea, async (req, res) => {
+    const note = await dbGet('SELECT * FROM personal_notes WHERE id=? AND user_id=?', [parseInt(req.params.id, 10), req.session.user.id]);
+    if (!note) return res.status(404).json({ error: 'Nota non trovata' });
+    res.json(note);
+  });
+
   app.post('/area-personale/note/:id', requireAuth, requirePersonalArea, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     const { title, body, category, is_pinned, folder_id } = req.body;
@@ -194,6 +194,12 @@ module.exports = function registerAreaPersonaleRoutes(
     } catch (err) {
       res.status(500).send('Errore caricamento rubrica: ' + err.message);
     }
+  });
+
+  app.get('/api/area-personale/rubrica/:id', requireAuth, requirePersonalArea, async (req, res) => {
+    const c = await dbGet('SELECT * FROM personal_contacts WHERE id=? AND user_id=?', [parseInt(req.params.id, 10), req.session.user.id]);
+    if (!c) return res.status(404).json({ error: 'Contatto non trovato' });
+    res.json(c);
   });
 
   app.post('/area-personale/rubrica', requireAuth, requirePersonalArea, async (req, res) => {
@@ -350,6 +356,31 @@ module.exports = function registerAreaPersonaleRoutes(
     }
   });
 
+  // FIX bug #2: dettaglio spesa per il popup "Consulta spesa"
+  app.get('/api/area-personale/spese/:id', requireAuth, requirePersonalArea, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const uid = req.session.user.id;
+    try {
+      const expense = await dbGet(
+        `SELECT ex.*, e.name AS edition_name, e.year AS edition_year
+         FROM expenses ex LEFT JOIN editions e ON e.id = ex.edition_id
+         WHERE ex.id=? AND ex.user_id=?`, [id, uid]);
+      if (!expense) return res.status(404).json({ error: 'Spesa non trovata' });
+      const receiptsRaw = await dbAll('SELECT * FROM expense_receipts WHERE expense_id=? ORDER BY id', [id]);
+      const receipts = receiptsRaw.map(r => ({
+        id: r.id,
+        original_name: r.original_name,
+        mime_type: r.mime_type,
+        is_image: /^image\//.test(r.mime_type || ''),
+        is_pdf: r.mime_type === 'application/pdf',
+        view_url: '/area-personale/spese/ricevuta/' + r.id + '?inline=1',
+      }));
+      res.json({ expense, receipts });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post('/area-personale/spese', requireAuth, requirePersonalArea, uploadReceipts.array('receipts', 5), async (req, res) => {
     const { description, amount, expense_date, category, notes } = req.body;
     if (!description || !amount || !expense_date) return res.status(400).send('Descrizione, importo e data sono obbligatori');
@@ -386,16 +417,24 @@ module.exports = function registerAreaPersonaleRoutes(
     res.redirect('/area-personale/spese');
   });
 
+  // FIX bug #2: ?inline=1 mostra il file nel browser invece di forzare il download
   app.get('/area-personale/spese/ricevuta/:id', requireAuth, requirePersonalArea, async (req, res) => {
     const receiptId = parseInt(req.params.id, 10);
     const uid = req.session.user.id;
+    const isAccounting = req.session.user.role === ROLES.ADMIN || req.session.user.role === ROLES.ACCOUNTANT;
     const receipt = await dbGet(
-      `SELECT er.* FROM expense_receipts er
+      `SELECT er.*, ex.user_id AS owner_id FROM expense_receipts er
        JOIN expenses ex ON ex.id = er.expense_id
-       WHERE er.id=? AND ex.user_id=?`, [receiptId, uid]);
+       WHERE er.id=?`, [receiptId]);
     if (!receipt) return res.status(404).send('Ricevuta non trovata');
-    const fp = path.join(DATA_DIR, 'personal_uploads', 'receipts', String(uid), receipt.file_name);
+    if (receipt.owner_id !== uid && !isAccounting) return res.status(403).send('Non autorizzato');
+    const fp = path.join(DATA_DIR, 'personal_uploads', 'receipts', String(receipt.owner_id), receipt.file_name);
     if (!fs.existsSync(fp)) return res.status(404).send('File non trovato');
+    if (req.query.inline === '1') {
+      res.setHeader('Content-Type', receipt.mime_type || 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'inline; filename="' + (receipt.original_name || receipt.file_name) + '"');
+      return fs.createReadStream(fp).pipe(res);
+    }
     res.download(fp, receipt.original_name || receipt.file_name);
   });
 
@@ -447,7 +486,7 @@ module.exports = function registerAreaPersonaleRoutes(
 
   app.post('/area-personale/richieste-rimborso', requireAuth, requirePersonalArea, async (req, res) => {
     const uid = req.session.user.id;
-    let { expense_ids, period_label, iban } = req.body;
+    let { expense_ids, period_month, period_year, iban } = req.body;
     expense_ids = Array.isArray(expense_ids) ? expense_ids : (expense_ids ? [expense_ids] : []);
     if (!expense_ids.length) return res.status(400).send('Seleziona almeno una spesa da rimborsare');
 
@@ -467,20 +506,23 @@ module.exports = function registerAreaPersonaleRoutes(
       const totalAmount = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
       const curEd = getCurrent ? getCurrent() : null;
       const finalIban = (iban || user.iban || '').toUpperCase().replace(/\s/g, '');
+      const periodLabel = (period_month || period_year) ? [period_month, period_year].filter(Boolean).join(' ') : null;
 
       const settingsRows = await dbAll("SELECT key,value FROM app_settings WHERE key IN ('event_name')");
-      const eventName = (settingsRows.find(r => r.key === 'event_name') || {}).value || 'Ludicomix';
+      const eventName = (settingsRows.find(r => r.key === 'event_name') || {}).value || '';
 
       const result = await dbRun(
         "INSERT INTO refund_requests (user_id, edition_id, total_amount, period_label, iban, status) VALUES (?,?,?,?,?,'in_attesa')",
-        [uid, curEd ? curEd.id : (expenses[0].edition_id || null), totalAmount, period_label || null, finalIban || null]
+        [uid, curEd ? curEd.id : (expenses[0].edition_id || null), totalAmount, periodLabel, finalIban || null]
       );
       const requestId = result.lastID;
 
       await dbRun('UPDATE expenses SET refund_request_id=? WHERE id IN (' + placeholders + ')', [requestId, ...ids]);
 
       const pdfFileName = await generateRefundPdf({
-        requestId, user, expenses, totalAmount, periodLabel: period_label, iban: finalIban, eventName,
+        requestId, user, totalAmount,
+        periodMonth: period_month || '', periodYear: period_year || '',
+        iban: finalIban, eventName,
       });
       await dbRun('UPDATE refund_requests SET pdf_file=? WHERE id=?', [pdfFileName, requestId]);
 
@@ -506,81 +548,39 @@ module.exports = function registerAreaPersonaleRoutes(
     res.download(fp, 'Richiesta_Rimborso_' + id + '.pdf');
   });
 
-  async function generateRefundPdf({ requestId, user, expenses, totalAmount, periodLabel, iban, eventName }) {
-    const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([595.28, 841.89]);
+  // FIX bug #4: compila il MODULO ORIGINALE (autocertificazione ETS) esattamente com'è,
+  // scrivendo solo negli spazi vuoti già predisposti — nessun testo nuovo aggiunto.
+  // Campi organizzativi (RUNTS, atto, sede legale, regolamento) restano vuoti: il
+  // sistema non possiede questi dati, che l'ente compila a parte una tantum sul modulo.
+  async function generateRefundPdf({ requestId, user, totalAmount, periodMonth, periodYear, iban, eventName }) {
+    const templateBytes = Buffer.from(TEMPLATE_PDF_B64, 'base64');
+    const pdfDoc = await PDFDocument.load(templateBytes);
+    const page = pdfDoc.getPages()[0];
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    const { width } = page.getSize();
-    const marginX = 50;
-    let y = 800;
+    const black = rgb(0, 0, 0);
 
-    const drawText = (text, opts = {}) => {
-      const { size = 10, useFont = font, color = rgb(0, 0, 0), x = marginX, lineGap = 16 } = opts;
-      page.drawText(sanitizeForPdf(text), { x, y, size, font: useFont, color });
-      y -= lineGap;
-    };
-    const drawWrapped = (text, opts = {}) => {
-      const { size = 10, useFont = font, maxWidth = width - marginX * 2, lineGap = 14 } = opts;
-      const words = sanitizeForPdf(text).split(' ');
-      let line = '';
-      for (const w of words) {
-        const test = line ? line + ' ' + w : w;
-        if (useFont.widthOfTextAtSize(test, size) > maxWidth) {
-          page.drawText(line, { x: marginX, y, size, font: useFont });
-          y -= lineGap;
-          line = w;
-        } else {
-          line = test;
-        }
-      }
-      if (line) { page.drawText(line, { x: marginX, y, size, font: useFont }); y -= lineGap; }
+    const draw = (text, x, y, size = 9) => {
+      if (!text) return;
+      page.drawText(String(text), { x, y, size, font, color: black });
     };
 
-    drawText('AUTOCERTIFICAZIONE', { size: 14, useFont: bold, lineGap: 20 });
-    drawText('per la richiesta di rimborso spese a pie di lista quale Volontario', { size: 11, useFont: bold, lineGap: 22 });
-    drawWrapped(
-      "resa ai sensi dell'articolo 46 del DPR 28 dicembre 2000, n. 445 e ai sensi dell'articolo 17 del D.Lgs 117/2017 comma 3",
-      { size: 9 }
-    );
-    y -= 8;
+    draw(user.full_name || user.username, 118, 568.7);
+    draw(user.birth_place || '', 350, 568.7);
 
-    const birthDateFmt = user.birth_date ? new Date(user.birth_date).toLocaleDateString('it-IT') : '________';
-    drawWrapped(
-      'Il sottoscritto ' + (user.full_name || user.username) + ', nato a ' + (user.birth_place || '________') +
-      ' il ' + birthDateFmt + ', Codice Fiscale ' + (user.fiscal_code || '________') +
-      ", nella sua qualita' di volontario dell'ente denominato \"" + eventName + '"'
-    );
-    y -= 6;
-
-    drawText('CERTIFICA', { size: 11, useFont: bold, lineGap: 18 });
-    drawWrapped("- di essere iscritto nel Registro dei Volontari vidimato dell'ente sopra menzionato;");
-    drawWrapped("- che a proprio carico e' stata stipulata apposita assicurazione come Volontario;");
-    drawWrapped("- di non occuparsi di attivita' di volontariato aventi ad oggetto donazione di sangue e organi;");
-    drawWrapped(
-      '- di aver sostenuto' + (periodLabel ? ' per ' + periodLabel : '') +
-      ' alcune spese, che sommate, sono di importo pari a EUR ' + totalAmount.toFixed(2) + ';'
-    );
-    drawWrapped("- che le pezze giustificative allegate assommano all'importo di cui sopra (dettaglio in calce).");
-    y -= 6;
-
-    drawText('RICHIEDE', { size: 11, useFont: bold, lineGap: 18 });
-    drawWrapped('- il rimborso delle spese sopracitate;');
-    drawWrapped("- che il rimborso avvenga tramite bonifico bancario all'IBAN: " + (iban || '________________________'));
-    y -= 14;
-
-    drawText('Luogo e data: _________________, ' + new Date().toLocaleDateString('it-IT'), { size: 10 });
-    y -= 10;
-    drawText('Firma del volontario: _________________________', { size: 10 });
-    y -= 24;
-
-    drawText('DETTAGLIO SPESE ALLEGATE', { size: 11, useFont: bold, lineGap: 18 });
-    for (const e of expenses) {
-      const dateFmt = new Date(e.expense_date).toLocaleDateString('it-IT');
-      drawWrapped('- ' + dateFmt + ' — ' + e.description + ' — EUR ' + e.amount.toFixed(2), { size: 9, lineGap: 13 });
+    if (user.birth_date) {
+      const d = new Date(user.birth_date);
+      draw(String(d.getDate()).padStart(2, '0'), 64, 557.7);
+      draw(String(d.getMonth() + 1).padStart(2, '0'), 86.5, 557.7);
+      draw(String(d.getFullYear()), 108, 557.7);
     }
-    y -= 4;
-    drawText('TOTALE: EUR ' + totalAmount.toFixed(2), { size: 10, useFont: bold });
+    draw(user.fiscal_code || '', 201.5, 557.7, 8);
+    if (eventName) draw(eventName, 106, 546.7, 8);
+
+    draw(periodMonth || '', 194, 342.1);
+    draw(periodYear || '', 300, 342.1);
+    draw('EUR ' + totalAmount.toFixed(2), 277, 320.1);
+    draw(iban || '', 275, 229.7, 8);
+    draw(new Date().toLocaleDateString('it-IT'), 178.5, 167.5);
 
     const bytes = await pdfDoc.save();
     const dir = path.join(DATA_DIR, 'personal_uploads', 'refunds');
@@ -607,6 +607,37 @@ module.exports = function registerAreaPersonaleRoutes(
       res.render('area_personale_rimborsi_admin', { requests: requests || [], statusFilter });
     } catch (err) {
       res.status(500).send('Errore caricamento rimborsi: ' + err.message);
+    }
+  });
+
+  // FIX bug #3: dettaglio richiesta per il popup nella vista Amministrazione contabile
+  app.get('/api/area-personale/rimborsi/:id', requireAuth, requireAccounting, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    try {
+      const request = await dbGet(
+        `SELECT rr.*, u.username, u.full_name, u.birth_place, u.birth_date, u.fiscal_code,
+                e.name AS edition_name, e.year AS edition_year
+         FROM refund_requests rr
+         JOIN users u ON u.id = rr.user_id
+         LEFT JOIN editions e ON e.id = rr.edition_id
+         WHERE rr.id=?`, [id]);
+      if (!request) return res.status(404).json({ error: 'Richiesta non trovata' });
+      const expensesRaw = await dbAll('SELECT * FROM expenses WHERE refund_request_id=? ORDER BY expense_date', [id]);
+      const expenses = [];
+      for (const e of expensesRaw) {
+        const receiptsRaw = await dbAll('SELECT * FROM expense_receipts WHERE expense_id=?', [e.id]);
+        expenses.push({
+          ...e,
+          receipts: receiptsRaw.map(r => ({
+            id: r.id, original_name: r.original_name, mime_type: r.mime_type,
+            is_image: /^image\//.test(r.mime_type || ''), is_pdf: r.mime_type === 'application/pdf',
+            view_url: '/area-personale/spese/ricevuta/' + r.id + '?inline=1',
+          })),
+        });
+      }
+      res.json({ request, expenses });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
   });
 
