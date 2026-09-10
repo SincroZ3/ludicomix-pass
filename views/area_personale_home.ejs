@@ -1,0 +1,39 @@
+<%- include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <strong>Area Personale</strong></nav>
+<h1 class="page-title">🗂️ Area Personale</h1>
+
+<% if (!profileComplete) { %>
+  <div class="alert alert-warning">
+    ⚠️ Il tuo profilo non è completo. Per poter inviare richieste di rimborso, compila
+    <a href="/area-personale/profilo">nome, luogo/data di nascita, codice fiscale e IBAN</a>.
+  </div>
+<% } %>
+
+<div class="icon-grid">
+  <a href="/area-personale/note" class="icon-item"><span class="icon-emoji">📝</span>Note (<%= notesCount %>)</a>
+  <a href="/area-personale/rubrica" class="icon-item"><span class="icon-emoji">📇</span>Rubrica Contatti (<%= contactsCount %>)</a>
+  <a href="/area-personale/checklist" class="icon-item"><span class="icon-emoji">✅</span>Checklist</a>
+  <a href="/area-personale/spese" class="icon-item"><span class="icon-emoji">💶</span>Spese</a>
+  <a href="/area-personale/richieste-rimborso" class="icon-item">
+    <span class="icon-emoji">📄</span>Richieste Rimborso<% if (pendingRefunds > 0) { %> (<%= pendingRefunds %> in attesa)<% } %>
+  </a>
+  <a href="/area-personale/profilo" class="icon-item"><span class="icon-emoji">👤</span>Il Mio Profilo</a>
+</div>
+
+<% if (recentNotes && recentNotes.length) { %>
+<div class="card" style="margin-top:1.5rem;">
+  <div class="card-title">📝 Note recenti</div>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th>Titolo</th><th>Ultima modifica</th></tr></thead>
+      <tbody>
+        <% recentNotes.forEach(function(n){ %>
+        <tr><td><%= n.title %></td><td><%= n.updated_at %></td></tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
+<%- include('partials/footer') %>

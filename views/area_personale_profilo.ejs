@@ -1,0 +1,36 @@
+<%- include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <a href="/area-personale">Area Personale</a> <span class="sep">›</span> <strong>Profilo</strong></nav>
+<h1 class="page-title">👤 Il Mio Profilo</h1>
+
+<% if (saved) { %><div class="alert alert-success">✅ Profilo aggiornato con successo.</div><% } %>
+
+<div class="alert alert-info">
+  ℹ️ Questi dati vengono usati automaticamente per generare il modulo PDF di autocertificazione
+  ogni volta che invii una richiesta di rimborso spese — compilali una volta sola.
+</div>
+
+<div class="card" style="max-width:560px;">
+  <div class="card-title">Dati anagrafici e bancari</div>
+  <form method="POST" action="/area-personale/profilo">
+    <label>Nome e cognome <span class="req">*</span>
+      <input type="text" name="full_name" value="<%= user.full_name || '' %>" required maxlength="120">
+    </label>
+    <label style="margin-top:.9rem;">Luogo di nascita <span class="req">*</span>
+      <input type="text" name="birth_place" value="<%= user.birth_place || '' %>" required maxlength="120">
+    </label>
+    <label style="margin-top:.9rem;">Data di nascita <span class="req">*</span>
+      <input type="date" name="birth_date" value="<%= user.birth_date || '' %>" required>
+    </label>
+    <label style="margin-top:.9rem;">Codice Fiscale <span class="req">*</span>
+      <input type="text" name="fiscal_code" value="<%= user.fiscal_code || '' %>" required maxlength="16" style="text-transform:uppercase;">
+    </label>
+    <label style="margin-top:.9rem;">IBAN (per il rimborso via bonifico)
+      <input type="text" name="iban" value="<%= user.iban || '' %>" maxlength="34" style="text-transform:uppercase;">
+    </label>
+    <div style="margin-top:1.2rem;">
+      <button type="submit" class="primary">💾 Salva profilo</button>
+    </div>
+  </form>
+</div>
+
+<%- include('partials/footer') %>

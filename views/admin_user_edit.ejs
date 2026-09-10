@@ -39,12 +39,13 @@
         <select name="role" id="role-sel" style="margin-top:.2rem;">
           <%
             var roleDefs = [
-              { val:'admin',     label:'🔑 Amministratore',  desc:'Accesso totale, impostazioni sistema e utenti' },
-              { val:'organizer', label:'📋 Organizzatore',   desc:'Gestione operativa: stand, pass, partecipanti, bacheca' },
-              { val:'operator',  label:'🎫 Operatore',       desc:'Crea/modifica pass e partecipanti, può scansionare' },
-              { val:'scanner',   label:'📷 Scanner',         desc:'Solo pagina scan — steward/ingresso' },
-              { val:'viewer',    label:'👁 Visualizzatore',  desc:'Sola lettura su tutto' },
-              { val:'custom',    label:'⚙️ Custom',          desc:'Permessi personalizzati — spunta le funzioni abilitate sotto' },
+              { val:'admin',      label:'🔑 Amministratore',        desc:'Accesso totale, impostazioni sistema e utenti' },
+              { val:'organizer',  label:'📋 Organizzatore',         desc:'Gestione operativa: stand, pass, partecipanti, bacheca' },
+              { val:'accountant', label:'💰 Amministrazione contabile', desc:'Stessi poteri di Organizzatore + pagina Richieste rimborsi' },
+              { val:'operator',   label:'🎫 Operatore',             desc:'Crea/modifica pass e partecipanti, può scansionare' },
+              { val:'scanner',    label:'📷 Scanner',               desc:'Solo pagina scan — steward/ingresso' },
+              { val:'viewer',     label:'👁 Visualizzatore',        desc:'Sola lettura su tutto' },
+              { val:'custom',     label:'⚙️ Custom',                desc:'Permessi personalizzati — spunta le funzioni abilitate sotto' },
             ];
           %>
           <% roleDefs.forEach(function(r){ %>
@@ -117,6 +118,9 @@
             { id:'accreditamento', label:'🏅 Accreditamento', subs:[
               { id:'accreditamento.view',       label:'Visualizza accreditamenti' },
               { id:'accreditamento.manage',     label:'Gestisci e valida accreditamenti' },
+            ]},
+            { id:'personal_area', label:'🗂️ Area Personale', subs:[
+              { id:'personal_area.access',      label:'Accesso alla propria area personale (note, rubrica, spese)' },
             ]},
           ];
         %>

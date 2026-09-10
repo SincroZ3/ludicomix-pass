@@ -134,6 +134,117 @@ db.run(`CREATE TABLE IF NOT EXISTS pass_status_history (
   FOREIGN KEY(user_id) REFERENCES users(id)
 )`);
 
+// ═══════════════════════════════════════════════════════
+// AREA PERSONALE — note a cartelle, rubrica, contabilità e rimborsi
+// ═══════════════════════════════════════════════════════
+
+db.run(`CREATE TABLE IF NOT EXISTS note_folders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  parent_id INTEGER,
+  name TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now','localtime')),
+  FOREIGN KEY(user_id) REFERENCES users(id),
+  FOREIGN KEY(parent_id) REFERENCES note_folders(id)
+)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS personal_notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  folder_id INTEGER,
+  title TEXT NOT NULL,
+  body TEXT,
+  category TEXT,
+  is_pinned INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now','localtime')),
+  updated_at TEXT DEFAULT (datetime('now','localtime')),
+  FOREIGN KEY(user_id) REFERENCES users(id),
+  FOREIGN KEY(folder_id) REFERENCES note_folders(id)
+)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_personal_notes_user ON personal_notes(user_id, folder_id)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS personal_contacts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  first_name TEXT NOT NULL,
+  last_name TEXT,
+  role TEXT,
+  company TEXT,
+  email TEXT,
+  phone TEXT,
+  notes TEXT,
+  assignment_group_id INTEGER,
+  created_at TEXT DEFAULT (datetime('now','localtime')),
+  FOREIGN KEY(user_id) REFERENCES users(id),
+  FOREIGN KEY(assignment_group_id) REFERENCES assignment_groups(id)
+)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_personal_contacts_user ON personal_contacts(user_id)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS personal_checklists (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now','localtime')),
+  FOREIGN KEY(user_id) REFERENCES users(id)
+)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS personal_checklist_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  checklist_id INTEGER NOT NULL,
+  text TEXT NOT NULL,
+  done INTEGER NOT NULL DEFAULT 0,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  FOREIGN KEY(checklist_id) REFERENCES personal_checklists(id) ON DELETE CASCADE
+)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS expenses (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  edition_id INTEGER,
+  description TEXT NOT NULL,
+  amount REAL NOT NULL,
+  expense_date TEXT NOT NULL,
+  category TEXT,
+  notes TEXT,
+  refund_request_id INTEGER,
+  created_at TEXT DEFAULT (datetime('now','localtime')),
+  FOREIGN KEY(user_id) REFERENCES users(id),
+  FOREIGN KEY(edition_id) REFERENCES editions(id)
+)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id, edition_id)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS expense_receipts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  expense_id INTEGER NOT NULL,
+  file_name TEXT NOT NULL,
+  original_name TEXT,
+  mime_type TEXT,
+  size_bytes INTEGER,
+  uploaded_at TEXT DEFAULT (datetime('now','localtime')),
+  FOREIGN KEY(expense_id) REFERENCES expenses(id) ON DELETE CASCADE
+)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS refund_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  edition_id INTEGER,
+  total_amount REAL NOT NULL,
+  period_label TEXT,
+  iban TEXT,
+  status TEXT NOT NULL DEFAULT 'in_attesa',
+  pdf_file TEXT,
+  reviewed_by INTEGER,
+  reviewed_at TEXT,
+  review_notes TEXT,
+  created_at TEXT DEFAULT (datetime('now','localtime')),
+  FOREIGN KEY(user_id) REFERENCES users(id),
+  FOREIGN KEY(edition_id) REFERENCES editions(id),
+  FOREIGN KEY(reviewed_by) REFERENCES users(id)
+)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_refund_requests_user ON refund_requests(user_id)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_refund_requests_status ON refund_requests(status)`);
+
+
 db.run(`CREATE TABLE IF NOT EXISTS zones (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE,

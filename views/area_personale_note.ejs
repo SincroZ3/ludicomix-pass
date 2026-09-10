@@ -1,0 +1,109 @@
+<%- include('partials/header') %>
+<nav class="breadcrumb-bar">
+  Sei in: <a href="/home">Home</a> <span class="sep">›</span> <a href="/area-personale">Area Personale</a> <span class="sep">›</span>
+  <a href="/area-personale/note">Note</a>
+  <% breadcrumb.forEach(function(f){ %> <span class="sep">›</span> <a href="/area-personale/note?folder=<%= f.id %>"><%= f.name %></a><% }); %>
+</nav>
+<h1 class="page-title">📝 Note (cartelle)</h1>
+
+<div style="display:flex;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap;">
+  <button class="primary" onclick="document.getElementById('modal-new-note').style.display='flex'">➕ Nuova nota</button>
+  <button class="secondary" onclick="document.getElementById('modal-new-folder').style.display='flex'">📁 Nuova cartella</button>
+  <% if (currentFolderId) { %>
+    <a class="secondary" href="/area-personale/note<%= breadcrumb.length>1 ? '?folder='+breadcrumb[breadcrumb.length-2].id : '' %>" style="display:inline-flex;align-items:center;">⬅ Su</a>
+  <% } %>
+</div>
+
+<div class="card">
+  <div class="card-title">Cartelle</div>
+  <% if (!folders.length) { %><p class="help-text">Nessuna sottocartella qui.</p><% } %>
+  <div class="icon-grid">
+    <% folders.forEach(function(f){ %>
+      <a href="/area-personale/note?folder=<%= f.id %>" class="icon-item">
+        <span class="icon-emoji">📁</span><%= f.name %>
+      </a>
+    <% }); %>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">Note in questa cartella</div>
+  <% if (!notes.length) { %><p class="help-text">Nessuna nota qui. Creane una con il pulsante sopra.</p><% } %>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th></th><th>Titolo</th><th>Categoria</th><th>Ultima modifica</th><th></th></tr></thead>
+      <tbody>
+        <% notes.forEach(function(n){ %>
+        <tr>
+          <td><%= n.is_pinned ? '📌' : '' %></td>
+          <td><a href="#" onclick="openNote(<%= n.id %>, '<%= (n.title||'').replace(/'/g,"\\'") %>', <%- JSON.stringify(n.body||'') %>, '<%= n.category||'' %>', <%= n.is_pinned %>); return false;"><%= n.title %></a></td>
+          <td><span class="chip"><%= n.category || '—' %></span></td>
+          <td><%= n.updated_at %></td>
+          <td>
+            <form method="POST" action="/area-personale/note/<%= n.id %>/elimina" style="display:inline;" onsubmit="return confirm('Eliminare questa nota?')">
+              <button type="submit" class="btn-danger">🗑️</button>
+            </form>
+          </td>
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-new-folder">
+  <div class="modal">
+    <div class="modal-header"><h2>📁 Nuova cartella</h2><button class="modal-close" onclick="document.getElementById('modal-new-folder').style.display='none'">✕</button></div>
+    <form method="POST" action="/area-personale/note/cartella">
+      <div class="modal-body">
+        <input type="hidden" name="parent_id" value="<%= currentFolderId || '' %>">
+        <label>Nome cartella <span class="req">*</span><input type="text" name="name" required maxlength="80"></label>
+      </div>
+      <div class="modal-actions" style="padding:0 1.2rem 1.2rem;">
+        <button type="button" class="secondary" onclick="document.getElementById('modal-new-folder').style.display='none'">Annulla</button>
+        <button type="submit" class="primary">Crea</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-new-note">
+  <div class="modal" style="max-width:720px;">
+    <div class="modal-header"><h2 id="note-modal-title">📝 Nuova nota</h2><button class="modal-close" onclick="closeNoteModal()">✕</button></div>
+    <form method="POST" id="note-form" action="/area-personale/note">
+      <div class="modal-body">
+        <input type="hidden" name="folder_id" value="<%= currentFolderId || '' %>">
+        <label>Titolo <span class="req">*</span><input type="text" name="title" id="note-title" required maxlength="150"></label>
+        <label>Categoria <input type="text" name="category" id="note-category" maxlength="60" placeholder="es. lavoro, viaggi, idee..."></label>
+        <label>Testo <textarea name="body" id="note-body" rows="8"></textarea></label>
+        <label style="display:flex;align-items:center;gap:.4rem;">
+          <input type="checkbox" name="is_pinned" id="note-pinned" value="1" style="width:auto;"> Metti in evidenza (📌)
+        </label>
+      </div>
+      <div class="modal-actions" style="padding:0 1.2rem 1.2rem;">
+        <button type="button" class="secondary" onclick="closeNoteModal()">Annulla</button>
+        <button type="submit" class="primary">Salva</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openNote(id, title, body, category, pinned){
+  document.getElementById('note-modal-title').textContent = '📝 Modifica nota';
+  document.getElementById('note-form').action = '/area-personale/note/' + id;
+  document.getElementById('note-title').value = title;
+  document.getElementById('note-body').value = body;
+  document.getElementById('note-category').value = category;
+  document.getElementById('note-pinned').checked = !!pinned;
+  document.getElementById('modal-new-note').style.display = 'flex';
+}
+function closeNoteModal(){
+  document.getElementById('modal-new-note').style.display = 'none';
+  document.getElementById('note-form').action = '/area-personale/note';
+  document.getElementById('note-modal-title').textContent = '📝 Nuova nota';
+  document.getElementById('note-form').reset();
+}
+</script>
+
+<%- include('partials/footer') %>

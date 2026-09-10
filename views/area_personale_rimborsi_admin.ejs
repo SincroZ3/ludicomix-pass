@@ -1,0 +1,75 @@
+<%- include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <strong>Richieste Rimborsi</strong></nav>
+<h1 class="page-title">💰 Richieste Rimborsi — Amministrazione Contabile</h1>
+
+<div class="pill-tabs">
+  <a class="pill-tab <%= statusFilter === 'tutte' ? 'active' : '' %>" href="/area-personale/rimborsi?stato=tutte">Tutte</a>
+  <a class="pill-tab <%= statusFilter === 'in_attesa' ? 'active' : '' %>" href="/area-personale/rimborsi?stato=in_attesa">⏳ In attesa</a>
+  <a class="pill-tab <%= statusFilter === 'approvata' ? 'active' : '' %>" href="/area-personale/rimborsi?stato=approvata">✅ Approvate</a>
+  <a class="pill-tab <%= statusFilter === 'rifiutata' ? 'active' : '' %>" href="/area-personale/rimborsi?stato=rifiutata">❌ Rifiutate</a>
+</div>
+
+<div class="table-wrapper">
+  <table>
+    <thead><tr><th>#</th><th>Richiedente</th><th>Data</th><th>Periodo</th><th>Importo</th><th>Edizione</th><th>Stato</th><th>Revisore</th><th>Azioni</th></tr></thead>
+    <tbody>
+      <% requests.forEach(function(r){ %>
+      <tr>
+        <td>#<%= r.id %></td>
+        <td><%= r.username %></td>
+        <td><%= r.created_at %></td>
+        <td><%= r.period_label || '—' %></td>
+        <td>€ <%= r.total_amount.toFixed(2) %></td>
+        <td><%= r.edition_name || '—' %></td>
+        <td>
+          <% if (r.status === 'in_attesa') { %><span class="chip" style="background:#fff8e1;color:#7d5a00;">⏳ In attesa</span>
+          <% } else if (r.status === 'approvata') { %><span class="chip" style="background:#eafaf1;color:#1d6a39;">✅ Approvata</span>
+          <% } else { %><span class="chip" style="background:#fef0f0;color:#922b21;">❌ Rifiutata</span><% } %>
+        </td>
+        <td><%= r.reviewer_name || '—' %></td>
+        <td style="white-space:nowrap;">
+          <a class="link-action" href="/area-personale/richieste-rimborso/<%= r.id %>/pdf">📄 PDF</a>
+          <% if (r.status === 'in_attesa') { %>
+            &nbsp;
+            <button class="secondary" style="padding:.25rem .6rem;font-size:.72rem;" onclick="openReview(<%= r.id %>, 'approvata')">✅ Approva</button>
+            <button class="btn-danger" style="padding:.25rem .6rem;font-size:.72rem;" onclick="openReview(<%= r.id %>, 'rifiutata')">❌ Rifiuta</button>
+          <% } %>
+        </td>
+      </tr>
+      <% }); %>
+      <% if (!requests.length) { %><tr><td colspan="9" class="help-text">Nessuna richiesta trovata.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<div class="modal-overlay" id="modal-review">
+  <div class="modal">
+    <div class="modal-header" id="review-header"><h2 id="review-title">Valuta richiesta</h2><button class="modal-close" onclick="document.getElementById('modal-review').style.display='none'">✕</button></div>
+    <form method="POST" id="review-form" action="">
+      <div class="modal-body">
+        <input type="hidden" name="status" id="review-status">
+        <label>Note (opzionale, visibili al richiedente)
+          <textarea name="review_notes" rows="3"></textarea>
+        </label>
+      </div>
+      <div class="modal-actions" style="padding:0 1.2rem 1.2rem;">
+        <button type="button" class="secondary" onclick="document.getElementById('modal-review').style.display='none'">Annulla</button>
+        <button type="submit" class="primary" id="review-submit">Confirma</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openReview(id, status){
+  document.getElementById('review-form').action = '/area-personale/rimborsi/' + id + '/stato';
+  document.getElementById('review-status').value = status;
+  var isApprove = status === 'approvata';
+  document.getElementById('review-title').textContent = isApprove ? '✅ Approva richiesta #' + id : '❌ Rifiuta richiesta #' + id;
+  document.getElementById('review-header').className = isApprove ? 'modal-header' : 'modal-header danger';
+  document.getElementById('review-submit').textContent = isApprove ? 'Approva' : 'Rifiuta';
+  document.getElementById('modal-review').style.display = 'flex';
+}
+</script>
+
+<%- include('partials/footer') %>

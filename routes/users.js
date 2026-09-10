@@ -101,7 +101,10 @@ module.exports = function registerUserRoutes(app, db, { requireAuth, requireAdmi
   // ── Form modifica utente ─────────────────────────────────────────
   app.get('/admin/users/:id/edit', requireAdmin, async (req, res) => {
     const id   = parseInt(req.params.id, 10);
-    const user = await dbGet('SELECT id, username, role, created_at, permissions FROM users WHERE id=?', [id]);
+    const user = await dbGet(
+      `SELECT id, username, role, created_at, permissions,
+              full_name, birth_place, birth_date, fiscal_code, iban
+       FROM users WHERE id=?`, [id]);
     if (!user) return res.status(404).send('Utente non trovato');
     let userPerms = [];
     try { userPerms = JSON.parse(user.permissions || '[]'); } catch(e) {}

@@ -634,11 +634,12 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
         <div class="brand-sub">Area di gestione pass</div>
         <% if (currentUser) { %>
           <div class="brand-user">Accesso come: <strong><%= currentUser.username %></strong> &nbsp;&middot;&nbsp; Ruolo: <strong><%=
-            currentUser.role === 'admin'     ? 'Amministratore' :
-            currentUser.role === 'organizer' ? 'Organizzatore'  :
-            currentUser.role === 'operator'  ? 'Operatore'      :
-            currentUser.role === 'scanner'   ? 'Scanner'        :
-            currentUser.role === 'viewer'    ? 'Visualizzatore' :
+            currentUser.role === 'admin'      ? 'Amministratore' :
+            currentUser.role === 'organizer'  ? 'Organizzatore'  :
+            currentUser.role === 'accountant' ? 'Amministrazione contabile' :
+            currentUser.role === 'operator'   ? 'Operatore'      :
+            currentUser.role === 'scanner'    ? 'Scanner'        :
+            currentUser.role === 'viewer'     ? 'Visualizzatore' :
             currentUser.role
           %></strong></div>
         <% } %>
@@ -674,6 +675,12 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
       <a href="/account/password">&#128273; Cambia Password</a>
       <% if(currentUser&&currentUser.role!=='viewer'){ %>
         <a href="/account/security">&#128274; Password di Sicurezza</a>
+      <% } %>
+      <% if(typeof canAccessPersonalArea !== 'undefined' && canAccessPersonalArea){ %>
+        <a href="/area-personale">&#128188; Area Personale</a>
+      <% } %>
+      <% if(typeof canAccessAccounting !== 'undefined' && canAccessAccounting){ %>
+        <a href="/area-personale/rimborsi">&#128181; Richieste Rimborsi</a>
       <% } %>
       <% if(currentUser&&(currentUser.role==='admin'||currentUser.role==='organizer')){ %>
         <a href="/admin/logistica">📦 Logistica</a>

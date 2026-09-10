@@ -37,6 +37,7 @@ const registerParticipants   = require('./routes/participants');
 const registerPasses         = require('./routes/passes');
 const registerVolunteers     = require('./routes/volunteers');
 const registerLogistica      = require('./routes/logistica');
+const registerAreaPersonale  = require('./routes/area-personale');
 
 // ── DB helpers ──────────────────────────────────────────────────
 const dbAll = promisify(db.all.bind(db));
@@ -131,6 +132,11 @@ runMigration("ALTER TABLE zones ADD COLUMN zone_scope TEXT DEFAULT 'internal'", 
 );
 db.run("UPDATE zones SET zone_scope='internal' WHERE zone_scope IS NULL");
 runMigration("ALTER TABLE users ADD COLUMN permissions TEXT DEFAULT NULL", 'user_permissions');
+runMigration("ALTER TABLE users ADD COLUMN full_name TEXT",   'user_full_name');
+runMigration("ALTER TABLE users ADD COLUMN birth_place TEXT", 'user_birth_place');
+runMigration("ALTER TABLE users ADD COLUMN birth_date TEXT",  'user_birth_date');
+runMigration("ALTER TABLE users ADD COLUMN fiscal_code TEXT", 'user_fiscal_code');
+runMigration("ALTER TABLE users ADD COLUMN iban TEXT",        'user_iban');
 
 // ── Express app ──────────────────────────────────────────────────
 const app      = express();
@@ -175,12 +181,13 @@ app.use('/login', rateLimit({
 
 // ── Ruoli & middleware auth ──────────────────────────────────────
 const ROLES = {
-  ADMIN:     'admin',
-  ORGANIZER: 'organizer',
-  OPERATOR:  'operator',
-  SCANNER:   'scanner',
-  VIEWER:    'viewer',
-  CUSTOM:    'custom',
+  ADMIN:      'admin',
+  ORGANIZER:  'organizer',
+  OPERATOR:   'operator',
+  SCANNER:    'scanner',
+  VIEWER:     'viewer',
+  CUSTOM:     'custom',
+  ACCOUNTANT: 'accountant', // Amministrazione contabile: poteri come organizer + pagina Richieste rimborsi
 };
 
 // Mappa middleware → permesso custom richiesto per quel livello di accesso
@@ -214,11 +221,12 @@ function hasRole(user, ...roles) {
     const perms = parsePerms(user);
     // Mappa ogni ruolo richiesto al suo permesso custom equivalente
     const rolePermMap = {
-      admin:     ['system.admin'],
-      organizer: ['org.manage'],
-      operator:  ['participants.edit', 'scan.scan'],
-      scanner:   ['scan.scan'],
-      viewer:    ['participants.view'],
+      admin:      ['system.admin'],
+      organizer:  ['org.manage'],
+      accountant: ['org.manage'],
+      operator:   ['participants.edit', 'scan.scan'],
+      scanner:    ['scan.scan'],
+      viewer:     ['participants.view'],
     };
     return roles.some(r => {
       const needed = rolePermMap[r] || [];
@@ -256,19 +264,36 @@ function requireAdmin(req, res, next) {
 }
 
 function requireOrganizer(req, res, next) {
-  hasRole(req.session.user, ROLES.ADMIN, ROLES.ORGANIZER)
+  hasRole(req.session.user, ROLES.ADMIN, ROLES.ORGANIZER, ROLES.ACCOUNTANT)
     ? next()
     : res.status(403).sendFile(path.join(__dirname, 'views', '403.html'));
 }
 
 function requireNotViewer(req, res, next) {
-  hasRole(req.session.user, ROLES.ADMIN, ROLES.ORGANIZER, ROLES.OPERATOR)
+  hasRole(req.session.user, ROLES.ADMIN, ROLES.ORGANIZER, ROLES.OPERATOR, ROLES.ACCOUNTANT)
     ? next()
     : res.status(403).sendFile(path.join(__dirname, 'views', '403.html'));
 }
 
 function requireCanScan(req, res, next) {
-  hasRole(req.session.user, ROLES.ADMIN, ROLES.ORGANIZER, ROLES.OPERATOR, ROLES.SCANNER, ROLES.VIEWER)
+  hasRole(req.session.user, ROLES.ADMIN, ROLES.ORGANIZER, ROLES.OPERATOR, ROLES.SCANNER, ROLES.VIEWER, ROLES.ACCOUNTANT)
+    ? next()
+    : res.status(403).sendFile(path.join(__dirname, 'views', '403.html'));
+}
+
+// ── Area personale: tutti tranne viewer/scanner; i custom solo con permesso dedicato ──
+function requirePersonalArea(req, res, next) {
+  const u = req.session.user;
+  if (!u) return res.redirect('/login');
+  const blocked = [ROLES.VIEWER, ROLES.SCANNER];
+  if (!blocked.includes(u.role)) return next();
+  if (u.role === ROLES.CUSTOM && hasPerm(u, 'personal_area.access')) return next();
+  return res.status(403).sendFile(path.join(__dirname, 'views', '403.html'));
+}
+
+// ── Sezione "Richieste rimborsi": solo admin e Amministrazione contabile ──
+function requireAccounting(req, res, next) {
+  hasRole(req.session.user, ROLES.ADMIN, ROLES.ACCOUNTANT)
     ? next()
     : res.status(403).sendFile(path.join(__dirname, 'views', '403.html'));
 }
@@ -277,6 +302,10 @@ function requireCanScan(req, res, next) {
 app.use((req, res, next) => {
   res.locals.currentUser    = req.session.user || null;
   res.locals.currentEdition = _currentEdition;
+  const u = req.session.user;
+  res.locals.canAccessPersonalArea = !!u && !['viewer','scanner'].includes(u.role) &&
+    (u.role !== 'custom' || hasPerm(u, 'personal_area.access'));
+  res.locals.canAccessAccounting = !!u && (u.role === 'admin' || u.role === 'accountant');
   next();
 });
 
@@ -284,6 +313,25 @@ app.use((req, res, next) => {
 const uploadMemory = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 2 * 1024 * 1024 },
+});
+
+const uploadReceipts = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const dir = path.join(DATA_DIR, 'personal_uploads', 'receipts', String(req.session.user.id));
+      fs.mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname || '') || '';
+      cb(null, Date.now() + '_' + Math.round(Math.random() * 1e9) + ext);
+    },
+  }),
+  limits: { fileSize: 12 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ok = ['application/pdf', 'image/jpeg', 'image/png', 'image/heic', 'image/webp'].includes(file.mimetype);
+    cb(ok ? null : new Error('Formato non supportato: usa PDF, JPG, PNG o HEIC'), ok);
+  },
 });
 
 // ── CRM & Agenda (legacy) ────────────────────────────────────────
@@ -299,6 +347,8 @@ const middlewares = {
   requireOrganizer,
   requireNotViewer,
   requireCanScan,
+  requirePersonalArea,
+  requireAccounting,
   logAction,
   createNotification,
   trySendEmail,
@@ -308,6 +358,10 @@ const middlewares = {
   getCurrent,
   refreshCurrentEdition,
   uploadMemory,
+  uploadReceipts,
+  hasPerm,
+  parsePerms,
+  hasRole,
   ROLES,
   getCurrentEdition: () => _currentEdition,
 };
@@ -341,6 +395,7 @@ registerPortale       (app, db, { ...middlewares, triggerBatchPassOnClose });
 registerParticipants  (app, db, { ...middlewares, generateAutoPass, getCurrent });
 registerVolunteers    (app, db, middlewares);
 registerLogistica     (app, db, middlewares);
+registerAreaPersonale (app, db, middlewares);
 
 // ── Auth routes ──────────────────────────────────────────────────
 app.get('/', (req, res) => res.redirect(req.session.user ? '/home' : '/login'));

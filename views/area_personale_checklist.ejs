@@ -1,0 +1,47 @@
+<%- include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <a href="/area-personale">Area Personale</a> <span class="sep">›</span> <strong>Checklist</strong></nav>
+<h1 class="page-title">✅ Checklist Personali</h1>
+
+<div class="card">
+  <div class="card-title">Nuova checklist</div>
+  <form method="POST" action="/area-personale/checklist" style="display:flex;gap:.6rem;align-items:flex-end;">
+    <label style="flex:1;margin-bottom:0;">Titolo <input type="text" name="title" required maxlength="120" placeholder="es. Cose da portare al prossimo evento"></label>
+    <button type="submit" class="primary">➕ Crea</button>
+  </form>
+</div>
+
+<% lists.forEach(function(l){ %>
+<div class="card">
+  <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+    <span><%= l.title %></span>
+    <form method="POST" action="/area-personale/checklist/<%= l.id %>/elimina" onsubmit="return confirm('Eliminare l\'intera checklist?')">
+      <button type="submit" class="btn-danger">🗑️ Elimina lista</button>
+    </form>
+  </div>
+  <ul style="list-style:none;padding:0;margin:0;">
+    <% l.items.forEach(function(it){ %>
+      <li style="display:flex;align-items:center;gap:.5rem;padding:.35rem 0;border-bottom:1px solid var(--border-light);">
+        <input type="checkbox" <%= it.done ? 'checked' : '' %> onchange="toggleItem(<%= it.id %>)" style="width:auto;">
+        <span style="flex:1;<%= it.done ? 'text-decoration:line-through;color:var(--text-muted);' : '' %>"><%= it.text %></span>
+        <form method="POST" action="/area-personale/checklist/voce/<%= it.id %>/elimina" style="display:inline;">
+          <button type="submit" class="btn-danger" style="padding:.15rem .4rem;">✕</button>
+        </form>
+      </li>
+    <% }); %>
+  </ul>
+  <form method="POST" action="/area-personale/checklist/<%= l.id %>/voce" style="display:flex;gap:.5rem;margin-top:.75rem;">
+    <input type="text" name="text" placeholder="Aggiungi voce..." required style="flex:1;">
+    <button type="submit" class="secondary">➕</button>
+  </form>
+</div>
+<% }); %>
+<% if (!lists.length) { %><p class="help-text">Nessuna checklist ancora creata.</p><% } %>
+
+<script>
+function toggleItem(id){
+  fetch('/area-personale/checklist/voce/' + id + '/toggle', { method: 'POST' })
+    .then(function(){ location.reload(); });
+}
+</script>
+
+<%- include('partials/footer') %>

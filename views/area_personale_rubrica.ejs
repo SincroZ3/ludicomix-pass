@@ -1,0 +1,117 @@
+<%- include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <a href="/area-personale">Area Personale</a> <span class="sep">›</span> <strong>Rubrica</strong></nav>
+<h1 class="page-title">📇 Rubrica Contatti</h1>
+
+<div style="display:flex;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap;">
+  <button class="primary" onclick="document.getElementById('modal-new-contact').style.display='flex'">➕ Nuovo contatto</button>
+  <button class="secondary" onclick="document.getElementById('modal-import-exp').style.display='flex'">🏪 Importa da espositori</button>
+</div>
+
+<div class="table-wrapper">
+  <table>
+    <thead><tr><th>Nome</th><th>Ruolo/Azienda</th><th>Email</th><th>Telefono</th><th>Collegato a</th><th></th></tr></thead>
+    <tbody>
+      <% contacts.forEach(function(c){ %>
+      <tr>
+        <td><%= c.first_name %> <%= c.last_name || '' %></td>
+        <td><%= [c.role, c.company].filter(Boolean).join(' · ') || '—' %></td>
+        <td><%= c.email || '—' %></td>
+        <td><%= c.phone || '—' %></td>
+        <td><%= c.linked_stand_name || c.linked_group_name || '—' %></td>
+        <td>
+          <a href="#" class="link-action" onclick="openContact(<%- JSON.stringify(c) %>); return false;">✏️</a>
+          <form method="POST" action="/area-personale/rubrica/<%= c.id %>/elimina" style="display:inline;" onsubmit="return confirm('Eliminare questo contatto?')">
+            <button type="submit" class="btn-danger">🗑️</button>
+          </form>
+        </td>
+      </tr>
+      <% }); %>
+      <% if (!contacts.length) { %><tr><td colspan="6" class="help-text">Nessun contatto in rubrica.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<div class="modal-overlay" id="modal-new-contact">
+  <div class="modal">
+    <div class="modal-header"><h2 id="contact-modal-title">➕ Nuovo contatto</h2><button class="modal-close" onclick="closeContactModal()">✕</button></div>
+    <form method="POST" id="contact-form" action="/area-personale/rubrica">
+      <div class="modal-body">
+        <label>Nome <span class="req">*</span><input type="text" name="first_name" id="c-first" required maxlength="80"></label>
+        <label>Cognome <input type="text" name="last_name" id="c-last" maxlength="80"></label>
+        <label>Ruolo <input type="text" name="role" id="c-role" maxlength="80"></label>
+        <label>Azienda / Stand <input type="text" name="company" id="c-company" maxlength="120"></label>
+        <label>Email <input type="email" name="email" id="c-email" maxlength="120"></label>
+        <label>Telefono <input type="text" name="phone" id="c-phone" maxlength="40"></label>
+        <label>Note <textarea name="notes" id="c-notes" rows="3"></textarea></label>
+      </div>
+      <div class="modal-actions" style="padding:0 1.2rem 1.2rem;">
+        <button type="button" class="secondary" onclick="closeContactModal()">Annulla</button>
+        <button type="submit" class="primary">Salva</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-import-exp">
+  <div class="modal">
+    <div class="modal-header"><h2>🏪 Importa da espositori</h2><button class="modal-close" onclick="document.getElementById('modal-import-exp').style.display='none'">✕</button></div>
+    <div class="modal-body">
+      <label>Cerca stand/espositore <input type="text" id="exp-search" placeholder="Digita almeno 2 caratteri..."></label>
+      <div id="exp-results" style="max-height:280px;overflow-y:auto;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function openContact(c){
+  document.getElementById('contact-modal-title').textContent = '✏️ Modifica contatto';
+  document.getElementById('contact-form').action = '/area-personale/rubrica/' + c.id;
+  document.getElementById('c-first').value = c.first_name || '';
+  document.getElementById('c-last').value = c.last_name || '';
+  document.getElementById('c-role').value = c.role || '';
+  document.getElementById('c-company').value = c.company || '';
+  document.getElementById('c-email').value = c.email || '';
+  document.getElementById('c-phone').value = c.phone || '';
+  document.getElementById('c-notes').value = c.notes || '';
+  document.getElementById('modal-new-contact').style.display = 'flex';
+}
+function closeContactModal(){
+  document.getElementById('modal-new-contact').style.display = 'none';
+  document.getElementById('contact-form').action = '/area-personale/rubrica';
+  document.getElementById('contact-modal-title').textContent = '➕ Nuovo contatto';
+  document.getElementById('contact-form').reset();
+}
+(function(){
+  var input = document.getElementById('exp-search');
+  var results = document.getElementById('exp-results');
+  var timer = null;
+  input.addEventListener('input', function(){
+    clearTimeout(timer);
+    var q = input.value.trim();
+    if (q.length < 2) { results.innerHTML = ''; return; }
+    timer = setTimeout(function(){
+      fetch('/api/area-personale/rubrica/espositori?q=' + encodeURIComponent(q))
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          var html = '';
+          (data.groups || []).forEach(function(g){
+            html += '<div style="padding:.5rem;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;">' +
+              '<span>' + (g.stand_name || g.name) + (g.zone ? ' <span class="chip">' + g.zone + '</span>' : '') + '</span>' +
+              '<button class="secondary" onclick="importExp(' + g.id + ')" type="button">Importa</button></div>';
+          });
+          results.innerHTML = html || '<p class="help-text">Nessun risultato.</p>';
+        });
+    }, 250);
+  });
+})();
+function importExp(id){
+  fetch('/area-personale/rubrica/importa-espositore', {
+    method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'},
+    body: 'assignment_group_id=' + id
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.ok) location.reload(); else alert(d.error || 'Errore import');
+  });
+}
+</script>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,75 @@
+<%- include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <a href="/area-personale">Area Personale</a> <span class="sep">›</span> <strong>Spese</strong></nav>
+<h1 class="page-title">💶 Le Mie Spese</h1>
+
+<div class="alert alert-info">
+  ℹ️ Le spese restano sempre consultabili qui, anche cambiando l'edizione attiva del portale.
+  Usa il menu sotto per navigare tra gli anni in cui hai sostenuto spese.
+</div>
+
+<div class="pill-tabs">
+  <a class="pill-tab <%= selectedEdition === 'tutte' ? 'active' : '' %>" href="/area-personale/spese?edizione=tutte">Tutte</a>
+  <% editions.forEach(function(e){ %>
+    <a class="pill-tab <%= String(selectedEdition) === String(e.id) ? 'active' : '' %>" href="/area-personale/spese?edizione=<%= e.id %>"><%= e.name || e.year %></a>
+  <% }); %>
+</div>
+
+<div style="display:flex;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center;">
+  <button class="primary" onclick="document.getElementById('modal-new-expense').style.display='flex'">➕ Nuova spesa</button>
+  <a class="secondary" href="/area-personale/spese/export.csv?edizione=<%= selectedEdition %>">⬇️ Esporta CSV</a>
+  <span class="chip" style="margin-left:auto;font-size:.85rem;">Totale: € <%= totalAmount.toFixed(2) %></span>
+  <% if (unassignedCount > 0) { %>
+    <a class="primary" href="/area-personale/richieste-rimborso">💰 Richiedi rimborso (<%= unassignedCount %> spese disponibili)</a>
+  <% } %>
+</div>
+
+<div class="table-wrapper">
+  <table>
+    <thead><tr><th>Data</th><th>Descrizione</th><th>Categoria</th><th>Edizione</th><th>Importo</th><th>Ricevute</th><th>Stato</th><th></th></tr></thead>
+    <tbody>
+      <% expenses.forEach(function(e){ %>
+      <tr>
+        <td><%= e.expense_date %></td>
+        <td><%= e.description %></td>
+        <td><span class="chip"><%= e.category || '—' %></span></td>
+        <td><%= e.edition_name || '—' %></td>
+        <td>€ <%= e.amount.toFixed(2) %></td>
+        <td><%= e.receipt_count || 0 %></td>
+        <td><%= e.refund_request_id ? '<span class="chip">In richiesta rimborso</span>' : '<span class="chip">Disponibile</span>' %></td>
+        <td>
+          <% if (!e.refund_request_id) { %>
+            <form method="POST" action="/area-personale/spese/<%= e.id %>/elimina" style="display:inline;" onsubmit="return confirm('Eliminare questa spesa?')">
+              <button type="submit" class="btn-danger">🗑️</button>
+            </form>
+          <% } %>
+        </td>
+      </tr>
+      <% }); %>
+      <% if (!expenses.length) { %><tr><td colspan="8" class="help-text">Nessuna spesa registrata.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<div class="modal-overlay" id="modal-new-expense">
+  <div class="modal">
+    <div class="modal-header"><h2>➕ Nuova spesa</h2><button class="modal-close" onclick="document.getElementById('modal-new-expense').style.display='none'">✕</button></div>
+    <form method="POST" action="/area-personale/spese" enctype="multipart/form-data">
+      <div class="modal-body">
+        <label>Descrizione <span class="req">*</span><input type="text" name="description" required maxlength="200"></label>
+        <label>Importo (EUR) <span class="req">*</span><input type="number" name="amount" step="0.01" min="0" required></label>
+        <label>Data <span class="req">*</span><input type="date" name="expense_date" required></label>
+        <label>Categoria <input type="text" name="category" maxlength="60" placeholder="es. carburante, materiali, vitto..."></label>
+        <label>Note <textarea name="notes" rows="2"></textarea></label>
+        <label>Ricevute (foto scontrino o PDF fattura — max 5 file, 12MB ciascuno)
+          <input type="file" name="receipts" multiple accept="application/pdf,image/jpeg,image/png,image/heic,image/webp">
+        </label>
+      </div>
+      <div class="modal-actions" style="padding:0 1.2rem 1.2rem;">
+        <button type="button" class="secondary" onclick="document.getElementById('modal-new-expense').style.display='none'">Annulla</button>
+        <button type="submit" class="primary">Salva spesa</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

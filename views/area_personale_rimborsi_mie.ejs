@@ -1,0 +1,69 @@
+<%- include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <a href="/area-personale">Area Personale</a> <span class="sep">›</span> <strong>Richieste Rimborso</strong></nav>
+<h1 class="page-title">📄 Le Mie Richieste di Rimborso</h1>
+
+<% if (!profileComplete) { %>
+  <div class="alert alert-warning">
+    ⚠️ Completa prima <a href="/area-personale/profilo">il tuo profilo</a> (nome, luogo/data di nascita, codice fiscale) per poter inviare richieste.
+  </div>
+<% } else if (availableExpenses.length > 0) { %>
+  <div class="card">
+    <div class="card-title">➕ Nuova richiesta di rimborso</div>
+    <form method="POST" action="/area-personale/richieste-rimborso">
+      <p class="help-text">Seleziona una o più spese non ancora incluse in una richiesta:</p>
+      <div class="table-wrapper" style="max-height:260px;overflow-y:auto;">
+        <table>
+          <thead><tr><th></th><th>Data</th><th>Descrizione</th><th>Importo</th></tr></thead>
+          <tbody>
+            <% availableExpenses.forEach(function(e){ %>
+            <tr>
+              <td><input type="checkbox" name="expense_ids" value="<%= e.id %>" style="width:auto;"></td>
+              <td><%= e.expense_date %></td>
+              <td><%= e.description %></td>
+              <td>€ <%= e.amount.toFixed(2) %></td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+      <label style="margin-top:1rem;">Periodo di riferimento (es. "Maggio 2026")
+        <input type="text" name="period_label" maxlength="60">
+      </label>
+      <label style="margin-top:.6rem;">IBAN per il bonifico
+        <input type="text" name="iban" value="<%= user.iban || '' %>" maxlength="34" style="text-transform:uppercase;">
+      </label>
+      <div style="margin-top:1rem;">
+        <button type="submit" class="primary">📄 Genera richiesta e modulo PDF</button>
+      </div>
+    </form>
+  </div>
+<% } else { %>
+  <div class="alert alert-info">Nessuna spesa disponibile da includere in una nuova richiesta. Aggiungine dalla sezione <a href="/area-personale/spese">Spese</a>.</div>
+<% } %>
+
+<div class="table-wrapper" style="margin-top:1.5rem;">
+  <table>
+    <thead><tr><th>#</th><th>Data richiesta</th><th>Periodo</th><th>Importo</th><th>Edizione</th><th>Stato</th><th>Revisore</th><th></th></tr></thead>
+    <tbody>
+      <% requests.forEach(function(r){ %>
+      <tr>
+        <td>#<%= r.id %></td>
+        <td><%= r.created_at %></td>
+        <td><%= r.period_label || '—' %></td>
+        <td>€ <%= r.total_amount.toFixed(2) %></td>
+        <td><%= r.edition_name || '—' %></td>
+        <td>
+          <% if (r.status === 'in_attesa') { %><span class="chip" style="background:#fff8e1;color:#7d5a00;">⏳ In attesa</span>
+          <% } else if (r.status === 'approvata') { %><span class="chip" style="background:#eafaf1;color:#1d6a39;">✅ Approvata</span>
+          <% } else { %><span class="chip" style="background:#fef0f0;color:#922b21;">❌ Rifiutata</span><% } %>
+        </td>
+        <td><%= r.reviewer_name || '—' %></td>
+        <td><a class="link-action" href="/area-personale/richieste-rimborso/<%= r.id %>/pdf">📄 PDF</a></td>
+      </tr>
+      <% }); %>
+      <% if (!requests.length) { %><tr><td colspan="8" class="help-text">Nessuna richiesta inviata.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('partials/footer') %>
