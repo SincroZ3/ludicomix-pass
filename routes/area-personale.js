@@ -210,16 +210,30 @@ module.exports = function registerAreaPersonaleRoutes(
     res.redirect('/area-personale/note' + (note && note.folder_id ? '?folder=' + note.folder_id : ''));
   });
 
+  // Rubrica personale o generale. La visibilità generale è in sola lettura per i contatti
+  // creati da altri utenti: le route di modifica/eliminazione restano comunque protette da user_id.
   app.get('/area-personale/rubrica', requireAuth, requirePersonalArea, async (req, res) => {
+    const scope = req.query.scope === 'generale' ? 'generale' : 'mia';
+    const letter = /^[A-Z]$/.test(String(req.query.letter || '').toUpperCase())
+      ? String(req.query.letter).toUpperCase() : '';
     try {
-      const contacts = await dbAll(
-        `SELECT pc.*, ag.name AS linked_group_name, ag.stand_name AS linked_stand_name
-         FROM personal_contacts pc
-         LEFT JOIN assignment_groups ag ON ag.id = pc.assignment_group_id
-         WHERE pc.user_id=? ORDER BY pc.last_name, pc.first_name`,
-        [req.session.user.id]
-      );
-      res.render('area_personale_rubrica', { contacts: contacts || [] });
+      let sql = `SELECT pc.*, ag.name AS linked_group_name, ag.stand_name AS linked_stand_name,
+                        u.username AS owner_username
+                 FROM personal_contacts pc
+                 LEFT JOIN assignment_groups ag ON ag.id = pc.assignment_group_id
+                 LEFT JOIN users u ON u.id = pc.user_id
+                 WHERE 1=1`;
+      const params = [];
+      if (scope === 'mia') { sql += ' AND pc.user_id=?'; params.push(req.session.user.id); }
+      if (letter) {
+        sql += " AND upper(substr(trim(COALESCE(pc.last_name, pc.first_name)), 1, 1)) = ?";
+        params.push(letter);
+      }
+      sql += ' ORDER BY lower(COALESCE(pc.last_name, pc.first_name)), lower(pc.first_name)';
+      const contacts = await dbAll(sql, params);
+      res.render('area_personale_rubrica', {
+        contacts: contacts || [], scope, letter, currentUserId: req.session.user.id,
+      });
     } catch (err) {
       res.status(500).send('Errore caricamento rubrica: ' + err.message);
     }
@@ -244,11 +258,8 @@ module.exports = function registerAreaPersonaleRoutes(
     }
   });
 
-  // FIX bug "SyntaxError: The string did not match the expected pattern": questa route
-  // DEVE precedere '/area-personale/rubrica/:id' (modifica contatto). Prima era registrata
-  // dopo, quindi Express instradava ogni click su "Importa" verso la route :id (con
-  // id="importa-espositore"), che eseguiva un UPDATE a vuoto e rispondeva con un redirect
-  // HTML invece che JSON — da cui l'errore quando il client tentava .json() sulla pagina HTML.
+  // Import diretto mantenuto come API di compatibilità: ora mappa correttamente il referente
+  // CRM primario come persona e il gruppo/stand solo nel campo Azienda/Stand.
   app.post('/area-personale/rubrica/importa-espositore', requireAuth, requirePersonalArea, async (req, res) => {
     const { assignment_group_id } = req.body;
     const gid = parseInt(assignment_group_id, 10);
@@ -256,13 +267,56 @@ module.exports = function registerAreaPersonaleRoutes(
     try {
       const group = await dbGet('SELECT * FROM assignment_groups WHERE id=?', [gid]);
       if (!group) return res.status(404).json({ error: 'Espositore non trovato' });
+      const ref = await dbGet(
+        `SELECT name, role, email, phone FROM contacts
+         WHERE assignment_group_id=? ORDER BY is_primary DESC, id ASC LIMIT 1`, [gid]);
+      const fullName = (ref?.name || '').trim();
+      const nameParts = fullName ? fullName.split(/\s+/) : [];
+      const firstName = nameParts.shift() || 'Referente';
+      const lastName = nameParts.join(' ') || null;
+      const company = group.stand_name || group.name || null;
       const r = await dbRun(
-        `INSERT INTO personal_contacts (user_id, first_name, last_name, company, email, notes, assignment_group_id)
-         VALUES (?,?,?,?,?,?,?)`,
-        [req.session.user.id, group.name, '', group.stand_name || null, group.email || null,
+        `INSERT INTO personal_contacts (user_id, first_name, last_name, role, company, email, phone, notes, assignment_group_id)
+         VALUES (?,?,?,?,?,?,?,?,?)`,
+        [req.session.user.id, firstName, lastName, ref?.role || null, company,
+         ref?.email || group.email || null, ref?.phone || null,
          group.zone ? ('Zona: ' + group.zone) : null, gid]
       );
       res.json({ ok: true, id: r.lastID });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Nuovo endpoint: recupera il gruppo e il suo referente CRM primario per precompilare
+  // la scheda popup prima del salvataggio. La route ha due segmenti dopo rubrica, quindi
+  // non collide con /api/area-personale/rubrica/:id.
+  app.get('/api/area-personale/rubrica/espositori/:id/anteprima', requireAuth, requirePersonalArea, async (req, res) => {
+    const gid = parseInt(req.params.id, 10);
+    if (!gid) return res.status(400).json({ error: 'Espositore non valido' });
+    try {
+      const group = await dbGet('SELECT * FROM assignment_groups WHERE id=?', [gid]);
+      if (!group) return res.status(404).json({ error: 'Espositore non trovato' });
+      const ref = await dbGet(
+        `SELECT name, role, email, phone FROM contacts
+         WHERE assignment_group_id=? ORDER BY is_primary DESC, id ASC LIMIT 1`, [gid]);
+      const fullName = (ref?.name || '').trim();
+      const nameParts = fullName ? fullName.split(/\s+/) : [];
+      const firstName = nameParts.shift() || '';
+      const lastName = nameParts.join(' ');
+      res.json({
+        assignment_group_id: group.id,
+        first_name: firstName,
+        last_name: lastName,
+        role: ref?.role || '',
+        company: group.stand_name || group.name || '',
+        email: ref?.email || group.email || '',
+        phone: ref?.phone || '',
+        notes: group.zone ? ('Zona: ' + group.zone) : '',
+        group_name: group.name,
+        stand_name: group.stand_name,
+        edition_name: null,
+      });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

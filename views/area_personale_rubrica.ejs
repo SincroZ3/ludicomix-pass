@@ -2,41 +2,66 @@
 <nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <a href="/area-personale">Area Personale</a> <span class="sep">›</span> <strong>Rubrica</strong></nav>
 <h1 class="page-title">📇 Rubrica Contatti</h1>
 
+<div class="pill-tabs">
+  <a class="pill-tab <%= scope === 'mia' ? 'active' : '' %>" href="/area-personale/rubrica?scope=mia">👤 La mia rubrica</a>
+  <a class="pill-tab <%= scope === 'generale' ? 'active' : '' %>" href="/area-personale/rubrica?scope=generale">🌐 Rubrica generale</a>
+</div>
+
+<div class="alert alert-info" style="margin-top:-.3rem;">
+  <% if (scope === 'mia') { %>
+    Stai visualizzando solo i contatti creati da te.
+  <% } else { %>
+    Stai visualizzando la rubrica condivisa: tutti i contatti creati dagli utenti abilitati. Puoi modificare o eliminare solo i tuoi contatti.
+  <% } %>
+</div>
+
 <div style="display:flex;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap;">
   <button class="primary" onclick="openContactModal()">➕ Nuovo contatto</button>
   <button class="secondary" onclick="document.getElementById('modal-import-exp').style.display='flex'">🏪 Importa da espositori</button>
 </div>
 
+<!-- Filtro alfabetico, condiviso tra rubrica personale e generale -->
+<div style="display:flex;gap:.25rem;flex-wrap:wrap;margin:0 0 1rem;">
+  <a class="chip" style="text-decoration:none;<%= !letter ? 'background:var(--brand-dark);color:var(--brand-yellow);' : '' %>" href="/area-personale/rubrica?scope=<%= scope %>">Tutte</a>
+  <% 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(function(l){ %>
+    <a class="chip" style="text-decoration:none;<%= letter === l ? 'background:var(--brand-dark);color:var(--brand-yellow);' : '' %>" href="/area-personale/rubrica?scope=<%= scope %>&letter=<%= l %>"><%= l %></a>
+  <% }); %>
+</div>
+
 <div class="table-wrapper">
   <table>
-    <thead><tr><th>Nome</th><th>Ruolo/Azienda</th><th>Email</th><th>Telefono</th><th>Collegato a</th><th></th></tr></thead>
+    <thead><tr><th>Nome</th><th>Ruolo/Azienda</th><th>Email</th><th>Telefono</th><th>Collegato a</th><% if(scope==='generale'){ %><th>Inserito da</th><% } %><th></th></tr></thead>
     <tbody>
-      <% contacts.forEach(function(c){ %>
+      <% contacts.forEach(function(c){ var isOwner = c.user_id === currentUserId; %>
       <tr>
         <td><%= c.first_name %> <%= c.last_name || '' %></td>
         <td><%= [c.role, c.company].filter(Boolean).join(' · ') || '—' %></td>
         <td><%= c.email || '—' %></td>
         <td><%= c.phone || '—' %></td>
         <td><%= c.linked_stand_name || c.linked_group_name || '—' %></td>
-        <td>
-          <!-- FIX (stesso bug #1, corretto preventivamente): niente JSON in onclick, solo l'id -->
-          <a href="#" class="link-action" onclick="openContactModal(<%= c.id %>); return false;">✏️</a>
-          <form method="POST" action="/area-personale/rubrica/<%= c.id %>/elimina" style="display:inline;" onsubmit="return confirm('Eliminare questo contatto?')">
-            <button type="submit" class="btn-danger">🗑️</button>
-          </form>
+        <% if(scope==='generale'){ %><td><%= isOwner ? 'Tu' : (c.owner_username || '—') %></td><% } %>
+        <td style="white-space:nowrap;">
+          <% if (isOwner) { %>
+            <a href="#" class="link-action" onclick="openContactModal(<%= c.id %>); return false;">✏️ Modifica</a>
+            <form method="POST" action="/area-personale/rubrica/<%= c.id %>/elimina" style="display:inline;" onsubmit="return confirm('Eliminare questo contatto?')">
+              <button type="submit" class="btn-danger">🗑️</button>
+            </form>
+          <% } else { %><span class="help-text">Sola lettura</span><% } %>
         </td>
       </tr>
       <% }); %>
-      <% if (!contacts.length) { %><tr><td colspan="6" class="help-text">Nessun contatto in rubrica.</td></tr><% } %>
+      <% if (!contacts.length) { %><tr><td colspan="<%= scope==='generale' ? 7 : 6 %>" class="help-text">Nessun contatto per il filtro selezionato.</td></tr><% } %>
     </tbody>
   </table>
 </div>
 
+<!-- Stessa scheda usata sia per nuovo/modifica sia per la precompilazione da espositore -->
 <div class="modal-overlay" id="modal-new-contact">
   <div class="modal">
     <div class="modal-header"><h2 id="contact-modal-title">➕ Nuovo contatto</h2><button class="modal-close" onclick="closeContactModal()">✕</button></div>
     <form method="POST" id="contact-form" action="/area-personale/rubrica">
       <div class="modal-body">
+        <input type="hidden" name="assignment_group_id" id="c-group-id" value="">
         <label>Nome <span class="req">*</span><input type="text" name="first_name" id="c-first" required maxlength="80"></label>
         <label>Cognome <input type="text" name="last_name" id="c-last" maxlength="80"></label>
         <label>Ruolo <input type="text" name="role" id="c-role" maxlength="80"></label>
@@ -47,7 +72,7 @@
       </div>
       <div class="modal-actions" style="padding:0 1.2rem 1.2rem;">
         <button type="button" class="secondary" onclick="closeContactModal()">Annulla</button>
-        <button type="submit" class="primary">Salva</button>
+        <button type="submit" class="primary">Salva contatto</button>
       </div>
     </form>
   </div>
@@ -57,6 +82,7 @@
   <div class="modal">
     <div class="modal-header"><h2>🏪 Importa da espositori</h2><button class="modal-close" onclick="document.getElementById('modal-import-exp').style.display='none'">✕</button></div>
     <div class="modal-body">
+      <p class="help-text">Ricerca in tutte le edizioni. Scegli un espositore per precompilare la sua scheda contatto.</p>
       <label>Cerca stand/espositore <input type="text" id="exp-search" placeholder="Digita almeno 2 caratteri..."></label>
       <div id="exp-results" style="max-height:280px;overflow-y:auto;"></div>
     </div>
@@ -65,67 +91,59 @@
 
 <script>
 function openContactModal(id){
-  document.getElementById('contact-form').reset();
+  var form = document.getElementById('contact-form');
+  form.reset(); document.getElementById('c-group-id').value = '';
   if (!id) {
     document.getElementById('contact-modal-title').textContent = '➕ Nuovo contatto';
-    document.getElementById('contact-form').action = '/area-personale/rubrica';
+    form.action = '/area-personale/rubrica';
     document.getElementById('modal-new-contact').style.display = 'flex';
     return;
   }
-  fetch('/api/area-personale/rubrica/' + id)
-    .then(function(r){ return r.json(); })
-    .then(function(c){
-      document.getElementById('contact-modal-title').textContent = '✏️ Modifica contatto';
-      document.getElementById('contact-form').action = '/area-personale/rubrica/' + id;
-      document.getElementById('c-first').value = c.first_name || '';
-      document.getElementById('c-last').value = c.last_name || '';
-      document.getElementById('c-role').value = c.role || '';
-      document.getElementById('c-company').value = c.company || '';
-      document.getElementById('c-email').value = c.email || '';
-      document.getElementById('c-phone').value = c.phone || '';
-      document.getElementById('c-notes').value = c.notes || '';
-      document.getElementById('modal-new-contact').style.display = 'flex';
-    })
-    .catch(function(){ alert('Errore nel caricamento del contatto.'); });
+  fetch('/api/area-personale/rubrica/' + id).then(function(r){return r.json();}).then(fillContactForEdit)
+    .catch(function(){alert('Errore nel caricamento del contatto.');});
 }
-function closeContactModal(){
-  document.getElementById('modal-new-contact').style.display = 'none';
+function fillContactForEdit(c){
+  document.getElementById('contact-modal-title').textContent = '✏️ Modifica contatto';
+  document.getElementById('contact-form').action = '/area-personale/rubrica/' + c.id;
+  document.getElementById('c-group-id').value = c.assignment_group_id || '';
+  document.getElementById('c-first').value=c.first_name||''; document.getElementById('c-last').value=c.last_name||'';
+  document.getElementById('c-role').value=c.role||''; document.getElementById('c-company').value=c.company||'';
+  document.getElementById('c-email').value=c.email||''; document.getElementById('c-phone').value=c.phone||'';
+  document.getElementById('c-notes').value=c.notes||'';
+  document.getElementById('modal-new-contact').style.display='flex';
 }
+function closeContactModal(){document.getElementById('modal-new-contact').style.display='none';}
+function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 (function(){
-  var input = document.getElementById('exp-search');
-  var results = document.getElementById('exp-results');
-  var timer = null;
-  input.addEventListener('input', function(){
-    clearTimeout(timer);
-    var q = input.value.trim();
-    if (q.length < 2) { results.innerHTML = ''; return; }
-    timer = setTimeout(function(){
-      fetch('/api/area-personale/rubrica/espositori?q=' + encodeURIComponent(q))
-        .then(function(r){ return r.json(); })
-        .then(function(data){
-          var html = '';
-          (data.groups || []).forEach(function(g){
-            html += '<div style="padding:.5rem;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;">' +
-              '<span>' + (g.stand_name || g.name) + (g.zone ? ' <span class="chip">' + g.zone + '</span>' : '') + '</span>' +
-              '<button class="secondary" onclick="importExp(' + g.id + ')" type="button">Importa</button></div>';
-          });
-          results.innerHTML = html || '<p class="help-text">Nessun risultato.</p>';
-        });
-    }, 250);
+  var input=document.getElementById('exp-search'), results=document.getElementById('exp-results'), timer=null;
+  input.addEventListener('input',function(){
+    clearTimeout(timer); var q=input.value.trim(); if(q.length<2){results.innerHTML='';return;}
+    timer=setTimeout(function(){
+      fetch('/api/area-personale/rubrica/espositori?q='+encodeURIComponent(q)).then(function(r){return r.json();}).then(function(data){
+        var html=''; (data.groups||[]).forEach(function(g){
+          var edition=g.edition_name ? ' · '+g.edition_name : '';
+          html+='<div style="padding:.5rem;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;gap:.5rem;">'+
+            '<span>'+escH(g.stand_name||g.name)+(g.zone?' <span class="chip">'+escH(g.zone)+'</span>':'')+'<small style="color:var(--text-muted)">'+escH(edition)+'</small></span>'+
+            '<button class="secondary" onclick="previewExhibitor('+g.id+')" type="button">Seleziona</button></div>';
+        }); results.innerHTML=html||'<p class="help-text">Nessun risultato.</p>';
+      }).catch(function(){results.innerHTML='<p class="error">Errore nella ricerca espositori.</p>';});
+    },250);
   });
 })();
-function importExp(id){
-  fetch('/area-personale/rubrica/importa-espositore', {
-    method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'},
-    body: 'assignment_group_id=' + id
-  }).then(function(r){ return r.json(); }).then(function(d){
-    if (d.ok) location.reload(); else alert(d.error || 'Errore import');
-  }).catch(function(){
-    // FIX: se il server risponde con HTML invece di JSON (es. route non trovata/errore
-    // inatteso), evitiamo un errore silenzioso in console e mostriamo un messaggio chiaro.
-    alert('Errore imprevisto durante l\'importazione. Riprova o ricarica la pagina.');
-  });
+function previewExhibitor(id){
+  fetch('/api/area-personale/rubrica/espositori/'+id+'/anteprima').then(function(r){return r.json();}).then(function(c){
+    if(c.error){alert(c.error);return;}
+    document.getElementById('modal-import-exp').style.display='none';
+    document.getElementById('contact-form').reset();
+    document.getElementById('contact-modal-title').textContent='🏪 Importa contatto espositore';
+    document.getElementById('contact-form').action='/area-personale/rubrica';
+    document.getElementById('c-group-id').value=c.assignment_group_id||'';
+    document.getElementById('c-first').value=c.first_name||''; document.getElementById('c-last').value=c.last_name||'';
+    document.getElementById('c-role').value=c.role||''; document.getElementById('c-company').value=c.company||'';
+    document.getElementById('c-email').value=c.email||''; document.getElementById('c-phone').value=c.phone||'';
+    document.getElementById('c-notes').value=c.notes||'';
+    document.getElementById('modal-new-contact').style.display='flex';
+  }).catch(function(){alert('Errore nel recupero dei dati dell\'espositore.');});
 }
 </script>
-
 <%- include('partials/footer') %>
