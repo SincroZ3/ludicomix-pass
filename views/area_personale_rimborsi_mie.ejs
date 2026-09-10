@@ -85,7 +85,14 @@
           <% } else { %><span class="chip" style="background:#fef0f0;color:#922b21;">❌ Rifiutata</span><% } %>
         </td>
         <td><%= r.reviewer_name || '—' %></td>
-        <td><a class="link-action" href="/area-personale/richieste-rimborso/<%= r.id %>/pdf?inline=1" target="_blank">📄 Visualizza PDF</a></td>
+        <td style="white-space:nowrap;">
+          <a class="link-action" href="/area-personale/richieste-rimborso/<%= r.id %>/pdf?inline=1" target="_blank">📄 Visualizza PDF</a>
+          <% if (r.status === 'in_attesa') { %>
+            <form method="POST" action="/area-personale/richieste-rimborso/<%= r.id %>/annulla" style="display:inline;margin-left:.4rem;" onsubmit="return confirm('Annullare questa richiesta? Le spese torneranno disponibili per una nuova richiesta.')">
+              <button type="submit" class="btn-danger" style="padding:.15rem .5rem;">✕ Annulla</button>
+            </form>
+          <% } %>
+        </td>
       </tr>
       <% }); %>
       <% if (!requests.length) { %><tr><td colspan="8" class="help-text">Nessuna richiesta inviata.</td></tr><% } %>

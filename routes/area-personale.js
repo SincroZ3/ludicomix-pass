@@ -75,7 +75,6 @@ module.exports = function registerAreaPersonaleRoutes(
     }
   });
 
-  // ── Firma digitale: caricamento immagine (una volta, riutilizzata per ogni richiesta) ──
   app.post('/area-personale/profilo/firma', requireAuth, requirePersonalArea, uploadSignature.single('signature'), async (req, res) => {
     if (!req.file) return res.redirect('/area-personale/profilo?error=firma');
     try {
@@ -226,11 +225,7 @@ module.exports = function registerAreaPersonaleRoutes(
     }
   });
 
-  app.get('/api/area-personale/rubrica/:id', requireAuth, requirePersonalArea, async (req, res) => {
-    const c = await dbGet('SELECT * FROM personal_contacts WHERE id=? AND user_id=?', [parseInt(req.params.id, 10), req.session.user.id]);
-    if (!c) return res.status(404).json({ error: 'Contatto non trovato' });
-    res.json(c);
-  });
+
 
   app.post('/area-personale/rubrica', requireAuth, requirePersonalArea, async (req, res) => {
     const { first_name, last_name, role, company, email, phone, notes, assignment_group_id } = req.body;
@@ -265,8 +260,10 @@ module.exports = function registerAreaPersonaleRoutes(
     res.redirect('/area-personale/rubrica');
   });
 
-  // FIX: la ricerca "importa da espositori" trova espositori di TUTTE le edizioni,
-  // ignorando volutamente edition_id (a differenza di ogni altra sezione del portale).
+  // FIX bug 404: questa route DEVE essere registrata PRIMA di '/api/area-personale/rubrica/:id',
+  // altrimenti Express interpreta "espositori" come se fosse un :id, la route sbagliata risponde
+  // prima e la ricerca fallisce sempre con 404 — indipendentemente da qualsiasi filtro edizione.
+  // La ricerca trova espositori di TUTTE le edizioni, ignorando volutamente edition_id.
   app.get('/api/area-personale/rubrica/espositori', requireAuth, requirePersonalArea, async (req, res) => {
     const q = (req.query.q || '').trim();
     if (q.length < 2) return res.json({ groups: [] });
@@ -284,6 +281,12 @@ module.exports = function registerAreaPersonaleRoutes(
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
+  });
+
+  app.get('/api/area-personale/rubrica/:id', requireAuth, requirePersonalArea, async (req, res) => {
+    const c = await dbGet('SELECT * FROM personal_contacts WHERE id=? AND user_id=?', [parseInt(req.params.id, 10), req.session.user.id]);
+    if (!c) return res.status(404).json({ error: 'Contatto non trovato' });
+    res.json(c);
   });
 
   app.post('/area-personale/rubrica/importa-espositore', requireAuth, requirePersonalArea, async (req, res) => {
@@ -573,6 +576,30 @@ module.exports = function registerAreaPersonaleRoutes(
     }
   });
 
+  // NUOVO: annulla richiesta se ancora "in_attesa" — libera le spese (tornano disponibili)
+  // ed elimina il PDF generato. Consentito solo al proprietario della richiesta.
+  app.post('/area-personale/richieste-rimborso/:id/annulla', requireAuth, requirePersonalArea, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const uid = req.session.user.id;
+    try {
+      const request = await dbGet('SELECT * FROM refund_requests WHERE id=? AND user_id=?', [id, uid]);
+      if (!request) return res.status(404).send('Richiesta non trovata');
+      if (request.status !== 'in_attesa') {
+        return res.status(400).send('Puoi annullare solo richieste ancora "in attesa" — questa e\' già stata valutata.');
+      }
+      await dbRun('UPDATE expenses SET refund_request_id=NULL WHERE refund_request_id=?', [id]);
+      if (request.pdf_file) {
+        const fp = path.join(DATA_DIR, 'personal_uploads', 'refunds', request.pdf_file);
+        fs.unlink(fp, () => {});
+      }
+      await dbRun('DELETE FROM refund_requests WHERE id=?', [id]);
+      logAction(uid, 'cancel_refund_request', 'refund_request', id, 'Richiesta rimborso #' + id + ' annullata dal richiedente');
+      res.redirect('/area-personale/richieste-rimborso');
+    } catch (err) {
+      res.status(500).send('Errore annullamento richiesta: ' + err.message);
+    }
+  });
+
   app.get('/area-personale/richieste-rimborso/:id/pdf', requireAuth, requirePersonalArea, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     const uid = req.session.user.id;
@@ -627,8 +654,6 @@ module.exports = function registerAreaPersonaleRoutes(
     const PAGE_H = 841.8898;
     const yBottom = (bottom) => PAGE_H - bottom;
 
-    // FIX: copre i puntini/trattini originali con un rettangolo bianco prima di scrivere
-    // il testo sopra, cosi' il campo compilato resta leggibile senza sovrapposizioni.
     const clearAndDraw = (text, x0, x1, top, bottom, size = 9) => {
       page.drawRectangle({ x: x0 - 1, y: yBottom(bottom) - 2, width: (x1 - x0) + 2, height: (bottom - top) + 4, color: white });
       if (text) page.drawText(String(text), { x: x0, y: yBottom(bottom) + 2.5, size, font, color: black });
@@ -665,6 +690,9 @@ module.exports = function registerAreaPersonaleRoutes(
     clearAndDraw(signPlace || '', 62.3, 171.7, 666.7, 676.7);
     clearAndDraw(new Date().toLocaleDateString('it-IT'), 176.5, 244.9, 666.7, 676.7);
 
+    // Firma digitale: dimensione aumentata al 150% rispetto all'area originale del campo
+    // "Firma del volontario" (124.6 x 30 -> 186.9 x 45), centrata sullo stesso punto di
+    // ancoraggio orizzontale/verticale cosi' da restare leggibile senza sovrapporsi al testo sopra.
     if (signDigitally && user.signature_file) {
       try {
         const sigPath = path.join(DATA_DIR, 'personal_uploads', 'signatures', user.signature_file);
@@ -672,11 +700,13 @@ module.exports = function registerAreaPersonaleRoutes(
           const sigBytes = fs.readFileSync(sigPath);
           const ext = path.extname(user.signature_file).toLowerCase();
           const sigImage = ext === '.png' ? await pdfDoc.embedPng(sigBytes) : await pdfDoc.embedJpg(sigBytes);
-          const boxW = 124.6, boxH = 30;
+          const boxW = 124.6 * 1.5, boxH = 30 * 1.5; // +150% rispetto alla dimensione originale del campo
           const scale = Math.min(boxW / sigImage.width, boxH / sigImage.height, 1);
           const w = sigImage.width * scale, h = sigImage.height * scale;
-          page.drawRectangle({ x: 385, y: yBottom(676.7) - 2, width: 128, height: 36, color: white });
-          page.drawImage(sigImage, { x: 386.3 + (boxW - w) / 2, y: yBottom(676.7) + 2, width: w, height: h });
+          const anchorX = 386.3 - (boxW - 124.6) / 2; // ricentra sull'area originale espandendosi in entrambe le direzioni
+          const anchorBottom = 676.7 + (boxH - 30) / 2;
+          page.drawRectangle({ x: anchorX - 3, y: yBottom(anchorBottom) - 3, width: boxW + 6, height: boxH + 6, color: white });
+          page.drawImage(sigImage, { x: anchorX + (boxW - w) / 2, y: yBottom(anchorBottom) + (boxH - h) / 2, width: w, height: h });
         }
       } catch (sigErr) {
         console.warn('[Rimborso] Errore inserimento firma:', sigErr.message);
