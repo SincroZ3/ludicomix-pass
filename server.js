@@ -332,6 +332,25 @@ const uploadReceipts = multer({
   },
 });
 
+const uploadSignature = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const dir = path.join(DATA_DIR, 'personal_uploads', 'signatures');
+      fs.mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname || '') || '.png';
+      cb(null, 'signature_' + req.session.user.id + ext);
+    },
+  }),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ok = ['image/png', 'image/jpeg'].includes(file.mimetype);
+    cb(ok ? null : new Error('Formato non supportato: usa PNG o JPG'), ok);
+  },
+});
+
 // ── CRM & Agenda (legacy) ────────────────────────────────────────
 crmRoutes(app, db, {
   requireAuth, requireNotViewer, requireOrganizer, logAction, uploadMemory, hasPerm, parsePerms,
@@ -357,6 +376,7 @@ const middlewares = {
   refreshCurrentEdition,
   uploadMemory,
   uploadReceipts,
+  uploadSignature,
   hasPerm,
   parsePerms,
   hasRole,

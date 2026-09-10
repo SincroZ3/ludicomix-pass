@@ -2,7 +2,9 @@
 <nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <a href="/area-personale">Area Personale</a> <span class="sep">›</span> <strong>Profilo</strong></nav>
 <h1 class="page-title">👤 Il Mio Profilo</h1>
 
-<% if (saved) { %><div class="alert alert-success">✅ Profilo aggiornato con successo.</div><% } %>
+<% if (saved === '1') { %><div class="alert alert-success">✅ Profilo aggiornato con successo.</div><% } %>
+<% if (saved === 'firma') { %><div class="alert alert-success">✅ Firma caricata con successo.</div><% } %>
+<% if (saved === 'firma-eliminata') { %><div class="alert alert-success">✅ Firma eliminata.</div><% } %>
 
 <div class="alert alert-info">
   ℹ️ Questi dati vengono usati automaticamente per compilare il modulo PDF di autocertificazione
@@ -31,6 +33,27 @@
       <button type="submit" class="primary">💾 Salva profilo</button>
     </div>
   </form>
+</div>
+
+<div class="card" style="max-width:560px;">
+  <div class="card-title">✍️ Firma digitale</div>
+  <p class="help-text">Carica un'immagine della tua firma (PNG o JPG): verrà usata solo se scegli
+  di firmare digitalmente al momento dell'invio di una richiesta di rimborso.</p>
+  <% if (user.signature_file) { %>
+    <div style="margin:1rem 0;padding:.75rem;border:1px solid var(--border-light);border-radius:8px;background:#fafafa;">
+      <img src="/area-personale/profilo/firma/anteprima" alt="Firma salvata" style="max-height:80px;max-width:100%;">
+    </div>
+    <form method="POST" action="/area-personale/profilo/firma/elimina" onsubmit="return confirm('Eliminare la firma salvata?')">
+      <button type="submit" class="btn-danger">🗑️ Elimina firma</button>
+    </form>
+  <% } else { %>
+    <form method="POST" action="/area-personale/profilo/firma" enctype="multipart/form-data">
+      <label>File firma <input type="file" name="signature" accept="image/png,image/jpeg" required></label>
+      <div style="margin-top:.8rem;">
+        <button type="submit" class="primary">⬆️ Carica firma</button>
+      </div>
+    </form>
+  <% } %>
 </div>
 
 <%- include('partials/footer') %>

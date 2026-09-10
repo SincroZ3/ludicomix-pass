@@ -1,0 +1,46 @@
+<%- include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> <span class="sep">›</span> <a href="/area-personale/rimborsi">Richieste Rimborsi</a> <span class="sep">›</span> <strong>Dati Ente</strong></nav>
+<h1 class="page-title">🏛️ Dati Ente del Terzo Settore</h1>
+
+<% if (saved) { %><div class="alert alert-success">✅ Dati Ente aggiornati con successo.</div><% } %>
+
+<div class="alert alert-info">
+  ℹ️ Questi dati organizzativi (denominazione, RUNTS, sede legale, regolamento rimborsi)
+  vengono compilati automaticamente su ogni modulo di autocertificazione generato dai volontari.
+  Vanno configurati una volta e valgono per tutte le richieste.
+</div>
+
+<div class="card" style="max-width:640px;">
+  <div class="card-title">Anagrafica Ente</div>
+  <form method="POST" action="/area-personale/rimborsi/impostazioni-ente">
+    <label>Denominazione Ente <input type="text" name="ente_name" value="<%= org.ente_name || '' %>" maxlength="120"></label>
+
+    <div style="display:flex;gap:.6rem;margin-top:.9rem;">
+      <label style="flex:1;">Regione RUNTS <input type="text" name="runts_region" value="<%= org.runts_region || '' %>" maxlength="60"></label>
+      <label style="flex:1;">Atto RUNTS <input type="text" name="runts_atto" value="<%= org.runts_atto || '' %>" maxlength="60"></label>
+    </div>
+
+    <h3 style="margin-top:1.2rem;">Sede legale</h3>
+    <div style="display:flex;gap:.6rem;">
+      <label style="flex:2;">Comune <input type="text" name="sede_legale" value="<%= org.sede_legale || '' %>" maxlength="80"></label>
+      <label style="flex:1;">Prov. <input type="text" name="sede_prov" value="<%= org.sede_prov || '' %>" maxlength="4"></label>
+    </div>
+    <div style="display:flex;gap:.6rem;margin-top:.6rem;">
+      <label style="flex:3;">Via/Piazza <input type="text" name="sede_via" value="<%= org.sede_via || '' %>" maxlength="120"></label>
+      <label style="flex:1;">N. <input type="text" name="sede_civico" value="<%= org.sede_civico || '' %>" maxlength="10"></label>
+    </div>
+
+    <label style="margin-top:.9rem;">Codice Fiscale Ente
+      <input type="text" name="ente_cf" value="<%= org.ente_cf || '' %>" maxlength="16" style="text-transform:uppercase;">
+    </label>
+    <label style="margin-top:.9rem;">Data approvazione Regolamento rimborsi (Consiglio Direttivo)
+      <input type="text" name="regolamento_data" value="<%= org.regolamento_data || '' %>" maxlength="20" placeholder="es. 12/03/2023">
+    </label>
+
+    <div style="margin-top:1.2rem;">
+      <button type="submit" class="primary">💾 Salva dati Ente</button>
+    </div>
+  </form>
+</div>
+
+<%- include('partials/footer') %>

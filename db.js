@@ -244,6 +244,31 @@ db.run(`CREATE TABLE IF NOT EXISTS refund_requests (
 db.run(`CREATE INDEX IF NOT EXISTS idx_refund_requests_user ON refund_requests(user_id)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_refund_requests_status ON refund_requests(status)`);
 
+// ═══════════════════════════════════════════════════════
+// AREA PERSONALE — dati Ente del Terzo Settore per il modulo rimborsi
+// e firma digitale caricata dall'utente
+// ═══════════════════════════════════════════════════════
+
+db.run(`CREATE TABLE IF NOT EXISTS org_settings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ente_name TEXT,
+  runts_region TEXT,
+  runts_atto TEXT,
+  sede_legale TEXT,
+  sede_prov TEXT,
+  sede_via TEXT,
+  sede_civico TEXT,
+  ente_cf TEXT,
+  regolamento_data TEXT,
+  updated_at TEXT DEFAULT (datetime('now','localtime'))
+)`);
+db.run(`INSERT INTO org_settings (id) SELECT 1 WHERE NOT EXISTS (SELECT 1 FROM org_settings WHERE id=1)`);
+
+db.run(`ALTER TABLE users ADD COLUMN signature_file TEXT`, err => {
+  if (err && !err.message.includes('duplicate column')) console.warn('[Migration] users.signature_file:', err.message);
+});
+
+
 
 db.run(`CREATE TABLE IF NOT EXISTS zones (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

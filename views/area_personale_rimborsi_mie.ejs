@@ -31,13 +31,38 @@
         <label style="flex:1;">Mese <input type="text" name="period_month" maxlength="20" placeholder="es. Maggio"></label>
         <label style="flex:1;">Anno <input type="text" name="period_year" maxlength="4" placeholder="es. 2026"></label>
       </div>
+      <label style="margin-top:.6rem;">Luogo (dove firmi il documento)
+        <input type="text" name="sign_place" id="sign-place" maxlength="80" placeholder="es. Empoli">
+      </label>
       <label style="margin-top:.6rem;">IBAN per il bonifico
         <input type="text" name="iban" value="<%= user.iban || '' %>" maxlength="34" style="text-transform:uppercase;">
       </label>
+      <input type="hidden" name="sign_digitally" id="sign-digitally-flag" value="0">
       <div style="margin-top:1rem;">
-        <button type="submit" class="primary">📄 Genera richiesta e modulo PDF</button>
+        <button type="button" class="primary" onclick="beforeSubmit(this.form)">📄 Genera richiesta e modulo PDF</button>
       </div>
     </form>
+  </div>
+
+  <div class="modal-overlay" id="modal-sign-confirm">
+    <div class="modal">
+      <div class="modal-header"><h2>✍️ Firma digitale</h2><button class="modal-close" onclick="document.getElementById('modal-sign-confirm').style.display='none'">✕</button></div>
+      <div class="modal-body">
+        <% if (hasSignature) { %>
+          <p>Vuoi firmare digitalmente questo documento con la tua firma salvata nel profilo?</p>
+        <% } else { %>
+          <p>Non hai ancora caricato una firma nel <a href="/area-personale/profilo" target="_blank">tuo profilo</a>. Il documento verrà generato senza firma — potrai firmarlo a mano dopo averlo scaricato.</p>
+        <% } %>
+      </div>
+      <div class="modal-actions" style="padding:0 1.2rem 1.2rem;">
+        <% if (hasSignature) { %>
+          <button type="button" class="secondary" onclick="submitForm(false)">No, lascio da firmare a mano</button>
+          <button type="button" class="primary" onclick="submitForm(true)">✍️ Sì, firma digitalmente</button>
+        <% } else { %>
+          <button type="button" class="primary" onclick="submitForm(false)">Continua senza firma</button>
+        <% } %>
+      </div>
+    </div>
   </div>
 <% } else { %>
   <div class="alert alert-info">Nessuna spesa disponibile da includere in una nuova richiesta. Aggiungine dalla sezione <a href="/area-personale/spese">Spese</a>.</div>
@@ -60,12 +85,24 @@
           <% } else { %><span class="chip" style="background:#fef0f0;color:#922b21;">❌ Rifiutata</span><% } %>
         </td>
         <td><%= r.reviewer_name || '—' %></td>
-        <td><a class="link-action" href="/area-personale/richieste-rimborso/<%= r.id %>/pdf">📄 PDF</a></td>
+        <td><a class="link-action" href="/area-personale/richieste-rimborso/<%= r.id %>/pdf?inline=1" target="_blank">📄 Visualizza PDF</a></td>
       </tr>
       <% }); %>
       <% if (!requests.length) { %><tr><td colspan="8" class="help-text">Nessuna richiesta inviata.</td></tr><% } %>
     </tbody>
   </table>
 </div>
+
+<script>
+function beforeSubmit(form){
+  document.getElementById('modal-sign-confirm').style.display = 'flex';
+  window._pendingForm = form;
+}
+function submitForm(sign){
+  document.getElementById('sign-digitally-flag').value = sign ? '1' : '0';
+  document.getElementById('modal-sign-confirm').style.display = 'none';
+  window._pendingForm.submit();
+}
+</script>
 
 <%- include('partials/footer') %>

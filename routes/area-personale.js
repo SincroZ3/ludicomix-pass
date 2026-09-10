@@ -17,7 +17,7 @@ const { base64: TEMPLATE_PDF_B64 } = require('./_modulo_rimborso_base64');
 module.exports = function registerAreaPersonaleRoutes(
   app, db,
   { requireAuth, requirePersonalArea, requireAccounting, logAction,
-    uploadReceipts, getCurrent, ROLES }
+    uploadReceipts, uploadSignature, getCurrent, ROLES }
 ) {
   const DATA_DIR = process.env.DATA_DIR || __dirname.replace('/routes', '');
   const dbGet = promisify(db.get.bind(db));
@@ -73,6 +73,36 @@ module.exports = function registerAreaPersonaleRoutes(
     } catch (err) {
       res.status(500).send('Errore salvataggio profilo: ' + err.message);
     }
+  });
+
+  // ── Firma digitale: caricamento immagine (una volta, riutilizzata per ogni richiesta) ──
+  app.post('/area-personale/profilo/firma', requireAuth, requirePersonalArea, uploadSignature.single('signature'), async (req, res) => {
+    if (!req.file) return res.redirect('/area-personale/profilo?error=firma');
+    try {
+      await dbRun('UPDATE users SET signature_file=? WHERE id=?', [req.file.filename, req.session.user.id]);
+      logAction(req.session.user.id, 'upload_signature', 'user', req.session.user.id, 'Firma digitale caricata');
+      res.redirect('/area-personale/profilo?saved=firma');
+    } catch (err) {
+      res.status(500).send('Errore salvataggio firma: ' + err.message);
+    }
+  });
+
+  app.post('/area-personale/profilo/firma/elimina', requireAuth, requirePersonalArea, async (req, res) => {
+    const user = await dbGet('SELECT signature_file FROM users WHERE id=?', [req.session.user.id]);
+    if (user && user.signature_file) {
+      const fp = path.join(DATA_DIR, 'personal_uploads', 'signatures', user.signature_file);
+      fs.unlink(fp, () => {});
+    }
+    await dbRun('UPDATE users SET signature_file=NULL WHERE id=?', [req.session.user.id]);
+    res.redirect('/area-personale/profilo?saved=firma-eliminata');
+  });
+
+  app.get('/area-personale/profilo/firma/anteprima', requireAuth, requirePersonalArea, async (req, res) => {
+    const user = await dbGet('SELECT signature_file FROM users WHERE id=?', [req.session.user.id]);
+    if (!user || !user.signature_file) return res.status(404).send('Nessuna firma');
+    const fp = path.join(DATA_DIR, 'personal_uploads', 'signatures', user.signature_file);
+    if (!fs.existsSync(fp)) return res.status(404).send('File non trovato');
+    res.sendFile(fp);
   });
 
   app.get('/area-personale/note', requireAuth, requirePersonalArea, async (req, res) => {
@@ -235,14 +265,20 @@ module.exports = function registerAreaPersonaleRoutes(
     res.redirect('/area-personale/rubrica');
   });
 
+  // FIX: la ricerca "importa da espositori" trova espositori di TUTTE le edizioni,
+  // ignorando volutamente edition_id (a differenza di ogni altra sezione del portale).
   app.get('/api/area-personale/rubrica/espositori', requireAuth, requirePersonalArea, async (req, res) => {
     const q = (req.query.q || '').trim();
     if (q.length < 2) return res.json({ groups: [] });
     const like = '%' + q + '%';
     try {
       const groups = await dbAll(
-        'SELECT id, name, stand_name, zone, email FROM assignment_groups WHERE name LIKE ? OR stand_name LIKE ? ORDER BY name LIMIT 15',
-        [like, like]
+        `SELECT ag.id, ag.name, ag.stand_name, ag.zone, ag.email, e.name AS edition_name, e.year AS edition_year
+         FROM assignment_groups ag
+         LEFT JOIN editions e ON e.id = ag.edition_id
+         WHERE ag.name LIKE ? OR ag.stand_name LIKE ? OR ag.zone LIKE ? OR ag.stand_code LIKE ?
+         ORDER BY ag.name LIMIT 25`,
+        [like, like, like, like]
       );
       res.json({ groups: groups || [] });
     } catch (err) {
@@ -473,11 +509,12 @@ module.exports = function registerAreaPersonaleRoutes(
            LEFT JOIN users ru ON ru.id = rr.reviewed_by
            WHERE rr.user_id=? ORDER BY rr.created_at DESC`, [uid]),
         dbAll('SELECT * FROM expenses WHERE user_id=? AND refund_request_id IS NULL ORDER BY expense_date DESC', [uid]),
-        dbGet('SELECT full_name, birth_place, birth_date, fiscal_code, iban FROM users WHERE id=?', [uid]),
+        dbGet('SELECT full_name, birth_place, birth_date, fiscal_code, iban, signature_file FROM users WHERE id=?', [uid]),
       ]);
       const profileComplete = !!(user && user.full_name && user.birth_place && user.birth_date && user.fiscal_code && user.iban);
       res.render('area_personale_rimborsi_mie', {
         requests: requests || [], availableExpenses: availableExpenses || [], profileComplete, user,
+        hasSignature: !!(user && user.signature_file),
       });
     } catch (err) {
       res.status(500).send('Errore caricamento richieste: ' + err.message);
@@ -486,7 +523,7 @@ module.exports = function registerAreaPersonaleRoutes(
 
   app.post('/area-personale/richieste-rimborso', requireAuth, requirePersonalArea, async (req, res) => {
     const uid = req.session.user.id;
-    let { expense_ids, period_month, period_year, iban } = req.body;
+    let { expense_ids, period_month, period_year, iban, sign_place, sign_digitally } = req.body;
     expense_ids = Array.isArray(expense_ids) ? expense_ids : (expense_ids ? [expense_ids] : []);
     if (!expense_ids.length) return res.status(400).send('Seleziona almeno una spesa da rimborsare');
 
@@ -508,8 +545,7 @@ module.exports = function registerAreaPersonaleRoutes(
       const finalIban = (iban || user.iban || '').toUpperCase().replace(/\s/g, '');
       const periodLabel = (period_month || period_year) ? [period_month, period_year].filter(Boolean).join(' ') : null;
 
-      const settingsRows = await dbAll("SELECT key,value FROM app_settings WHERE key IN ('event_name')");
-      const eventName = (settingsRows.find(r => r.key === 'event_name') || {}).value || '';
+      const org = await dbGet('SELECT * FROM org_settings WHERE id=1');
 
       const result = await dbRun(
         "INSERT INTO refund_requests (user_id, edition_id, total_amount, period_label, iban, status) VALUES (?,?,?,?,?,'in_attesa')",
@@ -522,7 +558,9 @@ module.exports = function registerAreaPersonaleRoutes(
       const pdfFileName = await generateRefundPdf({
         requestId, user, totalAmount,
         periodMonth: period_month || '', periodYear: period_year || '',
-        iban: finalIban, eventName,
+        iban: finalIban, org: org || {},
+        signPlace: sign_place || '',
+        signDigitally: sign_digitally === '1' && !!user.signature_file,
       });
       await dbRun('UPDATE refund_requests SET pdf_file=? WHERE id=?', [pdfFileName, requestId]);
 
@@ -545,42 +583,105 @@ module.exports = function registerAreaPersonaleRoutes(
     if (!request.pdf_file) return res.status(404).send('PDF non disponibile');
     const fp = path.join(DATA_DIR, 'personal_uploads', 'refunds', request.pdf_file);
     if (!fs.existsSync(fp)) return res.status(404).send('File non trovato');
+    if (req.query.inline === '1') {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline; filename="Richiesta_Rimborso_' + id + '.pdf"');
+      return fs.createReadStream(fp).pipe(res);
+    }
     res.download(fp, 'Richiesta_Rimborso_' + id + '.pdf');
+  });
+
+  app.get('/area-personale/rimborsi/impostazioni-ente', requireAuth, requireAccounting, async (req, res) => {
+    const org = await dbGet('SELECT * FROM org_settings WHERE id=1');
+    res.render('area_personale_org_settings', { org: org || {}, saved: req.query.saved || null });
+  });
+
+  app.post('/area-personale/rimborsi/impostazioni-ente', requireAuth, requireAccounting, async (req, res) => {
+    const { ente_name, runts_region, runts_atto, sede_legale, sede_prov, sede_via, sede_civico, ente_cf, regolamento_data } = req.body;
+    try {
+      await dbRun(
+        `UPDATE org_settings SET ente_name=?, runts_region=?, runts_atto=?, sede_legale=?, sede_prov=?,
+                sede_via=?, sede_civico=?, ente_cf=?, regolamento_data=?, updated_at=datetime('now','localtime')
+         WHERE id=1`,
+        [ente_name || null, runts_region || null, runts_atto || null, sede_legale || null, sede_prov || null,
+         sede_via || null, sede_civico || null, ente_cf ? ente_cf.toUpperCase().trim() : null, regolamento_data || null]
+      );
+      logAction(req.session.user.id, 'update_org_settings', 'org_settings', 1, 'Dati Ente aggiornati');
+      res.redirect('/area-personale/rimborsi/impostazioni-ente?saved=1');
+    } catch (err) {
+      res.status(500).send('Errore salvataggio dati Ente: ' + err.message);
+    }
   });
 
   // FIX bug #4: compila il MODULO ORIGINALE (autocertificazione ETS) esattamente com'è,
   // scrivendo solo negli spazi vuoti già predisposti — nessun testo nuovo aggiunto.
   // Campi organizzativi (RUNTS, atto, sede legale, regolamento) restano vuoti: il
   // sistema non possiede questi dati, che l'ente compila a parte una tantum sul modulo.
-  async function generateRefundPdf({ requestId, user, totalAmount, periodMonth, periodYear, iban, eventName }) {
+  async function generateRefundPdf({ requestId, user, totalAmount, periodMonth, periodYear, iban, org, signPlace, signDigitally }) {
     const templateBytes = Buffer.from(TEMPLATE_PDF_B64, 'base64');
     const pdfDoc = await PDFDocument.load(templateBytes);
     const page = pdfDoc.getPages()[0];
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const black = rgb(0, 0, 0);
+    const white = rgb(1, 1, 1);
+    const PAGE_H = 841.8898;
+    const yBottom = (bottom) => PAGE_H - bottom;
 
-    const draw = (text, x, y, size = 9) => {
-      if (!text) return;
-      page.drawText(String(text), { x, y, size, font, color: black });
+    // FIX: copre i puntini/trattini originali con un rettangolo bianco prima di scrivere
+    // il testo sopra, cosi' il campo compilato resta leggibile senza sovrapposizioni.
+    const clearAndDraw = (text, x0, x1, top, bottom, size = 9) => {
+      page.drawRectangle({ x: x0 - 1, y: yBottom(bottom) - 2, width: (x1 - x0) + 2, height: (bottom - top) + 4, color: white });
+      if (text) page.drawText(String(text), { x: x0, y: yBottom(bottom) + 2.5, size, font, color: black });
     };
 
-    draw(user.full_name || user.username, 118, 568.7);
-    draw(user.birth_place || '', 350, 568.7);
+    clearAndDraw(user.full_name || user.username, 115.8, 295.0, 265.5, 275.5);
+    clearAndDraw(user.birth_place || '', 347.9, 471.1, 265.5, 275.5);
 
     if (user.birth_date) {
       const d = new Date(user.birth_date);
-      draw(String(d.getDate()).padStart(2, '0'), 64, 557.7);
-      draw(String(d.getMonth() + 1).padStart(2, '0'), 86.5, 557.7);
-      draw(String(d.getFullYear()), 108, 557.7);
+      clearAndDraw(String(d.getDate()).padStart(2, '0'), 63.2, 83.3, 276.5, 286.5);
+      clearAndDraw(String(d.getMonth() + 1).padStart(2, '0'), 85.5, 105.6, 276.5, 286.5);
+      clearAndDraw(String(d.getFullYear()), 107.8, 139.1, 276.5, 286.5);
     }
-    draw(user.fiscal_code || '', 201.5, 557.7, 8);
-    if (eventName) draw(eventName, 106, 546.7, 8);
+    clearAndDraw(user.fiscal_code || '', 199.5, 320.7, 276.5, 286.5, 8);
 
-    draw(periodMonth || '', 194, 342.1);
-    draw(periodYear || '', 300, 342.1);
-    draw('EUR ' + totalAmount.toFixed(2), 277, 320.1);
-    draw(iban || '', 275, 229.7, 8);
-    draw(new Date().toLocaleDateString('it-IT'), 178.5, 167.5);
+    if (org) {
+      clearAndDraw(org.ente_name || '', 104.6, 191.9, 287.5, 297.5, 8);
+      clearAndDraw(org.runts_region || '', 327.5, 386.4, 287.5, 297.5, 8);
+      clearAndDraw(org.runts_atto || '', 423.2, 482.1, 287.5, 297.5, 8);
+      clearAndDraw(org.sede_legale || '', 100.2, 233.1, 298.5, 308.5, 8);
+      clearAndDraw(org.sede_prov || '', 255.5, 314.3, 298.5, 308.5, 8);
+      clearAndDraw(org.sede_via || '', 375.3, 469.3, 298.5, 308.5, 8);
+      clearAndDraw(org.sede_civico || '', 497.1, 518.9, 298.5, 308.5, 8);
+      clearAndDraw(org.ente_cf || '', 112.6, 228.8, 309.5, 319.5, 8);
+      clearAndDraw(org.regolamento_data || '', 89.8, 135.5, 514.1, 524.1, 8);
+    }
+
+    clearAndDraw(periodMonth || '', 192.4, 260.8, 492.1, 502.1);
+    clearAndDraw(periodYear || '', 298.0, 361.8, 492.1, 502.1);
+    clearAndDraw('EUR ' + totalAmount.toFixed(2), 274.9, 347.9, 514.1, 524.1);
+    clearAndDraw(iban || '', 272.5, 482.3, 604.5, 614.5, 8);
+
+    clearAndDraw(signPlace || '', 62.3, 171.7, 666.7, 676.7);
+    clearAndDraw(new Date().toLocaleDateString('it-IT'), 176.5, 244.9, 666.7, 676.7);
+
+    if (signDigitally && user.signature_file) {
+      try {
+        const sigPath = path.join(DATA_DIR, 'personal_uploads', 'signatures', user.signature_file);
+        if (fs.existsSync(sigPath)) {
+          const sigBytes = fs.readFileSync(sigPath);
+          const ext = path.extname(user.signature_file).toLowerCase();
+          const sigImage = ext === '.png' ? await pdfDoc.embedPng(sigBytes) : await pdfDoc.embedJpg(sigBytes);
+          const boxW = 124.6, boxH = 30;
+          const scale = Math.min(boxW / sigImage.width, boxH / sigImage.height, 1);
+          const w = sigImage.width * scale, h = sigImage.height * scale;
+          page.drawRectangle({ x: 385, y: yBottom(676.7) - 2, width: 128, height: 36, color: white });
+          page.drawImage(sigImage, { x: 386.3 + (boxW - w) / 2, y: yBottom(676.7) + 2, width: w, height: h });
+        }
+      } catch (sigErr) {
+        console.warn('[Rimborso] Errore inserimento firma:', sigErr.message);
+      }
+    }
 
     const bytes = await pdfDoc.save();
     const dir = path.join(DATA_DIR, 'personal_uploads', 'refunds');
@@ -589,6 +690,7 @@ module.exports = function registerAreaPersonaleRoutes(
     fs.writeFileSync(path.join(dir, fileName), bytes);
     return fileName;
   }
+
 
   app.get('/area-personale/rimborsi', requireAuth, requireAccounting, async (req, res) => {
     const statusFilter = req.query.stato || 'tutte';
