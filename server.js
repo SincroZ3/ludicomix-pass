@@ -38,6 +38,7 @@ const registerPasses         = require('./routes/passes');
 const registerVolunteers     = require('./routes/volunteers');
 const registerLogistica      = require('./routes/logistica');
 const registerAreaPersonale  = require('./routes/area-personale');
+const registerAiAssistant    = require('./routes/ai-assistant');
 
 // ── DB helpers ──────────────────────────────────────────────────
 const dbAll = promisify(db.all.bind(db));
@@ -414,6 +415,7 @@ registerParticipants  (app, db, { ...middlewares, generateAutoPass, getCurrent }
 registerVolunteers    (app, db, middlewares);
 registerLogistica     (app, db, middlewares);
 registerAreaPersonale (app, db, middlewares);
+registerAiAssistant   (app, { requireAuth });
 
 // ── Auth routes ──────────────────────────────────────────────────
 app.get('/', (req, res) => res.redirect(req.session.user ? '/home' : '/login'));
