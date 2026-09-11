@@ -985,22 +985,27 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
   function open(){panel.classList.add('open');if(!chat.dataset.started){var c=ctx();msg(c.t+'<div class="donkey-links"><button type="button" onclick="this.closest(\'.donkey-msg\').remove()">Va bene!</button></div>');setSuggestions(c.q);chat.dataset.started='1';}setTimeout(function(){input.focus();},120);}
   function close(){panel.classList.remove('open');}
   btn.onclick=function(){panel.classList.contains('open')?close():open();};document.getElementById('donkey-close').onclick=close;
-  function answer(q){
-    var x=q.toLowerCase();
-    if(/crea.*(stand|espositore)|nuovo stand/.test(x))return ['Per creare un nuovo stand:','1. Apri <b>Assegnatari Pass</b>','2. Seleziona la categoria appropriata','3. Premi “Crea nuovo stand”','4. Inserisci riferimento, zona, codice e limite pass','<a href="/participants">Apri Assegnatari Pass →</a>'];
-    if(/aggiung.*(nominativo|partecipante)/.test(x))return ['Per aggiungere un nominativo:','1. Apri Assegnatari Pass','2. Apri il gruppo/stand desiderato','3. Premi il pulsante per aggiungere un partecipante','4. Compila i dati e salva','<a href="/participants">Apri Assegnatari Pass →</a>'];
-    if(/gener.*pass/.test(x))return ['Per generare un pass:','1. Vai in <b>Pass generati</b>','2. Premi “Nuovo pass” oppure apri il gruppo assegnatario','3. Scegli partecipante e tipologia','4. Genera e verifica il PDF','<a href="/passes">Apri Pass generati →</a>'];
-    if(/rimbors|spes[ae]|scontrin|fattur/.test(x))return ['Per spese e rimborsi:','1. Apri <b>Area Personale → Spese</b>','2. Inserisci data, importo e descrizione','3. Allega foto dello scontrino o PDF fattura','4. Da “Richieste Rimborso” seleziona le spese e genera il modulo','<a href="/area-personale/spese">Apri le mie spese →</a>'];
-    if(/volontar|turn/.test(x))return ['Per gestire volontari e turni:','1. Apri la sezione <b>Volontari</b>','2. Gestisci candidature o crea volontari','3. Configura turni e assegnazioni dal calendario','<a href="/volunteers">Apri Volontari →</a>'];
-    if(/event|agenda|programma/.test(x))return ['Per il programma e gli eventi:','1. Apri <b>Agenda</b>','2. Crea o seleziona un evento','3. Imposta sala, data, orario e visibilità pubblica','4. Pubblica quando è pronto','<a href="/agenda">Apri Agenda →</a>'];
-    if(/accredit/.test(x))return ['Le richieste di accreditamento si gestiscono nella sezione dedicata. Puoi vedere i dettagli e poi approvare o rifiutare manualmente.','<a href="/admin/accreditamento">Apri Accreditamento →</a>'];
-    if(/edizion/.test(x))return ['L’edizione attiva determina i dati operativi visualizzati nel portale. Solo utenti autorizzati possono cambiarla dalle impostazioni; l’Area Personale resta invece sempre consultabile.','<a href="/admin/settings?tab=edizioni">Apri Gestore Edizioni →</a>'];
-    if(/rubric|contatt|espositor/.test(x))return ['Nella <b>Rubrica</b> puoi creare contatti personali, vedere la rubrica generale e importare espositori. L’import apre una scheda precompilata che puoi completare prima di salvare.','<a href="/area-personale/rubrica">Apri Rubrica →</a>'];
-    return ['Non ho ancora una guida affidabile per questa operazione. Prova a nominare la sezione interessata, ad esempio “pass”, “agenda”, “volontari”, “rimborsi” o “accreditamenti”.'];
+  // Fase 2: il Ciuchino consulta le guide Markdown interne tramite il backend.
+  // Non chiama ancora provider AI esterni e non invia dati fuori dal portale.
+  function renderGuide(text){
+    return esc(text).replace(/\n/g,'<br>');
   }
-  function ask(q){if(!q)return;msg(esc(q),'user');input.value='';setSuggestions([]);var thinking=document.createElement('div');thinking.className='donkey-msg assistant';thinking.innerHTML='Ci penso un attimo… <span class="donkey-thinking"><i></i><i></i><i></i></span>';chat.appendChild(thinking);chat.scrollTop=chat.scrollHeight;setTimeout(function(){thinking.remove();var lines=answer(q);var html='<strong>'+lines.shift()+'</strong>';if(lines.length){var links=[];var steps=[];lines.forEach(function(line){if(line.indexOf('<a ')===0)links.push(line);else steps.push(line);});if(steps.length)html+='<ol>'+steps.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ol>';if(links.length)html+='<div class="donkey-links">'+links.map(function(a){return a.replace('<a ','<a class="secondary" style="display:inline-flex;padding:.3rem .55rem" ');}).join('')+'</div>';}
-      msg(html);setSuggestions(ctx().q);
-    },420);}
+  function ask(q){
+    if(!q)return;
+    msg(esc(q),'user'); input.value=''; setSuggestions([]);
+    var thinking=document.createElement('div'); thinking.className='donkey-msg assistant';
+    thinking.innerHTML='Cerco nella guida del portale… <span class="donkey-thinking"><i></i><i></i><i></i></span>';
+    chat.appendChild(thinking); chat.scrollTop=chat.scrollHeight;
+    fetch('/api/assistente/guida',{
+      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,currentPath:path})
+    }).then(function(r){if(!r.ok)throw new Error('Errore guida');return r.json();}).then(function(data){
+      thinking.remove();
+      var html=renderGuide(data.answer||'Non ho trovato una risposta.');
+      if(data.link&&data.link.href)html+='<div class="donkey-links"><a class="secondary" style="display:inline-flex;padding:.3rem .55rem" href="'+esc(data.link.href)+'">'+esc(data.link.label||'Apri sezione →')+'</a></div>';
+      if(data.source)html+='<div style="font-size:.65rem;color:#718096;margin-top:.35rem">Guida interna: '+esc(data.source)+'</div>';
+      msg(html);setSuggestions(data.suggestions||ctx().q);
+    }).catch(function(){thinking.remove();msg('Non riesco a consultare la guida interna in questo momento. Riprova tra poco.');setSuggestions(ctx().q);});
+  }
   form.onsubmit=function(e){e.preventDefault();ask(input.value.trim());};
   // Il ciuchino è trascinabile su touch, come il FAB di ricerca; il click resta disponibile.
   var sx,sy,sr,sb,moved=false;btn.addEventListener('touchstart',function(e){var t=e.touches[0],r=btn.getBoundingClientRect();sx=t.clientX;sy=t.clientY;sr=window.innerWidth-r.right;sb=window.innerHeight-r.bottom;moved=false;},{passive:true});
