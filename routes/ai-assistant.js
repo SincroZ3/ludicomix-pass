@@ -21,7 +21,7 @@ module.exports=function registerAiAssistant(app,{requireAuth}){
   if(has(q,['spesa','scontrino','fattura','ricevuta','ricevute']))return out('Per inserire una spesa apri Area personale → Le mie spese e premi Nuova spesa. Inserisci descrizione, importo e data, scegli la categoria e allega eventuali ricevute; poi salva. La spesa potrà essere selezionata in una successiva richiesta di rimborso.','/area-personale/spese','Apri Le mie spese →','guida-area-personale.md');
   if(has(q,['rimborso','rimborsi']))return out('Inserisci prima le singole voci in Area personale → Le mie spese. Poi apri Richieste rimborso, seleziona le spese non associate, completa i dati e invia la richiesta.','/area-personale/richieste-rimborso','Apri Richieste rimborso →','guida-area-personale.md');
   if(has(q,['rubrica','contatto','contatti']))return out('Apri Area personale → Rubrica per creare un contatto personale. Con Importa da espositori puoi cercare un espositore in tutte le edizioni e aprire una scheda precompilata da verificare e salvare.','/area-personale/rubrica','Apri Rubrica →','guida-area-personale.md');
-  if(has(q,['edizione','edizioni']))return out('Per gestire le edizioni apri Impostazioni e seleziona la scheda Edizioni. Da qui crei o modifichi un’edizione e imposti quella corrente.','/admin/settings?tab=edizioni','Apri Impostazioni: Edizioni →','guida-ruoli-edizioni.md');
+  if(has(q,['edizione','edizioni']))return out('Per gestire le edizioni apri Impostazioni e seleziona la scheda Edizioni. Da qui crei o modifichi un’edizione e imposti quella corrente.','/admin/settings#edizioni','Apri Impostazioni: Edizioni →','guida-ruoli-edizioni.md');
   return null;
  }
  app.post('/api/assistente/guida',requireAuth,(req,res)=>{
@@ -34,7 +34,7 @@ module.exports=function registerAiAssistant(app,{requireAuth}){
   const tokens=q.match(/[a-zàèéìòù]{3,}/g)||[];let best={score:0,text:'',file:''};
   guides.filter(g=>req.session.user.role!=='custom'||g.roles.includes('custom')).forEach(g=>{let raw='';try{raw=fs.readFileSync(path.join(K,g.file),'utf8');}catch(_){return;}raw.split(/\n\n+/).filter(Boolean).forEach(chunk=>{const text=chunk.replace(/^#.*$/gm,'').replace(/\*\*/g,'').trim(),lc=text.toLowerCase();const score=g.keys.reduce((n,k)=>n+(q.includes(k)?4:0),0)+tokens.reduce((n,t)=>n+(lc.includes(t)?1:0),0);if(score>best.score)best={score,text,file:g.file};});});
   if(!best.score)return res.json({answer:'Non ho ancora una guida affidabile per questa domanda. Prova a citare una sezione: assegnatari pass, agenda, volontari, logistica, spese, rimborsi, rubrica, ruoli o edizioni.',suggestions:['Come creo uno stand?','Come inserisco una spesa?','Come gestisco i volontari?']});
-  const links={'guida-pass.md':'/participants','guida-agenda.md':'/agenda','guida-volontari.md':'/volunteers','guida-area-personale.md':'/area-personale','guida-logistica.md':'/admin/logistica','guida-ruoli-edizioni.md':'/admin/settings?tab=edizioni'};
+  const links={'guida-pass.md':'/participants','guida-agenda.md':'/agenda','guida-volontari.md':'/volunteers','guida-area-personale.md':'/area-personale','guida-logistica.md':'/admin/logistica','guida-ruoli-edizioni.md':'/admin/settings#edizioni'};
   res.json(out(best.text,links[best.file]||'/home','Apri sezione correlata →',best.file));
  });
 };
