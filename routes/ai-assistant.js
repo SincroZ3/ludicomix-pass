@@ -2,11 +2,32 @@
 const fs=require('fs');
 const path=require('path');
 
-module.exports=function registerAiAssistant(app,{requireAuth}){
+// registerAiAssistant(app, db, { requireAuth })
+// I log di feedback e delle domande irrisolte sono ora salvati nel
+// database SQLite condiviso (stessa connessione 'db' di tutto il resto
+// del portale), NON più su file: così sopravvivono ai redeploy.
+module.exports=function registerAiAssistant(app,db,{requireAuth}){
  const K=path.join(__dirname,'..','knowledge');
- const DATADIR=process.env.DATADIR||path.join(__dirname,'..');
- const FEEDBACK_LOG=path.join(DATADIR,'assistente-feedback.jsonl');
- const UNRESOLVED_LOG=path.join(DATADIR,'assistente-domande-irrisolte.jsonl');
+
+ db.run(`CREATE TABLE IF NOT EXISTS assistente_feedback (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userid INTEGER,
+  role TEXT,
+  question TEXT,
+  source TEXT,
+  link TEXT,
+  useful INTEGER,
+  createdat TEXT DEFAULT (datetime('now','localtime'))
+ )`,(err)=>{if(err)console.error('migrazione assistente_feedback',err.message);});
+
+ db.run(`CREATE TABLE IF NOT EXISTS assistente_irrisolte (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userid INTEGER,
+  role TEXT,
+  question TEXT,
+  path TEXT,
+  createdat TEXT DEFAULT (datetime('now','localtime'))
+ )`,(err)=>{if(err)console.error('migrazione assistente_irrisolte',err.message);});
 
  const guides=[
   {file:'guida-pass.md',keys:['pass','badge','nominativo','partecipante','stand','assegnatario','ristampa','invalid'],roles:['admin','organizer','accountant','operator','custom']},
@@ -21,20 +42,6 @@ module.exports=function registerAiAssistant(app,{requireAuth}){
  const has=(q,a)=>a.some(x=>q.includes(x));
  const out=(answer,href,label,source)=>({answer,source:source||'guida operativa',link:href?{href,label:label||'Apri sezione correlata →'}:null,suggestions});
 
- function appendLog(file,entry){
-  try{
-   fs.mkdirSync(path.dirname(file),{recursive:true});
-   fs.appendFileSync(file,JSON.stringify(entry)+'\n','utf8');
-  }catch(e){console.error('assistente log',e.message);}
- }
-
- function readLog(file){
-  try{
-   const raw=fs.readFileSync(file,'utf8');
-   return raw.split('\n').filter(Boolean).map(line=>{try{return JSON.parse(line);}catch(_){return null;}}).filter(Boolean);
-  }catch(_){return [];}
- }
-
  function requireAdminInline(req,res,next){
   const u=req.session&&req.session.user;
   if(!u||(u.role!=='admin'&&u.role!=='organizer'))return res.status(403).send('Solo amministratori e organizzatori possono consultare i log del Ciuchino.');
@@ -45,7 +52,7 @@ module.exports=function registerAiAssistant(app,{requireAuth}){
 
  function renderLogPage(title,rows,columns){
   const head=columns.map(c=>'<th style="text-align:left;padding:.4rem .6rem;border-bottom:1px solid #ddd;">'+escHtml(c.label)+'</th>').join('');
-  const body=rows.slice().reverse().map(r=>{
+  const body=rows.map(r=>{
    const cells=columns.map(c=>'<td style="padding:.35rem .6rem;border-bottom:1px solid #eee;vertical-align:top;">'+escHtml(typeof c.value==='function'?c.value(r):r[c.key])+'</td>').join('');
    return '<tr>'+cells+'</tr>';
   }).join('');
@@ -59,14 +66,12 @@ module.exports=function registerAiAssistant(app,{requireAuth}){
  }
 
  // ---- Regole editabili nei file Markdown -----------------------------
- // Convenzione: un blocco regola inizia con un commento HTML come questo:
  // <!-- regola
  // link: /participants
  // label: Apri Assegnatari pass →
  // keywords: stand, assegnatari, assegnatario, gruppo espositore
  // -->
- // seguito dal testo della risposta (fino alla regola successiva, a un
- // titolo ## o alla fine del file). Si può modificare senza toccare JS.
+ // seguito dal testo della risposta.
  const RULE_RE=/<!--\s*regola([\s\S]*?)-->\s*([\s\S]*?)(?=\n<!--\s*regola|\n##|\s*$)/g;
 
  function parseRules(raw,fileName){
@@ -95,7 +100,6 @@ module.exports=function registerAiAssistant(app,{requireAuth}){
  function canRead(user,g){return user.role!=='custom'||g.roles.includes('custom');}
  function chunks(text){return text.split(/\n\n+/).filter(Boolean).map(stripMd).filter(Boolean);}
 
- // ---- Rete di sicurezza per le domande più critiche -------------------
  function safetyNet(q){
   if(has(q,['genera un pass','generare un pass','crea un pass','creare un pass']))return out('Per generare un pass usa sempre Pass → Assegnatari pass. Apri lo stand interessato, aggiungi o apri il nominativo e genera il pass dalla sua scheda. Non usare Nuovo pass singolo e non usare Pass generati: sono funzioni di backup, non il flusso operativo ordinario.','/participants','Apri Assegnatari pass →','guida-pass.md (rete di sicurezza)');
   if(has(q,['ristampa','ristampare','invalida','invalidare','scarica pass','stampare pass','consegna pass','riconsegna']))return out('Per ristampare, invalidare, scaricare, consegnare o riconsegnare un pass, apri Pass → Assegnatari pass, entra nello stand e individua il nominativo. Esegui l’operazione dalla sua scheda. Pass generati è solo una sezione di backup tecnico e non va usata né insegnata come procedura ordinaria.','/participants','Apri Assegnatari pass →','guida-pass.md (rete di sicurezza)');
@@ -145,7 +149,9 @@ module.exports=function registerAiAssistant(app,{requireAuth}){
   });
 
   if(!best.score){
-   appendLog(UNRESOLVED_LOG,{ts:new Date().toISOString(),userId:req.session.user.id,role:req.session.user.role,path:req.body.currentPath||null,question:original});
+   db.run('INSERT INTO assistente_irrisolte (userid, role, question, path) VALUES (?,?,?,?)',
+    [req.session.user.id, req.session.user.role, original, req.body.currentPath||null],
+    (err)=>{if(err)console.error('log domanda irrisolta',err.message);});
    return res.json({answer:'Non ho ancora una guida affidabile per questa domanda. Prova a citare una sezione: assegnatari pass, agenda, volontari, logistica, spese, rimborsi, rubrica, ruoli o edizioni.',suggestions:['Come creo uno stand?','Come inserisco una spesa?','Come gestisco i volontari?']});
   }
   const links={'guida-pass.md':'/participants','guida-agenda.md':'/agenda','guida-volontari.md':'/volunteers','guida-area-personale.md':'/area-personale','guida-logistica.md':'/admin/logistica','guida-ruoli-edizioni.md':'/admin/settings#edizioni'};
@@ -155,30 +161,40 @@ module.exports=function registerAiAssistant(app,{requireAuth}){
  app.post('/api/assistente/feedback',requireAuth,(req,res)=>{
   const {question,source,link,useful}=req.body||{};
   if(typeof useful!=='boolean')return res.status(400).json({error:'Campo useful mancante'});
-  appendLog(FEEDBACK_LOG,{ts:new Date().toISOString(),userId:req.session.user.id,role:req.session.user.role,question:question||null,source:source||null,link:link||null,useful});
-  res.json({ok:true});
+  db.run('INSERT INTO assistente_feedback (userid, role, question, source, link, useful) VALUES (?,?,?,?,?,?)',
+   [req.session.user.id, req.session.user.role, question||null, source||null, link||null, useful?1:0],
+   (err)=>{
+    if(err){console.error('log feedback',err.message);return res.status(500).json({error:'Errore salvataggio feedback'});}
+    res.json({ok:true});
+   });
  });
 
  // ---- Pagine di consultazione log, solo per admin/organizer -----------
  app.get('/admin/assistente/feedback',requireAuth,requireAdminInline,(req,res)=>{
-  const rows=readLog(FEEDBACK_LOG);
-  res.send(renderLogPage('Feedback Ciuchino',rows,[
-   {label:'Data/ora',value:r=>new Date(r.ts).toLocaleString('it-IT')},
-   {label:'Utile?',value:r=>r.useful?'✅ Sì':'❌ No'},
-   {label:'Domanda',key:'question'},
-   {label:'Guida usata',key:'source'},
-   {label:'Link mostrato',key:'link'},
-   {label:'Ruolo',key:'role'}
-  ]));
+  db.all('SELECT af.*, u.username FROM assistente_feedback af LEFT JOIN users u ON u.id=af.userid ORDER BY af.id DESC LIMIT 500',(err,rows)=>{
+   if(err)return res.status(500).send('Errore lettura feedback: '+err.message);
+   res.send(renderLogPage('Feedback Ciuchino',rows||[],[
+    {label:'Data/ora',value:r=>r.createdat},
+    {label:'Utile?',value:r=>r.useful?'✅ Sì':'❌ No'},
+    {label:'Domanda',key:'question'},
+    {label:'Guida usata',key:'source'},
+    {label:'Link mostrato',key:'link'},
+    {label:'Utente',value:r=>r.username||('id '+r.userid)},
+    {label:'Ruolo',key:'role'}
+   ]));
+  });
  });
 
  app.get('/admin/assistente/irrisolte',requireAuth,requireAdminInline,(req,res)=>{
-  const rows=readLog(UNRESOLVED_LOG);
-  res.send(renderLogPage('Domande senza risposta del Ciuchino',rows,[
-   {label:'Data/ora',value:r=>new Date(r.ts).toLocaleString('it-IT')},
-   {label:'Domanda',key:'question'},
-   {label:'Pagina',key:'path'},
-   {label:'Ruolo',key:'role'}
-  ]));
+  db.all('SELECT ai.*, u.username FROM assistente_irrisolte ai LEFT JOIN users u ON u.id=ai.userid ORDER BY ai.id DESC LIMIT 500',(err,rows)=>{
+   if(err)return res.status(500).send('Errore lettura domande irrisolte: '+err.message);
+   res.send(renderLogPage('Domande senza risposta del Ciuchino',rows||[],[
+    {label:'Data/ora',value:r=>r.createdat},
+    {label:'Domanda',key:'question'},
+    {label:'Pagina',key:'path'},
+    {label:'Utente',value:r=>r.username||('id '+r.userid)},
+    {label:'Ruolo',key:'role'}
+   ]));
+  });
  });
 };

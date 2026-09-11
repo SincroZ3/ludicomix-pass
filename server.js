@@ -415,7 +415,7 @@ registerParticipants  (app, db, { ...middlewares, generateAutoPass, getCurrent }
 registerVolunteers    (app, db, middlewares);
 registerLogistica     (app, db, middlewares);
 registerAreaPersonale (app, db, middlewares);
-registerAiAssistant   (app, { requireAuth });
+registerAiAssistant   (app, db, { requireAuth });
 
 // ── Auth routes ──────────────────────────────────────────────────
 app.get('/', (req, res) => res.redirect(req.session.user ? '/home' : '/login'));
