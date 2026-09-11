@@ -28,6 +28,36 @@ module.exports=function registerAiAssistant(app,{requireAuth}){
   }catch(e){console.error('assistente log',e.message);}
  }
 
+ function readLog(file){
+  try{
+   const raw=fs.readFileSync(file,'utf8');
+   return raw.split('\n').filter(Boolean).map(line=>{try{return JSON.parse(line);}catch(_){return null;}}).filter(Boolean);
+  }catch(_){return [];}
+ }
+
+ function requireAdminInline(req,res,next){
+  const u=req.session&&req.session.user;
+  if(!u||(u.role!=='admin'&&u.role!=='organizer'))return res.status(403).send('Solo amministratori e organizzatori possono consultare i log del Ciuchino.');
+  next();
+ }
+
+ function escHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+ function renderLogPage(title,rows,columns){
+  const head=columns.map(c=>'<th style="text-align:left;padding:.4rem .6rem;border-bottom:1px solid #ddd;">'+escHtml(c.label)+'</th>').join('');
+  const body=rows.slice().reverse().map(r=>{
+   const cells=columns.map(c=>'<td style="padding:.35rem .6rem;border-bottom:1px solid #eee;vertical-align:top;">'+escHtml(typeof c.value==='function'?c.value(r):r[c.key])+'</td>').join('');
+   return '<tr>'+cells+'</tr>';
+  }).join('');
+  return '<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>'+escHtml(title)+'</title>'+
+   '<style>body{font-family:-apple-system,Segoe UI,Arial,sans-serif;margin:1.5rem;color:#222;}h1{font-size:1.3rem;}table{border-collapse:collapse;width:100%;font-size:.85rem;}a{color:#1d6fa4;}</style></head><body>'+
+   '<p><a href="/home">← Torna alla Home</a></p>'+
+   '<h1>'+escHtml(title)+'</h1>'+
+   '<p>Voci totali: '+rows.length+'. Le più recenti sono in alto.</p>'+
+   '<table><thead><tr>'+head+'</tr></thead><tbody>'+(body||'<tr><td style="padding:.6rem;">Nessuna voce registrata.</td></tr>')+'</tbody></table>'+
+   '</body></html>';
+ }
+
  // ---- Regole editabili nei file Markdown -----------------------------
  // Convenzione: un blocco regola inizia con un commento HTML come questo:
  // <!-- regola
@@ -66,10 +96,6 @@ module.exports=function registerAiAssistant(app,{requireAuth}){
  function chunks(text){return text.split(/\n\n+/).filter(Boolean).map(stripMd).filter(Boolean);}
 
  // ---- Rete di sicurezza per le domande più critiche -------------------
- // Resta attiva SOLO se nessuna regola Markdown corrispondente è stata
- // ancora aggiunta ai file in knowledge/. Appena una regola equivalente
- // esiste in Markdown, questa rete di sicurezza viene ignorata perché il
- // matching Markdown ha priorità.
  function safetyNet(q){
   if(has(q,['genera un pass','generare un pass','crea un pass','creare un pass']))return out('Per generare un pass usa sempre Pass → Assegnatari pass. Apri lo stand interessato, aggiungi o apri il nominativo e genera il pass dalla sua scheda. Non usare Nuovo pass singolo e non usare Pass generati: sono funzioni di backup, non il flusso operativo ordinario.','/participants','Apri Assegnatari pass →','guida-pass.md (rete di sicurezza)');
   if(has(q,['ristampa','ristampare','invalida','invalidare','scarica pass','stampare pass','consegna pass','riconsegna']))return out('Per ristampare, invalidare, scaricare, consegnare o riconsegnare un pass, apri Pass → Assegnatari pass, entra nello stand e individua il nominativo. Esegui l’operazione dalla sua scheda. Pass generati è solo una sezione di backup tecnico e non va usata né insegnata come procedura ordinaria.','/participants','Apri Assegnatari pass →','guida-pass.md (rete di sicurezza)');
@@ -92,7 +118,6 @@ module.exports=function registerAiAssistant(app,{requireAuth}){
   const allowedGuides=guides.filter(g=>canRead(req.session.user,g));
   const tokens=q.match(/[a-zàèéìòù]{3,}/g)||[];
 
-  // 1) Regole Markdown esplicite (priorità massima, editabili senza JS)
   let bestRule={score:0,rule:null};
   allowedGuides.forEach(g=>{
    let raw='';try{raw=fs.readFileSync(path.join(K,g.file),'utf8');}catch(_){return;}
@@ -106,11 +131,9 @@ module.exports=function registerAiAssistant(app,{requireAuth}){
    return res.json(out(r.answer,r.link,r.label,r.file));
   }
 
-  // 2) Rete di sicurezza per le operazioni più delicate
   const fixed=safetyNet(q);
   if(fixed)return res.json(fixed);
 
-  // 3) Ricerca generica nei paragrafi delle guide
   let best={score:0,text:'',file:''};
   allowedGuides.forEach(g=>{
    let raw='';try{raw=fs.readFileSync(path.join(K,g.file),'utf8');}catch(_){return;}
@@ -134,5 +157,28 @@ module.exports=function registerAiAssistant(app,{requireAuth}){
   if(typeof useful!=='boolean')return res.status(400).json({error:'Campo useful mancante'});
   appendLog(FEEDBACK_LOG,{ts:new Date().toISOString(),userId:req.session.user.id,role:req.session.user.role,question:question||null,source:source||null,link:link||null,useful});
   res.json({ok:true});
+ });
+
+ // ---- Pagine di consultazione log, solo per admin/organizer -----------
+ app.get('/admin/assistente/feedback',requireAuth,requireAdminInline,(req,res)=>{
+  const rows=readLog(FEEDBACK_LOG);
+  res.send(renderLogPage('Feedback Ciuchino',rows,[
+   {label:'Data/ora',value:r=>new Date(r.ts).toLocaleString('it-IT')},
+   {label:'Utile?',value:r=>r.useful?'✅ Sì':'❌ No'},
+   {label:'Domanda',key:'question'},
+   {label:'Guida usata',key:'source'},
+   {label:'Link mostrato',key:'link'},
+   {label:'Ruolo',key:'role'}
+  ]));
+ });
+
+ app.get('/admin/assistente/irrisolte',requireAuth,requireAdminInline,(req,res)=>{
+  const rows=readLog(UNRESOLVED_LOG);
+  res.send(renderLogPage('Domande senza risposta del Ciuchino',rows,[
+   {label:'Data/ora',value:r=>new Date(r.ts).toLocaleString('it-IT')},
+   {label:'Domanda',key:'question'},
+   {label:'Pagina',key:'path'},
+   {label:'Ruolo',key:'role'}
+  ]));
  });
 };
