@@ -2,10 +2,6 @@
 const fs=require('fs');
 const path=require('path');
 
-// registerAiAssistant(app, db, { requireAuth })
-// I log di feedback e delle domande irrisolte sono ora salvati nel
-// database SQLite condiviso (stessa connessione 'db' di tutto il resto
-// del portale), NON più su file: così sopravvivono ai redeploy.
 module.exports=function registerAiAssistant(app,db,{requireAuth}){
  const K=path.join(__dirname,'..','knowledge');
 
@@ -66,6 +62,9 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
  }
 
  // ---- Regole editabili nei file Markdown -----------------------------
+ // Hanno SEMPRE priorità sulla rete di sicurezza sottostante e sulla
+ // ricerca generica: se una regola con parole chiave corrispondenti
+ // esiste in un file .md, è quella a rispondere.
  // <!-- regola
  // link: /participants
  // label: Apri Assegnatari pass →
@@ -100,14 +99,20 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
  function canRead(user,g){return user.role!=='custom'||g.roles.includes('custom');}
  function chunks(text){return text.split(/\n\n+/).filter(Boolean).map(stripMd).filter(Boolean);}
 
+ // ---- Rete di sicurezza SILENZIOSA ------------------------------------
+ // Interviene SOLO se non esiste ancora nessuna regola Markdown
+ // equivalente in knowledge/*.md. Appena aggiungi il blocco <!-- regola -->
+ // corrispondente in un file .md, questa funzione smette di essere
+ // consultata per quel tema, perché il controllo sulle regole Markdown
+ // avviene PRIMA e restituisce già una risposta.
  function safetyNet(q){
-  if(has(q,['genera un pass','generare un pass','crea un pass','creare un pass']))return out('Per generare un pass usa sempre Pass → Assegnatari pass. Apri lo stand interessato, aggiungi o apri il nominativo e genera il pass dalla sua scheda. Non usare Nuovo pass singolo e non usare Pass generati: sono funzioni di backup, non il flusso operativo ordinario.','/participants','Apri Assegnatari pass →','guida-pass.md (rete di sicurezza)');
-  if(has(q,['ristampa','ristampare','invalida','invalidare','scarica pass','stampare pass','consegna pass','riconsegna']))return out('Per ristampare, invalidare, scaricare, consegnare o riconsegnare un pass, apri Pass → Assegnatari pass, entra nello stand e individua il nominativo. Esegui l’operazione dalla sua scheda. Pass generati è solo una sezione di backup tecnico e non va usata né insegnata come procedura ordinaria.','/participants','Apri Assegnatari pass →','guida-pass.md (rete di sicurezza)');
-  if(has(q,['stand','assegnatari','assegnatario','gruppo espositore']))return out('Per creare un nuovo stand apri Pass → Assegnatari pass e premi Nuovo stand. Scegli il raggruppamento e compila almeno il nome; puoi poi aggiungere nome stand, zona, codice, limite pass, email e note. Salva, apri la scheda dello stand, aggiungi i nominativi e genera i loro pass. Non usare Nuovo pass singolo.','/participants','Apri Assegnatari pass →','guida-pass.md (rete di sicurezza)');
-  if(has(q,['spesa','scontrino','fattura','ricevuta','ricevute']))return out('Per inserire una spesa apri Area personale → Le mie spese e premi Nuova spesa. Inserisci descrizione, importo e data, scegli la categoria e allega eventuali ricevute; poi salva. La spesa potrà essere selezionata in una successiva richiesta di rimborso.','/area-personale/spese','Apri Le mie spese →','guida-area-personale.md (rete di sicurezza)');
-  if(has(q,['rimborso','rimborsi']))return out('Inserisci prima le singole voci in Area personale → Le mie spese. Poi apri Richieste rimborso, seleziona le spese non associate, completa i dati e invia la richiesta.','/area-personale/richieste-rimborso','Apri Richieste rimborso →','guida-area-personale.md (rete di sicurezza)');
-  if(has(q,['rubrica','contatto','contatti']))return out('Apri Area personale → Rubrica per creare un contatto personale. Con Importa da espositori puoi cercare un espositore in tutte le edizioni e aprire una scheda precompilata da verificare e salvare.','/area-personale/rubrica','Apri Rubrica →','guida-area-personale.md (rete di sicurezza)');
-  if(has(q,['edizione','edizioni']))return out('Per gestire le edizioni apri Impostazioni e seleziona la scheda Edizioni. Da qui crei o modifichi un’edizione e imposti quella corrente.','/admin/settings#edizioni','Apri Impostazioni: Edizioni →','guida-ruoli-edizioni.md (rete di sicurezza)');
+  if(has(q,['genera un pass','generare un pass','crea un pass','creare un pass']))return out('Per generare un pass usa sempre Pass → Assegnatari pass. Apri lo stand interessato, aggiungi o apri il nominativo e genera il pass dalla sua scheda. Non usare Nuovo pass singolo e non usare Pass generati: sono funzioni di backup, non il flusso operativo ordinario.','/participants','Apri Assegnatari pass →','guida-pass.md (rete di sicurezza, da sostituire con regola Markdown)');
+  if(has(q,['ristampa','ristampare','invalida','invalidare','scarica pass','stampare pass','consegna pass','riconsegna']))return out('Per ristampare, invalidare, scaricare, consegnare o riconsegnare un pass, apri Pass → Assegnatari pass, entra nello stand e individua il nominativo. Esegui l’operazione dalla sua scheda. Pass generati è solo una sezione di backup tecnico e non va usata né insegnata come procedura ordinaria.','/participants','Apri Assegnatari pass →','guida-pass.md (rete di sicurezza, da sostituire con regola Markdown)');
+  if(has(q,['stand','assegnatari','assegnatario','gruppo espositore']))return out('Per creare un nuovo stand apri Pass → Assegnatari pass e premi Nuovo stand. Scegli il raggruppamento e compila almeno il nome; puoi poi aggiungere nome stand, zona, codice, limite pass, email e note. Salva, apri la scheda dello stand, aggiungi i nominativi e genera i loro pass. Non usare Nuovo pass singolo.','/participants','Apri Assegnatari pass →','guida-pass.md (rete di sicurezza, da sostituire con regola Markdown)');
+  if(has(q,['spesa','scontrino','fattura','ricevuta','ricevute']))return out('Per inserire una spesa apri Area personale → Le mie spese e premi Nuova spesa. Inserisci descrizione, importo e data, scegli la categoria e allega eventuali ricevute; poi salva. La spesa potrà essere selezionata in una successiva richiesta di rimborso.','/area-personale/spese','Apri Le mie spese →','guida-area-personale.md (rete di sicurezza, da sostituire con regola Markdown)');
+  if(has(q,['rimborso','rimborsi']))return out('Inserisci prima le singole voci in Area personale → Le mie spese. Poi apri Richieste rimborso, seleziona le spese non associate, completa i dati e invia la richiesta.','/area-personale/richieste-rimborso','Apri Richieste rimborso →','guida-area-personale.md (rete di sicurezza, da sostituire con regola Markdown)');
+  if(has(q,['rubrica','contatto','contatti']))return out('Apri Area personale → Rubrica per creare un contatto personale. Con Importa da espositori puoi cercare un espositore in tutte le edizioni e aprire una scheda precompilata da verificare e salvare.','/area-personale/rubrica','Apri Rubrica →','guida-area-personale.md (rete di sicurezza, da sostituire con regola Markdown)');
+  if(has(q,['edizione','edizioni']))return out('Per gestire le edizioni apri Impostazioni e seleziona la scheda Edizioni. Da qui crei o modifichi un’edizione e imposti quella corrente.','/admin/settings#edizioni','Apri Impostazioni: Edizioni →','guida-ruoli-edizioni.md (rete di sicurezza, da sostituire con regola Markdown)');
   return null;
  }
 
@@ -122,6 +127,7 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   const allowedGuides=guides.filter(g=>canRead(req.session.user,g));
   const tokens=q.match(/[a-zàèéìòù]{3,}/g)||[];
 
+  // 1) Regole Markdown esplicite (priorità massima, editabili senza JS)
   let bestRule={score:0,rule:null};
   allowedGuides.forEach(g=>{
    let raw='';try{raw=fs.readFileSync(path.join(K,g.file),'utf8');}catch(_){return;}
@@ -135,9 +141,11 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
    return res.json(out(r.answer,r.link,r.label,r.file));
   }
 
+  // 2) Rete di sicurezza silenziosa (solo se nessuna regola Markdown ha risposto)
   const fixed=safetyNet(q);
   if(fixed)return res.json(fixed);
 
+  // 3) Ricerca generica nei paragrafi delle guide
   let best={score:0,text:'',file:''};
   allowedGuides.forEach(g=>{
    let raw='';try{raw=fs.readFileSync(path.join(K,g.file),'utf8');}catch(_){return;}
@@ -169,7 +177,6 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
    });
  });
 
- // ---- Pagine di consultazione log, solo per admin/organizer -----------
  app.get('/admin/assistente/feedback',requireAuth,requireAdminInline,(req,res)=>{
   db.all('SELECT af.*, u.username FROM assistente_feedback af LEFT JOIN users u ON u.id=af.userid ORDER BY af.id DESC LIMIT 500',(err,rows)=>{
    if(err)return res.status(500).send('Errore lettura feedback: '+err.message);
