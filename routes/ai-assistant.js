@@ -62,15 +62,6 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
  }
 
  // ---- Regole editabili nei file Markdown -----------------------------
- // Hanno SEMPRE priorità sulla rete di sicurezza sottostante e sulla
- // ricerca generica: se una regola con parole chiave corrispondenti
- // esiste in un file .md, è quella a rispondere.
- // <!-- regola
- // link: /participants
- // label: Apri Assegnatari pass →
- // keywords: stand, assegnatari, assegnatario, gruppo espositore
- // -->
- // seguito dal testo della risposta.
  const RULE_RE=/<!--\s*regola([\s\S]*?)-->\s*([\s\S]*?)(?=\n<!--\s*regola|\n##|\s*$)/g;
 
  function parseRules(raw,fileName){
@@ -99,12 +90,6 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
  function canRead(user,g){return user.role!=='custom'||g.roles.includes('custom');}
  function chunks(text){return text.split(/\n\n+/).filter(Boolean).map(stripMd).filter(Boolean);}
 
- // ---- Rete di sicurezza SILENZIOSA ------------------------------------
- // Interviene SOLO se non esiste ancora nessuna regola Markdown
- // equivalente in knowledge/*.md. Appena aggiungi il blocco <!-- regola -->
- // corrispondente in un file .md, questa funzione smette di essere
- // consultata per quel tema, perché il controllo sulle regole Markdown
- // avviene PRIMA e restituisce già una risposta.
  function safetyNet(q){
   if(has(q,['genera un pass','generare un pass','crea un pass','creare un pass']))return out('Per generare un pass usa sempre Pass → Assegnatari pass. Apri lo stand interessato, aggiungi o apri il nominativo e genera il pass dalla sua scheda. Non usare Nuovo pass singolo e non usare Pass generati: sono funzioni di backup, non il flusso operativo ordinario.','/participants','Apri Assegnatari pass →','guida-pass.md (rete di sicurezza, da sostituire con regola Markdown)');
   if(has(q,['ristampa','ristampare','invalida','invalidare','scarica pass','stampare pass','consegna pass','riconsegna']))return out('Per ristampare, invalidare, scaricare, consegnare o riconsegnare un pass, apri Pass → Assegnatari pass, entra nello stand e individua il nominativo. Esegui l’operazione dalla sua scheda. Pass generati è solo una sezione di backup tecnico e non va usata né insegnata come procedura ordinaria.','/participants','Apri Assegnatari pass →','guida-pass.md (rete di sicurezza, da sostituire con regola Markdown)');
@@ -116,13 +101,111 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   return null;
  }
 
- app.post('/api/assistente/guida',requireAuth,(req,res)=>{
+
+ // ── FASE 4: diagnostica dati "perché non riesco a generare questo pass?" ──
+ // Usa SOLO query predefinite e sicure sul database, mai SQL libero.
+ const DIAG_PASS_RE = /(perch[eé]|come mai|non riesco|non funziona|non genero|non genera|non si genera|problema con|blocca).*pass|\bpass\b.*(non si genera|non funziona|bloccato)/i;
+
+ function extractGroupIdFromPath(currentPath) {
+  if (!currentPath) return null;
+  const m = currentPath.match(/\/assignment-groups\/(\d+)/);
+  return m ? parseInt(m[1], 10) : null;
+ }
+ function extractNameFromQuestion(q) {
+  const m = q.match(/(?:per|di)\s+([a-zàèéìòù]+(?:\s+[a-zàèéìòù]+){0,2})\s*[?.]?\s*$/i);
+  return m ? m[1].trim() : null;
+ }
+ function extractCodeFromQuestion(q) {
+  const m = q.match(/\b([a-z0-9]{6,20})\b/i);
+  return m && !/^(questo|pass|non|riesco|genera|generare|problema|perche|perché)$/i.test(m[1]) ? m[1].toUpperCase() : null;
+ }
+
+ async function findParticipantCandidates(nameGuess, codeGuess, groupIdHint) {
+  const clauses = [];
+  const params = [];
+  if (codeGuess) {
+   clauses.push(`(p.refcode = ? OR p.id IN (SELECT participantid FROM passes WHERE code = ?))`);
+   params.push(codeGuess, codeGuess);
+  }
+  if (nameGuess) {
+   const like = '%' + nameGuess.replace(/\s+/g, '%') + '%';
+   clauses.push(`(p.firstname || ' ' || p.lastname LIKE ? OR p.lastname || ' ' || p.firstname LIKE ?)`);
+   params.push(like, like);
+  }
+  if (!clauses.length && groupIdHint) {
+   clauses.push('p.assignmentgroupid = ?');
+   params.push(groupIdHint);
+  }
+  if (!clauses.length) return [];
+  const sql = `SELECT p.id, p.firstname, p.lastname, p.assignmentgroupid, ag.id AS groupid, ag.name AS groupname, ag.standname, ag.maxpasses, ag.editionid AS groupeditionid
+   FROM participants p LEFT JOIN assignmentgroups ag ON ag.id = p.assignmentgroupid
+   WHERE ${clauses.join(' OR ')} LIMIT 8`;
+  return await new Promise((resolve) => db.all(sql, params, (err, rows) => resolve(err ? [] : (rows || []))));
+ }
+
+ async function diagnosePassGeneration(req, q, currentPath) {
+  const groupIdHint = extractGroupIdFromPath(currentPath);
+  const nameGuess = extractNameFromQuestion(q);
+  const codeGuess = extractCodeFromQuestion(q);
+  const candidates = await findParticipantCandidates(nameGuess, codeGuess, groupIdHint);
+
+  if (!candidates.length) {
+   return out('Per capire perché non riesci a generare il pass, dimmi il nome e cognome del partecipante oppure il codice del pass o del nominativo. In alternativa apri la scheda dello stand interessato in Assegnatari pass e ripeti la domanda da lì.', '/participants', 'Apri Assegnatari pass →', 'diagnostica pass (dati mancanti)');
+  }
+  if (candidates.length > 1) {
+   const names = candidates.slice(0, 5).map(c => `${c.firstname} ${c.lastname}${c.groupname ? ' (' + c.groupname + ')' : ''}`).join(', ');
+   return out(`Ho trovato più nominativi che corrispondono: ${names}. Specifica meglio il nome completo o il codice del pass per farti una diagnosi precisa.`, null, null, 'diagnostica pass (ambiguo)');
+  }
+
+  const participant = candidates[0];
+  const activePass = await new Promise((resolve) => db.get(
+   `SELECT id, code, status FROM passes WHERE participantid = ? AND status != 'INVALIDATO' ORDER BY id DESC LIMIT 1`,
+   [participant.id], (err, row) => resolve(err ? null : row)
+  ));
+  if (activePass) {
+   return out(`${participant.firstname} ${participant.lastname} ha già un pass attivo (codice ${activePass.code || activePass.id}, stato ${activePass.status}). È per questo che il sistema mostra un avviso e blocca una nuova generazione: per evitare duplicati devi prima invalidare quello esistente da Pass → Assegnatari pass, oppure usare "Sostituisci pass" se disponibile.`, participant.groupid ? `/assignment-groups/${participant.groupid}` : '/participants', 'Apri la scheda dello stand →', 'diagnostica pass (già presente)');
+  }
+
+  if (participant.groupid && participant.maxpasses != null) {
+   const activeCount = await new Promise((resolve) => db.get(
+    `SELECT COUNT(DISTINCT pa.id) AS n FROM participants pa JOIN passes ps ON ps.participantid = pa.id WHERE pa.assignmentgroupid = ? AND ps.status != 'INVALIDATO'`,
+    [participant.groupid], (err, row) => resolve(err ? 0 : (row ? row.n : 0))
+   ));
+   if (activeCount >= participant.maxpasses) {
+    return out(`Lo stand "${participant.groupname || participant.standname || ''}" ha raggiunto il limite massimo di ${participant.maxpasses} pass (attualmente ${activeCount} generati). Per generarne altri, un amministratore deve prima alzare il limite dalla scheda dello stand, sezione Limite pass.`, `/assignment-groups/${participant.groupid}`, 'Apri la scheda dello stand →', 'diagnostica pass (limite raggiunto)');
+   }
+  }
+
+  const anyPassType = await new Promise((resolve) => db.get(`SELECT COUNT(*) AS n FROM passtypes`, [], (err, row) => resolve(err ? 0 : (row ? row.n : 0))));
+  if (!anyPassType) {
+   return out('Nel sistema non è ancora presente nessuna tipologia di pass (la "matrice pass"). Senza almeno una tipologia configurata, la generazione è sempre bloccata. Un amministratore deve crearne una in Impostazioni → Tipologie pass, caricando anche il modello PDF.', '/admin/settings?tab=tipologie', 'Apri Impostazioni: Tipologie →', 'diagnostica pass (matrice mancante)');
+  }
+
+  const currentEdition = await new Promise((resolve) => db.get(`SELECT id FROM editions WHERE iscurrent = 1 LIMIT 1`, [], (err, row) => resolve(err ? null : row)));
+  if (currentEdition && participant.groupeditionid && participant.groupeditionid !== currentEdition.id) {
+   return out(`Lo stand di ${participant.firstname} ${participant.lastname} appartiene a un'altra edizione, diversa da quella attualmente attiva sul portale. Cambia l'edizione corrente da Impostazioni, oppure verifica di essere nello stand giusto.`, '/admin/settings#edizioni', 'Apri Impostazioni: Edizioni →', 'diagnostica pass (edizione errata)');
+  }
+
+  return out(`Non ho trovato blocchi evidenti per ${participant.firstname} ${participant.lastname}: nessun pass già attivo, il limite dello stand non è stato raggiunto e la matrice pass è configurata. Se il problema persiste, assicurati di aver selezionato una tipologia di pass dal menu a tendina prima di premere "Genera", oppure segnala l'errore esatto mostrato a schermo.`, participant.groupid ? `/assignment-groups/${participant.groupid}` : '/participants', 'Apri la scheda dello stand →', 'diagnostica pass (nessun blocco rilevato)');
+ }
+
+
+ app.post('/api/assistente/guida',requireAuth,async (req,res)=>{
   const original=String(req.body&&req.body.question||'').trim();
   if(original.length<2)return res.json({answer:'Scrivi una domanda un po’ più dettagliata.',suggestions:[]});
   const history=Array.isArray(req.body&&req.body.history)?req.body.history:[];
+  const currentPath=req.body&&req.body.currentPath||null;
   const follow=/^(spiegami|spiega|dimmi|fammi vedere|come faccio|dove trovo|e poi|continua|passo per passo|pi[uù] dettagli|approfondisci)/i.test(original);
   const prev=history.slice().reverse().find(m=>m&&m.kind==='user'&&m.text&&m.text!==original);
   const q=((follow&&prev?prev.text+' ':'')+original).toLowerCase();
+
+  // 0) Diagnostica dati in tempo reale (Fase 4): solo per domande sul motivo del blocco di un pass
+  if(DIAG_PASS_RE.test(q)){
+   try{
+    const diag=await diagnosePassGeneration(req,q,currentPath);
+    if(diag)return res.json(diag);
+   }catch(e){console.error('diagnosePassGeneration',e.message);}
+  }
 
   const allowedGuides=guides.filter(g=>canRead(req.session.user,g));
   const tokens=q.match(/[a-zàèéìòù]{3,}/g)||[];
@@ -158,7 +241,7 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
 
   if(!best.score){
    db.run('INSERT INTO assistente_irrisolte (userid, role, question, path) VALUES (?,?,?,?)',
-    [req.session.user.id, req.session.user.role, original, req.body.currentPath||null],
+    [req.session.user.id, req.session.user.role, original, currentPath],
     (err)=>{if(err)console.error('log domanda irrisolta',err.message);});
    return res.json({answer:'Non ho ancora una guida affidabile per questa domanda. Prova a citare una sezione: assegnatari pass, agenda, volontari, logistica, spese, rimborsi, rubrica, ruoli o edizioni.',suggestions:['Come creo uno stand?','Come inserisco una spesa?','Come gestisco i volontari?']});
   }
