@@ -102,6 +102,8 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
  }
 
  // ── FASE 4: diagnostica dati "perché non riesco a generare questo pass?" ──
+ // Nomi tabelle reali confermati via /admin/assistente/debug-schema:
+ // participants, assignment_groups, passes, pass_types, editions.
  const DIAG_PASS_RE = /(perch[eèé]|come mai|non riesco|non funziona|non genero|non genera|non si genera|problema con|blocca).*pass|\bpass\b.*(non si genera|non funziona|bloccato)/i;
 
  function extractGroupIdFromPath(currentPath) {
@@ -142,7 +144,7 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   }
   if (!clauses.length) return [];
   const sql = `SELECT p.id, p.firstname, p.lastname, p.assignmentgroupid, ag.id AS groupid, ag.name AS groupname, ag.standname, ag.maxpasses, ag.editionid AS groupeditionid
-   FROM participants p LEFT JOIN assignmentgroups ag ON ag.id = p.assignmentgroupid
+   FROM participants p LEFT JOIN assignment_groups ag ON ag.id = p.assignmentgroupid
    WHERE ${clauses.join(' OR ')} LIMIT 8`;
   return await new Promise((resolve) => db.all(sql, params, (err, rows) => {
    if (err) console.error('findParticipantCandidates SQL error:', err.message, '| sql:', sql, '| params:', params);
@@ -185,7 +187,7 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
    }
   }
 
-  const anyPassType = await new Promise((resolve) => db.get(`SELECT COUNT(*) AS n FROM passtypes`, [], (err, row) => resolve(err ? 0 : (row ? row.n : 0))));
+  const anyPassType = await new Promise((resolve) => db.get(`SELECT COUNT(*) AS n FROM pass_types`, [], (err, row) => resolve(err ? 0 : (row ? row.n : 0))));
   if (!anyPassType) {
    return out('Nel sistema non è ancora presente nessuna tipologia di pass (la "matrice pass"). Senza almeno una tipologia configurata, la generazione è sempre bloccata. Un amministratore deve crearne una in Impostazioni → Tipologie pass, caricando anche il modello PDF.', '/admin/settings?tab=tipologie', 'Apri Impostazioni: Tipologie →', 'diagnostica pass (matrice mancante)');
   }
@@ -294,8 +296,6 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
  });
 
  // ---- Endpoint di diagnosi diretta (solo admin/organizer) --------------
- // Verifica il percorso del database realmente usato dal modulo e l'elenco
- // vero delle tabelle presenti, oltre a testare l'estrazione nome/codice.
  app.get('/admin/assistente/debug-diag',requireAuth,requireAdminInline,(req,res)=>{
   const qRaw=String(req.query.q||'').trim();
 
@@ -326,7 +326,7 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
     if(!clauses.length&&groupIdHint){clauses.push('p.assignmentgroupid = ?');params.push(groupIdHint);}
 
     const sql=clauses.length?`SELECT p.id, p.firstname, p.lastname, p.assignmentgroupid, ag.id AS groupid, ag.name AS groupname, ag.standname, ag.maxpasses, ag.editionid AS groupeditionid
-     FROM participants p LEFT JOIN assignmentgroups ag ON ag.id = p.assignmentgroupid
+     FROM participants p LEFT JOIN assignment_groups ag ON ag.id = p.assignmentgroupid
      WHERE ${clauses.join(' OR ')} LIMIT 8`:null;
 
     db.all(sql||'SELECT 1 AS dummy',sql?params:[],(err,rows)=>{
@@ -347,4 +347,24 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
    });
   });
  });
+
+
+ // ---- Endpoint di ispezione schema reale (solo admin/organizer) --------
+ // Mostra i nomi ESATTI di tabelle e colonne usati dal database in produzione,
+ // per evitare di scrivere query basate su nomi sbagliati.
+ app.get('/admin/assistente/debug-schema',requireAuth,requireAdminInline,(req,res)=>{
+  const tables=['participants','assignment_groups','passes','pass_types','editions','groups'];
+  const results={};
+  let remaining=tables.length;
+  tables.forEach(t=>{
+   db.all(`PRAGMA table_info(${t})`,[],(err,cols)=>{
+    results[t]={errore:err?err.message:null,colonne:(cols||[]).map(c=>c.name)};
+    remaining--;
+    if(remaining===0){
+     res.type('json').send(JSON.stringify(results,null,2));
+    }
+   });
+  });
+ });
+
 };
