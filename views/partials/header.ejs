@@ -979,7 +979,7 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
   </div>
   <button id="donkey-btn" type="button" aria-label="Apri Assistente Ludicomix" title="Chiedi aiuto al Ciuchino">
     <div id="donkey-greet-bubble">Ciao! Ti serve aiuto? 👋</div>
-    <img id="donkey-img" alt="Ciuchino Assistente"><span id="donkey-badge">?</span>
+    <img id="donkey-img" src="/ciuchino_static.png" alt="Ciuchino Assistente"><span id="donkey-badge">?</span>
   </button>
 </div>
 <script>
@@ -987,17 +987,15 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
   var btn=document.getElementById('donkey-btn'),panel=document.getElementById('donkey-panel'),chat=document.getElementById('donkey-chat'),form=document.getElementById('donkey-form'),input=document.getElementById('donkey-q'),suggestions=document.getElementById('donkey-suggestions'),bubble=document.getElementById('donkey-greet-bubble');
   if(!btn||!panel||!chat||!form||!input||!suggestions)return;
   var img=document.getElementById('donkey-img');
-  var mascot=document.querySelector('.brand-ciuco');
-  var STATIC_SRC=mascot?mascot.src:img.src;
-  if(mascot)img.src=STATIC_SRC;
-  // GIF di saluto (Ciuchino che si alza e saluta), ~945KB, caricata solo al bisogno.
+  var STATIC_SRC='/ciuchino_static.png';
+  // GIF di saluto (Ciuchino che si alza e saluta, sfondo trasparente, ~1.4MB), caricata solo al bisogno.
   var GREET_GIF_SRC='/gif_ciuchino.gif';
   var GREET_GIF_DURATION_MS=7000; // durata reale di un ciclo della gif (confermata: 7 secondi)
   var path=window.location.pathname,storeKey='ludicomix.donkey.chat.v3';
   var context={'/participants':{t:'Sei negli <b>Assegnatari Pass</b>. Posso aiutarti a creare uno stand, aggiungere un nominativo, generare, ristampare o invalidare un pass.',q:['Come creo uno stand?','Come genero un pass?','Come ristampo un pass?']},'/passes':{t:'<b>Pass generati</b> è una sezione di backup tecnico e non va usata per la gestione ordinaria. Per creare stand, generare, ristampare, scaricare, consegnare o invalidare pass usa <b>Assegnatari Pass</b>.',q:['Vai ad Assegnatari Pass','Come genero un pass?','Come ristampo un pass?']},'/agenda':{t:'Stai lavorando sul <b>Palinsesto</b>. Vuoi creare un evento, gestire sale o pubblicare il programma?',q:['Come creo un evento?','Dove modifico il programma pubblico?','Come gestisco le sale?']},'/volunteers':{t:'Sei nella sezione <b>Volontari</b>. Posso guidarti tra candidature, turni e calendario.',q:['Come aggiungo un volontario?','Come gestisco i turni?']},'/admin/logistica':{t:'Sei in <b>Logistica</b>. Posso aiutarti con richieste servizi, attrezzatura, checklist, catering e fornitori.',q:['Dove vedo le richieste servizi?','Come gestisco attrezzatura?']},'/area-personale':{t:'Benvenuto nella tua <b>Area Personale</b>. Note, rubrica, checklist, spese e rimborsi restano accessibili anche cambiando edizione.',q:['Come inserisco una spesa?','Come importo un espositore in rubrica?','Come invio un rimborso?']},'/admin/accreditamento':{t:'Sei negli <b>Accreditamenti</b>. Puoi vedere, approvare o rifiutare richieste.',q:['Come approvo una richiesta?','Dove trovo le richieste in attesa?']}};
   function ctx(){for(var k in context)if(path.indexOf(k)===0)return context[k];return {t:'Ciao! Sono il <b>Ciuchino Assistente</b>. Posso spiegarti come usare le funzioni del portale.',q:['Come creo uno stand?','Come inserisco una spesa?','Come cambio edizione?']};}
   function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-  function readState(){try{var s=JSON.parse(sessionStorage.getItem(storeKey)||'null');if(s&&typeof s==='object')return {messages:s.messages||[],suggestions:s.suggestions||[],started:!!s.started,open:!!s.open,greetedOnce:!!s.greetedOnce};}catch(_){}return {messages:[],suggestions:[],started:false,open:false,greetedOnce:false};}
+  function readState(){try{var s=JSON.parse(sessionStorage.getItem(storeKey)||'null');if(s&&typeof s==='object')return {messages:s.messages||[],suggestions:s.suggestions||[],started:!!s.started,open:!!s.open};}catch(_){}return {messages:[],suggestions:[],started:false,open:false};}
   var state=readState();
   function saveState(){try{sessionStorage.setItem(storeKey,JSON.stringify(state));}catch(_){}}
   function addMessage(html,kind,text,save){var d=document.createElement('div');d.className='donkey-msg '+(kind||'assistant');d.innerHTML=html;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;if(save!==false){state.messages.push({html:html,kind:kind||'assistant',text:text||''});state.messages=state.messages.slice(-30);saveState();}return d;}
