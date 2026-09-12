@@ -101,10 +101,9 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   return null;
  }
 
-
  // ── FASE 4: diagnostica dati "perché non riesco a generare questo pass?" ──
  // Usa SOLO query predefinite e sicure sul database, mai SQL libero.
- const DIAG_PASS_RE = /(perch[eé]|come mai|non riesco|non funziona|non genero|non genera|non si genera|problema con|blocca).*pass|\bpass\b.*(non si genera|non funziona|bloccato)/i;
+ const DIAG_PASS_RE = /(perch[eèé]|come mai|non riesco|non funziona|non genero|non genera|non si genera|problema con|blocca).*pass|\bpass\b.*(non si genera|non funziona|bloccato)/i;
 
  function extractGroupIdFromPath(currentPath) {
   if (!currentPath) return null;
@@ -113,11 +112,19 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
  }
  function extractNameFromQuestion(q) {
   const m = q.match(/(?:per|di)\s+([a-zàèéìòù]+(?:\s+[a-zàèéìòù]+){0,2})\s*[?.]?\s*$/i);
-  return m ? m[1].trim() : null;
+  if (m) return m[1].trim();
+  const bare = q.replace(/[?.!]/g, '').trim();
+  if (/^[a-zàèéìòù' -]{3,40}$/i.test(bare) && bare.split(/\s+/).length <= 4 && !/\bpass\b|\bperch[eèé]\b|\bnon\b/.test(bare)) return bare;
+  return null;
  }
  function extractCodeFromQuestion(q) {
-  const m = q.match(/\b([a-z0-9]{6,20})\b/i);
-  return m && !/^(questo|pass|non|riesco|genera|generare|problema|perche|perché)$/i.test(m[1]) ? m[1].toUpperCase() : null;
+  // Un codice pass/nominativo reale contiene sempre almeno una cifra
+  // (es. ABC123XYZ) oppure segue esplicitamente la parola "codice"/"code".
+  const afterKeyword = q.match(/(?:codice|code)\s*[:\s]?\s*([a-z0-9]{4,20})/i);
+  if (afterKeyword) return afterKeyword[1].toUpperCase();
+  const tokens = q.match(/\b[a-z0-9]{4,20}\b/ig) || [];
+  const candidate = tokens.find(t => /[0-9]/.test(t) && /[a-z]/i.test(t));
+  return candidate ? candidate.toUpperCase() : null;
  }
 
  async function findParticipantCandidates(nameGuess, codeGuess, groupIdHint) {
@@ -140,7 +147,10 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   const sql = `SELECT p.id, p.firstname, p.lastname, p.assignmentgroupid, ag.id AS groupid, ag.name AS groupname, ag.standname, ag.maxpasses, ag.editionid AS groupeditionid
    FROM participants p LEFT JOIN assignmentgroups ag ON ag.id = p.assignmentgroupid
    WHERE ${clauses.join(' OR ')} LIMIT 8`;
-  return await new Promise((resolve) => db.all(sql, params, (err, rows) => resolve(err ? [] : (rows || []))));
+  return await new Promise((resolve) => db.all(sql, params, (err, rows) => {
+   if (err) console.error('findParticipantCandidates SQL error:', err.message, '| sql:', sql, '| params:', params);
+   resolve(err ? [] : (rows || []));
+  }));
  }
 
  async function diagnosePassGeneration(req, q, currentPath) {
@@ -150,8 +160,10 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   const candidates = await findParticipantCandidates(nameGuess, codeGuess, groupIdHint);
 
   if (!candidates.length) {
+   req.session.pendingDiagFollowUp = true;
    return out('Per capire perché non riesci a generare il pass, dimmi il nome e cognome del partecipante oppure il codice del pass o del nominativo. In alternativa apri la scheda dello stand interessato in Assegnatari pass e ripeti la domanda da lì.', '/participants', 'Apri Assegnatari pass →', 'diagnostica pass (dati mancanti)');
   }
+  req.session.pendingDiagFollowUp = false;
   if (candidates.length > 1) {
    const names = candidates.slice(0, 5).map(c => `${c.firstname} ${c.lastname}${c.groupname ? ' (' + c.groupname + ')' : ''}`).join(', ');
    return out(`Ho trovato più nominativi che corrispondono: ${names}. Specifica meglio il nome completo o il codice del pass per farti una diagnosi precisa.`, null, null, 'diagnostica pass (ambiguo)');
@@ -189,7 +201,6 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   return out(`Non ho trovato blocchi evidenti per ${participant.firstname} ${participant.lastname}: nessun pass già attivo, il limite dello stand non è stato raggiunto e la matrice pass è configurata. Se il problema persiste, assicurati di aver selezionato una tipologia di pass dal menu a tendina prima di premere "Genera", oppure segnala l'errore esatto mostrato a schermo.`, participant.groupid ? `/assignment-groups/${participant.groupid}` : '/participants', 'Apri la scheda dello stand →', 'diagnostica pass (nessun blocco rilevato)');
  }
 
-
  app.post('/api/assistente/guida',requireAuth,async (req,res)=>{
   const original=String(req.body&&req.body.question||'').trim();
   if(original.length<2)return res.json({answer:'Scrivi una domanda un po’ più dettagliata.',suggestions:[]});
@@ -199,8 +210,10 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   const prev=history.slice().reverse().find(m=>m&&m.kind==='user'&&m.text&&m.text!==original);
   const q=((follow&&prev?prev.text+' ':'')+original).toLowerCase();
 
-  // 0) Diagnostica dati in tempo reale (Fase 4): solo per domande sul motivo del blocco di un pass
-  if(DIAG_PASS_RE.test(q)){
+  // 0) Diagnostica dati in tempo reale (Fase 4): domande esplicite sul blocco di un pass,
+  // oppure risposta di follow-up (solo nome/codice) dopo che il Ciuchino ha chiesto di specificarlo.
+  const wasPending=!!req.session.pendingDiagFollowUp;
+  if(DIAG_PASS_RE.test(q)||(wasPending&&(extractNameFromQuestion(q)||extractCodeFromQuestion(q)))){
    try{
     const diag=await diagnosePassGeneration(req,q,currentPath);
     if(diag)return res.json(diag);
@@ -285,6 +298,43 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
     {label:'Utente',value:r=>r.username||('id '+r.userid)},
     {label:'Ruolo',key:'role'}
    ]));
+  });
+ });
+
+ // ---- Endpoint di diagnosi diretta (solo admin/organizer) --------------
+ // Permette di testare l'estrazione nome/codice e la query SQL reale
+ // bypassando completamente la chat, per capire dove si inceppa la ricerca.
+ app.get('/admin/assistente/debug-diag',requireAuth,requireAdminInline,(req,res)=>{
+  const qRaw=String(req.query.q||'').trim();
+  if(!qRaw)return res.send('<p>Usa ?q=perché non riesco a generare il pass di Nome Cognome</p><p>Aggiungi &path=/assignment-groups/3 per simulare il contesto pagina.</p>');
+  const q=qRaw.toLowerCase();
+  const nameGuess=extractNameFromQuestion(q);
+  const codeGuess=extractCodeFromQuestion(q);
+  const groupIdHint=extractGroupIdFromPath(req.query.path||null);
+  const diagMatch=DIAG_PASS_RE.test(q);
+
+  const clauses=[];const params=[];
+  if(codeGuess){clauses.push(`(p.refcode = ? OR p.id IN (SELECT participantid FROM passes WHERE code = ?))`);params.push(codeGuess,codeGuess);}
+  if(nameGuess){const like='%'+nameGuess.replace(/\s+/g,'%')+'%';clauses.push(`(p.firstname || ' ' || p.lastname LIKE ? OR p.lastname || ' ' || p.firstname LIKE ?)`);params.push(like,like);}
+  if(!clauses.length&&groupIdHint){clauses.push('p.assignmentgroupid = ?');params.push(groupIdHint);}
+
+  const sql=clauses.length?`SELECT p.id, p.firstname, p.lastname, p.assignmentgroupid, ag.id AS groupid, ag.name AS groupname, ag.standname, ag.maxpasses, ag.editionid AS groupeditionid
+   FROM participants p LEFT JOIN assignmentgroups ag ON ag.id = p.assignmentgroupid
+   WHERE ${clauses.join(' OR ')} LIMIT 8`:null;
+
+  db.all(sql||'SELECT 1 AS dummy',sql?params:[],(err,rows)=>{
+   res.type('json').send(JSON.stringify({
+    domandaRicevuta:qRaw,
+    domandaNormalizzata:q,
+    diagMatchRegex:diagMatch,
+    nomeEstratto:nameGuess,
+    codiceEstratto:codeGuess,
+    groupIdDaPath:groupIdHint,
+    sqlEseguita:sql,
+    parametriSql:params,
+    erroreDb:err?err.message:null,
+    righeTrovate:rows||[]
+   },null,2));
   });
  });
 };
