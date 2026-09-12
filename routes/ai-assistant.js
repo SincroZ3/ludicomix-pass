@@ -102,7 +102,6 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
  }
 
  // ── FASE 4: diagnostica dati "perché non riesco a generare questo pass?" ──
- // Usa SOLO query predefinite e sicure sul database, mai SQL libero.
  const DIAG_PASS_RE = /(perch[eèé]|come mai|non riesco|non funziona|non genero|non genera|non si genera|problema con|blocca).*pass|\bpass\b.*(non si genera|non funziona|bloccato)/i;
 
  function extractGroupIdFromPath(currentPath) {
@@ -118,8 +117,6 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   return null;
  }
  function extractCodeFromQuestion(q) {
-  // Un codice pass/nominativo reale contiene sempre almeno una cifra
-  // (es. ABC123XYZ) oppure segue esplicitamente la parola "codice"/"code".
   const afterKeyword = q.match(/(?:codice|code)\s*[:\s]?\s*([a-z0-9]{4,20})/i);
   if (afterKeyword) return afterKeyword[1].toUpperCase();
   const tokens = q.match(/\b[a-z0-9]{4,20}\b/ig) || [];
@@ -210,8 +207,6 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   const prev=history.slice().reverse().find(m=>m&&m.kind==='user'&&m.text&&m.text!==original);
   const q=((follow&&prev?prev.text+' ':'')+original).toLowerCase();
 
-  // 0) Diagnostica dati in tempo reale (Fase 4): domande esplicite sul blocco di un pass,
-  // oppure risposta di follow-up (solo nome/codice) dopo che il Ciuchino ha chiesto di specificarlo.
   const wasPending=!!req.session.pendingDiagFollowUp;
   if(DIAG_PASS_RE.test(q)||(wasPending&&(extractNameFromQuestion(q)||extractCodeFromQuestion(q)))){
    try{
@@ -223,7 +218,6 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   const allowedGuides=guides.filter(g=>canRead(req.session.user,g));
   const tokens=q.match(/[a-zàèéìòù]{3,}/g)||[];
 
-  // 1) Regole Markdown esplicite (priorità massima, editabili senza JS)
   let bestRule={score:0,rule:null};
   allowedGuides.forEach(g=>{
    let raw='';try{raw=fs.readFileSync(path.join(K,g.file),'utf8');}catch(_){return;}
@@ -237,11 +231,9 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
    return res.json(out(r.answer,r.link,r.label,r.file));
   }
 
-  // 2) Rete di sicurezza silenziosa (solo se nessuna regola Markdown ha risposto)
   const fixed=safetyNet(q);
   if(fixed)return res.json(fixed);
 
-  // 3) Ricerca generica nei paragrafi delle guide
   let best={score:0,text:'',file:''};
   allowedGuides.forEach(g=>{
    let raw='';try{raw=fs.readFileSync(path.join(K,g.file),'utf8');}catch(_){return;}
@@ -302,39 +294,57 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
  });
 
  // ---- Endpoint di diagnosi diretta (solo admin/organizer) --------------
- // Permette di testare l'estrazione nome/codice e la query SQL reale
- // bypassando completamente la chat, per capire dove si inceppa la ricerca.
+ // Verifica il percorso del database realmente usato dal modulo e l'elenco
+ // vero delle tabelle presenti, oltre a testare l'estrazione nome/codice.
  app.get('/admin/assistente/debug-diag',requireAuth,requireAdminInline,(req,res)=>{
   const qRaw=String(req.query.q||'').trim();
-  if(!qRaw)return res.send('<p>Usa ?q=perché non riesco a generare il pass di Nome Cognome</p><p>Aggiungi &path=/assignment-groups/3 per simulare il contesto pagina.</p>');
-  const q=qRaw.toLowerCase();
-  const nameGuess=extractNameFromQuestion(q);
-  const codeGuess=extractCodeFromQuestion(q);
-  const groupIdHint=extractGroupIdFromPath(req.query.path||null);
-  const diagMatch=DIAG_PASS_RE.test(q);
 
-  const clauses=[];const params=[];
-  if(codeGuess){clauses.push(`(p.refcode = ? OR p.id IN (SELECT participantid FROM passes WHERE code = ?))`);params.push(codeGuess,codeGuess);}
-  if(nameGuess){const like='%'+nameGuess.replace(/\s+/g,'%')+'%';clauses.push(`(p.firstname || ' ' || p.lastname LIKE ? OR p.lastname || ' ' || p.firstname LIKE ?)`);params.push(like,like);}
-  if(!clauses.length&&groupIdHint){clauses.push('p.assignmentgroupid = ?');params.push(groupIdHint);}
+  db.all(`PRAGMA database_list`,[],(errDbList,dbListRows)=>{
+   db.all(`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`,[],(errTables,tableRows)=>{
+    const dbInfo={
+     percorsoDatabase:(dbListRows||[]).map(r=>r.file),
+     tabellePresenti:(tableRows||[]).map(r=>r.name),
+     erroreListaTabelle:errTables?errTables.message:null
+    };
 
-  const sql=clauses.length?`SELECT p.id, p.firstname, p.lastname, p.assignmentgroupid, ag.id AS groupid, ag.name AS groupname, ag.standname, ag.maxpasses, ag.editionid AS groupeditionid
-   FROM participants p LEFT JOIN assignmentgroups ag ON ag.id = p.assignmentgroupid
-   WHERE ${clauses.join(' OR ')} LIMIT 8`:null;
+    if(!qRaw){
+     return res.type('json').send(JSON.stringify({
+      istruzioni:'Usa ?q=perché non riesco a generare il pass di Nome Cognome. Aggiungi &path=/assignment-groups/3 per simulare il contesto pagina.',
+      infoDatabase:dbInfo
+     },null,2));
+    }
 
-  db.all(sql||'SELECT 1 AS dummy',sql?params:[],(err,rows)=>{
-   res.type('json').send(JSON.stringify({
-    domandaRicevuta:qRaw,
-    domandaNormalizzata:q,
-    diagMatchRegex:diagMatch,
-    nomeEstratto:nameGuess,
-    codiceEstratto:codeGuess,
-    groupIdDaPath:groupIdHint,
-    sqlEseguita:sql,
-    parametriSql:params,
-    erroreDb:err?err.message:null,
-    righeTrovate:rows||[]
-   },null,2));
+    const q=qRaw.toLowerCase();
+    const nameGuess=extractNameFromQuestion(q);
+    const codeGuess=extractCodeFromQuestion(q);
+    const groupIdHint=extractGroupIdFromPath(req.query.path||null);
+    const diagMatch=DIAG_PASS_RE.test(q);
+
+    const clauses=[];const params=[];
+    if(codeGuess){clauses.push(`(p.refcode = ? OR p.id IN (SELECT participantid FROM passes WHERE code = ?))`);params.push(codeGuess,codeGuess);}
+    if(nameGuess){const like='%'+nameGuess.replace(/\s+/g,'%')+'%';clauses.push(`(p.firstname || ' ' || p.lastname LIKE ? OR p.lastname || ' ' || p.firstname LIKE ?)`);params.push(like,like);}
+    if(!clauses.length&&groupIdHint){clauses.push('p.assignmentgroupid = ?');params.push(groupIdHint);}
+
+    const sql=clauses.length?`SELECT p.id, p.firstname, p.lastname, p.assignmentgroupid, ag.id AS groupid, ag.name AS groupname, ag.standname, ag.maxpasses, ag.editionid AS groupeditionid
+     FROM participants p LEFT JOIN assignmentgroups ag ON ag.id = p.assignmentgroupid
+     WHERE ${clauses.join(' OR ')} LIMIT 8`:null;
+
+    db.all(sql||'SELECT 1 AS dummy',sql?params:[],(err,rows)=>{
+     res.type('json').send(JSON.stringify({
+      domandaRicevuta:qRaw,
+      domandaNormalizzata:q,
+      diagMatchRegex:diagMatch,
+      nomeEstratto:nameGuess,
+      codiceEstratto:codeGuess,
+      groupIdDaPath:groupIdHint,
+      sqlEseguita:sql,
+      parametriSql:params,
+      erroreDb:err?err.message:null,
+      righeTrovate:rows||[],
+      infoDatabase:dbInfo
+     },null,2));
+    });
+   });
   });
  });
 };
