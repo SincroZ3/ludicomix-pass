@@ -104,6 +104,23 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
  // ── FASE 4: diagnostica dati "perché non riesco a generare questo pass?" ──
  const DIAG_PASS_RE = /(perch[eèé]|come mai|non riesco|non funziona|non genero|non genera|non si genera|problema con|blocca).*pass|\bpass\b.*(non si genera|non funziona|bloccato)/i;
 
+ // Parole che NON possono mai essere scambiate per un nome proprio o un codice
+ // nel meccanismo di "risposta breve dopo chiarimento". Senza questo filtro,
+ // una domanda normale come "come creo uno stand?" veniva erroneamente
+ // interpretata come il nome di un partecipante quando il Ciuchino era in
+ // attesa di un chiarimento diagnostico rimasto aperto da prima.
+ const NON_NAME_WORDS = new Set(['come','cosa','quando','dove','chi','quanto','quanti','quante',
+  'perche','perché','qual','quali','posso','devo','serve','funziona','vorrei','voglio','crea',
+  'creo','genera','genero','stand','pass','edizione','edizioni','spesa','spese','rimborso',
+  'rimborsi','turno','turni','nota','note','rubrica','volontari','logistica','agenda','evento',
+  'inserisco','aggiungo','sono','sistema','oggi','ieri']);
+
+ function looksLikeRealName(candidate) {
+  if (!candidate) return false;
+  const words = candidate.toLowerCase().split(/\s+/);
+  return !words.some(w => NON_NAME_WORDS.has(w));
+ }
+
  function extractGroupIdFromPath(currentPath) {
   if (!currentPath) return null;
   const m = currentPath.match(/\/assignment-groups\/(\d+)/);
@@ -111,9 +128,9 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
  }
  function extractNameFromQuestion(q) {
   const m = q.match(/(?:per|di)\s+([a-zàèéìòù]+(?:\s+[a-zàèéìòù]+){0,2})\s*[?.]?\s*$/i);
-  if (m) return m[1].trim();
+  if (m) return looksLikeRealName(m[1].trim()) ? m[1].trim() : null;
   const bare = q.replace(/[?.!]/g, '').trim();
-  if (/^[a-zàèéìòù' -]{3,40}$/i.test(bare) && bare.split(/\s+/).length <= 4 && !/\bpass\b|\bperch[eèé]\b|\bnon\b/.test(bare)) return bare;
+  if (/^[a-zàèéìòù' -]{3,40}$/i.test(bare) && bare.split(/\s+/).length <= 4 && !/\bpass\b|\bperch[eèé]\b|\bnon\b/.test(bare) && looksLikeRealName(bare)) return bare;
   return null;
  }
  function extractCodeFromQuestion(q) {
@@ -156,9 +173,6 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   const codeGuess = extractCodeFromQuestion(q);
   const candidates = await findParticipantCandidates(nameGuess, codeGuess, groupIdHint);
 
-  // FIX: il flag "in attesa di chiarimento" va mantenuto attivo sia quando
-  // non troviamo NESSUN candidato, sia quando ne troviamo TROPPI (ambiguo).
-  // Va disattivato solo quando la diagnosi può davvero procedere su UN solo nominativo.
   if (!candidates.length) {
    req.session.pendingDiagFollowUp = true;
    return out('Per capire perché non riesci a generare il pass, dimmi il nome e cognome del partecipante oppure il codice del pass o del nominativo. In alternativa apri la scheda dello stand interessato in Assegnatari pass e ripeti la domanda da lì.', '/participants', 'Apri Assegnatari pass →', 'diagnostica pass (dati mancanti)');
@@ -211,8 +225,8 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   const prev=history.slice().reverse().find(m=>m&&m.kind==='user'&&m.text&&m.text!==original);
   const q=((follow&&prev?prev.text+' ':'')+original).toLowerCase();
 
-  const wasPending=!!req.session.pendingDiagFollowUp;
-  if(DIAG_PASS_RE.test(q)||(wasPending&&(extractNameFromQuestion(q)||extractCodeFromQuestion(q)))){
+  // 0) Domande diagnostiche ESPLICITE hanno sempre la priorità assoluta.
+  if(DIAG_PASS_RE.test(q)){
    try{
     const diag=await diagnosePassGeneration(req,q,currentPath);
     if(diag)return res.json(diag);
@@ -222,6 +236,7 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   const allowedGuides=guides.filter(g=>canRead(req.session.user,g));
   const tokens=q.match(/[a-zàèéìòù]{3,}/g)||[];
 
+  // 1) Regole Markdown esplicite (priorità alta, editabili senza JS)
   let bestRule={score:0,rule:null};
   allowedGuides.forEach(g=>{
    let raw='';try{raw=fs.readFileSync(path.join(K,g.file),'utf8');}catch(_){return;}
@@ -235,9 +250,29 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
    return res.json(out(r.answer,r.link,r.label,r.file));
   }
 
+  // 2) Rete di sicurezza silenziosa
   const fixed=safetyNet(q);
   if(fixed)return res.json(fixed);
 
+  // 3) FIX: solo ORA, se nessuna guida/regola normale ha risposto, proviamo
+  // a interpretare un messaggio breve come continuazione di una diagnosi
+  // rimasta in sospeso. In questo modo una domanda normale come
+  // "come creo uno stand?" viene sempre gestita correttamente dai passi 1-2
+  // qui sopra, e non può mai essere "rubata" da un chiarimento diagnostico
+  // dimenticato in sessione.
+  const wasPending=!!req.session.pendingDiagFollowUp;
+  if(wasPending&&(extractNameFromQuestion(q)||extractCodeFromQuestion(q))){
+   try{
+    const diag=await diagnosePassGeneration(req,q,currentPath);
+    if(diag)return res.json(diag);
+   }catch(e){console.error('diagnosePassGeneration (follow-up)',e.message);}
+  }
+
+  // 4) Ricerca generica nei paragrafi delle guide, con soglia minima di
+  // attendibilità: un punteggio troppo basso (es. una sola parola chiave
+  // debole come "pass" in una domanda statistica) NON deve produrre una
+  // risposta sicura ma sbagliata. Meglio ammettere di non saperlo.
+  const MIN_CONFIDENT_SCORE = 6;
   let best={score:0,text:'',file:''};
   allowedGuides.forEach(g=>{
    let raw='';try{raw=fs.readFileSync(path.join(K,g.file),'utf8');}catch(_){return;}
@@ -248,7 +283,7 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
    });
   });
 
-  if(!best.score){
+  if(!best.score||best.score<MIN_CONFIDENT_SCORE){
    db.run('INSERT INTO assistente_irrisolte (userid, role, question, path) VALUES (?,?,?,?)',
     [req.session.user.id, req.session.user.role, original, currentPath],
     (err)=>{if(err)console.error('log domanda irrisolta',err.message);});
