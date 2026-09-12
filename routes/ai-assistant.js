@@ -102,10 +102,6 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
  }
 
  // ── FASE 4: diagnostica dati "perché non riesco a generare questo pass?" ──
- // Nomi colonne reali confermati via /admin/assistente/debug-schema:
- // participants(first_name,last_name,ref_code,assignment_group_id),
- // assignment_groups(max_passes,edition_id), passes(participant_id,status,code),
- // pass_types, editions(is_current).
  const DIAG_PASS_RE = /(perch[eèé]|come mai|non riesco|non funziona|non genero|non genera|non si genera|problema con|blocca).*pass|\bpass\b.*(non si genera|non funziona|bloccato)/i;
 
  function extractGroupIdFromPath(currentPath) {
@@ -160,15 +156,19 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   const codeGuess = extractCodeFromQuestion(q);
   const candidates = await findParticipantCandidates(nameGuess, codeGuess, groupIdHint);
 
+  // FIX: il flag "in attesa di chiarimento" va mantenuto attivo sia quando
+  // non troviamo NESSUN candidato, sia quando ne troviamo TROPPI (ambiguo).
+  // Va disattivato solo quando la diagnosi può davvero procedere su UN solo nominativo.
   if (!candidates.length) {
    req.session.pendingDiagFollowUp = true;
    return out('Per capire perché non riesci a generare il pass, dimmi il nome e cognome del partecipante oppure il codice del pass o del nominativo. In alternativa apri la scheda dello stand interessato in Assegnatari pass e ripeti la domanda da lì.', '/participants', 'Apri Assegnatari pass →', 'diagnostica pass (dati mancanti)');
   }
-  req.session.pendingDiagFollowUp = false;
   if (candidates.length > 1) {
+   req.session.pendingDiagFollowUp = true;
    const names = candidates.slice(0, 5).map(c => `${c.first_name} ${c.last_name}${c.groupname ? ' (' + c.groupname + ')' : ''}`).join(', ');
    return out(`Ho trovato più nominativi che corrispondono: ${names}. Specifica meglio il nome completo o il codice del pass per farti una diagnosi precisa.`, null, null, 'diagnostica pass (ambiguo)');
   }
+  req.session.pendingDiagFollowUp = false;
 
   const participant = candidates[0];
   const activePass = await new Promise((resolve) => db.get(
