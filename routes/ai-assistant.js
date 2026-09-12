@@ -102,8 +102,10 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
  }
 
  // ── FASE 4: diagnostica dati "perché non riesco a generare questo pass?" ──
- // Nomi tabelle reali confermati via /admin/assistente/debug-schema:
- // participants, assignment_groups, passes, pass_types, editions.
+ // Nomi colonne reali confermati via /admin/assistente/debug-schema:
+ // participants(first_name,last_name,ref_code,assignment_group_id),
+ // assignment_groups(max_passes,edition_id), passes(participant_id,status,code),
+ // pass_types, editions(is_current).
  const DIAG_PASS_RE = /(perch[eèé]|come mai|non riesco|non funziona|non genero|non genera|non si genera|problema con|blocca).*pass|\bpass\b.*(non si genera|non funziona|bloccato)/i;
 
  function extractGroupIdFromPath(currentPath) {
@@ -130,21 +132,21 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   const clauses = [];
   const params = [];
   if (codeGuess) {
-   clauses.push(`(p.refcode = ? OR p.id IN (SELECT participantid FROM passes WHERE code = ?))`);
+   clauses.push(`(p.ref_code = ? OR p.id IN (SELECT participant_id FROM passes WHERE code = ?))`);
    params.push(codeGuess, codeGuess);
   }
   if (nameGuess) {
    const like = '%' + nameGuess.replace(/\s+/g, '%') + '%';
-   clauses.push(`(p.firstname || ' ' || p.lastname LIKE ? OR p.lastname || ' ' || p.firstname LIKE ?)`);
+   clauses.push(`(p.first_name || ' ' || p.last_name LIKE ? OR p.last_name || ' ' || p.first_name LIKE ?)`);
    params.push(like, like);
   }
   if (!clauses.length && groupIdHint) {
-   clauses.push('p.assignmentgroupid = ?');
+   clauses.push('p.assignment_group_id = ?');
    params.push(groupIdHint);
   }
   if (!clauses.length) return [];
-  const sql = `SELECT p.id, p.firstname, p.lastname, p.assignmentgroupid, ag.id AS groupid, ag.name AS groupname, ag.standname, ag.maxpasses, ag.editionid AS groupeditionid
-   FROM participants p LEFT JOIN assignment_groups ag ON ag.id = p.assignmentgroupid
+  const sql = `SELECT p.id, p.first_name, p.last_name, p.assignment_group_id, ag.id AS groupid, ag.name AS groupname, ag.stand_name, ag.max_passes, ag.edition_id AS groupeditionid
+   FROM participants p LEFT JOIN assignment_groups ag ON ag.id = p.assignment_group_id
    WHERE ${clauses.join(' OR ')} LIMIT 8`;
   return await new Promise((resolve) => db.all(sql, params, (err, rows) => {
    if (err) console.error('findParticipantCandidates SQL error:', err.message, '| sql:', sql, '| params:', params);
@@ -164,26 +166,26 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   }
   req.session.pendingDiagFollowUp = false;
   if (candidates.length > 1) {
-   const names = candidates.slice(0, 5).map(c => `${c.firstname} ${c.lastname}${c.groupname ? ' (' + c.groupname + ')' : ''}`).join(', ');
+   const names = candidates.slice(0, 5).map(c => `${c.first_name} ${c.last_name}${c.groupname ? ' (' + c.groupname + ')' : ''}`).join(', ');
    return out(`Ho trovato più nominativi che corrispondono: ${names}. Specifica meglio il nome completo o il codice del pass per farti una diagnosi precisa.`, null, null, 'diagnostica pass (ambiguo)');
   }
 
   const participant = candidates[0];
   const activePass = await new Promise((resolve) => db.get(
-   `SELECT id, code, status FROM passes WHERE participantid = ? AND status != 'INVALIDATO' ORDER BY id DESC LIMIT 1`,
+   `SELECT id, code, status FROM passes WHERE participant_id = ? AND status != 'INVALIDATO' ORDER BY id DESC LIMIT 1`,
    [participant.id], (err, row) => resolve(err ? null : row)
   ));
   if (activePass) {
-   return out(`${participant.firstname} ${participant.lastname} ha già un pass attivo (codice ${activePass.code || activePass.id}, stato ${activePass.status}). È per questo che il sistema mostra un avviso e blocca una nuova generazione: per evitare duplicati devi prima invalidare quello esistente da Pass → Assegnatari pass, oppure usare "Sostituisci pass" se disponibile.`, participant.groupid ? `/assignment-groups/${participant.groupid}` : '/participants', 'Apri la scheda dello stand →', 'diagnostica pass (già presente)');
+   return out(`${participant.first_name} ${participant.last_name} ha già un pass attivo (codice ${activePass.code || activePass.id}, stato ${activePass.status}). È per questo che il sistema mostra un avviso e blocca una nuova generazione: per evitare duplicati devi prima invalidare quello esistente da Pass → Assegnatari pass, oppure usare "Sostituisci pass" se disponibile.`, participant.groupid ? `/assignment-groups/${participant.groupid}` : '/participants', 'Apri la scheda dello stand →', 'diagnostica pass (già presente)');
   }
 
-  if (participant.groupid && participant.maxpasses != null) {
+  if (participant.groupid && participant.max_passes != null) {
    const activeCount = await new Promise((resolve) => db.get(
-    `SELECT COUNT(DISTINCT pa.id) AS n FROM participants pa JOIN passes ps ON ps.participantid = pa.id WHERE pa.assignmentgroupid = ? AND ps.status != 'INVALIDATO'`,
+    `SELECT COUNT(DISTINCT pa.id) AS n FROM participants pa JOIN passes ps ON ps.participant_id = pa.id WHERE pa.assignment_group_id = ? AND ps.status != 'INVALIDATO'`,
     [participant.groupid], (err, row) => resolve(err ? 0 : (row ? row.n : 0))
    ));
-   if (activeCount >= participant.maxpasses) {
-    return out(`Lo stand "${participant.groupname || participant.standname || ''}" ha raggiunto il limite massimo di ${participant.maxpasses} pass (attualmente ${activeCount} generati). Per generarne altri, un amministratore deve prima alzare il limite dalla scheda dello stand, sezione Limite pass.`, `/assignment-groups/${participant.groupid}`, 'Apri la scheda dello stand →', 'diagnostica pass (limite raggiunto)');
+   if (activeCount >= participant.max_passes) {
+    return out(`Lo stand "${participant.groupname || participant.stand_name || ''}" ha raggiunto il limite massimo di ${participant.max_passes} pass (attualmente ${activeCount} generati). Per generarne altri, un amministratore deve prima alzare il limite dalla scheda dello stand, sezione Limite pass.`, `/assignment-groups/${participant.groupid}`, 'Apri la scheda dello stand →', 'diagnostica pass (limite raggiunto)');
    }
   }
 
@@ -192,12 +194,12 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
    return out('Nel sistema non è ancora presente nessuna tipologia di pass (la "matrice pass"). Senza almeno una tipologia configurata, la generazione è sempre bloccata. Un amministratore deve crearne una in Impostazioni → Tipologie pass, caricando anche il modello PDF.', '/admin/settings?tab=tipologie', 'Apri Impostazioni: Tipologie →', 'diagnostica pass (matrice mancante)');
   }
 
-  const currentEdition = await new Promise((resolve) => db.get(`SELECT id FROM editions WHERE iscurrent = 1 LIMIT 1`, [], (err, row) => resolve(err ? null : row)));
+  const currentEdition = await new Promise((resolve) => db.get(`SELECT id FROM editions WHERE is_current = 1 LIMIT 1`, [], (err, row) => resolve(err ? null : row)));
   if (currentEdition && participant.groupeditionid && participant.groupeditionid !== currentEdition.id) {
-   return out(`Lo stand di ${participant.firstname} ${participant.lastname} appartiene a un'altra edizione, diversa da quella attualmente attiva sul portale. Cambia l'edizione corrente da Impostazioni, oppure verifica di essere nello stand giusto.`, '/admin/settings#edizioni', 'Apri Impostazioni: Edizioni →', 'diagnostica pass (edizione errata)');
+   return out(`Lo stand di ${participant.first_name} ${participant.last_name} appartiene a un'altra edizione, diversa da quella attualmente attiva sul portale. Cambia l'edizione corrente da Impostazioni, oppure verifica di essere nello stand giusto.`, '/admin/settings#edizioni', 'Apri Impostazioni: Edizioni →', 'diagnostica pass (edizione errata)');
   }
 
-  return out(`Non ho trovato blocchi evidenti per ${participant.firstname} ${participant.lastname}: nessun pass già attivo, il limite dello stand non è stato raggiunto e la matrice pass è configurata. Se il problema persiste, assicurati di aver selezionato una tipologia di pass dal menu a tendina prima di premere "Genera", oppure segnala l'errore esatto mostrato a schermo.`, participant.groupid ? `/assignment-groups/${participant.groupid}` : '/participants', 'Apri la scheda dello stand →', 'diagnostica pass (nessun blocco rilevato)');
+  return out(`Non ho trovato blocchi evidenti per ${participant.first_name} ${participant.last_name}: nessun pass già attivo, il limite dello stand non è stato raggiunto e la matrice pass è configurata. Se il problema persiste, assicurati di aver selezionato una tipologia di pass dal menu a tendina prima di premere "Genera", oppure segnala l'errore esatto mostrato a schermo.`, participant.groupid ? `/assignment-groups/${participant.groupid}` : '/participants', 'Apri la scheda dello stand →', 'diagnostica pass (nessun blocco rilevato)');
  }
 
  app.post('/api/assistente/guida',requireAuth,async (req,res)=>{
@@ -321,12 +323,12 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
     const diagMatch=DIAG_PASS_RE.test(q);
 
     const clauses=[];const params=[];
-    if(codeGuess){clauses.push(`(p.refcode = ? OR p.id IN (SELECT participantid FROM passes WHERE code = ?))`);params.push(codeGuess,codeGuess);}
-    if(nameGuess){const like='%'+nameGuess.replace(/\s+/g,'%')+'%';clauses.push(`(p.firstname || ' ' || p.lastname LIKE ? OR p.lastname || ' ' || p.firstname LIKE ?)`);params.push(like,like);}
-    if(!clauses.length&&groupIdHint){clauses.push('p.assignmentgroupid = ?');params.push(groupIdHint);}
+    if(codeGuess){clauses.push(`(p.ref_code = ? OR p.id IN (SELECT participant_id FROM passes WHERE code = ?))`);params.push(codeGuess,codeGuess);}
+    if(nameGuess){const like='%'+nameGuess.replace(/\s+/g,'%')+'%';clauses.push(`(p.first_name || ' ' || p.last_name LIKE ? OR p.last_name || ' ' || p.first_name LIKE ?)`);params.push(like,like);}
+    if(!clauses.length&&groupIdHint){clauses.push('p.assignment_group_id = ?');params.push(groupIdHint);}
 
-    const sql=clauses.length?`SELECT p.id, p.firstname, p.lastname, p.assignmentgroupid, ag.id AS groupid, ag.name AS groupname, ag.standname, ag.maxpasses, ag.editionid AS groupeditionid
-     FROM participants p LEFT JOIN assignment_groups ag ON ag.id = p.assignmentgroupid
+    const sql=clauses.length?`SELECT p.id, p.first_name, p.last_name, p.assignment_group_id, ag.id AS groupid, ag.name AS groupname, ag.stand_name, ag.max_passes, ag.edition_id AS groupeditionid
+     FROM participants p LEFT JOIN assignment_groups ag ON ag.id = p.assignment_group_id
      WHERE ${clauses.join(' OR ')} LIMIT 8`:null;
 
     db.all(sql||'SELECT 1 AS dummy',sql?params:[],(err,rows)=>{
@@ -348,10 +350,6 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   });
  });
 
-
- // ---- Endpoint di ispezione schema reale (solo admin/organizer) --------
- // Mostra i nomi ESATTI di tabelle e colonne usati dal database in produzione,
- // per evitare di scrivere query basate su nomi sbagliati.
  app.get('/admin/assistente/debug-schema',requireAuth,requireAdminInline,(req,res)=>{
   const tables=['participants','assignment_groups','passes','pass_types','editions','groups'];
   const results={};
@@ -366,5 +364,4 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
    });
   });
  });
-
 };
