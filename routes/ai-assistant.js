@@ -349,6 +349,34 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   return out(`La richiesta #${id} ha uno stato non riconosciuto (${r.status}); contatta un amministratore per verificarla.`, '/area-personale/richieste-rimborso','Apri le mie richieste di rimborso →','diagnostica rimborsi (stato sconosciuto)');
  }
 
+  // ── FASE 6: "quali turni volontari sono ancora scoperti?" ──
+ // Schema reale (db.js): shifts(id,name,zone_id,role_label,start_at,end_at,
+ // max_volunteers,notes,active) + shift_assignments(id,shift_id,volunteer_id,
+ // status,checkin_at,checkin_code,notes). Il conteggio "assegnati" nel codice
+ // esistente (routes/volunteers.js) conta TUTTE le righe di shift_assignments
+ // per shift_id, senza filtrare per status: replichiamo lo stesso criterio.
+ const DIAG_SHIFTS_RE=/turni?.*(scopert|liber|manca|coper)|(scopert|liber).*turni?|turni?\s+volontari/i;
+ async function diagnoseOpenShifts(q){
+  const rows=await new Promise(resolve=>db.all(
+   `SELECT s.*, z.name AS zone_name,
+           (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
+    FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
+    WHERE s.active=1
+    ORDER BY s.start_at, s.name`,
+   [],(e,r)=>resolve(e?[]:(r||[]))
+  ));
+  if(!rows.length)return out('Non risultano turni attivi configurati per i volontari.', '/volunteers','Apri Volontari →','diagnostica turni (nessun turno)');
+  const open=rows.filter(s=>(s.assigned_count||0)<s.max_volunteers);
+  if(!open.length)return out('Tutti i turni attivi risultano coperti: nessun posto libero al momento.', '/volunteers','Apri Volontari →','diagnostica turni (tutti coperti)');
+  const list=open.slice(0,10).map(s=>{
+   const missing=s.max_volunteers-(s.assigned_count||0);
+   const when=s.start_at?String(s.start_at).replace('T',' ').slice(0,16):'orario non impostato';
+   const zone=s.zone_name?` (${s.zone_name})`:'';
+   return `${s.name}${zone} — ${when}: mancano ${missing} volontari su ${s.max_volunteers}`;
+  }).join('; ');
+  return out(`Turni ancora scoperti: ${list}.${open.length>10?' (mostro i primi 10)':''}`, '/volunteers','Apri Volontari →','diagnostica turni (scoperti)');
+ }
+
  app.post('/api/assistente/guida',requireAuth,async (req,res)=>{
   const original=String(req.body&&req.body.question||'').trim();
   if(original.length<2)return res.json({answer:'Scrivi una domanda un po’ più dettagliata.',suggestions:[]});
@@ -378,6 +406,14 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
     const refund=await diagnoseRefundCancel(req,q,currentPath);
     if(refund)return res.json(refund);
    }catch(e){console.error('diagnoseRefundCancel',e.message);}
+  }
+
+  // 1ter) Diagnostica turni volontari scoperti.
+  if(DIAG_SHIFTS_RE.test(q)){
+   try{
+    const shiftsGap=await diagnoseOpenShifts(q);
+    if(shiftsGap)return res.json(shiftsGap);
+   }catch(e){console.error('diagnoseOpenShifts',e.message);}
   }
 
   // 2) Domande diagnostiche ESPLICITE hanno sempre la priorità assoluta.
