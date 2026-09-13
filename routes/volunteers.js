@@ -2,7 +2,8 @@
  * routes/volunteers.js
  * ──────────────────────────────────────────────────────────────────
  * Gestione volontari: lista, aggiunta, modifica, delete,
- * form pubblico candidatura, accept/reject, storico.
+ * form pubblico candidatura, accept/reject, storico,
+ * gestione turni (shifts) e assegnazioni (shift_assignments).
  * ──────────────────────────────────────────────────────────────────
  */
 
@@ -49,31 +50,27 @@ module.exports = function registerVolunteersRoutes(
   // ── GET /volunteers ──────────────────────────────────────────────
   app.get('/volunteers', requireAuth, async (req, res) => {
     try {
-      const edId = await resolveEditionId();
-      const [volunteers, pending, shifts, zones, otherEditionsCount] = await Promise.all([
+      const [volunteers, pending, shifts, zones] = await Promise.all([
         dbAll(`
           SELECT v.*,
                  (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id) AS assignments_count,
                  (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.volunteer_id=v.id AND sa.checkin_at IS NOT NULL) AS checkins_count
           FROM volunteers v
-          WHERE v.status NOT IN ('pending','rejected') AND (v.edition_id = ? OR v.edition_id IS NULL)
-          ORDER BY v.last_name, v.first_name`, [edId]),
-        dbAll("SELECT * FROM volunteers WHERE status='pending' AND (edition_id = ? OR edition_id IS NULL) ORDER BY rowid DESC", [edId]),
+          WHERE v.status NOT IN ('pending','rejected')
+          ORDER BY v.last_name, v.first_name`),
+        dbAll("SELECT * FROM volunteers WHERE status='pending' ORDER BY rowid DESC"),
         dbAll(`
           SELECT s.*, z.name AS zone_name,
                  (SELECT COUNT(*) FROM shift_assignments sa WHERE sa.shift_id=s.id) AS assigned_count
           FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id
-          WHERE (s.edition_id = ? OR s.edition_id IS NULL)
-          ORDER BY s.start_at, s.name`, [edId]),
+          ORDER BY s.start_at, s.name`),
         dbAll("SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope='internal' OR zone_scope='both') ORDER BY sort_order, name"),
-        dbGet(`SELECT COUNT(*) AS n FROM volunteers WHERE edition_id IS NOT NULL AND edition_id != ?`, [edId]),
       ]);
       res.render('volunteers', {
         volunteers: volunteers || [],
         shifts:     shifts     || [],
         zones:      zones      || [],
         pending:    pending    || [],
-        otherEditionsCount: otherEditionsCount?.n || 0,
       });
     } catch (err) {
       console.error('[Volunteers GET]', err.stack || err.message);
@@ -81,73 +78,163 @@ module.exports = function registerVolunteersRoutes(
     }
   });
 
-  app.get('/volunteers/altre-edizioni', requireAuth, async (req, res) => {
+  // ── POST /volunteer-shifts — crea turno ──────────────────────────
+  app.post('/volunteer-shifts', requireAuth, requireNotViewer, async (req, res) => {
     try {
-      const edId = await resolveEditionId();
-      const rows = await dbAll(`
-        SELECT v.*, e.name AS edition_name, e.year AS edition_year
-        FROM volunteers v
-        LEFT JOIN editions e ON e.id = v.edition_id
-        WHERE v.edition_id IS NOT NULL AND v.edition_id != ?
-          AND NOT EXISTS (
-            SELECT 1 FROM volunteers v2
-            WHERE v2.edition_id = ? AND lower(v2.email) = lower(v.email) AND v.email IS NOT NULL AND v.email != ''
-          )
-        ORDER BY e.year DESC, v.last_name, v.first_name`, [edId, edId]);
-      res.json({ volunteers: rows || [] });
+      const { name, zoneid, rolelabel, maxvolunteers, startat, endat, notes } = req.body;
+      if (!String(name || '').trim() || !startat || !endat) return res.redirect('/volunteers#tab-shifts');
+      db.run(
+        `INSERT INTO shifts (name, zone_id, role_label, start_at, end_at, max_volunteers, notes, active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+        [
+          String(name).trim(),
+          zoneid ? parseInt(zoneid, 10) : null,
+          rolelabel || null,
+          startat,
+          endat,
+          parseInt(maxvolunteers, 10) || 1,
+          notes || null,
+        ],
+        function (err) {
+          if (err) return res.status(500).send('Errore creazione turno: ' + err.message);
+          logAction(req.session.user.id, 'create_shift', 'shift', this.lastID, `Turno ${name.trim()} creato`);
+          res.redirect('/volunteers#tab-shifts');
+        }
+      );
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(500).send('Errore creazione turno: ' + err.message);
     }
   });
 
-  app.post('/volunteers/importa/:id', requireAuth, requireNotViewer, async (req, res) => {
+  // ── POST /volunteer-shifts/:id/edit — modifica turno ─────────────
+  app.post('/volunteer-shifts/:id/edit', requireAuth, requireNotViewer, async (req, res) => {
     const id = parseInt(req.params.id, 10);
-    try {
-      const src = await dbGet('SELECT * FROM volunteers WHERE id=?', [id]);
-      if (!src) return res.status(404).json({ error: 'Volontario non trovato' });
-      const edId = await resolveEditionId();
-      if (src.email) {
-        const dup = await dbGet('SELECT id FROM volunteers WHERE edition_id=? AND lower(email)=lower(?)', [edId, src.email]);
-        if (dup) return res.status(409).json({ error: 'Volontario già presente in questa edizione' });
+    const { name, zoneid, rolelabel, maxvolunteers, startat, endat, notes } = req.body;
+    db.run(
+      `UPDATE shifts SET name=?, zone_id=?, role_label=?, start_at=?, end_at=?, max_volunteers=?, notes=? WHERE id=?`,
+      [
+        String(name || '').trim(),
+        zoneid ? parseInt(zoneid, 10) : null,
+        rolelabel || null,
+        startat,
+        endat,
+        parseInt(maxvolunteers, 10) || 1,
+        notes || null,
+        id,
+      ],
+      (err) => {
+        if (err) return res.status(500).send('Errore modifica turno: ' + err.message);
+        logAction(req.session.user.id, 'edit_shift', 'shift', id, `Turno #${id} modificato`);
+        res.redirect('/volunteers#tab-shifts');
       }
-      const result = await new Promise((resolve, reject) => {
-        db.run(
-          `INSERT INTO volunteers
-             (edition_id, first_name, last_name, email, phone, availability, skills,
-              tshirt_size, status, notes, import_batch_id, active,
-              birth_date, birth_place, fiscal_code, residence)
-           VALUES (?,?,?,?,?,?,?,?,'pending',?,NULL,1,?,?,?,?)`,
-          [edId, src.first_name, src.last_name, src.email, src.phone, src.availability, src.skills,
-           src.tshirt_size, src.notes, src.birth_date, src.birth_place, src.fiscal_code, src.residence],
-          function (err) { err ? reject(err) : resolve(this.lastID); }
-        );
+    );
+  });
+
+  // ── POST /volunteer-shifts/:id/delete — elimina turno ────────────
+  app.post('/volunteer-shifts/:id/delete', requireAuth, requireOrganizer, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    db.run('DELETE FROM shift_assignments WHERE shift_id=?', [id], (errA) => {
+      if (errA) return res.status(500).send('Errore eliminazione turno: ' + errA.message);
+      db.run('DELETE FROM shifts WHERE id=?', [id], (errB) => {
+        if (errB) return res.status(500).send('Errore eliminazione turno: ' + errB.message);
+        logAction(req.session.user.id, 'delete_shift', 'shift', id, `Turno #${id} eliminato`);
+        res.redirect('/volunteers#tab-shifts');
       });
-      logAction(req.session.user.id, 'import_volunteer', 'volunteer', result,
-        `Volontario ${src.first_name} ${src.last_name} importato da edizione precedente`);
-      res.json({ ok: true, id: result });
+    });
+  });
+
+  // ── GET /volunteer-assignments/:id — assegnazioni di un turno ────
+  app.get('/volunteer-assignments/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const shift = await dbGet(
+        `SELECT s.*, z.name AS zone_name FROM shifts s LEFT JOIN zones z ON z.id=s.zone_id WHERE s.id=?`,
+        [id]
+      );
+      if (!shift) return res.status(404).send('Turno non trovato');
+      const [assignments, volunteers] = await Promise.all([
+        dbAll(
+          `SELECT sa.id, sa.shift_id, sa.volunteer_id, sa.status, sa.checkin_at, sa.checkin_code,
+                  v.first_name, v.last_name, v.email, v.phone, v.skills
+           FROM shift_assignments sa
+           JOIN volunteers v ON v.id = sa.volunteer_id
+           WHERE sa.shift_id = ?
+           ORDER BY v.last_name, v.first_name`,
+          [id]
+        ),
+        dbAll(`SELECT * FROM volunteers WHERE status NOT IN ('pending','rejected') ORDER BY last_name, first_name`),
+      ]);
+      res.render('volunteer_assignments', { shift, assignments, volunteers });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(500).send('Errore caricamento assegnazioni: ' + err.message);
+    }
+  });
+
+  // ── POST /volunteer-assignments — assegna volontario a un turno ──
+  app.post('/volunteer-assignments', requireAuth, requireNotViewer, async (req, res) => {
+    try {
+      const { shift_id, volunteer_id } = req.body;
+      const sId = parseInt(shift_id, 10);
+      const vId = parseInt(volunteer_id, 10);
+      if (!sId || !vId) return res.redirect('/volunteers#tab-shifts');
+      const already = await dbGet(
+        'SELECT id FROM shift_assignments WHERE shift_id=? AND volunteer_id=?',
+        [sId, vId]
+      );
+      if (already) return res.redirect('/volunteer-assignments/' + sId);
+      db.run(
+        `INSERT INTO shift_assignments (shift_id, volunteer_id, status) VALUES (?, ?, 'assigned')`,
+        [sId, vId],
+        function (err) {
+          if (err) return res.status(500).send('Errore assegnazione volontario: ' + err.message);
+          logAction(req.session.user.id, 'assign_volunteer_shift', 'shift_assignment', this.lastID, `Volontario #${vId} assegnato al turno #${sId}`);
+          res.redirect('/volunteer-assignments/' + sId);
+        }
+      );
+    } catch (err) {
+      res.status(500).send('Errore assegnazione volontario: ' + err.message);
+    }
+  });
+
+  // ── POST /volunteer-assignments/:id/delete — rimuovi assegnazione ─
+  app.post('/volunteer-assignments/:id/delete', requireAuth, requireNotViewer, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const row = await dbGet('SELECT shift_id FROM shift_assignments WHERE id=?', [id]);
+      db.run('DELETE FROM shift_assignments WHERE id=?', [id], (err) => {
+        if (err) return res.status(500).send('Errore rimozione assegnazione: ' + err.message);
+        logAction(req.session.user.id, 'unassign_volunteer_shift', 'shift_assignment', id, `Assegnazione #${id} rimossa`);
+        res.redirect(row ? '/volunteer-assignments/' + row.shift_id : '/volunteers#tab-shifts');
+      });
+    } catch (err) {
+      res.status(500).send('Errore rimozione assegnazione: ' + err.message);
     }
   });
 
   // ── POST /volunteers — aggiungi ──────────────────────────────────
   app.post('/volunteers', requireAuth, requireNotViewer, async (req, res) => {
     try {
-      const { first_name, last_name, email, phone, notes, availability, skills, birth_date, birth_place, fiscal_code, residence } = req.body;
-      if (!String(first_name || '').trim() || !String(last_name || '').trim())
+      const {
+        first_name, last_name, email, phone, notes,
+        availability, skills, birth_date, birthplace,
+        fiscal_code, residence,
+      } = req.body;
+      if (!String(first_name || '').trim() || !String(last_name || '').trim()) {
         return res.status(400).send('Nome e cognome obbligatori');
+      }
       const edId = await resolveEditionId();
       db.run(
         `INSERT INTO volunteers
-           (edition_id, first_name, last_name, email, phone, availability, skills,
-            tshirt_size, status, notes, import_batch_id, active,
-            birth_date, birth_place, fiscal_code, residence)
-         VALUES (?,?,?,?,?,?,?,NULL,'pending',?,NULL,1,?,?,?,?)`,
-        [edId, String(first_name).trim(), String(last_name).trim(), email || null, phone || null,
-         availability || '', skills || '', notes || null,
-         birth_date || null, birth_place || null,
-         fiscal_code ? String(fiscal_code).toUpperCase().trim() : null,
-         residence || null],
+          (edition_id, first_name, last_name, email, phone, availability, skills, tshirt_size, status,
+           notes, import_batch_id, active, birth_date, birthplace, fiscal_code, residence)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 'pending', ?, NULL, 1, ?, ?, ?, ?)`,
+        [
+          edId, String(first_name).trim(), String(last_name).trim(),
+          email || null, phone || null, availability || '', skills || '',
+          notes || null, birth_date || null, birthplace || null,
+          fiscal_code ? String(fiscal_code).toUpperCase().trim() : null,
+          residence || null,
+        ],
         function (err) {
           if (err) return res.status(500).send('Errore salvataggio volontario: ' + err.message);
           logAction(req.session.user.id, 'create_volunteer', 'volunteer', this.lastID, `Volontario ${first_name} ${last_name} creato`);
@@ -155,30 +242,30 @@ module.exports = function registerVolunteersRoutes(
         }
       );
     } catch (err) {
-      res.status(500).send('Errore: ' + (err.message || err));
+      res.status(500).send('Errore: ' + err.message);
     }
   });
 
-  // ── POST /volunteers/:id/edit ────────────────────────────────────
+  // ── POST /volunteers/:id/edit ─────────────────────────────────────
   app.post('/volunteers/:id/edit', requireAuth, requireNotViewer, async (req, res) => {
     try {
       const id = parseInt(req.params.id, 10);
       const {
-        first_name, last_name, email, phone, notes, availability, skills,
-        active, status, birth_date, birth_place, fiscal_code, residence,
+        first_name, last_name, email, phone, notes,
+        availability, skills, active, status,
+        birth_date, birthplace, fiscal_code, residence,
       } = req.body;
       db.run(
-        `UPDATE volunteers SET
-           first_name=?, last_name=?, email=?, phone=?,
-           availability=?, skills=?, status=?, notes=?, active=?,
-           birth_date=?, birth_place=?, fiscal_code=?, residence=?
-         WHERE id=?`,
-        [String(first_name || '').trim(), String(last_name || '').trim(),
-         email || null, phone || null, availability || '', skills || '',
-         status || 'pending', notes || null, active ? 1 : 0,
-         birth_date || null, birth_place || null,
-         fiscal_code ? String(fiscal_code).toUpperCase().trim() : null,
-         residence || null, id],
+        `UPDATE volunteers SET first_name=?, last_name=?, email=?, phone=?, availability=?, skills=?,
+          status=?, notes=?, active=?, birth_date=?, birthplace=?, fiscal_code=?, residence=? WHERE id=?`,
+        [
+          String(first_name || '').trim(), String(last_name || '').trim(),
+          email || null, phone || null, availability || '', skills || '',
+          status || 'pending', notes || null, active ? 1 : 0,
+          birth_date || null, birthplace || null,
+          fiscal_code ? String(fiscal_code).toUpperCase().trim() : null,
+          residence || null, id,
+        ],
         function (err) {
           if (err) return res.status(500).send('Errore aggiornamento volontario: ' + err.message);
           logAction(req.session.user.id, 'edit_volunteer', 'volunteer', id, `Volontario #${id} modificato`);
@@ -186,11 +273,11 @@ module.exports = function registerVolunteersRoutes(
         }
       );
     } catch (err) {
-      res.status(500).send('Errore: ' + (err.message || err));
+      res.status(500).send('Errore: ' + err.message);
     }
   });
 
-  // ── POST /volunteers/:id/delete ──────────────────────────────────
+  // ── POST /volunteers/:id/delete ───────────────────────────────────
   app.post('/volunteers/:id/delete', requireAuth, requireOrganizer, (req, res) => {
     const id = parseInt(req.params.id, 10);
     db.run('DELETE FROM volunteers WHERE id=?', [id], function (err) {
@@ -201,9 +288,9 @@ module.exports = function registerVolunteersRoutes(
   });
 
   // ── GET /candidatura-volontario — form pubblico ──────────────────
-  app.get('/candidatura-volontario', async (_req, res) => {
+  app.get('/candidatura-volontario', async (req, res) => {
     try {
-      const rows     = await dbAll("SELECT key,value FROM app_settings");
+      const rows = await dbAll('SELECT key,value FROM app_settings');
       const settings = Object.fromEntries(rows.map(r => [r.key, r.value]));
       res.render('candidatura_volontario', { eventName: settings.event_name || 'Ludicomix', sent: false, error: null });
     } catch {
@@ -214,69 +301,67 @@ module.exports = function registerVolunteersRoutes(
   // ── POST /candidatura-volontario — submit form pubblico ──────────
   app.post('/candidatura-volontario', async (req, res) => {
     try {
-      const rows     = await dbAll("SELECT key,value FROM app_settings");
+      const rows = await dbAll('SELECT key,value FROM app_settings');
       const settings = Object.fromEntries(rows.map(r => [r.key, r.value]));
       const eventName = settings.event_name || 'Ludicomix';
-
-      const { first_name, last_name, email, phone, birth_date, birth_place, fiscal_code, residence, skills, availability, notes, privacy } = req.body;
-
-      if (!String(first_name || '').trim() || !String(last_name || '').trim())
+      const {
+        first_name, last_name, email, phone, birth_date, birthplace,
+        fiscal_code, residence, skills, availability, notes, privacy,
+      } = req.body;
+      if (!String(first_name || '').trim() || !String(last_name || '').trim()) {
         return res.render('candidatura_volontario', { eventName, sent: false, error: 'Nome e cognome sono obbligatori.' });
-      if (!email || !String(email).includes('@'))
+      }
+      if (!email || !String(email).includes('@')) {
         return res.render('candidatura_volontario', { eventName, sent: false, error: 'Inserisci un indirizzo email valido.' });
-      if (!privacy)
+      }
+      if (!privacy) {
         return res.render('candidatura_volontario', { eventName, sent: false, error: 'Devi accettare il trattamento dei dati personali per procedere.' });
-
+      }
       const edId = await resolveEditionId();
-      const fn   = String(first_name).trim(), ln = String(last_name).trim();
-      const fc   = fiscal_code ? String(fiscal_code).toUpperCase().trim() : null;
-
-      await new Promise((resolve, reject) => {
+      const fn = String(first_name).trim(), ln = String(last_name).trim();
+      const fc = fiscal_code ? String(fiscal_code).toUpperCase().trim() : null;
+      const newId = await new Promise((resolve, reject) => {
         db.run(
           `INSERT INTO volunteers
-             (edition_id, first_name, last_name, email, phone, availability, skills,
-              status, notes, birth_date, birth_place, fiscal_code, residence, active, import_batch_id, tshirt_size)
-           VALUES (?,?,?,?,?,?,?,'pending',?,?,?,?,?,1,NULL,NULL)`,
-          [edId, fn, ln, email || null, phone || null, availability || '', skills || '', notes || null,
-           birth_date || null, birth_place || null, fc, residence || null],
+            (edition_id, first_name, last_name, email, phone, availability, skills, status,
+             notes, birth_date, birthplace, fiscal_code, residence, active, import_batch_id, tshirt_size)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, 1, NULL, NULL)`,
+          [edId, fn, ln, email || null, phone || null, availability || '', skills || '',
+           notes || null, birth_date || null, birthplace || null, fc, residence || null],
           function (err) { err ? reject(err) : resolve(this.lastID); }
         );
       });
 
-      // Email di conferma al candidato
       if (email) {
-        sendEmailViaSmtp(email, `[${eventName}] Candidatura volontario ricevuta`,
-          `<div style="font-family:sans-serif;max-width:560px">
-             <h2 style="color:#1e2d4e">Grazie, ${fn}!</h2>
-             <p>Abbiamo ricevuto la tua candidatura come volontario per <strong>${eventName}</strong>.</p>
-             <p>La valuteremo al più presto e ti contatteremo a questo indirizzo email.</p>
-             <hr style="border:none;border-top:1px solid #e2e8f0;margin:1.5rem 0">
-             <p style="font-size:.85rem;color:#64748b">Non rispondere a questa email.</p>
-           </div>`
-        ).catch(() => {});
+        sendEmailViaSmtp(email, `${eventName} — Candidatura volontario ricevuta`, `
+          <div style="font-family:sans-serif;max-width:560px">
+            <h2 style="color:#1e2d4e">Grazie, ${fn}!</h2>
+            <p>Abbiamo ricevuto la tua candidatura come volontario per <strong>${eventName}</strong>.</p>
+            <p>La valuteremo al più presto e ti contatteremo a questo indirizzo email.</p>
+            <hr style="border:none;border-top:1px solid #e2e8f0;margin:1.5rem 0">
+            <p style="font-size:.85rem;color:#64748b">Non rispondere a questa email.</p>
+          </div>`).catch(() => {});
       }
 
-      // Notifica agli organizzatori
-      trySendEmail?.(`Nuova candidatura volontario — ${fn} ${ln}`,
-        `<p>Nuova candidatura ricevuta dal form pubblico:</p>
-         <table style="border-collapse:collapse;font-size:.9rem">
-           <tr><td style="padding:.3rem .75rem;color:#64748b">Nome</td><td style="font-weight:600">${fn} ${ln}</td></tr>
-           <tr><td style="padding:.3rem .75rem;color:#64748b">Email</td><td>${email || '—'}</td></tr>
-           <tr><td style="padding:.3rem .75rem;color:#64748b">Telefono</td><td>${phone || '—'}</td></tr>
-           <tr><td style="padding:.3rem .75rem;color:#64748b">Competenze</td><td>${skills || '—'}</td></tr>
-           <tr><td style="padding:.3rem .75rem;color:#64748b">Disponibilità</td><td>${availability || '—'}</td></tr>
-         </table>
-         <p style="margin-top:1rem"><a href="/volunteers" style="background:#1e2d4e;color:#f5c842;padding:.5rem 1rem;border-radius:6px;text-decoration:none;font-weight:700">Vai alle candidature →</a></p>`
-      );
+      trySendEmail?.(`Nuova candidatura volontario: ${fn} ${ln}`, `
+        <p>Nuova candidatura ricevuta dal form pubblico</p>
+        <table style="border-collapse:collapse;font-size:.9rem">
+          <tr><td style="padding:.3rem .75rem;color:#64748b">Nome</td><td style="font-weight:600">${fn} ${ln}</td></tr>
+          <tr><td style="padding:.3rem .75rem;color:#64748b">Email</td><td>${email || ''}</td></tr>
+          <tr><td style="padding:.3rem .75rem;color:#64748b">Telefono</td><td>${phone || ''}</td></tr>
+          <tr><td style="padding:.3rem .75rem;color:#64748b">Competenze</td><td>${skills || ''}</td></tr>
+          <tr><td style="padding:.3rem .75rem;color:#64748b">Disponibilità</td><td>${availability || ''}</td></tr>
+        </table>
+        <p style="margin-top:1rem"><a href="/volunteers" style="background:#1e2d4e;color:#f5c842;padding:.5rem 1rem;border-radius:6px;text-decoration:none;font-weight:700">Vai alle candidature</a></p>`);
 
       res.render('candidatura_volontario', { eventName, sent: true, error: null });
     } catch (err) {
       console.error('[Candidatura POST]', err.message);
-      res.render('candidatura_volontario', { eventName: 'Ludicomix', sent: false, error: 'Errore interno — riprova tra qualche istante.' });
+      res.render('candidatura_volontario', { eventName: 'Ludicomix', sent: false, error: 'Errore interno, riprova tra qualche istante.' });
     }
   });
 
-  // ── POST /volunteers/:id/accept ──────────────────────────────────
+  // ── POST /volunteers/:id/accept ───────────────────────────────────
   app.post('/volunteers/:id/accept', requireAuth, requireNotViewer, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     try {
@@ -284,24 +369,22 @@ module.exports = function registerVolunteersRoutes(
       if (!vol) return res.status(404).send('Volontario non trovato');
       await new Promise((resolve, reject) => {
         db.run(
-          `UPDATE volunteers SET status='approved', active=1,
-           reviewed_by=?, reviewed_at=datetime('now','localtime') WHERE id=?`,
+          `UPDATE volunteers SET status='approved', active=1, reviewed_by=?, reviewed_at=datetime('now','localtime') WHERE id=?`,
           [req.session.user.id, id],
-          err => err ? reject(err) : resolve()
+          (err) => err ? reject(err) : resolve()
         );
       });
       logAction(req.session.user.id, 'accept_volunteer', 'volunteer', id, `Candidatura #${id} accettata`);
       if (vol.email) {
-        const rows = await dbAll("SELECT key,value FROM app_settings");
+        const rows = await dbAll('SELECT key,value FROM app_settings');
         const settings = Object.fromEntries(rows.map(r => [r.key, r.value]));
         const eventName = settings.event_name || 'Ludicomix';
-        sendEmailViaSmtp(vol.email, `[${eventName}] Candidatura accettata 🎉`,
-          `<div style="font-family:sans-serif;max-width:560px">
-             <h2 style="color:#065f46">Benvenuto/a nel team, ${vol.first_name}!</h2>
-             <p>La tua candidatura come volontario per <strong>${eventName}</strong> è stata <strong>accettata</strong>.</p>
-             <p>Ti contatteremo presto con maggiori dettagli sui turni e le attività.</p>
-           </div>`
-        ).catch(() => {});
+        sendEmailViaSmtp(vol.email, `${eventName} — Candidatura accettata 🎉`, `
+          <div style="font-family:sans-serif;max-width:560px">
+            <h2 style="color:#065f46">Benvenuto/a nel team, ${vol.first_name}!</h2>
+            <p>La tua candidatura come volontario per <strong>${eventName}</strong> è stata <strong>accettata</strong>.</p>
+            <p>Ti contatteremo presto con maggiori dettagli sui turni e le attività.</p>
+          </div>`).catch(() => {});
       }
       res.redirect('/volunteers#candidature');
     } catch (err) {
@@ -309,7 +392,7 @@ module.exports = function registerVolunteersRoutes(
     }
   });
 
-  // ── POST /volunteers/:id/reject ──────────────────────────────────
+  // ── POST /volunteers/:id/reject ───────────────────────────────────
   app.post('/volunteers/:id/reject', requireAuth, requireNotViewer, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     const { rejection_reason } = req.body;
@@ -318,26 +401,24 @@ module.exports = function registerVolunteersRoutes(
       if (!vol) return res.status(404).send('Volontario non trovato');
       await new Promise((resolve, reject) => {
         db.run(
-          `UPDATE volunteers SET status='rejected', active=0,
-           reviewed_by=?, reviewed_at=datetime('now','localtime'), rejection_reason=? WHERE id=?`,
+          `UPDATE volunteers SET status='rejected', active=0, reviewed_by=?, reviewed_at=datetime('now','localtime'), rejection_reason=? WHERE id=?`,
           [req.session.user.id, rejection_reason || null, id],
-          err => err ? reject(err) : resolve()
+          (err) => err ? reject(err) : resolve()
         );
       });
       logAction(req.session.user.id, 'reject_volunteer', 'volunteer', id, `Candidatura #${id} rifiutata`);
       if (vol.email) {
-        const rows = await dbAll("SELECT key,value FROM app_settings");
+        const rows = await dbAll('SELECT key,value FROM app_settings');
         const settings = Object.fromEntries(rows.map(r => [r.key, r.value]));
         const eventName = settings.event_name || 'Ludicomix';
-        sendEmailViaSmtp(vol.email, `[${eventName}] Aggiornamento sulla tua candidatura`,
-          `<div style="font-family:sans-serif;max-width:560px">
-             <h2 style="color:#1e2d4e">Gentile ${vol.first_name},</h2>
-             <p>Grazie per esserti candidato/a come volontario per <strong>${eventName}</strong>.</p>
-             <p>Purtroppo, in questa edizione non saremo in grado di accettare la tua candidatura.</p>
-             ${rejection_reason ? `<p><em>Note: ${rejection_reason}</em></p>` : ''}
-             <p>Speriamo di rivederti nelle prossime edizioni!</p>
-           </div>`
-        ).catch(() => {});
+        sendEmailViaSmtp(vol.email, `${eventName} — Aggiornamento sulla tua candidatura`, `
+          <div style="font-family:sans-serif;max-width:560px">
+            <h2 style="color:#1e2d4e">Gentile ${vol.first_name},</h2>
+            <p>Grazie per esserti candidato/a come volontario per <strong>${eventName}</strong>.</p>
+            <p>Purtroppo, in questa edizione non saremo in grado di accettare la tua candidatura.</p>
+            ${rejection_reason ? `<p><em>Note: ${rejection_reason}</em></p>` : ''}
+            <p>Speriamo di rivederti nelle prossime edizioni!</p>
+          </div>`).catch(() => {});
       }
       res.redirect('/volunteers#candidature');
     } catch (err) {
@@ -345,18 +426,15 @@ module.exports = function registerVolunteersRoutes(
     }
   });
 
-  // ── GET /volunteers/storico ──────────────────────────────────────
+  // ── GET /volunteers/storico ────────────────────────────────────────
   app.get('/volunteers/storico', requireAuth, async (req, res) => {
     try {
-      const edId = await resolveEditionId();
       const history = await dbAll(`
         SELECT v.*, u.username AS reviewed_by_name
-        FROM volunteers v
-        LEFT JOIN users u ON u.id=v.reviewed_by
-        WHERE v.status IN ('approved','rejected') AND (v.edition_id = ? OR v.edition_id IS NULL)
-        ORDER BY v.reviewed_at DESC, v.id DESC
-      `, [edId]);
-      res.render('volunteers_storico', { history: history || [] });
+        FROM volunteers v LEFT JOIN users u ON u.id=v.reviewed_by
+        WHERE v.status IN ('approved','rejected')
+        ORDER BY v.reviewed_at DESC, v.id DESC`);
+      res.render('volunteers_storico', { history });
     } catch (err) {
       res.status(500).send('Errore: ' + err.message);
     }

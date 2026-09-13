@@ -38,7 +38,6 @@
 
 <div class="container" style="max-width:900px;margin:1.5rem auto;padding:0 1.25rem">
 
-  <!-- HEADER TURNO -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:.75rem">
     <div>
       <h1 style="font-size:1.25rem;font-weight:800;color:#1e2d4e;line-height:1.2">👥 <%= shift.name %></h1>
@@ -47,7 +46,6 @@
     <a href="/volunteers" class="btn-ghost">← Torna ai volontari</a>
   </div>
 
-  <!-- DETTAGLI TURNO -->
   <div class="log-card">
     <div class="log-card-head">
       <span class="log-card-title">📋 Dettagli turno</span>
@@ -94,7 +92,6 @@
     </div>
   </div>
 
-  <!-- ASSEGNA VOLONTARIO -->
   <div class="log-card">
     <div class="log-card-head">
       <span class="log-card-title">➕ Assegna volontario</span>
@@ -108,7 +105,6 @@
             <select name="volunteer_id" required>
               <option value="">-- Seleziona --</option>
               <%
-                // Escludi già assegnati
                 var assignedIds = assignments.map(function(a){ return a.volunteer_id || a.id; });
               %>
               <% volunteers.forEach(function(v){ %>
@@ -124,7 +120,6 @@
     </div>
   </div>
 
-  <!-- LISTA ASSEGNAZIONI -->
   <div class="log-card">
     <div class="log-card-head">
       <span class="log-card-title">🙋 Volontari assegnati <span style="background:#e2e8f0;border-radius:9999px;padding:.05rem .45rem;font-size:.72rem;margin-left:.3rem;font-weight:600"><%= assignedCount %></span></span>
