@@ -38,6 +38,20 @@ db.run(`ALTER TABLE participants ADD COLUMN edition_id INTEGER`, err => {
   db.run(`UPDATE participants SET edition_id = (SELECT id FROM editions WHERE is_current=1 LIMIT 1) WHERE edition_id IS NULL`);
 });
 
+// Fase 4 — tracciamento nominativi inseriti: le righe già esistenti restano
+// senza data storica; ogni nuovo inserimento riceve automaticamente created_at.
+db.run(`ALTER TABLE participants ADD COLUMN created_at TEXT`, err => {
+  if (err && !err.message.includes('duplicate column')) console.warn('[Migration] participants.created_at:', err.message);
+});
+db.run(`CREATE TRIGGER IF NOT EXISTS trg_participants_set_created_at
+AFTER INSERT ON participants
+WHEN NEW.created_at IS NULL
+BEGIN
+  UPDATE participants SET created_at=datetime('now','localtime') WHERE id=NEW.id;
+END`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_participants_created_at ON participants(created_at)`);
+
+
 db.run(`CREATE TABLE IF NOT EXISTS pass_types (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
@@ -243,31 +257,6 @@ db.run(`CREATE TABLE IF NOT EXISTS refund_requests (
 )`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_refund_requests_user ON refund_requests(user_id)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_refund_requests_status ON refund_requests(status)`);
-
-// ═══════════════════════════════════════════════════════
-// AREA PERSONALE — dati Ente del Terzo Settore per il modulo rimborsi
-// e firma digitale caricata dall'utente
-// ═══════════════════════════════════════════════════════
-
-db.run(`CREATE TABLE IF NOT EXISTS org_settings (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  ente_name TEXT,
-  runts_region TEXT,
-  runts_atto TEXT,
-  sede_legale TEXT,
-  sede_prov TEXT,
-  sede_via TEXT,
-  sede_civico TEXT,
-  ente_cf TEXT,
-  regolamento_data TEXT,
-  updated_at TEXT DEFAULT (datetime('now','localtime'))
-)`);
-db.run(`INSERT INTO org_settings (id) SELECT 1 WHERE NOT EXISTS (SELECT 1 FROM org_settings WHERE id=1)`);
-
-db.run(`ALTER TABLE users ADD COLUMN signature_file TEXT`, err => {
-  if (err && !err.message.includes('duplicate column')) console.warn('[Migration] users.signature_file:', err.message);
-});
-
 
 
 db.run(`CREATE TABLE IF NOT EXISTS zones (

@@ -216,6 +216,45 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   return out(`Non ho trovato blocchi evidenti per ${participant.first_name} ${participant.last_name}: nessun pass già attivo, il limite dello stand non è stato raggiunto e la matrice pass è configurata. Se il problema persiste, assicurati di aver selezionato una tipologia di pass dal menu a tendina prima di premere "Genera", oppure segnala l'errore esatto mostrato a schermo.`, participant.groupid ? `/assignment-groups/${participant.groupid}` : '/participants', 'Apri la scheda dello stand →', 'diagnostica pass (nessun blocco rilevato)');
  }
 
+
+ // ── FASE 4: statistiche live su pass e nominativi ─────────────────
+ const LIVE_STATS_RE=/\b(quanti|quante|numero|totale)\b.*\b(pass|nominativi|partecipanti)\b|\b(pass|nominativi|partecipanti)\b.*\b(quanti|quante)\b/i;
+ function dbOne(sql,params){return new Promise(resolve=>db.get(sql,params,(err,row)=>resolve(err?null:row)));}
+ async function liveStats(q){
+  if(!LIVE_STATS_RE.test(q))return null;
+  const cur=await dbOne(`SELECT id,name FROM editions WHERE is_current=1 LIMIT 1`,[]);
+  if(!cur)return out('Non trovo un’edizione corrente: non posso calcolare statistiche affidabili finché non ne viene selezionata una.','/admin/settings#edizioni','Apri Impostazioni: Edizioni →','statistiche live');
+  const ed=[cur.id];
+  const isParticipants=/\b(nominativi|partecipanti)\b/i.test(q)||/pass\s+(sono\s+)?inseriti/i.test(q);
+  const isToday=/\b(oggi|odierno|odierna)\b/i.test(q);
+  const isWithoutPass=/senza\s+pass/i.test(q);
+  const isValidPdf=/pdf\s+(valid|generat)|pass\s+(pdf\s+)?valid|pass\s+sono\s+generati/i.test(q);
+  if(isParticipants){
+   if(isToday){
+    const row=await dbOne(`SELECT COUNT(*) AS total, SUM(CASE WHEN EXISTS (SELECT 1 FROM passes ps WHERE ps.participant_id=p.id AND ps.status!='INVALIDATO' AND ps.pdf_file IS NOT NULL AND TRIM(ps.pdf_file)!='') THEN 1 ELSE 0 END) AS with_pdf FROM participants p WHERE p.edition_id=? AND date(p.created_at)=date('now','localtime')`,ed);
+    if(!row)return out('Non riesco a leggere i nominativi inseriti oggi in questo momento.',null,null,'statistiche live');
+    const total=row.total||0,withPdf=row.with_pdf||0;
+    return out(`Oggi sono stati inseriti ${total} nominativi nell’edizione ${cur.name}. ${withPdf} hanno già almeno un pass PDF valido; ${total-withPdf} sono ancora senza un pass PDF valido e possono essere in attesa di generazione.`,'/participants','Apri Assegnatari pass →','statistiche live: nominativi inseriti oggi');
+   }
+   if(isWithoutPass){
+    const row=await dbOne(`SELECT COUNT(*) AS total FROM participants p WHERE p.edition_id=? AND NOT EXISTS (SELECT 1 FROM passes ps WHERE ps.participant_id=p.id AND ps.status!='INVALIDATO' AND ps.pdf_file IS NOT NULL AND TRIM(ps.pdf_file)!='')`,ed);
+    if(!row)return out('Non riesco a calcolare i nominativi senza pass in questo momento.',null,null,'statistiche live');
+    return out(`Nell’edizione ${cur.name} ci sono ${row.total||0} nominativi senza un pass PDF valido.`, '/participants','Apri Assegnatari pass →','statistiche live: nominativi senza pass');
+   }
+   return out('Posso dirti quanti nominativi sono stati inseriti oggi oppure quanti sono senza pass PDF valido. Prova, ad esempio: “quanti nominativi sono stati inseriti oggi?” o “quanti nominativi sono senza pass?”.','/participants','Apri Assegnatari pass →','statistiche live');
+  }
+  if(isToday){
+   const row=await dbOne(`SELECT COUNT(*) AS created_today, SUM(CASE WHEN status!='INVALIDATO' AND pdf_file IS NOT NULL AND TRIM(pdf_file)!='' THEN 1 ELSE 0 END) AS valid_pdf_today, SUM(CASE WHEN status='GENERATO' THEN 1 ELSE 0 END) AS still_generated, SUM(CASE WHEN status='SCARICATO' THEN 1 ELSE 0 END) AS downloaded, SUM(CASE WHEN status='STAMPATO' THEN 1 ELSE 0 END) AS printed, SUM(CASE WHEN status IN ('CONSEGNATO','RICONSEGNATO') THEN 1 ELSE 0 END) AS delivered, SUM(CASE WHEN status='INVALIDATO' THEN 1 ELSE 0 END) AS invalidated FROM passes WHERE edition_id=? AND date(created_at)=date('now','localtime')`,ed);
+   if(!row)return out('Non riesco a calcolare i pass generati oggi in questo momento.',null,null,'statistiche live');
+   return out(`Oggi sono stati creati ${row.created_today||0} pass nell’edizione ${cur.name}. Di questi, ${row.valid_pdf_today||0} hanno un PDF valido. Stato attuale: ${(row.still_generated||0)} generati, ${(row.downloaded||0)} scaricati, ${(row.printed||0)} stampati, ${(row.delivered||0)} consegnati o riconsegnati, ${(row.invalidated||0)} invalidati.`,'/participants','Apri Assegnatari pass →','statistiche live: pass creati oggi');
+  }
+  if(isValidPdf){
+   const row=await dbOne(`SELECT COUNT(*) AS total FROM passes WHERE edition_id=? AND status!='INVALIDATO' AND pdf_file IS NOT NULL AND TRIM(pdf_file)!=''`,ed);
+   if(!row)return out('Non riesco a calcolare i pass PDF validi in questo momento.',null,null,'statistiche live');
+   return out(`Nell’edizione ${cur.name} ci sono ${row.total||0} pass con PDF generato e valido.`, '/participants','Apri Assegnatari pass →','statistiche live: PDF validi');
+  }
+  return out('Posso calcolare i pass creati oggi oppure i pass PDF validi. Prova: “quanti pass ha generato oggi il sistema?” oppure “quanti pass PDF validi ci sono?”.','/participants','Apri Assegnatari pass →','statistiche live');
+ }
  app.post('/api/assistente/guida',requireAuth,async (req,res)=>{
   const original=String(req.body&&req.body.question||'').trim();
   if(original.length<2)return res.json({answer:'Scrivi una domanda un po’ più dettagliata.',suggestions:[]});
@@ -225,7 +264,13 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   const prev=history.slice().reverse().find(m=>m&&m.kind==='user'&&m.text&&m.text!==original);
   const q=((follow&&prev?prev.text+' ':'')+original).toLowerCase();
 
-  // 0) Domande diagnostiche ESPLICITE hanno sempre la priorità assoluta.
+  // 0) Statistiche live (Fase 4), prima di guide e diagnosi testuali.
+  try{
+   const stats=await liveStats(q);
+   if(stats)return res.json(stats);
+  }catch(e){console.error('liveStats',e.message);}
+
+  // 1) Domande diagnostiche ESPLICITE hanno sempre la priorità assoluta.
   if(DIAG_PASS_RE.test(q)){
    try{
     const diag=await diagnosePassGeneration(req,q,currentPath);
