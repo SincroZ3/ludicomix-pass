@@ -255,6 +255,62 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   }
   return out('Posso calcolare i pass creati oggi oppure i pass PDF validi. Prova: “quanti pass ha generato oggi il sistema?” oppure “quanti pass PDF validi ci sono?”.','/participants','Apri Assegnatari pass →','statistiche live');
  }
+
+ // ── FASE 4: diagnostica accreditamenti ────────────────────────────
+ const DIAG_ACCREDIT_RE=/(che\s+cosa\s+manca|cosa\s+manca|manca\s+a).*(accredit|richiesta)|(accredit|richiesta).*(incomplet|manca|non riesco|problema)/i;
+ const ACCREDIT_STOP_WORDS=new Set(['questo','questa','accreditamento','accredito','richiesta','domanda','manca','cosa','che','azienda','espositore','stampa','media','autore','content','creator']);
+ function extractAccredQuery(q){
+  const m=q.match(/(?:accreditamento|accredito|richiesta)\s+(?:di|per)\s+(.+?)\s*[?.]?\s*$/i)||q.match(/(?:di|per)\s+(.+?)\s*[?.]?\s*$/i);
+  if(!m)return null;
+  const v=m[1].trim();
+  return v&& !v.split(/\s+/).some(w=>ACCREDIT_STOP_WORDS.has(w.toLowerCase())) ? v : null;
+ }
+ function missingLabels(r){
+  const missing=[];
+  if(!r.company_name)missing.push('azienda/organizzazione');
+  if(!r.contact_name)missing.push('nome del referente');
+  if(!r.email)missing.push('email');
+  const type=(r.accreditation_type||'espositore').toLowerCase();
+  if(['espositore','associazione'].includes(type)){
+   if(!r.stand_type)missing.push('tipologia di stand');
+   if(!r.stand_size)missing.push('dimensione dello stand');
+  }else if(['stampa','media'].includes(type)){
+   if(!r.media_outlet)missing.push('testata/mezzo');
+   if(!r.press_role)missing.push('ruolo nella testata');
+  }else if(type==='autore'){
+   if(!r.publisher)missing.push('editore');
+   if(!r.genre)missing.push('genere');
+  }else if(['contentcreator','content_creator'].includes(type)){
+   if(!r.channel_url)missing.push('link del canale');
+   if(!r.platform)missing.push('piattaforma');
+   if(!r.subscribers)missing.push('numero iscritti/follower');
+  }
+  return missing;
+ }
+ async function diagnoseAccreditation(q,currentPath){
+  const idMatch=(q.match(/(?:accreditamento|accredito|richiesta)\s*(?:n\.?|numero|#)?\s*(\d+)/i)||[])[1];
+  const term=extractAccredQuery(q);
+  let rows=[];
+  if(idMatch){
+   rows=await new Promise(resolve=>db.all(`SELECT ar.*,ag.name AS linked_group_name,ag.stand_name AS linked_stand_name FROM accreditation_requests ar LEFT JOIN assignment_groups ag ON ag.id=ar.assignment_group_id WHERE ar.id=?`,[parseInt(idMatch,10)],(e,r)=>resolve(e?[]:(r||[]))));
+  }else if(term){
+   const like='%'+term.replace(/\s+/g,'%')+'%';
+   rows=await new Promise(resolve=>db.all(`SELECT ar.*,ag.name AS linked_group_name,ag.stand_name AS linked_stand_name FROM accreditation_requests ar LEFT JOIN assignment_groups ag ON ag.id=ar.assignment_group_id WHERE ar.company_name LIKE ? OR ar.contact_name LIKE ? OR ar.email LIKE ? ORDER BY ar.created_at DESC LIMIT 8`,[like,like,like],(e,r)=>resolve(e?[]:(r||[]))));
+  }else if(currentPath&&/\/admin\/accreditamento/.test(currentPath)){
+   return out('Per verificare che cosa manca, indicami il nome dell’azienda, il nome del referente, l’email oppure il numero della richiesta di accreditamento.', '/admin/accreditamento','Apri Accreditamenti →','diagnostica accreditamenti (dati mancanti)');
+  }else return null;
+  if(!rows.length)return out('Non trovo una richiesta di accreditamento corrispondente. Indicami il nome dell’azienda, il referente, l’email oppure il numero della richiesta.', '/admin/accreditamento','Apri Accreditamenti →','diagnostica accreditamenti (non trovato)');
+  if(rows.length>1){
+   const names=rows.slice(0,5).map(r=>`${r.company_name||'Senza azienda'} — ${r.contact_name||'senza referente'} (richiesta #${r.id})`).join(', ');
+   return out(`Ho trovato più richieste: ${names}. Specifica il numero della richiesta oppure un riferimento più preciso.`,null,null,'diagnostica accreditamenti (ambiguo)');
+  }
+  const r=rows[0],type=(r.accreditation_type||'espositore').toLowerCase(),missing=missingLabels(r);
+  if(r.status==='rifiutato')return out(`La richiesta #${r.id} di ${r.company_name||r.contact_name} è stata rifiutata.${r.rejection_reason?' Motivo registrato: '+r.rejection_reason+'.':' Non è stata registrata una motivazione.'}`, '/admin/accreditamento','Apri Accreditamenti →','diagnostica accreditamenti (rifiutato)');
+  if(r.status==='portale_attivato')return out(`La richiesta #${r.id} di ${r.company_name||r.contact_name} è già approvata e il portale espositore è attivato.${r.linked_group_name?' È collegata al gruppo '+r.linked_group_name+(r.linked_stand_name?' / stand '+r.linked_stand_name:'')+'.':''}`, r.assignment_group_id?`/assignment-groups/${r.assignment_group_id}`:'/admin/accreditamento','Apri sezione correlata →','diagnostica accreditamenti (approvato)');
+  const extra=type==='espositore'||type==='associazione'?' Per approvarla dovrai inoltre scegliere nel modulo di approvazione raggruppamento, zona, nome stand e limite pass.':'';
+  if(missing.length)return out(`La richiesta #${r.id} di ${r.company_name||r.contact_name} è in attesa e risulta incompleta: mancano ${missing.join(', ')}.${extra}`, '/admin/accreditamento','Apri Accreditamenti →','diagnostica accreditamenti (campi mancanti)');
+  return out(`La richiesta #${r.id} di ${r.company_name||r.contact_name} è completa nei dati richiesti per la tipologia “${r.accreditation_type||'espositore'}” ed è ancora in attesa.${extra}`, '/admin/accreditamento','Apri Accreditamenti →','diagnostica accreditamenti (completa)');
+ }
  app.post('/api/assistente/guida',requireAuth,async (req,res)=>{
   const original=String(req.body&&req.body.question||'').trim();
   if(original.length<2)return res.json({answer:'Scrivi una domanda un po’ più dettagliata.',suggestions:[]});
@@ -270,7 +326,15 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
    if(stats)return res.json(stats);
   }catch(e){console.error('liveStats',e.message);}
 
-  // 1) Domande diagnostiche ESPLICITE hanno sempre la priorità assoluta.
+  // 1) Diagnostica accreditamenti in tempo reale.
+  if(DIAG_ACCREDIT_RE.test(q)){
+   try{
+    const accred=await diagnoseAccreditation(q,currentPath);
+    if(accred)return res.json(accred);
+   }catch(e){console.error('diagnoseAccreditation',e.message);}
+  }
+
+  // 2) Domande diagnostiche ESPLICITE hanno sempre la priorità assoluta.
   if(DIAG_PASS_RE.test(q)){
    try{
     const diag=await diagnosePassGeneration(req,q,currentPath);
