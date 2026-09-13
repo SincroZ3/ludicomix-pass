@@ -4,6 +4,10 @@
  * Gestione volontari: lista, aggiunta, modifica, delete,
  * form pubblico candidatura, accept/reject, storico,
  * gestione turni (shifts) e assegnazioni (shift_assignments).
+ *
+ * ATTENZIONE: contiene una rotta TEMPORANEA di debug
+ * (GET /debug/shifts) da rimuovere una volta risolto il problema
+ * dei turni che non compaiono in lista/calendario.
  * ──────────────────────────────────────────────────────────────────
  */
 
@@ -75,6 +79,22 @@ module.exports = function registerVolunteersRoutes(
     } catch (err) {
       console.error('[Volunteers GET]', err.stack || err.message);
       res.status(500).type('text/plain').send('Errore caricamento volontari: ' + (err.message || err));
+    }
+  });
+
+  // ── [TEMPORANEA — DEBUG] GET /debug/shifts ────────────────────────
+  // Rotta di sola lettura per verificare cosa c'è realmente in tabella
+  // "shifts", senza alcun filtro (né su active, né su data). Rimuovila
+  // dal codice dopo aver individuato il problema.
+  app.get('/debug/shifts', requireAuth, requireOrganizer, async (req, res) => {
+    try {
+      const rows = await dbAll(
+        `SELECT id, name, zone_id, role_label, start_at, end_at, max_volunteers, notes, active
+         FROM shifts ORDER BY id DESC LIMIT 20`
+      );
+      res.json({ count: rows.length, shifts: rows });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
   });
 
