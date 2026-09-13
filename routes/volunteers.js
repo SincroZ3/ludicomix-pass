@@ -4,10 +4,6 @@
  * Gestione volontari: lista, aggiunta, modifica, delete,
  * form pubblico candidatura, accept/reject, storico,
  * gestione turni (shifts) e assegnazioni (shift_assignments).
- *
- * ATTENZIONE: contiene una rotta TEMPORANEA di debug
- * (GET /debug/shifts) da rimuovere una volta risolto il problema
- * dei turni che non compaiono in lista/calendario.
  * ──────────────────────────────────────────────────────────────────
  */
 
@@ -82,88 +78,26 @@ module.exports = function registerVolunteersRoutes(
     }
   });
 
-  // ── [TEMPORANEA — DEBUG] GET /debug/shifts ────────────────────────
-  // Rotta di sola lettura per verificare cosa c'è realmente in tabella
-  // "shifts", senza alcun filtro (né su active, né su data). Rimuovila
-  // dal codice dopo aver individuato il problema.
-  app.get('/debug/shifts', requireAuth, requireOrganizer, async (req, res) => {
-    try {
-      const rows = await dbAll(
-        `SELECT id, name, zone_id, role_label, start_at, end_at, max_volunteers, notes, active
-         FROM shifts ORDER BY id DESC LIMIT 20`
-      );
-      res.json({ count: rows.length, shifts: rows });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-
-
-
-
-
-// ── [TEMPORANEA — DEBUG] GET /debug/db-info ───────────────────────
-// Verifica in un colpo solo: dove si trova il file del database in uso,
-// e se un INSERT diventa immediatamente leggibile (scrittura + lettura +
-// pulizia, tutto nella stessa richiesta). Se il conteggio "prima" e
-// "dopo" non aumenta di 1 nonostante l'insert sia andato a buon fine,
-// il problema è nel livello di persistenza (DB diverso, non salvato,
-// o sovrascritto), non nel codice delle rotte volontari.
-// Rimuovi questa rotta a diagnosi conclusa.
-app.get('/debug/db-info', requireAuth, requireOrganizer, async (req, res) => {
-  try {
-    const before = await dbGet('SELECT COUNT(*) AS n FROM shifts');
-    const testName = 'PROBE-' + Date.now();
-    const insertedId = await new Promise((resolve, reject) => {
-      db.run(
-        `INSERT INTO shifts (name, zone_id, role_label, start_at, end_at, max_volunteers, notes, active)
-         VALUES (?, NULL, NULL, '2099-01-01T00:00', '2099-01-01T01:00', 1, 'probe diagnostica', 1)`,
-        [testName],
-        function (err) { err ? reject(err) : resolve(this.lastID); }
-      );
-    });
-    const after = await dbGet('SELECT COUNT(*) AS n FROM shifts');
-    const probeRow = await dbGet('SELECT * FROM shifts WHERE id=?', [insertedId]);
-    await new Promise((resolve) => db.run('DELETE FROM shifts WHERE id=?', [insertedId], () => resolve()));
-
-    res.json({
-      dbPathInUso: db.dbPath || db.filename || '(non esposto da db.js, vedi log server)',
-      cartellaProcesso: process.cwd(),
-      variabileDataDir: process.env.DATA_DIR || '(non impostata)',
-      conteggioPrima: before ? before.n : null,
-      conteggioSubitoDopoInsert: after ? after.n : null,
-      rigaAppenaInseritaERiletta: probeRow || null,
-      conclusione: (after && before && after.n === before.n + 1)
-        ? 'OK: la scrittura è immediatamente visibile in lettura sullo stesso database.'
-        : 'PROBLEMA: il conteggio non è aumentato di 1 dopo un insert riuscito — stai leggendo/scrivendo su database diversi, oppure qualcosa cancella subito la riga.',
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-
-
-
-
-
-
   // ── POST /volunteer-shifts — crea turno ──────────────────────────
+  // FIX: il form (views/volunteers.ejs) invia i campi CON underscore
+  // (start_at, end_at, zone_id, role_label, max_volunteers), non senza
+  // come si leggeva prima: quel mismatch faceva fallire sempre il
+  // controllo di validazione e usciva con un redirect silenzioso senza
+  // mai eseguire l'INSERT.
   app.post('/volunteer-shifts', requireAuth, requireNotViewer, async (req, res) => {
     try {
-      const { name, zoneid, rolelabel, maxvolunteers, startat, endat, notes } = req.body;
-      if (!String(name || '').trim() || !startat || !endat) return res.redirect('/volunteers#tab-shifts');
+      const { name, zone_id, role_label, max_volunteers, start_at, end_at, notes } = req.body;
+      if (!String(name || '').trim() || !start_at || !end_at) return res.redirect('/volunteers#tab-shifts');
       db.run(
         `INSERT INTO shifts (name, zone_id, role_label, start_at, end_at, max_volunteers, notes, active)
          VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
         [
           String(name).trim(),
-          zoneid ? parseInt(zoneid, 10) : null,
-          rolelabel || null,
-          startat,
-          endat,
-          parseInt(maxvolunteers, 10) || 1,
+          zone_id ? parseInt(zone_id, 10) : null,
+          role_label || null,
+          start_at,
+          end_at,
+          parseInt(max_volunteers, 10) || 1,
           notes || null,
         ],
         function (err) {
@@ -178,18 +112,19 @@ app.get('/debug/db-info', requireAuth, requireOrganizer, async (req, res) => {
   });
 
   // ── POST /volunteer-shifts/:id/edit — modifica turno ─────────────
+  // FIX: stesso mismatch nomi campo del blocco di creazione (vedi sopra).
   app.post('/volunteer-shifts/:id/edit', requireAuth, requireNotViewer, async (req, res) => {
     const id = parseInt(req.params.id, 10);
-    const { name, zoneid, rolelabel, maxvolunteers, startat, endat, notes } = req.body;
+    const { name, zone_id, role_label, max_volunteers, start_at, end_at, notes } = req.body;
     db.run(
       `UPDATE shifts SET name=?, zone_id=?, role_label=?, start_at=?, end_at=?, max_volunteers=?, notes=? WHERE id=?`,
       [
         String(name || '').trim(),
-        zoneid ? parseInt(zoneid, 10) : null,
-        rolelabel || null,
-        startat,
-        endat,
-        parseInt(maxvolunteers, 10) || 1,
+        zone_id ? parseInt(zone_id, 10) : null,
+        role_label || null,
+        start_at,
+        end_at,
+        parseInt(max_volunteers, 10) || 1,
         notes || null,
         id,
       ],
