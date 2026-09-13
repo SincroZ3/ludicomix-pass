@@ -377,6 +377,31 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   return out(`Turni ancora scoperti: ${list}.${open.length>10?' (mostro i primi 10)':''}`, '/volunteers','Apri Volontari →','diagnostica turni (scoperti)');
  }
 
+  // ── FASE 7: "quali richieste logistica sono ancora in attesa?" ──
+ // Schema reale (db.js): service_requests(id, assignment_group_id, type,
+ // service_type, quantity, notes, status, requested_at, updated_at,
+ // edition_id) + assignment_groups(id, name, ...). Stati reali confermati
+ // in views/admin-logistica.ejs: in_attesa, approvato, consegnato, annullato.
+ const DIAG_LOGISTICA_RE=/(richiest[ae]|servizi).*(logistic|material|attrezzatur).*(attesa|scopert|pendent)|(logistic|material|attrezzatur).*(richiest[ae]).*(attesa)|richiest[ae]\s+(di\s+)?(servizio|servizi|material|attrezzatur).*(attesa)/i;
+ async function diagnoseLogisticaPending(){
+  const rows=await new Promise(resolve=>db.all(
+   `SELECT sr.*, sr.service_type AS type, ag.name AS group_name
+    FROM service_requests sr
+    LEFT JOIN assignment_groups ag ON ag.id = sr.assignment_group_id
+    WHERE sr.status='in_attesa'
+    ORDER BY sr.requested_at ASC`,
+   [],(e,r)=>resolve(e?[]:(r||[]))
+  ));
+  if(!rows.length)return out('Non risultano richieste di servizi/materiale logistica in attesa al momento.', '/admin/logistica','Apri Logistica →','diagnostica logistica (nessuna in attesa)');
+  const list=rows.slice(0,10).map(r=>{
+   const group=r.group_name||'gruppo non specificato';
+   const type=r.type||r.service_type||'tipo non specificato';
+   const when=r.requested_at?String(r.requested_at).slice(0,16).replace('T',' '):'data non disponibile';
+   return `${group} — ${type} (qtà ${r.quantity||1}), richiesta il ${when}`;
+  }).join('; ');
+  return out(`Richieste di logistica ancora in attesa (${rows.length}): ${list}.${rows.length>10?' (mostro le prime 10, in ordine dalla più vecchia)':''}`, '/admin/logistica','Apri Logistica →','diagnostica logistica (in attesa)');
+ }
+
  app.post('/api/assistente/guida',requireAuth,async (req,res)=>{
   const original=String(req.body&&req.body.question||'').trim();
   if(original.length<2)return res.json({answer:'Scrivi una domanda un po’ più dettagliata.',suggestions:[]});
@@ -414,6 +439,14 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
     const shiftsGap=await diagnoseOpenShifts(q);
     if(shiftsGap)return res.json(shiftsGap);
    }catch(e){console.error('diagnoseOpenShifts',e.message);}
+  }
+
+  // 1quater) Diagnostica richieste logistica in attesa.
+  if(DIAG_LOGISTICA_RE.test(q)){
+   try{
+    const logisticaPending=await diagnoseLogisticaPending();
+    if(logisticaPending)return res.json(logisticaPending);
+   }catch(e){console.error('diagnoseLogisticaPending',e.message);}
   }
 
   // 2) Domande diagnostiche ESPLICITE hanno sempre la priorità assoluta.
