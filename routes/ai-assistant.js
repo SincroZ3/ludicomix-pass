@@ -257,10 +257,12 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
  }
 
  // ── FASE 4: diagnostica accreditamenti ────────────────────────────
- const DIAG_ACCREDIT_RE=/(che\s+cosa\s+manca|cosa\s+manca|manca\s+a).*(accredit|richiesta)|(accredit|richiesta).*(incomplet|manca|non riesco|problema)/i;
+ const DIAG_ACCREDIT_RE=/(che\s+cosa\s+manca|cosa\s+manca|manca\s+a).*(accredit|richiesta)|(accredit|richiesta).*(incomplet|complet|manca|non riesco|problema|rifiutat|approvat)|rifiutat.*(accredit|richiesta)|approvat.*(accredit|richiesta)/i;
  const ACCREDIT_STOP_WORDS=new Set(['questo','questa','accreditamento','accredito','richiesta','domanda','manca','cosa','che','azienda','espositore','stampa','media','autore','content','creator']);
  function extractAccredQuery(q){
-  const m=q.match(/(?:accreditamento|accredito|richiesta)\s+(?:di|per)\s+(.+?)\s*[?.]?\s*$/i)||q.match(/(?:di|per)\s+(.+?)\s*[?.]?\s*$/i);
+  // Si ferma prima di suffissi come "è completa", "è rifiutata" o "è approvata".
+  // Così cerca "Faramir", non la frase intera "Faramir è completa".
+  const m=q.match(/(?:accreditamento|accredito|richiesta)\s+(?:di|per)\s+(.+?)(?:\s+(?:è|e)\s+(?:complet[ao]|rifiutat[ao]|approvat[ao])|\s*[?.]?\s*$)/i)||q.match(/(?:di|per)\s+(.+?)(?:\s+(?:è|e)\s+(?:complet[ao]|rifiutat[ao]|approvat[ao])|\s*[?.]?\s*$)/i);
   if(!m)return null;
   const v=m[1].trim();
   return v&& !v.split(/\s+/).some(w=>ACCREDIT_STOP_WORDS.has(w.toLowerCase())) ? v : null;
