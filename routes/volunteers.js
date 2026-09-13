@@ -98,6 +98,57 @@ module.exports = function registerVolunteersRoutes(
     }
   });
 
+
+
+
+
+
+// ── [TEMPORANEA — DEBUG] GET /debug/db-info ───────────────────────
+// Verifica in un colpo solo: dove si trova il file del database in uso,
+// e se un INSERT diventa immediatamente leggibile (scrittura + lettura +
+// pulizia, tutto nella stessa richiesta). Se il conteggio "prima" e
+// "dopo" non aumenta di 1 nonostante l'insert sia andato a buon fine,
+// il problema è nel livello di persistenza (DB diverso, non salvato,
+// o sovrascritto), non nel codice delle rotte volontari.
+// Rimuovi questa rotta a diagnosi conclusa.
+app.get('/debug/db-info', requireAuth, requireOrganizer, async (req, res) => {
+  try {
+    const before = await dbGet('SELECT COUNT(*) AS n FROM shifts');
+    const testName = 'PROBE-' + Date.now();
+    const insertedId = await new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO shifts (name, zone_id, role_label, start_at, end_at, max_volunteers, notes, active)
+         VALUES (?, NULL, NULL, '2099-01-01T00:00', '2099-01-01T01:00', 1, 'probe diagnostica', 1)`,
+        [testName],
+        function (err) { err ? reject(err) : resolve(this.lastID); }
+      );
+    });
+    const after = await dbGet('SELECT COUNT(*) AS n FROM shifts');
+    const probeRow = await dbGet('SELECT * FROM shifts WHERE id=?', [insertedId]);
+    await new Promise((resolve) => db.run('DELETE FROM shifts WHERE id=?', [insertedId], () => resolve()));
+
+    res.json({
+      dbPathInUso: db.dbPath || db.filename || '(non esposto da db.js, vedi log server)',
+      cartellaProcesso: process.cwd(),
+      variabileDataDir: process.env.DATA_DIR || '(non impostata)',
+      conteggioPrima: before ? before.n : null,
+      conteggioSubitoDopoInsert: after ? after.n : null,
+      rigaAppenaInseritaERiletta: probeRow || null,
+      conclusione: (after && before && after.n === before.n + 1)
+        ? 'OK: la scrittura è immediatamente visibile in lettura sullo stesso database.'
+        : 'PROBLEMA: il conteggio non è aumentato di 1 dopo un insert riuscito — stai leggendo/scrivendo su database diversi, oppure qualcosa cancella subito la riga.',
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+
+
+
+
   // ── POST /volunteer-shifts — crea turno ──────────────────────────
   app.post('/volunteer-shifts', requireAuth, requireNotViewer, async (req, res) => {
     try {
