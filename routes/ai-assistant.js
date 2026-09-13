@@ -261,7 +261,6 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
  const ACCREDIT_STOP_WORDS=new Set(['questo','questa','accreditamento','accredito','richiesta','domanda','manca','cosa','che','azienda','espositore','stampa','media','autore','content','creator']);
  function extractAccredQuery(q){
   // Si ferma prima di suffissi come "è completa", "è rifiutata" o "è approvata".
-  // Così cerca "Faramir", non la frase intera "Faramir è completa".
   const m=q.match(/(?:accreditamento|accredito|richiesta)\s+(?:di|per)\s+(.+?)(?:\s+(?:è|e)\s+(?:complet[ao]|rifiutat[ao]|approvat[ao])|\s*[?.]?\s*$)/i)||q.match(/(?:di|per)\s+(.+?)(?:\s+(?:è|e)\s+(?:complet[ao]|rifiutat[ao]|approvat[ao])|\s*[?.]?\s*$)/i);
   if(!m)return null;
   const v=m[1].trim();
@@ -313,6 +312,44 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   if(missing.length)return out(`La richiesta #${r.id} di ${r.company_name||r.contact_name} è in attesa e risulta incompleta: mancano ${missing.join(', ')}.${extra}`, '/admin/accreditamento','Apri Accreditamenti →','diagnostica accreditamenti (campi mancanti)');
   return out(`La richiesta #${r.id} di ${r.company_name||r.contact_name} è completa nei dati richiesti per la tipologia “${r.accreditation_type||'espositore'}” ed è ancora in attesa.${extra}`, '/admin/accreditamento','Apri Accreditamenti →','diagnostica accreditamenti (completa)');
  }
+  // ── FASE 5: diagnostica "perché non posso annullare questo rimborso?" ──
+ // Regola di business reale (routes/area-personale.js, POST .../richieste-rimborso/:id/annulla):
+ // l'annullamento è permesso SOLO se status === 'inattesa'. Owner-only: la query
+ // filtra sempre per userid, quindi una richiesta di un altro utente risulta "non trovata".
+ const DIAG_REFUND_RE=/(perch[eé]|come mai).*(annull|cancell).*(rimbors)|(rimbors).*(annull|cancell)|annull.*(rimbors)/i;
+ function extractRefundId(q){
+  const m=q.match(/(?:rimborso|richiesta)\s*(?:n\.?|numero|#)?\s*(\d+)/i);
+  return m?parseInt(m[1],10):null;
+ }
+ async function diagnoseRefundCancel(req,q,currentPath){
+  const uid=req.session&&req.session.user&&req.session.user.id;
+  const isAccounting=req.session&&req.session.user&&(req.session.user.role==='admin'||req.session.user.role==='accountant');
+  const id=extractRefundId(q);
+  if(!id){
+   if(currentPath&&/richieste-rimborso/.test(currentPath)){
+    return out('Per dirti perché non riesci ad annullare, indicami il numero della richiesta di rimborso.', '/area-personale/richieste-rimborso','Apri le mie richieste di rimborso →','diagnostica rimborsi (dati mancanti)');
+   }
+   return null;
+  }
+  const r=await new Promise(resolve=>db.get(`SELECT rr.*,u.username FROM refund_requests rr LEFT JOIN users u ON u.id=rr.userid WHERE rr.id=?`,[id],(e,row)=>resolve(e?null:row)));
+  if(!r){
+   return out(`Non trovo una richiesta di rimborso con il numero #${id}.`, '/area-personale/richieste-rimborso','Apri le mie richieste di rimborso →','diagnostica rimborsi (non trovata)');
+  }
+  if(r.userid!==uid&&!isAccounting){
+   return out(`Non riesci ad annullare la richiesta #${id} perché non è associata al tuo account: puoi annullare solo le tue richieste di rimborso.`, '/area-personale/richieste-rimborso','Apri le mie richieste di rimborso →','diagnostica rimborsi (non proprietario)');
+  }
+  if(r.status==='inattesa'){
+   return out(`La richiesta #${id} è ancora in attesa: puoi annullarla dal pulsante Annulla nella pagina delle tue richieste di rimborso. Le spese collegate torneranno disponibili per una nuova richiesta.`, '/area-personale/richieste-rimborso','Apri le mie richieste di rimborso →','diagnostica rimborsi (annullabile)');
+  }
+  if(r.status==='approvata'){
+   return out(`Non puoi annullare la richiesta #${id} perché è già stata approvata: le richieste valutate (approvate o rifiutate) non sono più annullabili dal richiedente.`, '/area-personale/richieste-rimborso','Apri le mie richieste di rimborso →','diagnostica rimborsi (già approvata)');
+  }
+  if(r.status==='rifiutata'){
+   return out(`Non puoi annullare la richiesta #${id} perché è già stata rifiutata.${r.reviewnotes?' Motivo registrato: '+r.reviewnotes+'.':' Non è stata registrata una motivazione.'} Le richieste già valutate non sono più annullabili dal richiedente.`, '/area-personale/richieste-rimborso','Apri le mie richieste di rimborso →','diagnostica rimborsi (già rifiutata)');
+  }
+  return out(`La richiesta #${id} ha uno stato non riconosciuto (${r.status}); contatta un amministratore per verificarla.`, '/area-personale/richieste-rimborso','Apri le mie richieste di rimborso →','diagnostica rimborsi (stato sconosciuto)');
+ }
+
  app.post('/api/assistente/guida',requireAuth,async (req,res)=>{
   const original=String(req.body&&req.body.question||'').trim();
   if(original.length<2)return res.json({answer:'Scrivi una domanda un po’ più dettagliata.',suggestions:[]});
@@ -334,6 +371,14 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
     const accred=await diagnoseAccreditation(q,currentPath);
     if(accred)return res.json(accred);
    }catch(e){console.error('diagnoseAccreditation',e.message);}
+  }
+
+  // 1bis) Diagnostica annullamento rimborsi in tempo reale.
+  if(DIAG_REFUND_RE.test(q)){
+   try{
+    const refund=await diagnoseRefundCancel(req,q,currentPath);
+    if(refund)return res.json(refund);
+   }catch(e){console.error('diagnoseRefundCancel',e.message);}
   }
 
   // 2) Domande diagnostiche ESPLICITE hanno sempre la priorità assoluta.
