@@ -1,5 +1,6 @@
 <% if (currentUser) { %>
 <!-- CIUCHINO ASSISTENTE — Fase 1: guida interna contestuale -->
+<div id="donkey-backdrop"></div>
 <div id="donkey-assistant" aria-live="polite">
   <div id="donkey-panel" role="dialog" aria-label="Assistente Ludicomix">
     <div id="donkey-head"><span>🫏</span><strong>Assistente Ludicomix</strong><span class="donkey-sub">Guida interna</span><button id="donkey-close" type="button" aria-label="Chiudi assistente">×</button></div>
@@ -86,6 +87,62 @@
   document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')scheduleIdleAttention();});
 
   var sx,sy,sr,sb,moved=false;btn.addEventListener('touchstart',function(e){var t=e.touches[0],r=btn.getBoundingClientRect();sx=t.clientX;sy=t.clientY;sr=window.innerWidth-r.right;sb=window.innerHeight-r.bottom;moved=false;},{passive:true});btn.addEventListener('touchmove',function(e){var t=e.touches[0],dx=t.clientX-sx,dy=t.clientY-sy;if(Math.abs(dx)>6||Math.abs(dy)>6)moved=true;if(!moved)return;e.preventDefault();btn.parentElement.style.right=Math.max(8,Math.min(window.innerWidth-72,sr-dx))+'px';btn.parentElement.style.bottom=Math.max(8,Math.min(window.innerHeight-72,sb-dy))+'px';},{passive:false});btn.addEventListener('touchend',function(){if(moved){btn.dataset.drag='1';setTimeout(function(){delete btn.dataset.drag;},300);}});btn.addEventListener('click',function(e){if(btn.dataset.drag)e.stopImmediatePropagation();},true);
+
+  // ── API interna esposta per il popup centrato desktop (Ctrl/Cmd+K) ──
+  // Riusa esattamente la stessa logica (stato, chat, suggerimenti, guida): nessuna duplicazione.
+  window.__donkey = { open: open, close: close, isOpen: function(){ return panel.classList.contains('open'); } };
+})();
+</script>
+
+<script>
+(function(){
+  // ── Popup Ciuchino centrato (Ctrl/Cmd+K) — solo desktop, stesso motore, stile diverso ──
+  var panel=document.getElementById('donkey-panel');
+  var backdrop=document.getElementById('donkey-backdrop');
+  if(!panel||!backdrop||!window.__donkey)return;
+
+  function isDesktop(){ return window.matchMedia('(min-width: 769px)').matches; }
+
+  function openCentered(){
+    panel.classList.add('centered');
+    backdrop.classList.add('show');
+    window.__donkey.open();
+  }
+  function closeCentered(){
+    window.__donkey.close();
+    backdrop.classList.remove('show');
+    panel.classList.remove('centered');
+  }
+
+  document.addEventListener('keydown',function(e){
+    if(!isDesktop())return;
+    if((e.ctrlKey||e.metaKey)&&e.key==='k'){
+      e.preventDefault();
+      if(window.__donkey.isOpen()&&panel.classList.contains('centered')){
+        closeCentered();
+      } else {
+        openCentered();
+      }
+      return;
+    }
+    if(e.key==='Escape'&&window.__donkey.isOpen()&&panel.classList.contains('centered')){
+      closeCentered();
+    }
+  });
+
+  backdrop.addEventListener('click',closeCentered);
+
+  // Se l'utente apre il ciuchino cliccando l'icona (angolo), resta nello stile "widget" normale
+  document.getElementById('donkey-btn').addEventListener('click',function(){
+    if(!window.__donkey.isOpen()){
+      panel.classList.remove('centered');
+      backdrop.classList.remove('show');
+    }
+  });
+  document.getElementById('donkey-close').addEventListener('click',function(){
+    backdrop.classList.remove('show');
+    panel.classList.remove('centered');
+  });
 })();
 </script>
 <% } %>

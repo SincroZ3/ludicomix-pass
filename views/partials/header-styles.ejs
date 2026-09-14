@@ -668,4 +668,47 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 #donkey-greet-bubble.show{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;cursor:pointer}
 #donkey-greet-bubble:after{content:'';position:absolute;right:16px;top:100%;border-width:7px 6px 0 6px;border-style:solid;border-color:var(--brand-yellow) transparent transparent transparent}
 @media(prefers-reduced-motion:reduce){#donkey-img.donkey-attention,#donkey-badge.donkey-pulse,.donkey-msg,#donkey-suggestions button{animation:none}#donkey-greet-bubble{transition:none}}
+/* ============================================================
+   CIUCHINO — Popup centrato desktop (Ctrl/Cmd+K)
+   Stessa logica del widget donkey, presentazione "nuova conversazione"
+   ============================================================ */
+#donkey-backdrop{display:none;position:fixed;inset:0;background:rgba(10,20,45,.6);z-index:9960;backdrop-filter:blur(3px)}
+#donkey-backdrop.show{display:block}
+@media(max-width:768px){#donkey-backdrop{display:none !important}}
+
+@media(min-width:769px){
+  #donkey-panel.centered{
+    display:none;
+    position:fixed;
+    top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    width:min(640px,88vw);
+    max-height:min(620px,80vh);
+    z-index:9971;
+    border-radius:20px;
+    border-width:2px;
+    box-shadow:0 30px 80px rgba(10,20,45,.45);
+  }
+  #donkey-panel.centered.open{
+    display:flex;
+    animation:donkey-centered-pop .22s ease-out;
+  }
+  #donkey-panel.centered:after{display:none}
+  #donkey-panel.centered #donkey-head{
+    border-radius:18px 18px 0 0;
+    padding:1rem 1.2rem;
+  }
+  #donkey-panel.centered #donkey-head strong{font-size:1.05rem}
+  #donkey-panel.centered #donkey-chat{
+    min-height:200px;
+    max-height:min(420px,56vh);
+    padding:1.2rem 1.3rem;
+  }
+  #donkey-panel.centered #donkey-form{padding:.85rem 1rem}
+  #donkey-panel.centered #donkey-q{font-size:.92rem;padding:.6rem .75rem}
+}
+@keyframes donkey-centered-pop{
+  from{opacity:0;transform:translate(-50%,-46%) scale(.96)}
+  to{opacity:1;transform:translate(-50%,-50%) scale(1)}
+}
 </style>

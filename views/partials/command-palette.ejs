@@ -11,14 +11,14 @@
     <div class="cp-footer">
       <span><kbd>↑</kbd><kbd>↓</kbd> naviga</span>
       <span><kbd>↵</kbd> apri</span>
-      <span><kbd>Ctrl</kbd>+<kbd>K</kbd> apri/chiudi</span>
+      <span><kbd>Ctrl</kbd>+<kbd>O</kbd> apri/chiudi</span>
       <span style="margin-left:auto"><a href="/search" style="color:#a0aec0;text-decoration:none;font-size:.72rem">Ricerca avanzata →</a></span>
     </div>
   </div>
 </div>
 
 <!-- FAB ricerca mobile -->
-<button id="search-fab" aria-label="Apri ricerca rapida" title="Cerca (Cmd+K)">🔍</button>
+<button id="search-fab" aria-label="Apri ricerca rapida" title="Cerca (Cmd+O)">🔍</button>
 <script>
 (function(){
   var overlay=document.getElementById('cp-overlay');
@@ -32,7 +32,7 @@
   function renderLoading(){resultsEl.innerHTML='<div class="cp-empty">Ricerca in corso…</div>';}
 
   document.addEventListener('keydown',function(e){
-    if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();overlay.classList.contains('open')?close():open();return;}
+    if((e.ctrlKey||e.metaKey)&&e.key==='o'){e.preventDefault();overlay.classList.contains('open')?close():open();return;}
     if(!overlay.classList.contains('open'))return;
     if(e.key==='Escape'){close();return;}
     if(e.key==='ArrowDown'){e.preventDefault();moveFocus(1);return;}
