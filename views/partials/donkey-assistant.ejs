@@ -1,0 +1,91 @@
+<% if (currentUser) { %>
+<!-- CIUCHINO ASSISTENTE — Fase 1: guida interna contestuale -->
+<div id="donkey-assistant" aria-live="polite">
+  <div id="donkey-panel" role="dialog" aria-label="Assistente Ludicomix">
+    <div id="donkey-head"><span>🫏</span><strong>Assistente Ludicomix</strong><span class="donkey-sub">Guida interna</span><button id="donkey-close" type="button" aria-label="Chiudi assistente">×</button></div>
+    <div id="donkey-chat"></div>
+    <div id="donkey-suggestions"></div>
+    <form id="donkey-form"><input id="donkey-q" autocomplete="off" placeholder="Chiedi al Ciuchino..." aria-label="Scrivi una domanda"><button id="donkey-send" type="submit">➤</button></form>
+  </div>
+  <button id="donkey-btn" type="button" aria-label="Apri Assistente Ludicomix" title="Chiedi aiuto al Ciuchino">
+    <div id="donkey-greet-bubble">Ciao! Ti serve aiuto? 👋</div>
+    <img id="donkey-img" src="/ciuchino_static.png" alt="Ciuchino Assistente"><span id="donkey-badge">?</span>
+  </button>
+</div>
+<script>
+(function(){
+  var btn=document.getElementById('donkey-btn'),panel=document.getElementById('donkey-panel'),chat=document.getElementById('donkey-chat'),form=document.getElementById('donkey-form'),input=document.getElementById('donkey-q'),suggestions=document.getElementById('donkey-suggestions'),bubble=document.getElementById('donkey-greet-bubble');
+  if(!btn||!panel||!chat||!form||!input||!suggestions)return;
+  var img=document.getElementById('donkey-img');
+  var STATIC_SRC='/ciuchino_static.png';
+  // GIF di saluto (Ciuchino che si alza e saluta, sfondo trasparente, ~1.4MB), caricata solo al bisogno.
+  var GREET_GIF_SRC='/gif_ciuchino.gif';
+  var GREET_GIF_DURATION_MS=7000; // durata reale di un ciclo della gif (confermata: 7 secondi)
+  var path=window.location.pathname,storeKey='ludicomix.donkey.chat.v3';
+  var context={'/participants':{t:'Sei negli <b>Assegnatari Pass</b>. Posso aiutarti a creare uno stand, aggiungere un nominativo, generare, ristampare o invalidare un pass.',q:['Come creo uno stand?','Come genero un pass?','Come ristampo un pass?']},'/passes':{t:'<b>Pass generati</b> è una sezione di backup tecnico e non va usata per la gestione ordinaria. Per creare stand, generare, ristampare, scaricare, consegnare o invalidare pass usa <b>Assegnatari Pass</b>.',q:['Vai ad Assegnatari Pass','Come genero un pass?','Come ristampo un pass?']},'/agenda':{t:'Stai lavorando sul <b>Palinsesto</b>. Vuoi creare un evento, gestire sale o pubblicare il programma?',q:['Come creo un evento?','Dove modifico il programma pubblico?','Come gestisco le sale?']},'/volunteers':{t:'Sei nella sezione <b>Volontari</b>. Posso guidarti tra candidature, turni e calendario.',q:['Come aggiungo un volontario?','Come gestisco i turni?']},'/admin/logistica':{t:'Sei in <b>Logistica</b>. Posso aiutarti con richieste servizi, attrezzatura, checklist, catering e fornitori.',q:['Dove vedo le richieste servizi?','Come gestisco attrezzatura?']},'/area-personale':{t:'Benvenuto nella tua <b>Area Personale</b>. Note, rubrica, checklist, spese e rimborsi restano accessibili anche cambiando edizione.',q:['Come inserisco una spesa?','Come importo un espositore in rubrica?','Come invio un rimborso?']},'/admin/accreditamento':{t:'Sei negli <b>Accreditamenti</b>. Puoi vedere, approvare o rifiutare richieste.',q:['Come approvo una richiesta?','Dove trovo le richieste in attesa?']}};
+  function ctx(){for(var k in context)if(path.indexOf(k)===0)return context[k];return {t:'Ciao! Sono il <b>Ciuchino Assistente</b>. Posso spiegarti come usare le funzioni del portale.',q:['Come creo uno stand?','Come inserisco una spesa?','Come cambio edizione?']};}
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function readState(){try{var s=JSON.parse(sessionStorage.getItem(storeKey)||'null');if(s&&typeof s==='object')return {messages:s.messages||[],suggestions:s.suggestions||[],started:!!s.started,open:!!s.open};}catch(_){}return {messages:[],suggestions:[],started:false,open:false};}
+  var state=readState();
+  function saveState(){try{sessionStorage.setItem(storeKey,JSON.stringify(state));}catch(_){}}
+  function addMessage(html,kind,text,save){var d=document.createElement('div');d.className='donkey-msg '+(kind||'assistant');d.innerHTML=html;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;if(save!==false){state.messages.push({html:html,kind:kind||'assistant',text:text||''});state.messages=state.messages.slice(-30);saveState();}return d;}
+  function msg(html,kind,text){return addMessage(html,kind,text,true);}
+  function setSuggestions(arr){state.suggestions=Array.isArray(arr)?arr:[];suggestions.innerHTML='';state.suggestions.forEach(function(q){var b=document.createElement('button');b.type='button';b.textContent=q;b.onclick=function(){ask(q);};suggestions.appendChild(b);});saveState();}
+  function restoreMessages(){if(!state.messages.length)return;state.messages.forEach(function(m){addMessage(m.html,m.kind,m.text,false);});chat.dataset.started=state.started?'1':'';setSuggestions(state.suggestions||[]);}
+  restoreMessages();
+  function setOpen(v){state.open=!!v;saveState();if(v){panel.classList.add('open');hideBubble();}else panel.classList.remove('open');}
+  function open(){setOpen(true);if(!chat.dataset.started){var c=ctx();msg(c.t+'<div class="donkey-links"><button type="button" onclick="this.closest(\'.donkey-msg\').remove()">Va bene!</button></div>','assistant','');setSuggestions(c.q);chat.dataset.started='1';state.started=true;saveState();}setTimeout(function(){input.focus();},120);}
+  function close(){setOpen(false);}
+  if(state.open)open();
+  btn.onclick=function(e){if(bubble&&bubble.classList.contains('show')&&e.target===bubble)return;panel.classList.contains('open')?close():open();};
+  document.getElementById('donkey-close').onclick=close;
+  function renderGuide(text){return esc(text).replace(/\n/g,'<br>');}
+  function history(){return state.messages.filter(function(m){return m.kind==='user';}).slice(-6).map(function(m){return {kind:m.kind,text:m.text};});}
+  function sendFeedback(question,source,link,useful,btnYes,btnNo,statusEl){
+    btnYes.disabled=true;btnNo.disabled=true;
+    fetch('/api/assistente/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:question,source:source,link:link,useful:useful})})
+      .then(function(r){if(!r.ok)throw new Error('errore feedback');statusEl.textContent=useful?'Grazie del feedback!':'Grazie, segnalato per migliorare la guida.';})
+      .catch(function(){statusEl.textContent='Non sono riuscito a inviare il feedback.';btnYes.disabled=false;btnNo.disabled=false;});
+  }
+  function pulseBadgeIfClosed(){
+    if(panel.classList.contains('open'))return;
+    var badge=document.getElementById('donkey-badge');
+    if(!badge)return;
+    badge.classList.remove('donkey-pulse');void badge.offsetWidth;badge.classList.add('donkey-pulse');
+  }
+  function ask(q){if(!q)return;msg(esc(q),'user',q);input.value='';setSuggestions([]);var thinking=document.createElement('div');thinking.className='donkey-msg assistant';thinking.innerHTML='Cerco nella guida del portale… <span class="donkey-thinking"><i></i><i></i><i></i></span>';chat.appendChild(thinking);chat.scrollTop=chat.scrollHeight;fetch('/api/assistente/guida',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,currentPath:path,history:history()})}).then(function(r){if(!r.ok)throw new Error('Errore guida');return r.json();}).then(function(data){thinking.remove();var answerText=data.answer||'Non ho trovato una risposta.';var html=renderGuide(answerText);if(data.link&&data.link.href)html+='<div class="donkey-links"><a class="secondary" style="display:inline-flex;padding:.3rem .55rem" href="'+esc(data.link.href)+'">'+esc(data.link.label||'Apri sezione →')+'</a></div>';if(data.source)html+='<div style="font-size:.65rem;color:#718096;margin-top:.35rem">Guida interna: '+esc(data.source)+'</div>';html+='<div class="donkey-feedback" style="margin-top:.5rem;font-size:.72rem;display:flex;align-items:center;gap:.4rem;">Questa risposta è utile?<button type="button" data-yes style="padding:.15rem .5rem;">Sì</button><button type="button" data-no style="padding:.15rem .5rem;">No</button><span data-status style="color:#718096;"></span></div>';var node=msg(html,'assistant',answerText);var fbWrap=node.querySelector('.donkey-feedback');if(fbWrap){var yesBtn=fbWrap.querySelector('[data-yes]'),noBtn=fbWrap.querySelector('[data-no]'),statusEl=fbWrap.querySelector('[data-status]');yesBtn.onclick=function(){sendFeedback(q,data.source||null,(data.link&&data.link.href)||null,true,yesBtn,noBtn,statusEl);};noBtn.onclick=function(){sendFeedback(q,data.source||null,(data.link&&data.link.href)||null,false,yesBtn,noBtn,statusEl);};}setSuggestions(data.suggestions||ctx().q);pulseBadgeIfClosed();}).catch(function(){thinking.remove();msg('Non riesco a consultare la guida interna in questo momento. Riprova tra poco.','assistant','');setSuggestions(ctx().q);});}
+  form.onsubmit=function(e){e.preventDefault();ask(input.value.trim());};
+  window.addEventListener('pagehide',saveState);window.addEventListener('beforeunload',saveState);
+  document.querySelectorAll('form[action="/logout"]').forEach(function(f){f.addEventListener('submit',function(){try{sessionStorage.removeItem(storeKey);}catch(_){}});});
+
+  // ── Animazione "vera": il Ciuchino si alza (GIF) e saluta con un fumetto, stile Clippy ──
+  function hideBubble(){if(bubble)bubble.classList.remove('show');}
+  function showBubble(text){if(!bubble)return;bubble.textContent=text;bubble.classList.add('show');}
+  function playGreetGif(){
+    if(!img)return;
+    img.src=GREET_GIF_SRC;
+    setTimeout(function(){if(!panel.classList.contains('open'))img.src=STATIC_SRC;},GREET_GIF_DURATION_MS);
+  }
+  bubble&&bubble.addEventListener('click',function(){hideBubble();open();});
+
+  var idleTimer=null,idleCount=0,greetTexts=['Ciao! Ti serve aiuto? 👋','Hai domande sul portale?','Sono qui se ti serve una mano!','Posso aiutarti con qualcosa?'];
+  function scheduleIdleAttention(){
+    clearTimeout(idleTimer);
+    if(panel.classList.contains('open'))return;
+    idleTimer=setTimeout(function(){
+      if(!panel.classList.contains('open')&&document.visibilityState==='visible'&&idleCount<6){
+        playGreetGif();
+        showBubble(greetTexts[idleCount%greetTexts.length]);
+        setTimeout(hideBubble,GREET_GIF_DURATION_MS+2200);
+        idleCount++;
+      }
+      scheduleIdleAttention();
+    },30000+Math.random()*10000);
+  }
+  scheduleIdleAttention();
+  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')scheduleIdleAttention();});
+
+  var sx,sy,sr,sb,moved=false;btn.addEventListener('touchstart',function(e){var t=e.touches[0],r=btn.getBoundingClientRect();sx=t.clientX;sy=t.clientY;sr=window.innerWidth-r.right;sb=window.innerHeight-r.bottom;moved=false;},{passive:true});btn.addEventListener('touchmove',function(e){var t=e.touches[0],dx=t.clientX-sx,dy=t.clientY-sy;if(Math.abs(dx)>6||Math.abs(dy)>6)moved=true;if(!moved)return;e.preventDefault();btn.parentElement.style.right=Math.max(8,Math.min(window.innerWidth-72,sr-dx))+'px';btn.parentElement.style.bottom=Math.max(8,Math.min(window.innerHeight-72,sb-dy))+'px';},{passive:false});btn.addEventListener('touchend',function(){if(moved){btn.dataset.drag='1';setTimeout(function(){delete btn.dataset.drag;},300);}});btn.addEventListener('click',function(e){if(btn.dataset.drag)e.stopImmediatePropagation();},true);
+})();
+</script>
+<% } %>
