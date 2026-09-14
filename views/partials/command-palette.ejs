@@ -57,69 +57,9 @@
     if(focused){var href=focused.getAttribute('data-href');if(href)window.location.href=href;}
   }
 
-  function statusBadge(s){
-    if(!s)return'';
-    var cls='cp-badge-gen';
-    if(s==='CONSEGNATO'||s==='RICONSEGNATO')cls='cp-badge-cons';
-    if(s==='INVALIDATO')cls='cp-badge-inv';
-    return '<span class="cp-badge '+cls+'">'+s+'</span>';
-  }
-
-  function buildItem(href,icon,name,sub,badge){
-    return '<a class="cp-item" data-href="'+href+'" href="'+href+'">'
-      +'<span class="cp-icon">'+icon+'</span>'
-      +'<span class="cp-label">'
-        +'<div class="cp-name">'+escH(name)+'</div>'
-        +(sub?'<div class="cp-sub">'+escH(sub)+'</div>':'')
-      +'</span>'
-      +(badge||'')
-      +'</a>';
-  }
-  function escH(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-
   function render(data){
     focusIdx=-1;
-    var html='';
-    if(data.passes&&data.passes.length){
-      html+='<div class="cp-section-title">🎫 Pass</div>';
-      data.passes.forEach(function(p){
-        html+=buildItem('/search?q='+encodeURIComponent(p.code||p.participant_name)+'&tab=passes',
-          '🎫', p.participant_name, (p.stand_name||'')+' · '+p.pass_type_name, statusBadge(p.status));
-      });
-    }
-    if(data.participants&&data.participants.length){
-      html+='<div class="cp-section-title">👤 Partecipanti</div>';
-      data.participants.forEach(function(p){
-        html+=buildItem('/search?q='+encodeURIComponent(p.first_name+' '+p.last_name)+'&tab=participants',
-          '👤', p.first_name+' '+p.last_name, (p.role||'')+(p.stand_name?' · '+p.stand_name:''), '');
-      });
-    }
-    if(data.events&&data.events.length){
-      html+='<div class="cp-section-title">📅 Eventi</div>';
-      data.events.forEach(function(e){
-        var sub=(e.space_name||'');
-        if(e.event_type) sub+=(sub?' · ':'')+e.event_type;
-        if(e.date) sub+=(sub?' · ':'')+e.date;
-        if(e.start_time) sub+=(sub?' ':'')+(e.start_time.slice(0,5))+(e.end_time?'–'+e.end_time.slice(0,5):'');
-        html+=buildItem('/agenda/events/'+e.id+'/edit',
-          '📅', e.title, sub,
-          '<span class="cp-badge cp-badge-event">Evento</span>');
-      });
-    }
-    if(data.groups&&data.groups.length){
-      html+='<div class="cp-section-title">🏪 Gruppi / Stand</div>';
-      data.groups.forEach(function(g){
-        html+=buildItem('/assignment-groups/'+g.id,
-          '🏪', g.stand_name||g.name, (g.zone||'')+(g.name?' · '+g.name:''), '');
-      });
-    }
-    var total=(data.passes?data.passes.length:0)+(data.participants?data.participants.length:0)+(data.groups?data.groups.length:0)+(data.events?data.events.length:0);
-    if(!total) html='<div class="cp-empty">Nessun risultato trovato.</div>';
-    html+='<a class="cp-item" data-href="/search?q='+encodeURIComponent(input.value)+'&tab=all" href="/search?q='+encodeURIComponent(input.value)+'&tab=all" style="border-top:1px solid #f0f2f5;color:var(--accent-blue)">'
-      +'<span class="cp-icon">🔍</span>'
-      +'<span class="cp-label"><div class="cp-name">Mostra tutti i risultati nella pagina avanzata</div></span>'
-      +'</a>';
-    resultsEl.innerHTML=html;
+    resultsEl.innerHTML = window.SearchRenderer.render(data, input.value);
   }
 
   input.addEventListener('input',function(){
@@ -141,7 +81,6 @@
   var fab = document.getElementById('search-fab');
   if(!fab) return;
 
-  // ── Apri palette ──
   fab.addEventListener('click', function(){
     if(fab._dragged) return;
     var ov  = document.getElementById('cp-overlay');
@@ -151,7 +90,6 @@
     if(inp) setTimeout(function(){ inp.focus(); }, 80);
   });
 
-  // ── Drag touch ──
   var startX, startY, startRight, startBottom, moved;
   fab.addEventListener('touchstart', function(e){
     var t = e.touches[0];
@@ -181,23 +119,18 @@
     if(moved){ fab._dragged = true; setTimeout(function(){ fab._dragged = false; }, 300); }
   });
 
-  // ── Fix scroll overlay su mobile ──
-  // Blocca scroll pagina se tocco è fuori da cp-results, lascia passare se è dentro
   var cpOverlay = document.getElementById('cp-overlay');
   var cpResults = document.getElementById('cp-results');
   if(cpOverlay && cpResults){
     cpOverlay.addEventListener('touchmove', function(e){
       if(cpResults.contains(e.target)){
-        e.stopPropagation(); // scroll lista OK
+        e.stopPropagation();
       } else {
-        e.preventDefault();  // blocca scroll pagina sotto
+        e.preventDefault();
       }
     }, {passive:false});
   }
 
-  // ── Fix viewport resize (tastiera mobile che appare/sparisce) ──
-  // Quando la tastiera si chiude il browser ridisegna il viewport e i position:fixed
-  // possono "congelarsi". Forziamo un reflow minimo sull'overlay.
   if(cpOverlay){
     var lastVH = window.innerHeight;
     window.addEventListener('resize', function(){
@@ -205,10 +138,8 @@
       if(newVH !== lastVH){
         lastVH = newVH;
         if(cpOverlay.classList.contains('open')){
-          // reflow: toglie e rimette display per sbloccare il fixed
           cpOverlay.style.display = 'none';
-          // eslint-disable-next-line no-unused-expressions
-          cpOverlay.offsetHeight; // forza reflow
+          cpOverlay.offsetHeight;
           cpOverlay.style.display = '';
         }
       }

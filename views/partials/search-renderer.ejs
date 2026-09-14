@@ -1,0 +1,81 @@
+<script>
+window.SearchRenderer = (function(){
+  function escH(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+  function statusBadge(s){
+    if(!s)return'';
+    var cls='cp-badge-gen';
+    if(s==='CONSEGNATO'||s==='RICONSEGNATO')cls='cp-badge-cons';
+    if(s==='INVALIDATO')cls='cp-badge-inv';
+    return '<span class="cp-badge '+cls+'">'+s+'</span>';
+  }
+
+  function buildItem(href,icon,name,sub,badge){
+    return '<a class="cp-item" data-href="'+href+'" href="'+href+'">'
+      +'<span class="cp-icon">'+icon+'</span>'
+      +'<span class="cp-label">'
+        +'<div class="cp-name">'+escH(name)+'</div>'
+        +(sub?'<div class="cp-sub">'+escH(sub)+'</div>':'')
+      +'</span>'
+      +(badge||'')
+      +'</a>';
+  }
+
+  function render(data, queryValue){
+    var html='';
+    if(data.passes&&data.passes.length){
+      html+='<div class="cp-section-title">🎫 Pass</div>';
+      data.passes.forEach(function(p){
+        html+=buildItem('/search?q='+encodeURIComponent(p.code||p.participant_name)+'&tab=passes',
+          '🎫', p.participant_name, (p.stand_name||'')+' · '+p.pass_type_name, statusBadge(p.status));
+      });
+    }
+    if(data.participants&&data.participants.length){
+      html+='<div class="cp-section-title">👤 Partecipanti</div>';
+      data.participants.forEach(function(p){
+        html+=buildItem('/search?q='+encodeURIComponent(p.first_name+' '+p.last_name)+'&tab=participants',
+          '👤', p.first_name+' '+p.last_name, (p.role||'')+(p.stand_name?' · '+p.stand_name:''), '');
+      });
+    }
+    if(data.events&&data.events.length){
+      html+='<div class="cp-section-title">📅 Eventi</div>';
+      data.events.forEach(function(e){
+        var sub=(e.space_name||'');
+        if(e.event_type) sub+=(sub?' · ':'')+e.event_type;
+        if(e.date) sub+=(sub?' · ':'')+e.date;
+        if(e.start_time) sub+=(sub?' ':'')+(e.start_time.slice(0,5))+(e.end_time?'–'+e.end_time.slice(0,5):'');
+        html+=buildItem('/agenda/events/'+e.id+'/edit',
+          '📅', e.title, sub,
+          '<span class="cp-badge cp-badge-event">Evento</span>');
+      });
+    }
+    if(data.groups&&data.groups.length){
+      html+='<div class="cp-section-title">🏪 Gruppi / Stand</div>';
+      data.groups.forEach(function(g){
+        html+=buildItem('/assignment-groups/'+g.id,
+          '🏪', g.stand_name||g.name, (g.zone||'')+(g.name?' · '+g.name:''), '');
+      });
+    }
+    var total=(data.passes?data.passes.length:0)+(data.participants?data.participants.length:0)+(data.groups?data.groups.length:0)+(data.events?data.events.length:0);
+    if(!total) return '<div class="cp-empty">Nessun risultato trovato.</div>';
+    if(queryValue!==null && queryValue!==undefined && queryValue!==''){
+      html+='<a class="cp-item" data-href="/search?q='+encodeURIComponent(queryValue)+'&tab=all" href="/search?q='+encodeURIComponent(queryValue)+'&tab=all" style="border-top:1px solid #f0f2f5;color:var(--accent-blue)">'
+        +'<span class="cp-icon">🔍</span>'
+        +'<span class="cp-label"><div class="cp-name">Mostra tutti i risultati nella pagina avanzata</div></span>'
+        +'</a>';
+    }
+    return html;
+  }
+
+  function isSearchLike(text){
+    var t=(text||'').trim();
+    if(!t) return false;
+    if(t.indexOf('?')!==-1) return false;
+    var qWords=/^(quanti|quante|quanto|quanta|come|dove|quando|perch[eé]|cosa|chi|qual|quale|quali)\b/i;
+    if(qWords.test(t)) return false;
+    return true;
+  }
+
+  return { escH:escH, statusBadge:statusBadge, buildItem:buildItem, render:render, isSearchLike:isSearchLike };
+})();
+</script>
