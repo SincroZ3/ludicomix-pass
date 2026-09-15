@@ -1,6 +1,9 @@
 'use strict';
 const fs=require('fs');
 const path=require('path');
+const {askGroq}=require('../helpers/ai-client');
+const {retrieve}=require('../helpers/ai-knowledge');
+const {buildMessages}=require('../helpers/ai-safety');
 
 module.exports=function registerAiAssistant(app,db,{requireAuth}){
  const K=path.join(__dirname,'..','knowledge');
@@ -31,12 +34,23 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   {file:'guida-volontari.md',keys:['volont','turno','turni','candidatur','calendario'],roles:['admin','organizer','accountant','operator','custom']},
   {file:'guida-area-personale.md',keys:['nota','rubrica','contatt','spesa','rimborso','scontrino','fattura','firma','iban','checklist'],roles:['admin','organizer','accountant','operator','custom']},
   {file:'guida-logistica.md',keys:['logistica','servizio','attrezz','prestito','accredit','bacheca','material'],roles:['admin','organizer','accountant','custom']},
-  {file:'guida-ruoli-edizioni.md',keys:['edizion','ruolo','permess','custom','admin','scanner','visualizz'],roles:['admin','organizer','accountant','operator','scanner','viewer','custom']}
+  {file:'guida-ruoli-edizioni.md',keys:['edizion','ruolo','permess','custom','admin','scanner','visualizz'],roles:['admin','organizer','accountant','operator','scanner','viewer','custom']},
+  {file:'guida-mappe.md',keys:['mappa','mappe','zona','zone','planimetria','posizione','stand map','mappa pubblica'],roles:['admin','organizer','accountant','operator','custom']}
  ];
 
  const suggestions=['Spiegami passo per passo','Dove trovo questa funzione?','Ho un problema con questa operazione'];
  const has=(q,a)=>a.some(x=>q.includes(x));
  const out=(answer,href,label,source)=>({answer,source:source||'guida operativa',link:href?{href,label:label||'Apri sezione correlata →'}:null,suggestions});
+
+ // Limite prudenziale per proteggere il piano gratuito Groq: 20 richieste AI/ora per utente.
+ // Le risposte locali (guide, query SQL, diagnostiche) non consumano questo limite.
+ const aiUsage=new Map();
+ function canUseGroq(userId){
+  const now=Date.now(),hour=60*60*1000;
+  const recent=(aiUsage.get(userId)||[]).filter(t=>now-t<hour);
+  if(recent.length>=20){aiUsage.set(userId,recent);return false;}
+  recent.push(now);aiUsage.set(userId,recent);return true;
+ }
 
  function requireAdminInline(req,res,next){
   const u=req.session&&req.session.user;
@@ -556,6 +570,26 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
     const diag=await diagnosePassGeneration(req,q,currentPath);
     if(diag)return res.json(diag);
    }catch(e){console.error('diagnosePassGeneration (follow-up)',e.message);}
+  }
+
+  // 4) Ludi AI: comprensione libera con Groq + estratti RAG locali.
+  // Arriva solo dopo risposte SQL/diagnostiche e regole rapide deterministiche.
+  // Se Groq è assente, esaurito o non risponde, il flusso prosegue con il fallback locale.
+  if(process.env.GROQ_API_KEY&&canUseGroq(req.session.user.id)){
+   try{
+    const contexts=retrieve({knowledgeDir:K,guides:allowedGuides,question:q});
+    if(contexts.length){
+     const answer=await askGroq(buildMessages({
+      question:original,role:req.session.user.role,currentPath,history,contexts
+     }));
+     if(answer){
+      const links={'guida-pass.md':'/participants','guida-agenda.md':'/agenda','guida-volontari.md':'/volunteers','guida-area-personale.md':'/area-personale','guida-logistica.md':'/admin/logistica','guida-ruoli-edizioni.md':'/admin/settings#edizioni','guida-mappe.md':'/mappa'};
+      const sourceFiles=[...new Set(contexts.map(c=>c.file))];
+      const firstFile=sourceFiles[0];
+      return res.json(out(answer,links[firstFile]||'/home','Apri sezione correlata →','Ludi AI · '+sourceFiles.join(', ')));
+     }
+    }
+   }catch(e){console.error('Ludi AI Groq fallback',e.message);}
   }
 
   // 4) Ricerca generica nei paragrafi delle guide, con soglia minima di
