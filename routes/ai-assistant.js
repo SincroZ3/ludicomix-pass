@@ -473,11 +473,74 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   return out(`Richieste di logistica ancora in attesa (${rows.length}): ${list}.${rows.length>10?' (mostro le prime 10, in ordine dalla più vecchia)':''}`, '/admin/logistica','Apri Logistica →','diagnostica logistica (in attesa)');
  }
 
+
+
+ // ── Ludi AI: saluti e presentazione locale (mai inviati a Groq) ──────
+ const GREETING_RE=/^(ciao|ehi|hey|salve|buongiorno|buonasera|buonanotte)(?:\s+(?:ciuchino|ciuco|ludi|ludi ai))?[!?.\s]*$/i;
+ const CAPABILITIES_RE=/^(?:cosa|che cosa)\s+(?:puoi|sai)\s+fare[!?.\s]*$|^(?:in cosa|come)\s+mi\s+puoi\s+aiutare[!?.\s]*$|^(?:aiuto|help)[!?.\s]*$/i;
+
+ function ludiIntro(role,currentPath,kind){
+  const roleName={admin:'Admin',organizer:'Organizzatore',accountant:'Amministrazione contabile',operator:'Operatore',scanner:'Scanner',viewer:'Visualizzatore',custom:'utente con permessi personalizzati'}[role]||'utente';
+  const allowed={
+   scanner:[
+    '“Come uso lo scanner QR?”',
+    '“Cosa significa questo stato del pass?”',
+    '“Come uso il contatore ingressi?”'
+   ],
+   viewer:[
+    '“Dove trovo uno stand o un pass?”',
+    '“Come funziona questa pagina?”',
+    '“Cosa significa lo stato di questo pass?”'
+   ],
+   operator:[
+    '“Come creo uno stand?”',
+    '“Come genero o ristampo un pass?”',
+    '“Cerca Mario Rossi”',
+    '“Come uso lo scanner QR?”'
+   ],
+   accountant:[
+    '“Come inserisco una spesa?”',
+    '“Come gestisco una richiesta rimborso?”',
+    '“Quanti pass ha lo stand AREA LEGO?”',
+    '“Come creo un evento o un turno?”'
+   ],
+   organizer:[
+    '“Come creo uno stand o un evento?”',
+    '“Quali turni sono scoperti?”',
+    '“Quali richieste logistica sono in attesa?”',
+    '“Come approvo un accreditamento?”'
+   ],
+   admin:[
+    '“Come creo uno stand o un evento?”',
+    '“Quali turni sono scoperti?”',
+    '“Come gestisco ruoli ed edizioni?”',
+    '“Quanti pass ha lo stand AREA LEGO?”'
+   ],
+   custom:[
+    '“Come funziona questa pagina?”',
+    '“Dove trovo la funzione che mi serve?”',
+    '“Cerca un nominativo, stand o evento”'
+   ]
+  }[role]||[];
+  const pageHint=currentPath?` Sei nella pagina ${currentPath}.`:'';
+  if(kind==='greeting'){
+   return {answer:`Ciao! Sono Ludi AI, il Ciuchino Assistente del portale.${pageHint} Posso guidarti passo passo nelle funzioni a cui hai accesso come ${roleName}. Scrivi “cosa puoi fare?” per vedere alcuni esempi.`,source:'Ludi AI · presentazione',link:null,suggestions:['Cosa puoi fare?','Dove trovo questa funzione?','Spiegami passo per passo']};
+  }
+  return {answer:`Posso aiutarti a usare il portale, cercare informazioni e spiegare le procedure passo passo. In base al tuo ruolo (${roleName}) puoi provare, ad esempio:
+
+${allowed.map((x,i)=>`${i+1}. ${x}`).join('\n')}
+
+Puoi anche scrivere una domanda libera: se serve, cercherò nelle guide interne del portale.${pageHint}`,source:'Ludi AI · cosa posso fare',link:null,suggestions:allowed.slice(0,3).map(x=>x.replace(/[“”]/g,''))};
+ }
  app.post('/api/assistente/guida',requireAuth,async (req,res)=>{
   const original=String(req.body&&req.body.question||'').trim();
   if(original.length<2)return res.json({answer:'Scrivi una domanda un po’ più dettagliata.',suggestions:[]});
   const history=Array.isArray(req.body&&req.body.history)?req.body.history:[];
   const currentPath=req.body&&req.body.currentPath||null;
+
+  // Saluti e richiesta capacità: risposta locale, senza storico e senza Groq.
+  if(GREETING_RE.test(original))return res.json(ludiIntro(req.session.user.role,currentPath,'greeting'));
+  if(CAPABILITIES_RE.test(original))return res.json(ludiIntro(req.session.user.role,currentPath,'capabilities'));
   const follow=/^(spiegami|spiega|dimmi|fammi vedere|come faccio|dove trovo|e poi|continua|passo per passo|pi[uù] dettagli|approfondisci)/i.test(original);
   const prev=history.slice().reverse().find(m=>m&&m.kind==='user'&&m.text&&m.text!==original);
   const q=((follow&&prev?prev.text+' ':'')+original).toLowerCase();
