@@ -256,6 +256,60 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   return out('Posso calcolare i pass creati oggi oppure i pass PDF validi. Prova: “quanti pass ha generato oggi il sistema?” oppure “quanti pass PDF validi ci sono?”.','/participants','Apri Assegnatari pass →','statistiche live');
  }
 
+ // ── FASE 4bis: quanti pass ha uno stand/espositore? ─────────────────
+ const DIAG_GROUP_PASS_RE=/quant[ei]\s+pass.*\b(ha|hanno)\b/i;
+ const DIAG_GROUP_PASS_INVALID_RE=/(invalidat|sostitui)/i;
+ const GROUP_STOP_WORDS=new Set(['quanti','quante','pass','ha','hanno','lo','la','il','gli','le','stand','espositore','gruppo','di','del','della','dello','ci','sono','quello','quella']);
+
+ function extractGroupNameQuery(q){
+  const m=q.match(/(?:stand|espositore|gruppo)\s+([a-zà-ù0-9\s'\.\-]{2,60})/i)
+    ||q.match(/\bha(?:nno)?\s+(?:lo\s+stand\s+|l['’]\s*espositore\s+|il\s+gruppo\s+)?([a-zà-ù0-9\s'\.\-]{2,60})$/i);
+  if(!m)return null;
+  const v=m[1].trim().replace(/[?.!]+$/,'').trim();
+  if(!v)return null;
+  const words=v.toLowerCase().split(/\s+/);
+  if(words.every(w=>GROUP_STOP_WORDS.has(w)))return null;
+  return v;
+ }
+
+ async function findAssignmentGroupByName(nameGuess){
+  if(!nameGuess)return null;
+  const like='%'+nameGuess.replace(/%/g,'')+'%';
+  return await new Promise(resolve=>db.get(
+   `SELECT id,name,stand_name FROM assignment_groups WHERE name LIKE ? OR stand_name LIKE ? ORDER BY id LIMIT 1`,
+   [like,like],(err,row)=>resolve(err?null:row)
+  ));
+ }
+
+ async function diagnoseGroupPassCount(q){
+  if(!DIAG_GROUP_PASS_RE.test(q))return null;
+  const nameGuess=extractGroupNameQuery(q);
+  if(!nameGuess){
+   return out('Per dirti quanti pass ha uno stand, indicami il nome dello stand o dell’espositore.','/participants','Apri Assegnatari pass →','statistiche live (conteggio pass per stand)');
+  }
+  const group=await findAssignmentGroupByName(nameGuess);
+  if(!group){
+   return out(`Non trovo uno stand o un espositore corrispondente a “${nameGuess}”.`,'/participants','Apri Assegnatari pass →','statistiche live (stand non trovato)');
+  }
+  const label=group.stand_name?`${group.name} (${group.stand_name})`:group.name;
+  const wantsInvalid=DIAG_GROUP_PASS_INVALID_RE.test(q);
+  if(wantsInvalid){
+   const row=await dbOne(
+    `SELECT COUNT(*) AS n FROM passes p JOIN participants pa ON pa.id=p.participant_id WHERE pa.assignment_group_id=? AND p.status='INVALIDATO'`,
+    [group.id]
+   );
+   const n=row?row.n||0:0;
+   return out(`Lo stand ${label} ha ${n} pass invalidati o sostituiti nello storico.`,`/assignment-groups/${group.id}`,'Apri la scheda dello stand →','statistiche live (pass invalidati per stand)');
+  }
+  const row=await dbOne(
+   `SELECT COUNT(*) AS n FROM passes p JOIN participants pa ON pa.id=p.participant_id WHERE pa.assignment_group_id=? AND p.status!='INVALIDATO'`,
+   [group.id]
+  );
+  const n=row?row.n||0:0;
+  return out(`Lo stand ${label} ha attualmente ${n} pass attivi (non invalidati).`,`/assignment-groups/${group.id}`,'Apri la scheda dello stand →','statistiche live (pass attivi per stand)');
+ }
+
+
  // ── FASE 4: diagnostica accreditamenti ────────────────────────────
  const DIAG_ACCREDIT_RE=/(che\s+cosa\s+manca|cosa\s+manca|manca\s+a).*(accredit|richiesta)|(accredit|richiesta).*(incomplet|complet|manca|non riesco|problema|rifiutat|approvat)|rifiutat.*(accredit|richiesta)|approvat.*(accredit|richiesta)/i;
  const ACCREDIT_STOP_WORDS=new Set(['questo','questa','accreditamento','accredito','richiesta','domanda','manca','cosa','che','azienda','espositore','stampa','media','autore','content','creator']);
@@ -402,60 +456,6 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   return out(`Richieste di logistica ancora in attesa (${rows.length}): ${list}.${rows.length>10?' (mostro le prime 10, in ordine dalla più vecchia)':''}`, '/admin/logistica','Apri Logistica →','diagnostica logistica (in attesa)');
  }
 
-  // ── FASE 8: "perché [utente] non riesce ad accedere all'Area personale?" ──
- // Regola di business reale (server.js, requirePersonalArea):
- // l'accesso è negato SOLO a viewer/scanner, e a un utente custom SENZA
- // il permesso 'personal_area.access'. Tutti gli altri ruoli passano sempre.
- // Un admin/organizer può diagnosticare l'accesso di un ALTRO utente
- // nominandolo nella domanda; un utente normale ottiene sempre la diagnosi
- // sul proprio account, anche se nomina qualcun altro (per sicurezza).
- const DIAG_PERSONAL_AREA_RE=/(area\s*personale).*(non\s+riesc|access|blocc|negat|entrare|aprire)|(non\s+riesc|access|blocc|negat).*(area\s*personale)/i;
- const ROLE_LABELS={admin:'amministratore',organizer:'organizzatore',operator:'operatore',accountant:'contabile',scanner:'scanner',viewer:'visualizzatore',custom:'personalizzato'};
- function hasPersonalAreaPerm(user){
-  if(!user)return false;
-  if(!['viewer','scanner'].includes(user.role))return true;
-  return false;
- }
- function customHasPersonalAreaAccess(user){
-  if(!user||user.role!=='custom')return false;
-  try{
-   const perms=JSON.parse(user.permissions||'[]');
-   return perms.includes('personal_area.access');
-  }catch(e){return false;}
- }
- async function diagnosePersonalAreaAccess(req,q){
-  const requester=req.session&&req.session.user;
-  const isAdminOrOrganizer=requester&&(requester.role==='admin'||requester.role==='organizer');
-  let targetUser=requester;
-  if(isAdminOrOrganizer){
-   const m=q.match(/(?:perch[eé]|come mai)\s+([a-zàèéìòù]{3,20})\s+non\s+riesc/i)||q.match(/(?:per|di)\s+([a-zàèéìòù]{3,20})(?:\s+non|\s*[?.]?\s*$)/i);
-   const nameGuess=m?m[1].trim():null;
-   const nameStop=['area','personale','utente','accesso','questo','questa'];
-   if(nameGuess&&!nameStop.includes(nameGuess.toLowerCase())){
-    const like='%'+nameGuess+'%';
-    const found=await new Promise(resolve=>db.get(
-     `SELECT id,username,role,permissions FROM users WHERE username LIKE ? LIMIT 1`,[like],
-     (e,r)=>resolve(e?null:r)
-    ));
-    if(found)targetUser=found;
-    else return out(`Non trovo un utente con username simile a "${nameGuess}". Verifica lo username esatto in Impostazioni → Utenti.`, '/admin/settings#utenti','Apri Gestione Utenti →','diagnostica area personale (utente non trovato)');
-   }
-  }
-  if(!targetUser)return out('Devi essere autenticato per verificare l\'accesso all\'Area personale.', '/login','Accedi →','diagnostica area personale (non autenticato)');
-  const roleLabel=ROLE_LABELS[targetUser.role]||targetUser.role;
-  const who=(targetUser.id&&requester&&targetUser.id!==requester.id)?`L'utente ${targetUser.username}`:'Il tuo account';
-  if(hasPersonalAreaPerm(targetUser)){
-   return out(`${who} ha il ruolo ${roleLabel}, che include sempre l'accesso all'Area personale: non dovrebbe essere bloccato. Se l'errore persiste, verifica di essere loggato con l'account corretto.`, '/area-personale','Apri Area personale →','diagnostica area personale (accesso consentito)');
-  }
-  if(targetUser.role==='custom'){
-   if(customHasPersonalAreaAccess(targetUser)){
-    return out(`${who} ha il ruolo personalizzato ma possiede già il permesso "personal_area.access": l'accesso dovrebbe essere consentito.`, '/area-personale','Apri Area personale →','diagnostica area personale (custom con permesso)');
-   }
-   return out(`${who} ha il ruolo personalizzato ma NON ha il permesso "personal_area.access": per questo l'Area personale è bloccata. Un amministratore deve aggiungere questo permesso dalla scheda utente in Impostazioni → Utenti.`, '/admin/settings#utenti','Apri Gestione Utenti →','diagnostica area personale (custom senza permesso)');
-  }
-  return out(`${who} ha il ruolo ${roleLabel}: questo ruolo non ha accesso all'Area personale per policy del sistema (riservata a chi non è solo viewer o scanner). Per abilitarlo, un amministratore deve cambiare il ruolo dell'utente oppure assegnargli un ruolo personalizzato con il permesso "personal_area.access".`, '/admin/settings#utenti','Apri Gestione Utenti →','diagnostica area personale (ruolo bloccato)');
- }
-
  app.post('/api/assistente/guida',requireAuth,async (req,res)=>{
   const original=String(req.body&&req.body.question||'').trim();
   if(original.length<2)return res.json({answer:'Scrivi una domanda un po’ più dettagliata.',suggestions:[]});
@@ -470,6 +470,12 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
    const stats=await liveStats(q);
    if(stats)return res.json(stats);
   }catch(e){console.error('liveStats',e.message);}
+
+  // 0bis) Quanti pass ha uno stand/espositore (conteggio live per gruppo).
+  try{
+   const groupPassCount=await diagnoseGroupPassCount(q);
+   if(groupPassCount)return res.json(groupPassCount);
+  }catch(e){console.error('diagnoseGroupPassCount',e.message);}
 
   // 1) Diagnostica accreditamenti in tempo reale.
   if(DIAG_ACCREDIT_RE.test(q)){
@@ -501,14 +507,6 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
     const logisticaPending=await diagnoseLogisticaPending();
     if(logisticaPending)return res.json(logisticaPending);
    }catch(e){console.error('diagnoseLogisticaPending',e.message);}
-  }
-
-  // 1quinquies) Diagnostica accesso Area personale.
-  if(DIAG_PERSONAL_AREA_RE.test(q)){
-   try{
-    const personalAreaDiag=await diagnosePersonalAreaAccess(req,q);
-    if(personalAreaDiag)return res.json(personalAreaDiag);
-   }catch(e){console.error('diagnosePersonalAreaAccess',e.message);}
   }
 
   // 2) Domande diagnostiche ESPLICITE hanno sempre la priorità assoluta.
