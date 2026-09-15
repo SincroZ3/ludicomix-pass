@@ -220,6 +220,63 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
  // ── FASE 4: statistiche live su pass e nominativi ─────────────────
  const LIVE_STATS_RE=/\b(quanti|quante|numero|totale)\b.*\b(pass|nominativi|partecipanti)\b|\b(pass|nominativi|partecipanti)\b.*\b(quanti|quante)\b/i;
  function dbOne(sql,params){return new Promise(resolve=>db.get(sql,params,(err,row)=>resolve(err?null:row)));}
+  // ── FASE 4bis: quanti pass ha uno stand/espositore? ─────────────────
+ // La regex richiede esplicitamente "stand"/"espositore"/"gruppo" per non
+ // intercettare domande generiche di sistema come "quanti pass ha generato
+ // oggi il sistema?", che restano di competenza di LIVE_STATS_RE più sotto.
+ const DIAG_GROUP_PASS_RE=/quant[ei]\s+pass.*\b(ha|hanno)\b.*\b(stand|espositore|gruppo)\b/i;
+ const DIAG_GROUP_PASS_INVALID_RE=/(invalidat|sostitui)/i;
+ const GROUP_STOP_WORDS=new Set(['quanti','quante','pass','ha','hanno','lo','la','il','gli','le','stand','espositore','gruppo','di','del','della','dello','ci','sono','quello','quella']);
+
+ function extractGroupNameQuery(q){
+  const m=q.match(/(?:stand|espositore|gruppo)\s+([a-zà-ù0-9\s'\.\-]{2,60})/i)
+    ||q.match(/\bha(?:nno)?\s+(?:lo\s+stand\s+|l['’]\s*espositore\s+|il\s+gruppo\s+)?([a-zà-ù0-9\s'\.\-]{2,60})$/i);
+  if(!m)return null;
+  const v=m[1].trim().replace(/[?.!]+$/,'').trim();
+  if(!v)return null;
+  const words=v.toLowerCase().split(/\s+/);
+  if(words.every(w=>GROUP_STOP_WORDS.has(w)))return null;
+  return v;
+ }
+
+ async function findAssignmentGroupByName(nameGuess){
+  if(!nameGuess)return null;
+  const like='%'+nameGuess.replace(/%/g,'')+'%';
+  return await new Promise(resolve=>db.get(
+   `SELECT id,name,stand_name FROM assignment_groups WHERE name LIKE ? OR stand_name LIKE ? ORDER BY id LIMIT 1`,
+   [like,like],(err,row)=>resolve(err?null:row)
+  ));
+ }
+
+ async function diagnoseGroupPassCount(q){
+  if(!DIAG_GROUP_PASS_RE.test(q))return null;
+  const nameGuess=extractGroupNameQuery(q);
+  if(!nameGuess){
+   return out('Per dirti quanti pass ha uno stand, indicami il nome dello stand o dell’espositore.','/participants','Apri Assegnatari pass →','statistiche live (conteggio pass per stand)');
+  }
+  const group=await findAssignmentGroupByName(nameGuess);
+  if(!group){
+   return out(`Non trovo uno stand o un espositore corrispondente a "${nameGuess}".`,'/participants','Apri Assegnatari pass →','statistiche live (stand non trovato)');
+  }
+  const label=group.stand_name?`${group.name} (${group.stand_name})`:group.name;
+  const wantsInvalid=DIAG_GROUP_PASS_INVALID_RE.test(q);
+  if(wantsInvalid){
+   const row=await new Promise(resolve=>db.get(
+    `SELECT COUNT(*) AS n FROM passes p JOIN participants pa ON pa.id=p.participant_id WHERE pa.assignment_group_id=? AND p.status='INVALIDATO'`,
+    [group.id],(err,r)=>resolve(err?null:r)
+   ));
+   const n=row?row.n||0:0;
+   return out(`Lo stand ${label} ha ${n} pass invalidati o sostituiti nello storico.`,`/assignment-groups/${group.id}`,'Apri la scheda dello stand →','statistiche live (pass invalidati per stand)');
+  }
+  const row=await new Promise(resolve=>db.get(
+   `SELECT COUNT(*) AS n FROM passes p JOIN participants pa ON pa.id=p.participant_id WHERE pa.assignment_group_id=? AND p.status!='INVALIDATO'`,
+   [group.id],(err,r)=>resolve(err?null:r)
+  ));
+  const n=row?row.n||0:0;
+  return out(`Lo stand ${label} ha attualmente ${n} pass attivi (non invalidati).`,`/assignment-groups/${group.id}`,'Apri la scheda dello stand →','statistiche live (pass attivi per stand)');
+ }
+
+
  async function liveStats(q){
   if(!LIVE_STATS_RE.test(q))return null;
   const cur=await dbOne(`SELECT id,name FROM editions WHERE is_current=1 LIMIT 1`,[]);
@@ -255,60 +312,6 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   }
   return out('Posso calcolare i pass creati oggi oppure i pass PDF validi. Prova: “quanti pass ha generato oggi il sistema?” oppure “quanti pass PDF validi ci sono?”.','/participants','Apri Assegnatari pass →','statistiche live');
  }
-
- // ── FASE 4bis: quanti pass ha uno stand/espositore? ─────────────────
- const DIAG_GROUP_PASS_RE=/quant[ei]\s+pass.*\b(ha|hanno)\b/i;
- const DIAG_GROUP_PASS_INVALID_RE=/(invalidat|sostitui)/i;
- const GROUP_STOP_WORDS=new Set(['quanti','quante','pass','ha','hanno','lo','la','il','gli','le','stand','espositore','gruppo','di','del','della','dello','ci','sono','quello','quella']);
-
- function extractGroupNameQuery(q){
-  const m=q.match(/(?:stand|espositore|gruppo)\s+([a-zà-ù0-9\s'\.\-]{2,60})/i)
-    ||q.match(/\bha(?:nno)?\s+(?:lo\s+stand\s+|l['’]\s*espositore\s+|il\s+gruppo\s+)?([a-zà-ù0-9\s'\.\-]{2,60})$/i);
-  if(!m)return null;
-  const v=m[1].trim().replace(/[?.!]+$/,'').trim();
-  if(!v)return null;
-  const words=v.toLowerCase().split(/\s+/);
-  if(words.every(w=>GROUP_STOP_WORDS.has(w)))return null;
-  return v;
- }
-
- async function findAssignmentGroupByName(nameGuess){
-  if(!nameGuess)return null;
-  const like='%'+nameGuess.replace(/%/g,'')+'%';
-  return await new Promise(resolve=>db.get(
-   `SELECT id,name,stand_name FROM assignment_groups WHERE name LIKE ? OR stand_name LIKE ? ORDER BY id LIMIT 1`,
-   [like,like],(err,row)=>resolve(err?null:row)
-  ));
- }
-
- async function diagnoseGroupPassCount(q){
-  if(!DIAG_GROUP_PASS_RE.test(q))return null;
-  const nameGuess=extractGroupNameQuery(q);
-  if(!nameGuess){
-   return out('Per dirti quanti pass ha uno stand, indicami il nome dello stand o dell’espositore.','/participants','Apri Assegnatari pass →','statistiche live (conteggio pass per stand)');
-  }
-  const group=await findAssignmentGroupByName(nameGuess);
-  if(!group){
-   return out(`Non trovo uno stand o un espositore corrispondente a “${nameGuess}”.`,'/participants','Apri Assegnatari pass →','statistiche live (stand non trovato)');
-  }
-  const label=group.stand_name?`${group.name} (${group.stand_name})`:group.name;
-  const wantsInvalid=DIAG_GROUP_PASS_INVALID_RE.test(q);
-  if(wantsInvalid){
-   const row=await dbOne(
-    `SELECT COUNT(*) AS n FROM passes p JOIN participants pa ON pa.id=p.participant_id WHERE pa.assignment_group_id=? AND p.status='INVALIDATO'`,
-    [group.id]
-   );
-   const n=row?row.n||0:0;
-   return out(`Lo stand ${label} ha ${n} pass invalidati o sostituiti nello storico.`,`/assignment-groups/${group.id}`,'Apri la scheda dello stand →','statistiche live (pass invalidati per stand)');
-  }
-  const row=await dbOne(
-   `SELECT COUNT(*) AS n FROM passes p JOIN participants pa ON pa.id=p.participant_id WHERE pa.assignment_group_id=? AND p.status!='INVALIDATO'`,
-   [group.id]
-  );
-  const n=row?row.n||0:0;
-  return out(`Lo stand ${label} ha attualmente ${n} pass attivi (non invalidati).`,`/assignment-groups/${group.id}`,'Apri la scheda dello stand →','statistiche live (pass attivi per stand)');
- }
-
 
  // ── FASE 4: diagnostica accreditamenti ────────────────────────────
  const DIAG_ACCREDIT_RE=/(che\s+cosa\s+manca|cosa\s+manca|manca\s+a).*(accredit|richiesta)|(accredit|richiesta).*(incomplet|complet|manca|non riesco|problema|rifiutat|approvat)|rifiutat.*(accredit|richiesta)|approvat.*(accredit|richiesta)/i;
@@ -465,17 +468,20 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   const prev=history.slice().reverse().find(m=>m&&m.kind==='user'&&m.text&&m.text!==original);
   const q=((follow&&prev?prev.text+' ':'')+original).toLowerCase();
 
-  // 0) Statistiche live (Fase 4), prima di guide e diagnosi testuali.
-  try{
-   const stats=await liveStats(q);
-   if(stats)return res.json(stats);
-  }catch(e){console.error('liveStats',e.message);}
-
-  // 0bis) Quanti pass ha uno stand/espositore (conteggio live per gruppo).
+  // 0) Quanti pass ha uno stand/espositore (conteggio live per gruppo).
+  // Precede le statistiche generiche: la regex di questa funzione richiede
+  // esplicitamente stand/espositore/gruppo, quindi non intercetta domande
+  // generiche come "quanti pass ha generato oggi il sistema?".
   try{
    const groupPassCount=await diagnoseGroupPassCount(q);
    if(groupPassCount)return res.json(groupPassCount);
   }catch(e){console.error('diagnoseGroupPassCount',e.message);}
+
+  // 0bis) Statistiche live di sistema (Fase 4), prima di guide e diagnosi testuali.
+  try{
+   const stats=await liveStats(q);
+   if(stats)return res.json(stats);
+  }catch(e){console.error('liveStats',e.message);}
 
   // 1) Diagnostica accreditamenti in tempo reale.
   if(DIAG_ACCREDIT_RE.test(q)){
