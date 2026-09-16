@@ -14,8 +14,8 @@
  * ──────────────────────────────────────────────────────────────────
  */
 
-const path       = require('path');
-const fs         = require('fs');
+const path = require('path');
+const fs = require('fs');
 const { PDFDocument } = require('pdf-lib');
 
 module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmin, requireCanScan, requireNotViewer, logAction, edFilter, getCurrent }) {
@@ -46,6 +46,7 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
             [code, 'NOT_FOUND', req.session.user.id, ip]);
           return res.status(404).json({ error: 'Pass non trovato', code });
         }
+
         // Se ENTRATO, cerca l'ultimo accesso giornaliero per il warning duplicato
         if (pass.status === 'ENTRATO') {
           const today = new Date().toISOString().slice(0, 10);
@@ -69,8 +70,8 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
   // ── Consegna pass via scanner ────────────────────────────────────
   app.post('/api/scan/:code/consegna', requireAuth, (req, res) => {
     const code = (req.params.code || '').trim().toUpperCase();
-    const ip   = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    const uid  = req.session.user.id;
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const uid = req.session.user.id;
 
     db.get(
       `SELECT p.id, p.status, pa.first_name, pa.last_name, ag.name AS group_name
@@ -129,6 +130,7 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
                   pass: { first_name: pass.first_name, last_name: pass.last_name, group_name: pass.group_name }
                 });
               }
+
               // Nessun accesso oggi → giorno nuovo, reset a CONSEGNATO
               db.run('UPDATE passes SET status=? WHERE id=?', ['CONSEGNATO', pass.id], function(err3) {
                 if (err3) return res.status(500).json({ error: 'Errore DB' });
@@ -189,12 +191,11 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
               const fp = path.join(process.env.DATA_DIR || __dirname, '..', 'generated', p.pdf_file);
               if (!fs.existsSync(fp)) continue;
               const bytes = fs.readFileSync(fp);
-              const doc   = await PDFDocument.load(bytes);
+              const doc = await PDFDocument.load(bytes);
               const pages = await merged.copyPages(doc, doc.getPageIndices());
               pages.forEach(pg => merged.addPage(pg));
             }
-
-            const out      = await merged.save();
+            const out = await merged.save();
             const safeName = grp.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `attachment; filename="batch_${safeName}.pdf"`);
@@ -227,7 +228,6 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
       );
     });
   });
-
 
   // ── Batch PDF selezione manuale ──────────────────────────────────
   // Riceve pass_ids[] via POST, restituisce un PDF merged con i pass scelti.
@@ -262,11 +262,10 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
         const fp = path.join(process.env.DATA_DIR || path.join(__dirname, '..'), 'generated', p.pdf_file);
         if (!fs.existsSync(fp)) continue;
         const bytes = fs.readFileSync(fp);
-        const doc   = await PDFDocument.load(bytes);
+        const doc = await PDFDocument.load(bytes);
         const pages = await merged.copyPages(doc, doc.getPageIndices());
         pages.forEach(function(pg){ merged.addPage(pg); });
       }
-
       const out = await merged.save();
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="pass_selezionati_${Date.now()}.pdf"`);
@@ -306,10 +305,19 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
   });
 
   // ── Ricerca globale API (navbar) ─────────────────────────────────
+  // FIX 17/09: la ricerca su "Nome Cognome" falliva perché un unico
+  // parametro %q% veniva confrontato separatamente con first_name e
+  // last_name, che non contengono mai la stringa completa con lo spazio.
+  // Ora il termine viene diviso in parole e ogni parola deve trovare
+  // corrispondenza in first_name OR last_name (AND fra le parole).
   app.get('/api/search', requireAuth, (req, res) => {
     const q = (req.query.q || '').trim();
     if (!q || q.length < 2) return res.json({ passes: [], participants: [], groups: [] });
     const like = `%${q}%`;
+    const terms = q.split(/\s+/).filter(Boolean);
+    const nameClauseArr = terms.map(() => '(pa.first_name LIKE ? OR pa.last_name LIKE ?)');
+    const nameClause = nameClauseArr.length ? nameClauseArr.join(' AND ') : '(pa.first_name LIKE ? OR pa.last_name LIKE ?)';
+    const nameParams = terms.length ? terms.flatMap(t => [`%${t}%`, `%${t}%`]) : [like, like];
 
     const curEdScan = getCurrent ? getCurrent() : null;
     const scanEdClausePa = curEdScan ? 'AND (pa.edition_id = ? OR pa.edition_id IS NULL)' : '';
@@ -323,8 +331,8 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
       JOIN pass_types pt ON pt.id = p.pass_type_id
       JOIN participants pa ON pa.id = p.participant_id
       LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
-      WHERE (pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ?
-         OR pt.name LIKE ? OR p.code LIKE ? OR ag.name LIKE ? OR ag.stand_name LIKE ?)
+      WHERE (${nameClause}
+         OR pa.email LIKE ? OR pt.name LIKE ? OR p.code LIKE ? OR ag.name LIKE ? OR ag.stand_name LIKE ?)
         ${scanEdClausePa}
       ORDER BY p.id DESC LIMIT 8`;
 
@@ -332,7 +340,7 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
       SELECT pa.id, pa.first_name, pa.last_name, pa.role, ag.stand_name
       FROM participants pa
       LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
-      WHERE (pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ? OR pa.role LIKE ?)
+      WHERE (${nameClause} OR pa.email LIKE ? OR pa.role LIKE ?)
         ${scanEdClausePa}
       ORDER BY pa.last_name LIMIT 6`;
 
@@ -352,8 +360,8 @@ module.exports = function registerScanRoutes(app, db, { requireAuth, requireAdmi
         ${scanEdClauseEv}
       ORDER BY e.date, e.start_time LIMIT 6`;
 
-    db.all(sqlP, [like, like, like, like, like, like, like, ...scanEdParam], (e1, passes) => {
-      db.all(sqlPa, [like, like, like, like, ...scanEdParam], (e2, participants) => {
+    db.all(sqlP, [...nameParams, like, like, like, like, like, ...scanEdParam], (e1, passes) => {
+      db.all(sqlPa, [...nameParams, like, like, ...scanEdParam], (e2, participants) => {
         db.all(sqlG, [like, like, like, like], (e3, groups) => {
           db.all(sqlEv, [like, like, like, like, ...scanEdParam], (e4, events) => {
             res.json({ passes: passes || [], participants: participants || [], groups: groups || [], events: events || [] });

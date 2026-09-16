@@ -15,12 +15,21 @@
 module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter, edFilterP, getCurrent }) {
 
   // ── Pagina ricerca fulltext ──────────────────────────────────────
+  // FIX 17/09: stesso bug di routes/scan.js — un'unica stringa %q% non
+  // può mai matchare first_name e last_name separatamente quando la
+  // query contiene nome e cognome insieme (es. "Livio Carella").
+  // Ora la query viene divisa in parole, con AND fra le parole e OR
+  // fra le colonne first_name/last_name.
   app.get('/search', requireAuth, (req, res) => {
-    const q   = (req.query.q || '').trim();
+    const q = (req.query.q || '').trim();
     const tab = req.query.tab || 'all';
     if (!q) return res.render('search', { q: '', tab, passes: [], participants: [], groups: [], events: [] });
 
     const like = `%${q}%`;
+    const terms = q.split(/\s+/).filter(Boolean);
+    const nameClauseArr = terms.map(() => '(pa.first_name LIKE ? OR pa.last_name LIKE ?)');
+    const nameClause = nameClauseArr.length ? nameClauseArr.join(' AND ') : '(pa.first_name LIKE ? OR pa.last_name LIKE ?)';
+    const nameParams = terms.length ? terms.flatMap(t => [`%${t}%`, `%${t}%`]) : [like, like];
 
     const curEdSearch = getCurrent ? getCurrent() : null;
     const searchEdClausePa = curEdSearch ? 'AND (pa.edition_id = ? OR pa.edition_id IS NULL)' : '';
@@ -36,8 +45,8 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter,
       JOIN pass_types pt ON pt.id = p.pass_type_id
       JOIN participants pa ON pa.id = p.participant_id
       LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
-      WHERE (pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ?
-         OR pt.name LIKE ? OR p.code LIKE ? OR ag.name LIKE ? OR ag.stand_name LIKE ?)
+      WHERE (${nameClause}
+         OR pa.email LIKE ? OR pt.name LIKE ? OR p.code LIKE ? OR ag.name LIKE ? OR ag.stand_name LIKE ?)
         ${searchEdClausePa}
       ORDER BY p.id DESC LIMIT 300`;
 
@@ -47,8 +56,8 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter,
              (SELECT COUNT(*) FROM passes pp WHERE pp.participant_id=pa.id AND pp.status!='INVALIDATO') AS pass_count
       FROM participants pa
       LEFT JOIN assignment_groups ag ON ag.id = pa.assignment_group_id
-      WHERE (pa.first_name LIKE ? OR pa.last_name LIKE ? OR pa.email LIKE ?
-         OR pa.role LIKE ? OR pa.ref_code LIKE ?)
+      WHERE (${nameClause}
+         OR pa.email LIKE ? OR pa.role LIKE ? OR pa.ref_code LIKE ?)
         ${searchEdClausePa}
       ORDER BY pa.last_name, pa.first_name LIMIT 100`;
 
@@ -75,16 +84,16 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter,
         ${searchEdClauseEv}
       ORDER BY e.date, e.start_time LIMIT 100`;
 
-    db.all(sqlP, [like, like, like, like, like, like, like, ...searchEdParam], (e1, passes) => {
-      db.all(sqlPa, [like, like, like, like, like, ...searchEdParam], (e2, participants) => {
+    db.all(sqlP, [...nameParams, like, like, like, like, like, ...searchEdParam], (e1, passes) => {
+      db.all(sqlPa, [...nameParams, like, like, like, ...searchEdParam], (e2, participants) => {
         db.all(sqlG, [like, like, like, like], (e3, groups) => {
           db.all(sqlEv, [like, like, like, like, ...searchEdParam], (e4, events) => {
             res.render('search', {
               q, tab,
-              passes:       passes       || [],
+              passes: passes || [],
               participants: participants || [],
-              groups:       groups       || [],
-              events:       events       || [],
+              groups: groups || [],
+              events: events || [],
             });
           });
         });
@@ -115,13 +124,13 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter,
             db.get(
               `SELECT COUNT(*) AS total FROM participants pa
                WHERE pa.id NOT IN (SELECT DISTINCT participant_id FROM passes WHERE status!='INVALIDATO')
-                 ${reportsPaClause}`,
+               ${reportsPaClause}`,
               curEdReports ? [curEdReports.id] : [],
               (e3, r3) => {
                 res.render('reports', {
                   statusCounts: statusCounts || [],
-                  groupStats:   groupStats   || [],
-                  senzaPass:    r3 ? r3.total : 0,
+                  groupStats: groupStats || [],
+                  senzaPass: r3 ? r3.total : 0,
                 });
               }
             );
@@ -198,8 +207,8 @@ module.exports = function registerReportRoutes(app, db, { requireAuth, edFilter,
     db.all(
       `SELECT g.name AS categoria, ag.name AS gruppo, ag.zone, ag.stand_name,
               ag.max_passes, COUNT(p.id) AS pass_totali,
-              SUM(CASE WHEN p.status='GENERATO'     THEN 1 ELSE 0 END) AS generati,
-              SUM(CASE WHEN p.status='CONSEGNATO'   THEN 1 ELSE 0 END) AS consegnati,
+              SUM(CASE WHEN p.status='GENERATO' THEN 1 ELSE 0 END) AS generati,
+              SUM(CASE WHEN p.status='CONSEGNATO' THEN 1 ELSE 0 END) AS consegnati,
               SUM(CASE WHEN p.status='RICONSEGNATO' THEN 1 ELSE 0 END) AS riconsegnati
        FROM assignment_groups ag
        LEFT JOIN groups g ON g.id = ag.group_id
