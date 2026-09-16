@@ -262,7 +262,55 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   ));
  }
 
- async function diagnoseGroupPassCount(q){
+ 
+// ── Memoria breve Ludi AI: ultimo stand/espositore citato ───────────
+const LUDI_CONTEXT_TTL_MS=30*60*1000;
+function getLudiContext(req){
+ const ctx=req.session&&req.session.ludiAiContext;
+ if(!ctx||!ctx.updatedAt||Date.now()-ctx.updatedAt>LUDI_CONTEXT_TTL_MS){
+  if(req.session)delete req.session.ludiAiContext;
+  return null;
+ }
+ return ctx;
+}
+function rememberGroup(req,group){
+ if(!req.session)return;
+ req.session.ludiAiContext={
+  lastTopic:'group_pass_count',
+  lastGroupId:group.id,
+  lastGroupName:group.name,
+  lastStandName:group.stand_name||null,
+  updatedAt:Date.now()
+ };
+}
+function isGroupFollowUp(text){
+ return /^(?:e\s+)?(?:gli|i|quelli|quelle)?\s*(?:pass\s+)?(?:invalidati|sostituiti|attivi)?[!?.\s]*$/i.test(String(text||'').trim());
+}
+async function findAssignmentGroupById(id){
+ if(!id)return null;
+ return await new Promise(resolve=>db.get(
+  `SELECT id,name,stand_name FROM assignment_groups WHERE id=?`,[id],(err,row)=>resolve(err?null:row)
+ ));
+}
+async function diagnoseGroupPassFollowUp(req,original){
+ const ctx=getLudiContext(req);
+ if(!ctx||!isGroupFollowUp(original))return null;
+ const group=await findAssignmentGroupById(ctx.lastGroupId);
+ if(!group)return null;
+ const label=group.stand_name?`${group.name} (${group.stand_name})`:group.name;
+ const q=String(original||'').toLowerCase();
+ const wantsInvalid=/(invalidat|sostitui)/.test(q);
+ const status=wantsInvalid?`p.status='INVALIDATO'`:`p.status!='INVALIDATO'`;
+ const row=await new Promise(resolve=>db.get(
+  `SELECT COUNT(*) AS n FROM passes p JOIN participants pa ON pa.id=p.participant_id WHERE pa.assignment_group_id=? AND ${status}`,
+  [group.id],(err,r)=>resolve(err?null:r)
+ ));
+ const n=row?row.n||0:0;
+ const what=wantsInvalid?'pass invalidati o sostituiti nello storico':'pass attivi (non invalidati)';
+ return out(`Per lo stand ${label} risultano ${n} ${what}.`,`/assignment-groups/${group.id}`,'Apri la scheda dello stand →','memoria conversazionale · conteggio pass per stand');
+}
+
+async function diagnoseGroupPassCount(req,q){
   if(!DIAG_GROUP_PASS_RE.test(q))return null;
   const nameGuess=extractGroupNameQuery(q);
   if(!nameGuess){
@@ -272,6 +320,7 @@ module.exports=function registerAiAssistant(app,db,{requireAuth}){
   if(!group){
    return out(`Non trovo uno stand o un espositore corrispondente a "${nameGuess}".`,'/participants','Apri Assegnatari pass →','statistiche live (stand non trovato)');
   }
+  rememberGroup(req,group);
   const label=group.stand_name?`${group.name} (${group.stand_name})`:group.name;
   const wantsInvalid=DIAG_GROUP_PASS_INVALID_RE.test(q);
   if(wantsInvalid){
@@ -545,12 +594,18 @@ Puoi anche scrivere una domanda libera: se serve, cercherò nelle guide interne 
   const prev=history.slice().reverse().find(m=>m&&m.kind==='user'&&m.text&&m.text!==original);
   const q=((follow&&prev?prev.text+' ':'')+original).toLowerCase();
 
-  // 0) Quanti pass ha uno stand/espositore (conteggio live per gruppo).
+  // 0) Memoria conversazionale: follow-up sullo stand citato poco prima.
+  try{
+   const groupFollowUp=await diagnoseGroupPassFollowUp(req,original);
+   if(groupFollowUp)return res.json(groupFollowUp);
+  }catch(e){console.error('diagnoseGroupPassFollowUp',e.message);}
+
+  // 0bis) Quanti pass ha uno stand/espositore (conteggio live per gruppo).
   // Precede le statistiche generiche: la regex di questa funzione richiede
   // esplicitamente stand/espositore/gruppo, quindi non intercetta domande
   // generiche come "quanti pass ha generato oggi il sistema?".
   try{
-   const groupPassCount=await diagnoseGroupPassCount(q);
+   const groupPassCount=await diagnoseGroupPassCount(req,q);
    if(groupPassCount)return res.json(groupPassCount);
   }catch(e){console.error('diagnoseGroupPassCount',e.message);}
 
