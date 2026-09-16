@@ -292,6 +292,88 @@ async function findAssignmentGroupById(id){
   `SELECT id,name,stand_name FROM assignment_groups WHERE id=?`,[id],(err,row)=>resolve(err?null:row)
  ));
 }
+// ── Memoria breve Ludi AI: ultimo nominativo/pass identificato ───────
+function rememberParticipant(req,participant){
+ if(!req.session)return;
+ req.session.ludiAiContext={
+  lastTopic:'participant_lookup',
+  lastParticipantId:participant.id,
+  lastParticipantName:`${participant.first_name} ${participant.last_name}`.trim(),
+  lastGroupId:participant.groupid||participant.assignment_group_id||null,
+  lastGroupName:participant.groupname||null,
+  lastStandName:participant.stand_name||null,
+  updatedAt:Date.now()
+ };
+}
+function participantLabel(p){return `${p.first_name} ${p.last_name}`.trim();}
+function participantGroupLabel(p){
+ const group=p.stand_name?`${p.groupname||'Gruppo'} (${p.stand_name})`:p.groupname;
+ return group||'nessuno stand/gruppo associato';
+}
+function extractParticipantLookup(original){
+ const m=String(original||'').trim().match(/^(?:cerca|trova|cerco|trovami|dati\s+di|informazioni\s+su|pass\s+di)\s+([a-zà-ù'\-]+(?:\s+[a-zà-ù'\-]+){1,3})[!?.\s]*$/i);
+ return m?m[1].trim():null;
+}
+function isParticipantFollowUp(original){
+ return /^(?:ha\s+un\s+pass|e\s+il\s+pass|e\s+il\s+suo\s+pass|e\s+stato\s+consegnato|è\s+stato\s+consegnato|e\s+invalidato|è\s+invalidato|di\s+quale\s+stand\s+fa\s+parte|in\s+quale\s+stand\s+(?:è|e)|dove\s+lavora|apri\s+(?:la\s+)?sua\s+scheda)[!?.\s]*$/i.test(String(original||'').trim());
+}
+async function getParticipantById(id){
+ if(!id)return null;
+ return await new Promise(resolve=>db.get(
+  `SELECT p.id,p.first_name,p.last_name,p.assignment_group_id,ag.id AS groupid,ag.name AS groupname,ag.stand_name
+   FROM participants p LEFT JOIN assignment_groups ag ON ag.id=p.assignment_group_id WHERE p.id=?`,
+  [id],(err,row)=>resolve(err?null:row)
+ ));
+}
+async function getParticipantPasses(participantId){
+ return await new Promise(resolve=>db.all(
+  `SELECT id,code,status,pdf_file,replaced_by,created_at FROM passes WHERE participant_id=? ORDER BY id DESC`,
+  [participantId],(err,rows)=>resolve(err?[]:rows||[])
+ ));
+}
+function participantLink(p){return p.groupid?`/assignment-groups/${p.groupid}`:'/participants';}
+async function diagnoseParticipantLookup(req,original){
+ const nameGuess=extractParticipantLookup(original);
+ if(!nameGuess)return null;
+ const rows=await findParticipantCandidates(nameGuess,null,null);
+ if(!rows.length)return out(`Non trovo un nominativo corrispondente a “${nameGuess}”. Prova con nome e cognome completi.`,'/participants','Apri Assegnatari pass →','ricerca nominativo');
+ if(rows.length>1){
+  const names=rows.slice(0,5).map(p=>`${participantLabel(p)} — ${participantGroupLabel(p)}`).join('; ');
+  return out(`Ho trovato più nominativi: ${names}. Specifica nome e cognome completi.`,'/participants','Apri Assegnatari pass →','ricerca nominativo ambigua');
+ }
+ const p=rows[0];rememberParticipant(req,p);
+ const passes=await getParticipantPasses(p.id);
+ const active=passes.filter(x=>x.status!=='INVALIDATO');
+ const passText=active.length?`Ha ${active.length} pass attivo${active.length===1?'':'i'}${active[0]&&active[0].status?`, stato ${active[0].status}`:''}.`:'Non ha pass attivi al momento.';
+ return out(`Ho trovato ${participantLabel(p)}. Appartiene a ${participantGroupLabel(p)}. ${passText}`,participantLink(p),'Apri la scheda dello stand →','memoria conversazionale · nominativo');
+}
+async function diagnoseParticipantFollowUp(req,original){
+ const ctx=getLudiContext(req);
+ if(!ctx||!ctx.lastParticipantId||!isParticipantFollowUp(original))return null;
+ const p=await getParticipantById(ctx.lastParticipantId);
+ if(!p)return null;
+ const q=String(original||'').toLowerCase();
+ const name=participantLabel(p);
+ const link=participantLink(p);
+ if(/stand|dove\s+lavora/.test(q)){
+  return out(`${name} appartiene a ${participantGroupLabel(p)}.`,link,'Apri la scheda dello stand →','memoria conversazionale · nominativo');
+ }
+ if(/apri.*scheda/.test(q)){
+  return out(`La scheda di ${name} è disponibile all’interno dello stand ${participantGroupLabel(p)}.`,link,'Apri la scheda dello stand →','memoria conversazionale · nominativo');
+ }
+ const passes=await getParticipantPasses(p.id);
+ if(/invalidat/.test(q)){
+  const invalid=passes.filter(x=>x.status==='INVALIDATO');
+  return out(`${name} ha ${invalid.length} pass invalidato${invalid.length===1?'':'i'} nello storico.`,link,'Apri la scheda dello stand →','memoria conversazionale · pass nominativo');
+ }
+ if(/consegnato/.test(q)){
+  const delivered=passes.filter(x=>x.status==='CONSEGNATO'||x.status==='RICONSEGNATO');
+  return out(delivered.length?`${name} ha ${delivered.length} pass consegnato${delivered.length===1?'':'i'} o riconsegnato${delivered.length===1?'':'i'}.`:`Non risultano pass consegnati o riconsegnati per ${name}.`,link,'Apri la scheda dello stand →','memoria conversazionale · pass nominativo');
+ }
+ const active=passes.filter(x=>x.status!=='INVALIDATO');
+ return out(active.length?`${name} ha ${active.length} pass attivo${active.length===1?'':'i'}${active[0]&&active[0].status?`, stato ${active[0].status}`:''}.`:`${name} non ha pass attivi al momento.`,link,'Apri la scheda dello stand →','memoria conversazionale · pass nominativo');
+}
+
 async function diagnoseGroupPassFollowUp(req,original){
  const ctx=getLudiContext(req);
  if(!ctx||!isGroupFollowUp(original))return null;
@@ -594,13 +676,25 @@ Puoi anche scrivere una domanda libera: se serve, cercherò nelle guide interne 
   const prev=history.slice().reverse().find(m=>m&&m.kind==='user'&&m.text&&m.text!==original);
   const q=((follow&&prev?prev.text+' ':'')+original).toLowerCase();
 
-  // 0) Memoria conversazionale: follow-up sullo stand citato poco prima.
+  // 0) Memoria conversazionale: follow-up sul nominativo citato poco prima.
+  try{
+   const participantFollowUp=await diagnoseParticipantFollowUp(req,original);
+   if(participantFollowUp)return res.json(participantFollowUp);
+  }catch(e){console.error('diagnoseParticipantFollowUp',e.message);}
+
+  // 0bis) Ricerca esplicita di un nominativo: aggiorna la memoria solo se il risultato è univoco.
+  try{
+   const participantLookup=await diagnoseParticipantLookup(req,original);
+   if(participantLookup)return res.json(participantLookup);
+  }catch(e){console.error('diagnoseParticipantLookup',e.message);}
+
+  // 0ter) Memoria conversazionale: follow-up sullo stand citato poco prima.
   try{
    const groupFollowUp=await diagnoseGroupPassFollowUp(req,original);
    if(groupFollowUp)return res.json(groupFollowUp);
   }catch(e){console.error('diagnoseGroupPassFollowUp',e.message);}
 
-  // 0bis) Quanti pass ha uno stand/espositore (conteggio live per gruppo).
+  // 0quater) Quanti pass ha uno stand/espositore (conteggio live per gruppo).
   // Precede le statistiche generiche: la regex di questa funzione richiede
   // esplicitamente stand/espositore/gruppo, quindi non intercetta domande
   // generiche come "quanti pass ha generato oggi il sistema?".
