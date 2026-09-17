@@ -361,8 +361,10 @@ async function diagnoseParticipantFollowUp(req,original){
 }
 
 // ── Diagnostica dati agenda: perché un evento non è visibile? ────────
-// Schema reale (db.js): events(id,title,spaceid,date,starttime,endtime,
-// published,ispublic,editionid,locationtype,locationtext,freeentry,ticketedarea).
+// Schema reale confermato da db.js: events(id,title,space_id,date,
+// start_time,end_time,is_public,published,edition_id,location_type,
+// location_text,free_entry,ticketed_area); spaces(id,name,...);
+// editions(id,name,is_current,...).
 const DIAG_AGENDA_RE=/(evento non (?:appare|visibile|compare)|perch[eé].{0,120}evento.{0,120}non (?:appare|visibile|compare)|non vedo l.{0,3}evento|evento nascosto|evento.{0,120}non (?:appare|visibile|compare))/i;
 function extractEventQuery(original){
  const s=String(original||'');
@@ -378,8 +380,8 @@ async function diagnoseAgendaVisibility(req,q,original){
  if(!term)return out('Per dirti perché un evento non è visibile nel programma pubblico, indicami il titolo (anche parziale) dell’evento.','/agenda','Apri Agenda →','diagnostica agenda dati mancanti');
  const like='%'+term.replace(/\s+/g,'%')+'%';
  const rows=await new Promise(resolve=>db.all(
-  `SELECT e.id,e.title,e.published,e.ispublic,e.editionid,e.date,e.starttime,e.endtime,s.name AS space_name
-   FROM events e LEFT JOIN spaces s ON s.id=e.spaceid WHERE e.title LIKE ? ORDER BY e.date DESC LIMIT 8`,
+  `SELECT e.id,e.title,e.published,e.is_public,e.edition_id,e.date,e.start_time,e.end_time,s.name AS space_name
+   FROM events e LEFT JOIN spaces s ON s.id=e.space_id WHERE e.title LIKE ? ORDER BY e.date DESC LIMIT 8`,
   [like],(err,r)=>resolve(err?null:r)
  ));
  if(rows===null)return out('Non riesco a verificare lo stato di questo evento in questo momento.','/agenda','Apri Agenda →','diagnostica agenda errore lettura');
@@ -392,8 +394,8 @@ async function diagnoseAgendaVisibility(req,q,original){
  const cur=await new Promise(resolve=>db.get(`SELECT id FROM editions WHERE is_current=1 LIMIT 1`,[],(err,row)=>resolve(err?null:row)));
  const problems=[];
  if(!e.published)problems.push('non è stato pubblicato (il salvataggio da solo non basta, serve attivare l’opzione pubblico)');
- if(!e.ispublic)problems.push('non è impostato come visibile al pubblico');
- if(cur&&e.editionid&&e.editionid!==cur.id)problems.push('appartiene a un’altra edizione, diversa da quella attualmente attiva');
+ if(!e.is_public)problems.push('non è impostato come visibile al pubblico');
+ if(cur&&e.edition_id&&e.edition_id!==cur.id)problems.push('appartiene a un’altra edizione, diversa da quella attualmente attiva');
  if(!problems.length)return out(`L’evento “${e.title}” risulta pubblicato, pubblico e associato all’edizione corrente: non vedo blocchi evidenti. Verifica data e orario nella vista del programma che stai consultando.`,'/agenda','Apri Agenda →','diagnostica agenda nessun blocco rilevato');
  return out(`L’evento “${e.title}” non appare nel programma pubblico perché ${problems.join(' e ')}. Apri Agenda → Gestione Eventi e correggi i campi mancanti.`,'/agenda','Apri Agenda →','diagnostica agenda campi mancanti');
 }
