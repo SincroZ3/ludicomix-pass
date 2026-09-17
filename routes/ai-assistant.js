@@ -363,12 +363,14 @@ async function diagnoseParticipantFollowUp(req,original){
 // ── Diagnostica dati agenda: perché un evento non è visibile? ────────
 // Schema reale (db.js): events(id,title,spaceid,date,starttime,endtime,
 // published,ispublic,editionid,locationtype,locationtext,freeentry,ticketedarea).
-// Estende lo stesso pattern già usato per accreditamenti/rimborsi/turni/logistica:
-// query predefinite, risultati minimi, nessuna scrittura.
-const DIAG_AGENDA_RE=/(evento non (?:appare|visibile|compare)|perch[eé].{0,40}evento.{0,20}non (?:appare|visibile|compare)|non vedo l.{0,3}evento|evento nascosto)/i;
+const DIAG_AGENDA_RE=/(evento non (?:appare|visibile|compare)|perch[eé].{0,120}evento.{0,120}non (?:appare|visibile|compare)|non vedo l.{0,3}evento|evento nascosto|evento.{0,120}non (?:appare|visibile|compare))/i;
 function extractEventQuery(original){
- const m=String(original||'').match(/evento\s+(?:di|per|dal titolo)?\s*[:\-]?\s*["“]?([a-zà-ù0-9' \-]{3,60})["”]?/i);
- return m?m[1].trim():null;
+ const s=String(original||'');
+ const quoted=s.match(/evento[^"“‘']{0,40}["“]([^"”]{2,80})["”]/i);
+ if(quoted)return quoted[1].trim();
+ const plain=s.match(/evento\s+([a-zà-ù0-9' \-]{3,60}?)\s+non\s+(?:appare|visibile|compare)/i);
+ if(plain&&plain[1].trim())return plain[1].trim();
+ return null;
 }
 async function diagnoseAgendaVisibility(req,q,original){
  if(!DIAG_AGENDA_RE.test(q))return null;
