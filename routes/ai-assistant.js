@@ -292,6 +292,39 @@ async function findAssignmentGroupById(id){
   `SELECT id,name,stand_name FROM assignment_groups WHERE id=?`,[id],(err,row)=>resolve(err?null:row)
  ));
 }
+// ── Normalizzazione linguaggio: refusi comuni e sinonimi ─────────────
+// Applicata SOLO alla variabile "q" usata da guide/regole/rete di sicurezza/RAG.
+// Non tocca mai "original", usato dalle funzioni di ricerca nominativo/pass,
+// per evitare che un cognome reale venga alterato prima di una query SQL.
+// Regole limitate a refusi lunghi e distintivi, per minimizzare il rischio
+// di corrompere per errore un nome proprio simile a una parola chiave.
+const TYPO_FIXES=[
+ [/\brimbos+o\b/g,'rimborso'],[/\brimbosi\b/g,'rimborsi'],
+ [/\bacredit\w*/g,'accredito'],
+ [/\bvolontarioi\b/g,'volontari'],[/\bvolontar[ìi]\b/g,'volontari'],
+ [/\bespositroe\b/g,'espositore'],[/\bespositoer\b/g,'espositore'],
+ [/\bpasss\b/g,'pass'],
+ [/\bstadn\b/g,'stand'],[/\bstnad\b/g,'stand'],
+ [/\bnomintaivo\b/g,'nominativo'],[/\bnomianitvo\b/g,'nominativo'],
+ [/\binvladato\b/g,'invalidato'],[/\binvalidto\b/g,'invalidato'],
+ [/\bagend\b/g,'agenda'],
+ [/\blogisitca\b/g,'logistica'],[/\blogistca\b/g,'logistica'],
+ [/\bturnio\b/g,'turni'],
+ [/\bedizionne\b/g,'edizione']
+];
+const SYNONYM_FIXES=[
+ [/\bbadge\b/g,'pass'],
+ [/\bespositore\b/g,'stand'],[/\bgruppo espositore\b/g,'stand'],
+ [/\bscontrini\b/g,'spese'],[/\bscontrino\b/g,'spesa'],
+ [/\bfatture\b/g,'spese'],[/\bfattura\b/g,'spesa']
+];
+function normalizeQuery(text){
+ let t=String(text||'');
+ TYPO_FIXES.forEach(([re,rep])=>{t=t.replace(re,rep);});
+ SYNONYM_FIXES.forEach(([re,rep])=>{t=t.replace(re,rep);});
+ return t;
+}
+
 // ── Memoria breve Ludi AI: ultimo nominativo/pass identificato ───────
 function rememberParticipant(req,participant){
  if(!req.session)return;
@@ -629,7 +662,8 @@ Puoi anche scrivere una domanda libera: se serve, cercherò nelle guide interne 
   if(CAPABILITIES_RE.test(original))return res.json(ludiIntro(req.session.user.role,currentPath,'capabilities'));
   const follow=/^(spiegami|spiega|dimmi|fammi vedere|come faccio|dove trovo|e poi|continua|passo per passo|pi[uù] dettagli|approfondisci)/i.test(original);
   const prev=history.slice().reverse().find(m=>m&&m.kind==='user'&&m.text&&m.text!==original);
-  const q=((follow&&prev?prev.text+' ':'')+original).toLowerCase();
+  const q0=((follow&&prev?prev.text+' ':'')+original).toLowerCase();
+  const q=normalizeQuery(q0);
 
   // 0) Memoria conversazionale: follow-up sul nominativo citato poco prima.
   try{const participantFollowUp=await diagnoseParticipantFollowUp(req,original);if(participantFollowUp)return res.json(participantFollowUp);}catch(e){console.error('diagnoseParticipantFollowUp',e.message);}
