@@ -296,8 +296,6 @@ async function findAssignmentGroupById(id){
 // Applicata SOLO alla variabile "q" usata da guide/regole/rete di sicurezza/RAG.
 // Non tocca mai "original", usato dalle funzioni di ricerca nominativo/pass,
 // per evitare che un cognome reale venga alterato prima di una query SQL.
-// Regole limitate a refusi lunghi e distintivi, per minimizzare il rischio
-// di corrompere per errore un nome proprio simile a una parola chiave.
 const TYPO_FIXES=[
  [/\brimbos+o\b/g,'rimborso'],[/\brimbosi\b/g,'rimborsi'],
  [/\bacredit\w*/g,'accredito'],
@@ -360,6 +358,42 @@ async function diagnoseParticipantFollowUp(req,original){
  if(/invalidat/.test(q)){const invalid=passes.filter(x=>x.status==='INVALIDATO');return out(`${name} ha ${invalid.length} pass invalidato${invalid.length===1?'':'i'} nello storico.`,link,'Apri la scheda dello stand →','memoria conversazionale · pass nominativo');}
  if(/consegnato/.test(q)){const delivered=passes.filter(x=>x.status==='CONSEGNATO'||x.status==='RICONSEGNATO');return out(delivered.length?`${name} ha ${delivered.length} pass consegnato${delivered.length===1?'':'i'} o riconsegnato${delivered.length===1?'':'i'}.`:`Non risultano pass consegnati o riconsegnati per ${name}.`,link,'Apri la scheda dello stand →','memoria conversazionale · pass nominativo');}
  const active=passes.filter(x=>x.status!=='INVALIDATO');return out(active.length?`${name} ha ${active.length} pass attivo${active.length===1?'':'i'}${active[0]&&active[0].status?`, stato ${active[0].status}`:''}.`:`${name} non ha pass attivi al momento.`,link,'Apri la scheda dello stand →','memoria conversazionale · pass nominativo');
+}
+
+// ── Diagnostica dati agenda: perché un evento non è visibile? ────────
+// Schema reale (db.js): events(id,title,spaceid,date,starttime,endtime,
+// published,ispublic,editionid,locationtype,locationtext,freeentry,ticketedarea).
+// Estende lo stesso pattern già usato per accreditamenti/rimborsi/turni/logistica:
+// query predefinite, risultati minimi, nessuna scrittura.
+const DIAG_AGENDA_RE=/(evento non (?:appare|visibile|compare)|perch[eé].{0,40}evento.{0,20}non (?:appare|visibile|compare)|non vedo l.{0,3}evento|evento nascosto)/i;
+function extractEventQuery(original){
+ const m=String(original||'').match(/evento\s+(?:di|per|dal titolo)?\s*[:\-]?\s*["“]?([a-zà-ù0-9' \-]{3,60})["”]?/i);
+ return m?m[1].trim():null;
+}
+async function diagnoseAgendaVisibility(req,q,original){
+ if(!DIAG_AGENDA_RE.test(q))return null;
+ const term=extractEventQuery(original);
+ if(!term)return out('Per dirti perché un evento non è visibile nel programma pubblico, indicami il titolo (anche parziale) dell’evento.','/agenda','Apri Agenda →','diagnostica agenda dati mancanti');
+ const like='%'+term.replace(/\s+/g,'%')+'%';
+ const rows=await new Promise(resolve=>db.all(
+  `SELECT e.id,e.title,e.published,e.ispublic,e.editionid,e.date,e.starttime,e.endtime,s.name AS space_name
+   FROM events e LEFT JOIN spaces s ON s.id=e.spaceid WHERE e.title LIKE ? ORDER BY e.date DESC LIMIT 8`,
+  [like],(err,r)=>resolve(err?null:r)
+ ));
+ if(rows===null)return out('Non riesco a verificare lo stato di questo evento in questo momento.','/agenda','Apri Agenda →','diagnostica agenda errore lettura');
+ if(!rows.length)return out(`Non trovo un evento corrispondente a “${term}”. Verifica il titolo in Agenda → Gestione Eventi.`,'/agenda','Apri Agenda →','diagnostica agenda non trovato');
+ if(rows.length>1){
+  const names=rows.slice(0,5).map(e=>`${e.title} (${e.date||'data non impostata'})`).join('; ');
+  return out(`Ho trovato più eventi che corrispondono: ${names}. Specifica il titolo completo o la data.`,'/agenda','Apri Agenda →','diagnostica agenda ambiguo');
+ }
+ const e=rows[0];
+ const cur=await new Promise(resolve=>db.get(`SELECT id FROM editions WHERE is_current=1 LIMIT 1`,[],(err,row)=>resolve(err?null:row)));
+ const problems=[];
+ if(!e.published)problems.push('non è stato pubblicato (il salvataggio da solo non basta, serve attivare l’opzione pubblico)');
+ if(!e.ispublic)problems.push('non è impostato come visibile al pubblico');
+ if(cur&&e.editionid&&e.editionid!==cur.id)problems.push('appartiene a un’altra edizione, diversa da quella attualmente attiva');
+ if(!problems.length)return out(`L’evento “${e.title}” risulta pubblicato, pubblico e associato all’edizione corrente: non vedo blocchi evidenti. Verifica data e orario nella vista del programma che stai consultando.`,'/agenda','Apri Agenda →','diagnostica agenda nessun blocco rilevato');
+ return out(`L’evento “${e.title}” non appare nel programma pubblico perché ${problems.join(' e ')}. Apri Agenda → Gestione Eventi e correggi i campi mancanti.`,'/agenda','Apri Agenda →','diagnostica agenda campi mancanti');
 }
 
 async function diagnoseGroupPassFollowUp(req,original){
@@ -674,7 +708,10 @@ Puoi anche scrivere una domanda libera: se serve, cercherò nelle guide interne 
   // 0ter) Memoria conversazionale: follow-up sullo stand citato poco prima.
   try{const groupFollowUp=await diagnoseGroupPassFollowUp(req,original);if(groupFollowUp)return res.json(groupFollowUp);}catch(e){console.error('diagnoseGroupPassFollowUp',e.message);}
 
-  // 0quater) Quanti pass ha uno stand/espositore (conteggio live per gruppo).
+  // 0quater) Diagnostica agenda: perché un evento non è visibile nel programma pubblico.
+  try{const agendaDiag=await diagnoseAgendaVisibility(req,q,original);if(agendaDiag)return res.json(agendaDiag);}catch(e){console.error('diagnoseAgendaVisibility',e.message);}
+
+  // 0quinquies) Quanti pass ha uno stand/espositore (conteggio live per gruppo).
   // Precede le statistiche generiche: la regex di questa funzione richiede
   // esplicitamente stand/espositore/gruppo, quindi non intercetta domande
   // generiche come "quanti pass ha generato oggi il sistema?".
