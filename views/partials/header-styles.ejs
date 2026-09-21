@@ -66,12 +66,13 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
 
 /* ============================================================
    TOPBAR
-   FIX 22/09 v4: il ciuchino+logo deve toccare i due bordi della
-   barra viola, senza margine sopra/sotto. Rimosso il padding
-   verticale sul .topbar e reso il contenitore .brand "stretch"
-   sull'asse trasversale del flex: l'immagine (height:100%) segue
-   sempre l'altezza reale della barra, ad ogni breakpoint, senza
-   bisogno di regole responsive dedicate.
+   FIX 22/09 v5: "height:100%" su un figlio flex dentro un
+   contenitore la cui altezza dipende dal contenuto crea un
+   riferimento circolare — il browser lo ignora e usa la
+   dimensione naturale dell'immagine (enorme). Tornato ad
+   altezze FISSE in pixel, uguali al min-height del .topbar
+   ad ogni breakpoint: così l'immagine tocca sempre i bordi
+   in modo prevedibile, senza ambiguità.
    ============================================================ */
 .topbar {
   position: relative;
@@ -88,12 +89,11 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
 
 .brand {
   display: flex;
-  align-items: stretch;
-  align-self: stretch;
+  align-items: center;
 }
 
 .brand-combo {
-  height: 100%;
+  height: 130px;
   width: auto;
   display: block;
   filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));
@@ -614,6 +614,7 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 @media (max-width: 900px) {
   .content { padding: 1rem 1rem 2rem; }
   .topbar { flex-wrap: wrap; gap: 0.6rem; padding: 0 1rem; min-height: 100px; }
+  .brand-combo { height: 100px; }
   .header-search { order: 3; flex: 1 1 100%; max-width: none; }
   .main-nav a { font-size: 0.92rem; padding: 0.55rem 0.8rem; }
   .nav-dropdown-toggle { font-size: 0.92rem; padding: 0.55rem 0.8rem; }
@@ -625,6 +626,7 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 
 @media (max-width: 600px) {
   .topbar { flex-direction: row; align-items: center; justify-content: space-between; padding: 0 0.75rem; min-height: 76px; gap: 0.5rem; flex-wrap: wrap; }
+  .brand-combo { height: 76px; }
   .header-search { display: none; }
   .header-right-col { align-items: flex-end; }
   .header-icons { gap: 0.4rem; }
@@ -673,6 +675,7 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 
 @media (max-width: 380px) {
   .topbar { padding: 0 0.5rem; min-height: 64px; }
+  .brand-combo { height: 64px; }
   .main-nav a { font-size: 0.78rem; padding: 0.45rem 0.55rem; }
   .nav-dropdown-toggle { font-size: 0.78rem; padding: 0.45rem 0.55rem; }
   .content { padding: 0.6rem 0.5rem 1.8rem; }
