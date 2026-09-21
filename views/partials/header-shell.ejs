@@ -117,9 +117,25 @@
   // ── Menu a tendina Impostazioni ──────────────────────────────────
   var toggleBtn = document.getElementById('settings-dropdown-toggle');
   var menu      = document.getElementById('settings-dropdown-menu');
-  var navBar    = document.getElementById('main-nav-bar');
 
   if (toggleBtn && menu) {
+
+    // FIX 21/09 (v5) — CAUSA REALE CONFERMATA CON TEST elementFromPoint:
+    // il menu era posizionato correttamente (position:fixed, coordinate
+    // dentro lo schermo, display:flex) e riceveva regolarmente i tocchi
+    // (elementFromPoint lo trovava), ma non veniva MAI dipinto a schermo.
+    // Questo è un bug noto di WebKit: un elemento position:fixed che è
+    // figlio nel DOM di un contenitore con -webkit-overflow-scrolling:touch
+    // (il nostro .main-nav scrollabile) può restare "intrappolato" nel
+    // livello di composizione grafica di quel contenitore, anche se
+    // posizionato fuori dal suo flusso normale. Il fix definitivo è
+    // spostare il menu fuori dall'albero DOM della nav, rendendolo figlio
+    // diretto di <body>: così non fa più parte del contesto di scroll
+    // che causava il mancato ridisegno.
+    if (menu.parentNode !== document.body) {
+      document.body.appendChild(menu);
+    }
+
     var lastToggleAt = 0;
 
     function openMenu(){
@@ -140,14 +156,6 @@
         menu.style.top  = top + 'px';
         menu.style.left = left + 'px';
         menu.classList.add('open');
-
-        // DEBUG temporaneo: log visibile in console ad ogni apertura,
-        // per verificare rapidamente i valori reali usati, senza dover
-        // rieseguire manualmente il codice a mano ogni volta.
-        console.log('[nav-dropdown] rect.left=' + rect.left + ' rect.bottom=' + rect.bottom +
-          ' -> applied left=' + left + ' top=' + top +
-          ' innerWidth=' + window.innerWidth + ' navScrollLeft=' + (navBar ? navBar.scrollLeft : 'n/a') +
-          ' display=' + getComputedStyle(menu).display);
       });
     }
     function closeMenu(){
@@ -170,18 +178,13 @@
     toggleBtn.addEventListener('click', handleToggle);
 
     document.addEventListener('click', function(e){
-      if (!e.target.closest('.nav-dropdown')) closeMenu();
+      if (e.target !== toggleBtn && !toggleBtn.contains(e.target) && !menu.contains(e.target)) closeMenu();
     });
     document.addEventListener('touchend', function(e){
-      if (!e.target.closest('.nav-dropdown')) closeMenu();
+      if (e.target !== toggleBtn && !toggleBtn.contains(e.target) && !menu.contains(e.target)) closeMenu();
     }, { passive: true });
     window.addEventListener('resize', closeMenu);
     window.addEventListener('scroll', closeMenu, true);
-
-    // Aggancio di debug: richiamabile a mano dalla console per test immediati.
-    window.__debugOpenMenu = openMenu;
-    window.__debugMenu = menu;
-    window.__debugToggleBtn = toggleBtn;
   }
 
   // ── Badge notifiche non lette (polling) ──
