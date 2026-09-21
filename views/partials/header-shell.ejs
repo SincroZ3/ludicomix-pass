@@ -115,17 +115,21 @@
   }
 
   // ── Menu a tendina Impostazioni ──────────────────────────────────
-  // FIX 21/09 (v3): la v2 agganciava sia "touchend" sia "click" sullo
-  // stesso bottone, contando sul preventDefault() di touchend per
-  // sopprimere il click sintetico generato subito dopo da iOS. Questa
-  // soppressione è incoerente tra versioni di Safari: sul dispositivo
-  // di test il click sintetico arrivava comunque, richiudendo il menu
-  // una frazione di secondo dopo averlo aperto (apre-e-chiude nello
-  // stesso gesto, indistinguibile da "non succede nulla").
-  // Ora usiamo un debounce temporale esplicito: qualunque sia il
-  // secondo evento a scattare (touchend o click) entro 400ms dal
-  // primo, viene ignorato — indipendentemente da come si comporta
-  // preventDefault su quella specifica versione del browser.
+  // FIX 21/09 (v4) — CAUSA REALE TROVATA E CONFERMATA CON TEST SU DISPOSITIVO:
+  // il bottone sta dentro .main-nav, che su mobile scorre orizzontalmente
+  // con -webkit-overflow-scrolling:touch. Su WebKit (Safari e Chrome iOS,
+  // stesso motore), durante/subito dopo lo scroll con inerzia, le query di
+  // geometria (getBoundingClientRect) possono restituire coordinate NON
+  // aggiornate perché lo scroll gira su un thread separato dal layout
+  // principale. Risultato osservato: il menu si apriva correttamente
+  // (display:flex, classe aggiunta) ma con "left" calcolato a centinaia di
+  // pixel oltre il bordo destro dello schermo — invisibile, sembrava non
+  // succedere nulla. Su Android (motore Blink) questa particolarità non
+  // esiste, infatti lì ha sempre funzionato.
+  // Fix a due livelli: 1) requestAnimationFrame rimanda la lettura della
+  // posizione al frame successivo, dando tempo al layout di sincronizzarsi;
+  // 2) clamping matematico: qualunque sia il valore letto, il menu viene
+  // comunque forzato a restare dentro i bordi visibili dello schermo.
   var toggleBtn = document.getElementById('settings-dropdown-toggle');
   var menu      = document.getElementById('settings-dropdown-menu');
 
@@ -133,10 +137,24 @@
     var lastToggleAt = 0;
 
     function openMenu(){
-      var rect = toggleBtn.getBoundingClientRect();
-      menu.style.top  = rect.bottom + 'px';
-      menu.style.left = rect.left + 'px';
-      menu.classList.add('open');
+      requestAnimationFrame(function(){
+        var rect = toggleBtn.getBoundingClientRect();
+        var margin = 8;
+        var menuWidth = menu.offsetWidth || 230;
+        var maxLeft = window.innerWidth - menuWidth - margin;
+
+        var left = rect.left;
+        if (left > maxLeft) left = maxLeft;
+        if (left < margin) left = margin;
+
+        var top = rect.bottom;
+        var maxTop = window.innerHeight - margin;
+        if (top > maxTop) top = maxTop;
+
+        menu.style.top  = top + 'px';
+        menu.style.left = left + 'px';
+        menu.classList.add('open');
+      });
     }
     function closeMenu(){
       menu.classList.remove('open');
@@ -144,7 +162,6 @@
     function handleToggle(e){
       var now = Date.now();
       if (now - lastToggleAt < 400) {
-        // secondo evento della stessa interazione (touchend + click sintetico): ignora
         e.preventDefault();
         return;
       }
