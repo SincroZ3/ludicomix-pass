@@ -4,12 +4,20 @@
    Colori ufficiali: blu notte + giallo oro + viola mascotte
    ============================================================ */
 
+@font-face {
+  font-family: 'Coco Sharp Bold';
+  src: url('/fonts/CocoSharp-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  --brand-dark:    #1e2d4e;   /* blu notte navbar */
-  --brand-mid:     #253660;   /* blu medio */
-  --brand-yellow:  #f5c842;   /* giallo Ludicomix */
-  --brand-gold:    #c9a227;   /* oro "EMPOLI" */
-  --brand-violet:  #6b3fa0;   /* viola ciuchino */
+  --brand-dark:    #1e2d4e;
+  --brand-mid:     #253660;
+  --brand-yellow:  #f5c842;
+  --brand-gold:    #c9a227;
+  --brand-violet:  #6b3fa0;
   --brand-violet-light: #8b5cc0;
   --brand-violet-dark:  #4c2c78;
 
@@ -38,6 +46,8 @@
   --radius-sm:     4px;
   --radius-md:     8px;
   --radius-lg:     12px;
+
+  --font-brand: 'Coco Sharp Bold', 'Baloo 2', 'Arial Narrow', Arial, sans-serif;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -56,81 +66,69 @@ a { color: var(--text-link); text-decoration: none; transition: color 0.15s; }
 a:hover { color: var(--text-link-hover); text-decoration: underline; }
 
 /* ============================================================
-   TOPBAR — sfondo viola mascotte (redesign header)
+   TOPBAR
    ============================================================ */
 .topbar {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
-  padding: 0.6rem 1.5rem;
+  padding: 0.6rem 1.5rem 0.6rem 190px;
   background: linear-gradient(135deg, var(--brand-violet-dark) 0%, var(--brand-violet) 45%, var(--brand-violet-light) 100%);
-  min-height: 78px;
+  min-height: 130px;
+  overflow: visible;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-}
-
-.brand-logo-img {
-  height: 54px;
-  width: auto;
-  display: block;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+  gap: 0.9rem;
+  position: static;
 }
 
 .brand-ciuco {
-  height: 72px;
+  position: absolute;
+  left: 0.75rem;
+  bottom: -14px;
+  height: 175px;
   width: auto;
   display: block;
-  margin-right: 0.25rem;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35));
+  z-index: 2;
+  pointer-events: none;
 }
 
-.brand-text-block {
-  display: flex;
-  flex-direction: column;
-  gap: 0.05rem;
+.brand-logo-img {
+  height: 92px;
+  width: auto;
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.25));
 }
-.brand-sub {
-  font-size: 0.82rem;
-  color: #ffffff;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-}
-.brand-user {
-  font-size: 0.76rem;
-  color: #e6d9f5;
-  margin-top: 0.15rem;
-}
-.brand-user strong { color: var(--brand-yellow); }
 
 /* ============================================================
-   BARRA DI RICERCA — pillola gialla nell'header
+   BARRA DI RICERCA
    ============================================================ */
 .header-search {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.6rem;
   background: var(--brand-yellow);
   border-radius: 999px;
-  padding: 0.5rem 1.1rem;
-  flex: 1 1 280px;
-  max-width: 420px;
+  padding: 0.6rem 1.3rem;
+  flex: 1 1 320px;
+  max-width: 460px;
   box-shadow: var(--shadow-sm);
 }
-.header-search-icon { font-size: 1rem; color: var(--brand-dark); flex-shrink: 0; }
+.header-search-icon { font-size: 1.1rem; color: var(--brand-dark); flex-shrink: 0; }
 .header-search-input {
   flex: 1;
   min-width: 0;
   border: none;
   background: transparent;
   outline: none;
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: var(--brand-dark);
   font-family: inherit;
@@ -138,12 +136,15 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
 .header-search-input::placeholder { color: rgba(30,45,78,0.65); font-weight: 700; }
 
 /* ============================================================
-   ICONE CIRCOLARI — notifiche, scanner, contatore, log, logout
+   ICONE CIRCOLARI
+   FIX 22/09: colore forzato via attributo stroke inline sull'SVG
+   (non più currentColor) per eliminare qualunque dipendenza da
+   variabili/cascata CSS che potesse impedirne la visualizzazione.
    ============================================================ */
 .header-icons {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   flex-shrink: 0;
 }
 .icon-circle {
@@ -151,25 +152,28 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.18);
-  color: #ffffff;
-  font-size: 1.08rem;
+  background: rgba(255,255,255,0.92);
   border: none;
   cursor: pointer;
   text-decoration: none;
+  box-shadow: var(--shadow-sm);
   transition: background 0.15s, transform 0.15s;
 }
+.icon-circle svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
 .icon-circle:hover {
-  background: rgba(255,255,255,0.32);
+  background: #ffffff;
   transform: translateY(-1px);
   text-decoration: none;
-  color: #ffffff;
 }
 .icon-circle-form { margin: 0; }
-.icon-circle-form button.icon-circle { font-family: inherit; }
+.icon-circle-form button.icon-circle { font-family: inherit; padding: 0; }
 .icon-badge {
   position: absolute;
   top: -3px;
@@ -188,7 +192,9 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
 }
 
 /* ============================================================
-   NAVBAR — giallo ufficiale Ludicomix
+   NAVBAR
+   FIX 22/09: rimosse maiuscolo forzato e separatori verticali,
+   il mockup mostra testo semplice in grassetto senza decorazioni.
    ============================================================ */
 .main-nav {
   display: flex;
@@ -204,43 +210,34 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
 .main-nav a {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.55rem 1rem;
   font-weight: 700;
-  font-size: 0.76rem;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.1px;
+  text-transform: none;
   color: var(--brand-dark);
   text-decoration: none;
-  border-right: 1px solid rgba(0,0,0,0.12);
+  border-right: none;
   transition: background 0.15s;
   white-space: nowrap;
   font-family: 'Arial Narrow', Arial, sans-serif;
 }
-.main-nav a:first-child { border-left: 1px solid rgba(0,0,0,0.12); }
 .main-nav a:hover { background: rgba(0,0,0,0.1); text-decoration: none; }
 .main-nav a.nav-active { background: var(--brand-dark); color: var(--brand-yellow); }
 
-/* ── Menu a tendina "Impostazioni" ──
-   FIX 21/09 v2: il trigger è un <button> reale (non più <a href="#">)
-   per garantire il tap su mobile dentro un contenitore con scroll
-   orizzontale (vedi commento JS in header-shell.ejs). Qui gli diamo
-   lo stesso aspetto visivo dei link della nav, azzerando gli stili
-   di default del browser per i bottoni. */
+/* ── Menu a tendina "Impostazioni" ── */
 .nav-dropdown { position: relative; }
 .nav-dropdown-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.55rem 1rem;
   font-weight: 700;
-  font-size: 0.76rem;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.1px;
+  text-transform: none;
   color: var(--brand-dark);
   background: transparent;
   border: none;
-  border-right: 1px solid rgba(0,0,0,0.12);
   border-radius: 0;
   cursor: pointer;
   white-space: nowrap;
@@ -608,95 +605,80 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
    RESPONSIVE — Mobile First
    ============================================================ */
 
-/* ── Tablet (max 900px) ── */
 @media (max-width: 900px) {
   .content { padding: 1rem 1rem 2rem; }
-  .topbar { flex-wrap: wrap; gap: 0.6rem; padding: 0.6rem 1rem; min-height: 64px; }
+  .topbar { flex-wrap: wrap; gap: 0.6rem; padding: 0.6rem 1rem 0.6rem 130px; min-height: 96px; }
   .header-search { order: 3; flex: 1 1 100%; max-width: none; }
-  .main-nav a { font-size: 0.7rem; padding: 0.45rem 0.5rem; }
-  .nav-dropdown-toggle { font-size: 0.7rem; padding: 0.45rem 0.5rem; }
+  .main-nav a { font-size: 0.78rem; padding: 0.5rem 0.7rem; }
+  .nav-dropdown-toggle { font-size: 0.78rem; padding: 0.5rem 0.7rem; }
   table { font-size: 0.78rem; }
   th, td { padding: 0.45rem 0.6rem; }
-  .brand-ciuco { height: 52px; }
-  .brand-logo-img { height: 40px; }
+  .brand-ciuco { height: 118px; left: 0.4rem; bottom: -8px; }
+  .brand-logo-img { height: 64px; }
   .card { padding: 0.85rem 1rem; }
   .icon-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
-/* ── Smartphone (max 600px) ── */
 @media (max-width: 600px) {
-  /* Topbar: loghi compatti, testo utente nascosto, icone sempre visibili */
-  .topbar { flex-direction: row; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; min-height: 56px; gap: 0.5rem; flex-wrap: wrap; }
+  .topbar { flex-direction: row; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem 0.5rem 88px; min-height: 72px; gap: 0.5rem; flex-wrap: wrap; }
   .brand { gap: 0.4rem; }
-  .brand-ciuco { height: 40px; }
-  .brand-logo-img { height: 32px; }
-  .brand-text-block { display: none; }
-  .header-search { display: none; } /* su mobile la ricerca resta sul FAB flottante */
-  .header-icons { gap: 0.35rem; }
-  .icon-circle { width: 34px; height: 34px; font-size: 0.95rem; }
+  .brand-ciuco { height: 78px; left: 0.2rem; bottom: -4px; }
+  .brand-logo-img { height: 44px; }
+  .header-search { display: none; }
+  .header-icons { gap: 0.4rem; }
+  .icon-circle { width: 36px; height: 36px; }
+  .icon-circle svg { width: 18px; height: 18px; }
 
-  /* Navbar: scroll orizzontale su una riga */
   .main-nav { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 0; min-height: 34px; }
   .main-nav::-webkit-scrollbar { display: none; }
-  .main-nav a { flex-shrink: 0; font-size: 0.67rem; padding: 0.42rem 0.55rem; letter-spacing: 0.2px; }
-  .nav-dropdown-toggle { flex-shrink: 0; font-size: 0.67rem; padding: 0.42rem 0.55rem; letter-spacing: 0.2px; }
+  .main-nav a { flex-shrink: 0; font-size: 0.72rem; padding: 0.45rem 0.6rem; }
+  .nav-dropdown-toggle { flex-shrink: 0; font-size: 0.72rem; padding: 0.45rem 0.6rem; }
 
-  /* Breadcrumb */
   .breadcrumb-bar { padding: 0.35rem 0.75rem; font-size: 0.73rem; }
 
-  /* Contenuto principale */
   .content { padding: 0.75rem 0.65rem 2rem; }
   .page-title { font-size: 1.05rem; margin-bottom: 0.9rem; }
   h2 { font-size: 0.92rem; }
   h3 { font-size: 0.8rem; }
 
-  /* Card */
   .card { padding: 0.75rem 0.8rem; margin-bottom: 1rem; border-radius: 8px; }
   .card-title { font-size: 0.73rem; }
 
-  /* Bottoni */
   button.primary, a.primary { padding: 0.42rem 0.85rem; font-size: 0.78rem; }
   button.secondary, a.secondary { padding: 0.4rem 0.75rem; font-size: 0.78rem; }
   button.btn-danger { font-size: 0.74rem; padding: 0.3rem 0.6rem; }
 
-  /* Form */
   label { font-size: 0.78rem; }
   input[type="text"], input[type="email"], input[type="password"],
   input[type="number"], select, textarea { font-size: 0.83rem; padding: 0.42rem 0.55rem; }
 
-  /* Tabelle: scroll orizzontale + font ridotto */
   .table-wrapper { border-radius: 6px; font-size: 0.74rem; }
   table { font-size: 0.74rem; min-width: 520px; }
   th { font-size: 0.67rem; padding: 0.42rem 0.55rem; }
   td { padding: 0.38rem 0.55rem; }
 
-  /* Icon grid */
   .icon-grid { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
   .icon-grid > a { padding: 0.75rem 0.5rem; font-size: 0.78rem; }
   .icon-grid .icon { font-size: 1.6rem; }
   .icon-grid .label { font-size: 0.72rem; }
 
-  /* Badge e pill */
   .badge, .pill { font-size: 0.65rem; padding: 0.12rem 0.45rem; }
   .status-badge { font-size: 0.65rem; padding: 0.12rem 0.45rem; }
 
-  /* Alert/notice box */
   .alert, .notice, .info-box { font-size: 0.78rem; padding: 0.65rem 0.8rem; border-radius: 6px; }
 }
 
-/* ── Smartphone piccolo (max 380px) ── */
 @media (max-width: 380px) {
-  .topbar { padding: 0.4rem 0.5rem; min-height: 50px; }
-  .brand-ciuco { height: 34px; }
-  .brand-logo-img { display: none; }
-  .main-nav a { font-size: 0.62rem; padding: 0.38rem 0.45rem; }
-  .nav-dropdown-toggle { font-size: 0.62rem; padding: 0.38rem 0.45rem; }
+  .topbar { padding: 0.4rem 0.5rem 0.4rem 70px; min-height: 62px; }
+  .brand-ciuco { height: 60px; }
+  .brand-logo-img { height: 34px; }
+  .main-nav a { font-size: 0.68rem; padding: 0.4rem 0.5rem; }
+  .nav-dropdown-toggle { font-size: 0.68rem; padding: 0.4rem 0.5rem; }
   .content { padding: 0.6rem 0.5rem 1.8rem; }
   .icon-grid { grid-template-columns: repeat(2, 1fr); gap: 0.4rem; }
   table { min-width: 440px; }
 }
 
-/* ── Touch: rimuovi hover state, aggiungi :active feedback ── */
 @media (hover: none) {
   button.primary:hover, a.primary:hover { background: var(--brand-yellow); transform: none; }
   button.secondary:hover, a.secondary:hover { background: var(--bg-white); }
@@ -706,7 +688,7 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
   button.secondary:active, a.secondary:active { transform: scale(0.97); opacity: 0.85; }
   .main-nav a:active { background: rgba(0,0,0,0.12); }
   html { -webkit-text-size-adjust: 100%; }
-  input, select, textarea { font-size: 16px !important; } /* evita zoom iOS */
+  input, select, textarea { font-size: 16px !important; }
 }
 
   
@@ -739,7 +721,6 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 .cp-footer{padding:.4rem .9rem;border-top:1px solid #f0f2f5;display:flex;gap:1.1rem;font-size:.72rem;color:#a0aec0}
 .cp-footer kbd{background:#f0f2f5;border:1px solid #d1d9e6;border-radius:3px;padding:.05rem .3rem;font-size:.68rem;font-family:monospace;color:#4a5568}
 
-/* ── FAB ricerca mobile ── */
 #search-fab{display:none;position:fixed;bottom:1.5rem;right:1.5rem;z-index:9980;
   width:52px;height:52px;border-radius:50%;background:#1e2d4e;color:#f5c842;
   border:none;box-shadow:0 4px 18px rgba(10,20,45,.38);cursor:pointer;
@@ -752,7 +733,7 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 
 
 /* ============================================================
-   CIUCHINO ASSISTENTE — guida interna, Fase 1 (senza AI esterna)
+   CIUCHINO ASSISTENTE
    ============================================================ */
 #donkey-assistant{position:fixed;right:20px;bottom:18px;z-index:9970;display:flex;align-items:flex-end;gap:10px;font-family:inherit}
 #donkey-btn{width:156px;height:156px;border:0;background:transparent;padding:0;cursor:pointer;position:relative;filter:drop-shadow(0 5px 8px rgba(10,20,45,.32));transition:transform .18s ease;touch-action:none}
@@ -779,11 +760,8 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 #donkey-q{margin:0;flex:1;border:1px solid #cbd5e1;border-radius:9px;padding:.48rem .6rem;font:inherit;font-size:.84rem;min-width:0}
 #donkey-send{border:0;border-radius:9px;background:var(--brand-dark);color:var(--brand-yellow);font-weight:800;padding:.35rem .6rem;cursor:pointer}
 .donkey-thinking{display:inline-flex;gap:3px;align-items:center}.donkey-thinking i{width:5px;height:5px;background:#718096;border-radius:50%;animation:dot 1.1s infinite}.donkey-thinking i:nth-child(2){animation-delay:.15s}.donkey-thinking i:nth-child(3){animation-delay:.3s}@keyframes dot{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-4px)}}
-/* Mobile: evita la sovrapposizione col FAB ricerca (#search-fab, bottom:1.5rem).
-   Il ciuchino parte nella stessa colonna ma 12px sopra la lente; entrambi restano trascinabili. */
 @media(max-width:768px){#donkey-assistant{right:12px;bottom:88px}#donkey-btn{width:64px;height:64px}#donkey-panel{position:fixed;right:12px;bottom:164px;width:calc(100vw - 24px);max-height:72vh;border-radius:18px}#donkey-panel:after{display:none}#donkey-chat{max-height:calc(72vh - 156px)}.donkey-sub{display:none}}
 @media(prefers-reduced-motion:reduce){#donkey-img,.donkey-thinking i{animation:none}#donkey-panel.open{animation:none}}
-/* ── Animazioni aggiuntive Ciuchino ── */
 @keyframes donkey-wiggle{0%,100%{transform:rotate(0deg) translateY(0)}15%{transform:rotate(-8deg) translateY(-2px)}30%{transform:rotate(7deg) translateY(-4px)}45%{transform:rotate(-5deg) translateY(-1px)}60%{transform:rotate(4deg) translateY(-3px)}75%{transform:rotate(-2deg)}100%{transform:rotate(0deg) translateY(0)}}
 #donkey-img.donkey-attention{animation:donkey-wiggle .9s ease-in-out}
 @keyframes donkey-badge-pulse{0%{box-shadow:0 0 0 0 rgba(245,200,66,.65)}70%{box-shadow:0 0 0 8px rgba(245,200,66,0)}100%{box-shadow:0 0 0 0 rgba(245,200,66,0)}}
@@ -795,47 +773,26 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 #donkey-suggestions button:nth-child(1){animation-delay:.02s}
 #donkey-suggestions button:nth-child(2){animation-delay:.08s}
 #donkey-suggestions button:nth-child(3){animation-delay:.14s}
-/* ── Fumetto di saluto (con GIF vera) ── */
 #donkey-greet-bubble{position:absolute;right:0;bottom:100%;margin-bottom:10px;background:#fff;border:2px solid var(--brand-yellow);border-radius:14px 14px 4px 14px;padding:.5rem .75rem;font-size:.8rem;font-weight:700;color:#1a2744;white-space:nowrap;box-shadow:0 8px 22px rgba(10,20,45,.28);opacity:0;transform:translateY(6px) scale(.94);pointer-events:none;transition:opacity .25s ease,transform .25s ease}
 #donkey-greet-bubble.show{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;cursor:pointer}
 #donkey-greet-bubble:after{content:'';position:absolute;right:16px;top:100%;border-width:7px 6px 0 6px;border-style:solid;border-color:var(--brand-yellow) transparent transparent transparent}
 @media(prefers-reduced-motion:reduce){#donkey-img.donkey-attention,#donkey-badge.donkey-pulse,.donkey-msg,#donkey-suggestions button{animation:none}#donkey-greet-bubble{transition:none}}
-/* ============================================================
-   CIUCHINO — Popup centrato desktop (Ctrl/Cmd+K)
-   Stessa logica del widget donkey, presentazione "nuova conversazione"
-   ============================================================ */
 #donkey-backdrop{display:none;position:fixed;inset:0;background:rgba(10,20,45,.6);z-index:9960;backdrop-filter:blur(3px)}
 #donkey-backdrop.show{display:block}
 @media(max-width:768px){#donkey-backdrop{display:none !important}}
 
 @media(min-width:769px){
   #donkey-panel.centered{
-    display:none;
-    position:fixed;
-    top:50%;left:50%;
+    display:none; position:fixed; top:50%;left:50%;
     transform:translate(-50%,-50%);
-    width:min(640px,88vw);
-    max-height:min(620px,80vh);
-    z-index:9971;
-    border-radius:20px;
-    border-width:2px;
-    box-shadow:0 30px 80px rgba(10,20,45,.45);
+    width:min(640px,88vw); max-height:min(620px,80vh); z-index:9971;
+    border-radius:20px; border-width:2px; box-shadow:0 30px 80px rgba(10,20,45,.45);
   }
-  #donkey-panel.centered.open{
-    display:flex;
-    animation:donkey-centered-pop .22s ease-out;
-  }
+  #donkey-panel.centered.open{ display:flex; animation:donkey-centered-pop .22s ease-out; }
   #donkey-panel.centered:after{display:none}
-  #donkey-panel.centered #donkey-head{
-    border-radius:18px 18px 0 0;
-    padding:1rem 1.2rem;
-  }
+  #donkey-panel.centered #donkey-head{ border-radius:18px 18px 0 0; padding:1rem 1.2rem; }
   #donkey-panel.centered #donkey-head strong{font-size:1.05rem}
-  #donkey-panel.centered #donkey-chat{
-    min-height:150px;
-    max-height:min(340px,44vh);
-    padding:1.2rem 1.3rem;
-  }
+  #donkey-panel.centered #donkey-chat{ min-height:150px; max-height:min(340px,44vh); padding:1.2rem 1.3rem; }
   #donkey-panel.centered #donkey-form{padding:.85rem 1rem}
   #donkey-panel.centered #donkey-q{font-size:.92rem;padding:.6rem .75rem}
 }
@@ -843,10 +800,6 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
   from{opacity:0;transform:translate(-50%,-46%) scale(.96)}
   to{opacity:1;transform:translate(-50%,-50%) scale(1)}
 }
-
-/* ============================================================
-   CIUCHINO — Risultati ricerca live nel box chat
-   ============================================================ */
 #donkey-search-results{max-height:220px;overflow-y:auto;overflow-x:hidden;border-top:1px solid #e8ecf3;border-bottom:1px solid #e8ecf3;background:#fbfcff}
 #donkey-panel.centered #donkey-search-results{max-height:260px}
 </style>
