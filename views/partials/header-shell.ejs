@@ -43,7 +43,7 @@
 </header>
 
 <% if (currentUser) { %>
-<nav class="main-nav">
+<nav class="main-nav" id="main-nav-bar">
   <% if (currentUser.role === 'scanner') { %>
 
     <a href="/scan">&#128247; Scanner QR</a>
@@ -115,23 +115,9 @@
   }
 
   // ── Menu a tendina Impostazioni ──────────────────────────────────
-  // FIX 21/09 (v4) — CAUSA REALE TROVATA E CONFERMATA CON TEST SU DISPOSITIVO:
-  // il bottone sta dentro .main-nav, che su mobile scorre orizzontalmente
-  // con -webkit-overflow-scrolling:touch. Su WebKit (Safari e Chrome iOS,
-  // stesso motore), durante/subito dopo lo scroll con inerzia, le query di
-  // geometria (getBoundingClientRect) possono restituire coordinate NON
-  // aggiornate perché lo scroll gira su un thread separato dal layout
-  // principale. Risultato osservato: il menu si apriva correttamente
-  // (display:flex, classe aggiunta) ma con "left" calcolato a centinaia di
-  // pixel oltre il bordo destro dello schermo — invisibile, sembrava non
-  // succedere nulla. Su Android (motore Blink) questa particolarità non
-  // esiste, infatti lì ha sempre funzionato.
-  // Fix a due livelli: 1) requestAnimationFrame rimanda la lettura della
-  // posizione al frame successivo, dando tempo al layout di sincronizzarsi;
-  // 2) clamping matematico: qualunque sia il valore letto, il menu viene
-  // comunque forzato a restare dentro i bordi visibili dello schermo.
   var toggleBtn = document.getElementById('settings-dropdown-toggle');
   var menu      = document.getElementById('settings-dropdown-menu');
+  var navBar    = document.getElementById('main-nav-bar');
 
   if (toggleBtn && menu) {
     var lastToggleAt = 0;
@@ -154,6 +140,14 @@
         menu.style.top  = top + 'px';
         menu.style.left = left + 'px';
         menu.classList.add('open');
+
+        // DEBUG temporaneo: log visibile in console ad ogni apertura,
+        // per verificare rapidamente i valori reali usati, senza dover
+        // rieseguire manualmente il codice a mano ogni volta.
+        console.log('[nav-dropdown] rect.left=' + rect.left + ' rect.bottom=' + rect.bottom +
+          ' -> applied left=' + left + ' top=' + top +
+          ' innerWidth=' + window.innerWidth + ' navScrollLeft=' + (navBar ? navBar.scrollLeft : 'n/a') +
+          ' display=' + getComputedStyle(menu).display);
       });
     }
     function closeMenu(){
@@ -183,6 +177,11 @@
     }, { passive: true });
     window.addEventListener('resize', closeMenu);
     window.addEventListener('scroll', closeMenu, true);
+
+    // Aggancio di debug: richiamabile a mano dalla console per test immediati.
+    window.__debugOpenMenu = openMenu;
+    window.__debugMenu = menu;
+    window.__debugToggleBtn = toggleBtn;
   }
 
   // ── Badge notifiche non lette (polling) ──
