@@ -66,6 +66,12 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
 
 /* ============================================================
    TOPBAR
+   FIX 22/09 v4: il ciuchino+logo deve toccare i due bordi della
+   barra viola, senza margine sopra/sotto. Rimosso il padding
+   verticale sul .topbar e reso il contenitore .brand "stretch"
+   sull'asse trasversale del flex: l'immagine (height:100%) segue
+   sempre l'altezza reale della barra, ad ogni breakpoint, senza
+   bisogno di regole responsive dedicate.
    ============================================================ */
 .topbar {
   position: relative;
@@ -74,7 +80,7 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
-  padding: 0.6rem 1.5rem;
+  padding: 0 1.5rem;
   background: linear-gradient(135deg, var(--brand-violet-dark) 0%, var(--brand-violet) 45%, var(--brand-violet-light) 100%);
   min-height: 130px;
   overflow: visible;
@@ -82,11 +88,12 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
 
 .brand {
   display: flex;
-  align-items: center;
+  align-items: stretch;
+  align-self: stretch;
 }
 
 .brand-combo {
-  height: 118px;
+  height: 100%;
   width: auto;
   display: block;
   filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));
@@ -127,6 +134,7 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  justify-content: center;
   gap: 0.4rem;
   flex-shrink: 0;
 }
@@ -605,20 +613,18 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 
 @media (max-width: 900px) {
   .content { padding: 1rem 1rem 2rem; }
-  .topbar { flex-wrap: wrap; gap: 0.6rem; padding: 0.6rem 1rem; min-height: 100px; }
+  .topbar { flex-wrap: wrap; gap: 0.6rem; padding: 0 1rem; min-height: 100px; }
   .header-search { order: 3; flex: 1 1 100%; max-width: none; }
   .main-nav a { font-size: 0.92rem; padding: 0.55rem 0.8rem; }
   .nav-dropdown-toggle { font-size: 0.92rem; padding: 0.55rem 0.8rem; }
   table { font-size: 0.78rem; }
   th, td { padding: 0.45rem 0.6rem; }
-  .brand-combo { height: 84px; }
   .card { padding: 0.85rem 1rem; }
   .icon-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
 @media (max-width: 600px) {
-  .topbar { flex-direction: row; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; min-height: 76px; gap: 0.5rem; flex-wrap: wrap; }
-  .brand-combo { height: 58px; }
+  .topbar { flex-direction: row; align-items: center; justify-content: space-between; padding: 0 0.75rem; min-height: 76px; gap: 0.5rem; flex-wrap: wrap; }
   .header-search { display: none; }
   .header-right-col { align-items: flex-end; }
   .header-icons { gap: 0.4rem; }
@@ -666,8 +672,7 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 }
 
 @media (max-width: 380px) {
-  .topbar { padding: 0.4rem 0.5rem; min-height: 64px; }
-  .brand-combo { height: 46px; }
+  .topbar { padding: 0 0.5rem; min-height: 64px; }
   .main-nav a { font-size: 0.78rem; padding: 0.45rem 0.55rem; }
   .nav-dropdown-toggle { font-size: 0.78rem; padding: 0.45rem 0.55rem; }
   .content { padding: 0.6rem 0.5rem 1.8rem; }
