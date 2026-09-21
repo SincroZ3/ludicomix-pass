@@ -114,19 +114,37 @@
     });
   }
 
-  // ── Menu a tendina Impostazioni: click/tap oltre all'hover (per tablet/mobile) ──
+  // ── Menu a tendina Impostazioni: click/tap ovunque, posizione fissa calcolata via JS ──
+  // FIX 21/09: il vecchio metodo (:hover CSS + classe .open sull'antenato .nav-dropdown)
+  // veniva clippato su mobile dall'overflow-x:auto della .main-nav e confliggeva con la
+  // regola @media(hover:none) che nascondeva forzatamente il menu al tocco.
+  // Ora l'apertura è SOLO via click/tap, e il pannello è position:fixed con top/left
+  // calcolati da JS in base al bottone cliccato: non dipende più da nessun overflow
+  // di nessun antenato ed è identico su desktop, tablet e mobile.
   window.toggleNavDropdown = function(el){
     var dd = el.closest('.nav-dropdown');
     if (!dd) return false;
-    var wasOpen = dd.classList.contains('open');
-    document.querySelectorAll('.nav-dropdown.open').forEach(function(d){ d.classList.remove('open'); });
-    if (!wasOpen) dd.classList.add('open');
+    var menu = dd.querySelector('.nav-dropdown-menu');
+    if (!menu) return false;
+    var wasOpen = menu.classList.contains('open');
+
+    document.querySelectorAll('.nav-dropdown-menu.open').forEach(function(m){ m.classList.remove('open'); });
+
+    if (!wasOpen) {
+      var rect = el.getBoundingClientRect();
+      menu.style.top  = rect.bottom + 'px';
+      menu.style.left = rect.left + 'px';
+      menu.classList.add('open');
+    }
     return false;
   };
   document.addEventListener('click', function(e){
     if (!e.target.closest('.nav-dropdown')) {
-      document.querySelectorAll('.nav-dropdown.open').forEach(function(d){ d.classList.remove('open'); });
+      document.querySelectorAll('.nav-dropdown-menu.open').forEach(function(m){ m.classList.remove('open'); });
     }
+  });
+  window.addEventListener('resize', function(){
+    document.querySelectorAll('.nav-dropdown-menu.open').forEach(function(m){ m.classList.remove('open'); });
   });
 
   // ── Badge notifiche non lette (polling) ──

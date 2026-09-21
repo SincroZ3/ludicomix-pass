@@ -221,23 +221,24 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
 .main-nav a:hover { background: rgba(0,0,0,0.1); text-decoration: none; }
 .main-nav a.nav-active { background: var(--brand-dark); color: var(--brand-yellow); }
 
-/* ── Menu a tendina "Impostazioni" ── */
+/* ── Menu a tendina "Impostazioni" ──
+   FIX 21/09: apertura SOLO via click/tap (niente più :hover, causava conflitti
+   su mobile). position:fixed con top/left calcolati da JS (vedi header-shell.ejs),
+   così il pannello non viene mai più clippato dall'overflow-x:auto della .main-nav
+   su schermi piccoli. */
 .nav-dropdown { position: relative; }
 .nav-dropdown-menu {
   display: none;
   flex-direction: column;
-  position: absolute;
-  top: 100%;
-  left: 0;
+  position: fixed;
   min-width: 230px;
   background: var(--bg-white);
   border: 1px solid var(--border);
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
-  z-index: 60;
+  z-index: 9999;
 }
-.nav-dropdown:hover .nav-dropdown-menu,
-.nav-dropdown.open .nav-dropdown-menu { display: flex; }
+.nav-dropdown-menu.open { display: flex; }
 .nav-dropdown-menu a {
   color: var(--brand-dark);
   text-transform: none;
@@ -613,7 +614,6 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
   .main-nav { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 0; min-height: 34px; }
   .main-nav::-webkit-scrollbar { display: none; }
   .main-nav a { flex-shrink: 0; font-size: 0.67rem; padding: 0.42rem 0.55rem; letter-spacing: 0.2px; }
-  .nav-dropdown-menu { position: fixed; left: 0.5rem; right: 0.5rem; min-width: 0; }
 
   /* Breadcrumb */
   .breadcrumb-bar { padding: 0.35rem 0.75rem; font-size: 0.73rem; }
@@ -674,7 +674,6 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
   button.primary:hover, a.primary:hover { background: var(--brand-yellow); transform: none; }
   button.secondary:hover, a.secondary:hover { background: var(--bg-white); }
   .main-nav a:hover { background: transparent; }
-  .nav-dropdown:hover .nav-dropdown-menu { display: none; } /* su touch si apre solo col tap (JS) */
   button.primary:active, a.primary:active { transform: scale(0.97); opacity: 0.88; }
   button.secondary:active, a.secondary:active { transform: scale(0.97); opacity: 0.85; }
   .main-nav a:active { background: rgba(0,0,0,0.12); }
