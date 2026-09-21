@@ -222,11 +222,35 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
 .main-nav a.nav-active { background: var(--brand-dark); color: var(--brand-yellow); }
 
 /* ── Menu a tendina "Impostazioni" ──
-   FIX 21/09: apertura SOLO via click/tap (niente più :hover, causava conflitti
-   su mobile). position:fixed con top/left calcolati da JS (vedi header-shell.ejs),
-   così il pannello non viene mai più clippato dall'overflow-x:auto della .main-nav
-   su schermi piccoli. */
+   FIX 21/09 v2: il trigger è un <button> reale (non più <a href="#">)
+   per garantire il tap su mobile dentro un contenitore con scroll
+   orizzontale (vedi commento JS in header-shell.ejs). Qui gli diamo
+   lo stesso aspetto visivo dei link della nav, azzerando gli stili
+   di default del browser per i bottoni. */
 .nav-dropdown { position: relative; }
+.nav-dropdown-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  font-weight: 700;
+  font-size: 0.76rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--brand-dark);
+  background: transparent;
+  border: none;
+  border-right: 1px solid rgba(0,0,0,0.12);
+  border-radius: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: 'Arial Narrow', Arial, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.nav-dropdown-toggle:hover { background: rgba(0,0,0,0.1); }
+.nav-dropdown-toggle:active { background: rgba(0,0,0,0.18); }
+
 .nav-dropdown-menu {
   display: none;
   flex-direction: column;
@@ -590,6 +614,7 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
   .topbar { flex-wrap: wrap; gap: 0.6rem; padding: 0.6rem 1rem; min-height: 64px; }
   .header-search { order: 3; flex: 1 1 100%; max-width: none; }
   .main-nav a { font-size: 0.7rem; padding: 0.45rem 0.5rem; }
+  .nav-dropdown-toggle { font-size: 0.7rem; padding: 0.45rem 0.5rem; }
   table { font-size: 0.78rem; }
   th, td { padding: 0.45rem 0.6rem; }
   .brand-ciuco { height: 52px; }
@@ -614,6 +639,7 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
   .main-nav { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 0; min-height: 34px; }
   .main-nav::-webkit-scrollbar { display: none; }
   .main-nav a { flex-shrink: 0; font-size: 0.67rem; padding: 0.42rem 0.55rem; letter-spacing: 0.2px; }
+  .nav-dropdown-toggle { flex-shrink: 0; font-size: 0.67rem; padding: 0.42rem 0.55rem; letter-spacing: 0.2px; }
 
   /* Breadcrumb */
   .breadcrumb-bar { padding: 0.35rem 0.75rem; font-size: 0.73rem; }
@@ -664,6 +690,7 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
   .brand-ciuco { height: 34px; }
   .brand-logo-img { display: none; }
   .main-nav a { font-size: 0.62rem; padding: 0.38rem 0.45rem; }
+  .nav-dropdown-toggle { font-size: 0.62rem; padding: 0.38rem 0.45rem; }
   .content { padding: 0.6rem 0.5rem 1.8rem; }
   .icon-grid { grid-template-columns: repeat(2, 1fr); gap: 0.4rem; }
   table { min-width: 440px; }
@@ -674,6 +701,7 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
   button.primary:hover, a.primary:hover { background: var(--brand-yellow); transform: none; }
   button.secondary:hover, a.secondary:hover { background: var(--bg-white); }
   .main-nav a:hover { background: transparent; }
+  .nav-dropdown-toggle:hover { background: transparent; }
   button.primary:active, a.primary:active { transform: scale(0.97); opacity: 0.88; }
   button.secondary:active, a.secondary:active { transform: scale(0.97); opacity: 0.85; }
   .main-nav a:active { background: rgba(0,0,0,0.12); }

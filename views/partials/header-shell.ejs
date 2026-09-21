@@ -68,8 +68,8 @@
     <% } %>
 
     <div class="nav-dropdown">
-      <a href="#" class="nav-dropdown-toggle" onclick="return toggleNavDropdown(this)">&#9881;&#65039; Impostazioni &#9662;</a>
-      <div class="nav-dropdown-menu">
+      <button type="button" class="nav-dropdown-toggle" id="settings-dropdown-toggle">&#9881;&#65039; Impostazioni &#9662;</button>
+      <div class="nav-dropdown-menu" id="settings-dropdown-menu">
         <% if (currentUser.role === 'admin') { %>
           <a href="/admin/settings">&#9881;&#65039; Impostazioni di sistema</a>
         <% } %>
@@ -114,38 +114,53 @@
     });
   }
 
-  // ── Menu a tendina Impostazioni: click/tap ovunque, posizione fissa calcolata via JS ──
-  // FIX 21/09: il vecchio metodo (:hover CSS + classe .open sull'antenato .nav-dropdown)
-  // veniva clippato su mobile dall'overflow-x:auto della .main-nav e confliggeva con la
-  // regola @media(hover:none) che nascondeva forzatamente il menu al tocco.
-  // Ora l'apertura è SOLO via click/tap, e il pannello è position:fixed con top/left
-  // calcolati da JS in base al bottone cliccato: non dipende più da nessun overflow
-  // di nessun antenato ed è identico su desktop, tablet e mobile.
-  window.toggleNavDropdown = function(el){
-    var dd = el.closest('.nav-dropdown');
-    if (!dd) return false;
-    var menu = dd.querySelector('.nav-dropdown-menu');
-    if (!menu) return false;
-    var wasOpen = menu.classList.contains('open');
+  // ── Menu a tendina Impostazioni ──────────────────────────────────
+  // FIX 21/09 (v2): su mobile il bottone stava dentro un contenitore
+  // con overflow-x:auto (.main-nav, scroll orizzontale della barra).
+  // Su iOS/Android il motore di scroll intercetta il primo tocco su
+  // elementi dentro contenitori scrollabili e spesso lo interpreta
+  // come inizio di uno scroll, "mangiandosi" l'evento click — il tap
+  // sembra non fare nulla. Per garantire l'apertura affidabile su
+  // tutti i dispositivi: 1) il trigger è un <button> reale, non un
+  // <a href="#">; 2) ascoltiamo sia "click" sia "touchend" con
+  // preventDefault esplicito, pattern standard per catturare il tap
+  // immediatamente senza dipendere dal riconoscimento di gesto dello
+  // scroll del contenitore genitore.
+  var toggleBtn = document.getElementById('settings-dropdown-toggle');
+  var menu      = document.getElementById('settings-dropdown-menu');
 
-    document.querySelectorAll('.nav-dropdown-menu.open').forEach(function(m){ m.classList.remove('open'); });
-
-    if (!wasOpen) {
-      var rect = el.getBoundingClientRect();
+  if (toggleBtn && menu) {
+    function openMenu(){
+      var rect = toggleBtn.getBoundingClientRect();
       menu.style.top  = rect.bottom + 'px';
       menu.style.left = rect.left + 'px';
       menu.classList.add('open');
     }
-    return false;
-  };
-  document.addEventListener('click', function(e){
-    if (!e.target.closest('.nav-dropdown')) {
-      document.querySelectorAll('.nav-dropdown-menu.open').forEach(function(m){ m.classList.remove('open'); });
+    function closeMenu(){
+      menu.classList.remove('open');
     }
-  });
-  window.addEventListener('resize', function(){
-    document.querySelectorAll('.nav-dropdown-menu.open').forEach(function(m){ m.classList.remove('open'); });
-  });
+    function handleToggle(e){
+      e.preventDefault();
+      e.stopPropagation();
+      if (menu.classList.contains('open')) closeMenu();
+      else openMenu();
+    }
+
+    toggleBtn.addEventListener('click', handleToggle);
+    // touchend con preventDefault: cattura il tap prima che il contenitore
+    // scrollabile lo interpreti come scroll, e sopprime il successivo
+    // "click" sintetico (evita il doppio toggle apri/chiudi).
+    toggleBtn.addEventListener('touchend', handleToggle, { passive: false });
+
+    document.addEventListener('click', function(e){
+      if (!e.target.closest('.nav-dropdown')) closeMenu();
+    });
+    document.addEventListener('touchend', function(e){
+      if (!e.target.closest('.nav-dropdown')) closeMenu();
+    }, { passive: true });
+    window.addEventListener('resize', closeMenu);
+    window.addEventListener('scroll', closeMenu, true);
+  }
 
   // ── Badge notifiche non lette (polling) ──
   var badge = document.getElementById('notif-badge');
