@@ -115,21 +115,23 @@
   }
 
   // ── Menu a tendina Impostazioni ──────────────────────────────────
-  // FIX 21/09 (v2): su mobile il bottone stava dentro un contenitore
-  // con overflow-x:auto (.main-nav, scroll orizzontale della barra).
-  // Su iOS/Android il motore di scroll intercetta il primo tocco su
-  // elementi dentro contenitori scrollabili e spesso lo interpreta
-  // come inizio di uno scroll, "mangiandosi" l'evento click — il tap
-  // sembra non fare nulla. Per garantire l'apertura affidabile su
-  // tutti i dispositivi: 1) il trigger è un <button> reale, non un
-  // <a href="#">; 2) ascoltiamo sia "click" sia "touchend" con
-  // preventDefault esplicito, pattern standard per catturare il tap
-  // immediatamente senza dipendere dal riconoscimento di gesto dello
-  // scroll del contenitore genitore.
+  // FIX 21/09 (v3): la v2 agganciava sia "touchend" sia "click" sullo
+  // stesso bottone, contando sul preventDefault() di touchend per
+  // sopprimere il click sintetico generato subito dopo da iOS. Questa
+  // soppressione è incoerente tra versioni di Safari: sul dispositivo
+  // di test il click sintetico arrivava comunque, richiudendo il menu
+  // una frazione di secondo dopo averlo aperto (apre-e-chiude nello
+  // stesso gesto, indistinguibile da "non succede nulla").
+  // Ora usiamo un debounce temporale esplicito: qualunque sia il
+  // secondo evento a scattare (touchend o click) entro 400ms dal
+  // primo, viene ignorato — indipendentemente da come si comporta
+  // preventDefault su quella specifica versione del browser.
   var toggleBtn = document.getElementById('settings-dropdown-toggle');
   var menu      = document.getElementById('settings-dropdown-menu');
 
   if (toggleBtn && menu) {
+    var lastToggleAt = 0;
+
     function openMenu(){
       var rect = toggleBtn.getBoundingClientRect();
       menu.style.top  = rect.bottom + 'px';
@@ -140,17 +142,21 @@
       menu.classList.remove('open');
     }
     function handleToggle(e){
+      var now = Date.now();
+      if (now - lastToggleAt < 400) {
+        // secondo evento della stessa interazione (touchend + click sintetico): ignora
+        e.preventDefault();
+        return;
+      }
+      lastToggleAt = now;
       e.preventDefault();
       e.stopPropagation();
       if (menu.classList.contains('open')) closeMenu();
       else openMenu();
     }
 
-    toggleBtn.addEventListener('click', handleToggle);
-    // touchend con preventDefault: cattura il tap prima che il contenitore
-    // scrollabile lo interpreti come scroll, e sopprime il successivo
-    // "click" sintetico (evita il doppio toggle apri/chiudi).
     toggleBtn.addEventListener('touchend', handleToggle, { passive: false });
+    toggleBtn.addEventListener('click', handleToggle);
 
     document.addEventListener('click', function(e){
       if (!e.target.closest('.nav-dropdown')) closeMenu();
