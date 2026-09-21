@@ -11,6 +11,7 @@
   --brand-gold:    #c9a227;   /* oro "EMPOLI" */
   --brand-violet:  #6b3fa0;   /* viola ciuchino */
   --brand-violet-light: #8b5cc0;
+  --brand-violet-dark:  #4c2c78;
 
   --accent-blue:   #1d6fa4;
   --accent-blue-dark: #145880;
@@ -55,16 +56,17 @@ a { color: var(--text-link); text-decoration: none; transition: color 0.15s; }
 a:hover { color: var(--text-link-hover); text-decoration: underline; }
 
 /* ============================================================
-   TOPBAR
+   TOPBAR — sfondo viola mascotte (redesign header)
    ============================================================ */
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  padding: 0 1.5rem;
-  background: var(--brand-dark);
-  min-height: 70px;
-  border-bottom: 3px solid var(--brand-yellow);
+  gap: 1rem;
+  padding: 0.6rem 1.5rem;
+  background: linear-gradient(135deg, var(--brand-violet-dark) 0%, var(--brand-violet) 45%, var(--brand-violet-light) 100%);
+  min-height: 78px;
 }
 
 .brand {
@@ -81,7 +83,7 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
 }
 
 .brand-ciuco {
-  height: 62px;
+  height: 72px;
   width: auto;
   display: block;
   margin-right: 0.25rem;
@@ -94,31 +96,96 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
   gap: 0.05rem;
 }
 .brand-sub {
-  font-size: 0.75rem;
-  color: #aec6e8;
-  font-style: italic;
-  letter-spacing: 0.2px;
+  font-size: 0.82rem;
+  color: #ffffff;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
 }
 .brand-user {
-  font-size: 0.78rem;
-  color: #c8d8ee;
-  margin-top: 0.1rem;
+  font-size: 0.76rem;
+  color: #e6d9f5;
+  margin-top: 0.15rem;
 }
 .brand-user strong { color: var(--brand-yellow); }
 
-.logout-form button {
+/* ============================================================
+   BARRA DI RICERCA — pillola gialla nell'header
+   ============================================================ */
+.header-search {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
   background: var(--brand-yellow);
-  color: var(--brand-dark);
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: 0.45rem 1rem;
-  font-weight: 700;
-  font-size: 0.82rem;
-  cursor: pointer;
-  letter-spacing: 0.3px;
-  transition: background 0.15s;
+  border-radius: 999px;
+  padding: 0.5rem 1.1rem;
+  flex: 1 1 280px;
+  max-width: 420px;
+  box-shadow: var(--shadow-sm);
 }
-.logout-form button:hover { background: #ffe066; }
+.header-search-icon { font-size: 1rem; color: var(--brand-dark); flex-shrink: 0; }
+.header-search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--brand-dark);
+  font-family: inherit;
+}
+.header-search-input::placeholder { color: rgba(30,45,78,0.65); font-weight: 700; }
+
+/* ============================================================
+   ICONE CIRCOLARI — notifiche, scanner, contatore, log, logout
+   ============================================================ */
+.header-icons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+.icon-circle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.18);
+  color: #ffffff;
+  font-size: 1.08rem;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, transform 0.15s;
+}
+.icon-circle:hover {
+  background: rgba(255,255,255,0.32);
+  transform: translateY(-1px);
+  text-decoration: none;
+  color: #ffffff;
+}
+.icon-circle-form { margin: 0; }
+.icon-circle-form button.icon-circle { font-family: inherit; }
+.icon-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  background: #c0392b;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 3px;
+  border-radius: 999px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--brand-violet);
+}
 
 /* ============================================================
    NAVBAR — giallo ufficiale Ludicomix
@@ -131,6 +198,7 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
   border-bottom: 2px solid var(--brand-gold);
   padding: 0 0.5rem;
   min-height: 36px;
+  position: relative;
 }
 
 .main-nav a {
@@ -152,6 +220,38 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
 .main-nav a:first-child { border-left: 1px solid rgba(0,0,0,0.12); }
 .main-nav a:hover { background: rgba(0,0,0,0.1); text-decoration: none; }
 .main-nav a.nav-active { background: var(--brand-dark); color: var(--brand-yellow); }
+
+/* ── Menu a tendina "Impostazioni" ── */
+.nav-dropdown { position: relative; }
+.nav-dropdown-menu {
+  display: none;
+  flex-direction: column;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 230px;
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  z-index: 60;
+}
+.nav-dropdown:hover .nav-dropdown-menu,
+.nav-dropdown.open .nav-dropdown-menu { display: flex; }
+.nav-dropdown-menu a {
+  color: var(--brand-dark);
+  text-transform: none;
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0;
+  padding: 0.6rem 0.9rem;
+  border-right: none;
+  border-bottom: 1px solid var(--border-light);
+  white-space: nowrap;
+}
+.nav-dropdown-menu a:first-child { border-left: none; }
+.nav-dropdown-menu a:last-child { border-bottom: none; }
+.nav-dropdown-menu a:hover { background: var(--bg-section); }
 
 /* ============================================================
    BREADCRUMB
@@ -486,11 +586,12 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 /* ── Tablet (max 900px) ── */
 @media (max-width: 900px) {
   .content { padding: 1rem 1rem 2rem; }
-  .topbar { flex-wrap: wrap; gap: 0.5rem; padding: 0.5rem 1rem; min-height: 58px; }
+  .topbar { flex-wrap: wrap; gap: 0.6rem; padding: 0.6rem 1rem; min-height: 64px; }
+  .header-search { order: 3; flex: 1 1 100%; max-width: none; }
   .main-nav a { font-size: 0.7rem; padding: 0.45rem 0.5rem; }
   table { font-size: 0.78rem; }
   th, td { padding: 0.45rem 0.6rem; }
-  .brand-ciuco { height: 48px; }
+  .brand-ciuco { height: 52px; }
   .brand-logo-img { height: 40px; }
   .card { padding: 0.85rem 1rem; }
   .icon-grid { grid-template-columns: repeat(3, 1fr); }
@@ -498,18 +599,21 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 
 /* ── Smartphone (max 600px) ── */
 @media (max-width: 600px) {
-  /* Topbar: loghi compatti, testo utente nascosto, logout visibile */
-  .topbar { flex-direction: row; align-items: center; justify-content: space-between; padding: 0 0.75rem; min-height: 52px; gap: 0.5rem; flex-wrap: nowrap; }
+  /* Topbar: loghi compatti, testo utente nascosto, icone sempre visibili */
+  .topbar { flex-direction: row; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; min-height: 56px; gap: 0.5rem; flex-wrap: wrap; }
   .brand { gap: 0.4rem; }
-  .brand-ciuco { height: 38px; }
+  .brand-ciuco { height: 40px; }
   .brand-logo-img { height: 32px; }
   .brand-text-block { display: none; }
-  .logout-form button { padding: 0.35rem 0.65rem; font-size: 0.75rem; }
+  .header-search { display: none; } /* su mobile la ricerca resta sul FAB flottante */
+  .header-icons { gap: 0.35rem; }
+  .icon-circle { width: 34px; height: 34px; font-size: 0.95rem; }
 
   /* Navbar: scroll orizzontale su una riga */
   .main-nav { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 0; min-height: 34px; }
   .main-nav::-webkit-scrollbar { display: none; }
   .main-nav a { flex-shrink: 0; font-size: 0.67rem; padding: 0.42rem 0.55rem; letter-spacing: 0.2px; }
+  .nav-dropdown-menu { position: fixed; left: 0.5rem; right: 0.5rem; min-width: 0; }
 
   /* Breadcrumb */
   .breadcrumb-bar { padding: 0.35rem 0.75rem; font-size: 0.73rem; }
@@ -556,8 +660,8 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 
 /* ── Smartphone piccolo (max 380px) ── */
 @media (max-width: 380px) {
-  .topbar { padding: 0 0.5rem; min-height: 46px; }
-  .brand-ciuco { height: 32px; }
+  .topbar { padding: 0.4rem 0.5rem; min-height: 50px; }
+  .brand-ciuco { height: 34px; }
   .brand-logo-img { display: none; }
   .main-nav a { font-size: 0.62rem; padding: 0.38rem 0.45rem; }
   .content { padding: 0.6rem 0.5rem 1.8rem; }
@@ -570,6 +674,7 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
   button.primary:hover, a.primary:hover { background: var(--brand-yellow); transform: none; }
   button.secondary:hover, a.secondary:hover { background: var(--bg-white); }
   .main-nav a:hover { background: transparent; }
+  .nav-dropdown:hover .nav-dropdown-menu { display: none; } /* su touch si apre solo col tap (JS) */
   button.primary:active, a.primary:active { transform: scale(0.97); opacity: 0.88; }
   button.secondary:active, a.secondary:active { transform: scale(0.97); opacity: 0.85; }
   .main-nav a:active { background: rgba(0,0,0,0.12); }

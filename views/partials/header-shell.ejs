@@ -1,68 +1,146 @@
 <header class="topbar">
-    <div class="brand">
-      <%- include('assets/brand-ciuco-img') %>
-      <%- include('assets/brand-logo-img') %>
-      <div class="brand-text-block">
-        <div class="brand-sub">Area di gestione pass</div>
-        <% if (currentUser) { %>
-          <div class="brand-user">Accesso come: <strong><%= currentUser.username %></strong> &nbsp;&middot;&nbsp; Ruolo: <strong><%=
-            currentUser.role === 'admin'      ? 'Amministratore' :
-            currentUser.role === 'organizer'  ? 'Organizzatore'  :
-            currentUser.role === 'accountant' ? 'Amministrazione contabile' :
-            currentUser.role === 'operator'   ? 'Operatore'      :
-            currentUser.role === 'scanner'    ? 'Scanner'        :
-            currentUser.role === 'viewer'     ? 'Visualizzatore' :
-            currentUser.role
-          %></strong></div>
+  <div class="brand">
+    <%- include('assets/brand-ciuco-img') %>
+    <%- include('assets/brand-logo-img') %>
+    <div class="brand-text-block">
+      <div class="brand-sub">Portale di gestione</div>
+      <% if (currentUser) { %>
+        <div class="brand-user">Accesso come: <strong><%= currentUser.username %></strong> &nbsp;&middot;&nbsp; Ruolo: <strong><%=
+          currentUser.role === 'admin'      ? 'Amministratore' :
+          currentUser.role === 'organizer'  ? 'Organizzatore'  :
+          currentUser.role === 'accountant' ? 'Amministrazione contabile' :
+          currentUser.role === 'operator'   ? 'Operatore'      :
+          currentUser.role === 'scanner'    ? 'Scanner'        :
+          currentUser.role === 'viewer'     ? 'Visualizzatore' :
+          currentUser.role %></strong></div>
+      <% } %>
+    </div>
+  </div>
+
+  <% if (currentUser) { %>
+  <div class="header-search">
+    <span class="header-search-icon">&#128269;</span>
+    <input type="text" id="header-search-input" class="header-search-input" placeholder="Cosa stai cercando?" autocomplete="off">
+  </div>
+
+  <div class="header-icons">
+    <% if (currentUser.role === 'admin') { %>
+      <a href="/notifications" class="icon-circle" title="Notifiche">
+        &#128276;
+        <span id="notif-badge" class="icon-badge" style="display:none">0</span>
+      </a>
+    <% } %>
+    <a href="/scan" class="icon-circle" title="Scanner QR">&#128247;</a>
+    <a href="/contatore" class="icon-circle" title="Contatore presenze">&#128202;</a>
+    <% if (currentUser.role === 'admin') { %>
+      <a href="/admin/logs" class="icon-circle" title="Log azioni">&#128220;</a>
+    <% } %>
+    <form action="/logout" method="POST" class="icon-circle-form">
+      <button type="submit" class="icon-circle" title="Logout">&#9211;</button>
+    </form>
+  </div>
+  <% } %>
+</header>
+
+<% if (currentUser) { %>
+<nav class="main-nav">
+  <% if (currentUser.role === 'scanner') { %>
+
+    <a href="/scan">&#128247; Scanner QR</a>
+    <a href="/contatore">&#127917; Contatore</a>
+    <a href="/account/password">&#128273; Cambia Password</a>
+
+  <% } else { %>
+
+    <a href="/home">&#127968; Home</a>
+    <a href="/participants">&#128101; Assegnatari Pass</a>
+    <a href="/mappa">&#128506; Mappa Stand</a>
+    <a href="/agenda">&#128197; Agenda</a>
+    <a href="/volunteers">&#128587; Volontari</a>
+
+    <% if (currentUser.role === 'admin' || currentUser.role === 'organizer') { %>
+      <a href="/admin/logistica">&#128230; Logistica</a>
+      <a href="/admin/accreditamento">&#127981; Accreditamento</a>
+    <% } %>
+
+    <% if (typeof canAccessPersonalArea !== 'undefined' && canAccessPersonalArea) { %>
+      <a href="/area-personale">&#128188; Area Personale</a>
+    <% } %>
+
+    <div class="nav-dropdown">
+      <a href="#" class="nav-dropdown-toggle" onclick="return toggleNavDropdown(this)">&#9881;&#65039; Impostazioni &#9662;</a>
+      <div class="nav-dropdown-menu">
+        <% if (currentUser.role === 'admin') { %>
+          <a href="/admin/settings">&#9881;&#65039; Impostazioni di sistema</a>
+        <% } %>
+        <a href="/passes">&#127915; Pass generati</a>
+        <a href="/reports">&#128202; Reports</a>
+        <a href="/search">&#128269; Ricerca avanzata</a>
+        <% if (currentUser.role === 'admin' || currentUser.role === 'organizer') { %>
+          <a href="/import">&#128229; Import CSV</a>
+          <a href="/admin/bacheca">&#128226; Bacheca</a>
+        <% } %>
+        <% if (typeof canAccessAccounting !== 'undefined' && canAccessAccounting) { %>
+          <a href="/area-personale/rimborsi">&#128181; Richieste Rimborsi</a>
+        <% } %>
+        <a href="/account/password">&#128273; Cambia Password</a>
+        <% if (currentUser.role !== 'viewer') { %>
+          <a href="/account/security">&#128274; Password di Sicurezza</a>
         <% } %>
       </div>
     </div>
-    <% if (currentUser) { %>
-    <% if(currentUser&&currentUser.role==="admin"){ %><div id="nb" style="position:relative;margin-left:.25rem;"><a href="/notifications" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.15);color:#fff;text-decoration:none;font-size:1rem;" title="Notifiche">&#128276;</a><span id="nbc" style="display:none;position:absolute;top:-3px;right:-3px;background:#c0392b;color:#fff;border-radius:9999px;min-width:16px;height:16px;font-size:.56rem;font-weight:800;line-height:16px;text-align:center;padding:0 3px;"></span></div><% } %>
-  <form method="post" action="/logout" class="logout-form">
-      <button type="submit">Logout</button>
-    </form>
-    <% } %>
-  </header>
-  <% if (currentUser) { %>
-  <nav class="main-nav">
-    <% if(currentUser && currentUser.role === 'scanner'){ %>
-      <a href="/scan">&#128247; Scanner QR</a>
-          <a href="/contatore" class="nav-link<% if(typeof path !== 'undefined' && path=='/contatore'){%> active<%}%>">🎟️ Contatore</a>
-      <a href="/account/password">&#128273; Cambia Password</a>
-    <% } else { %>
-      <a href="/home">&#127968; Home</a>
-      <a href="/participants">&#128101; Assegnatari Pass</a>
-      <a href="/passes">&#127915; Pass generati</a>
-      <a href="/mappa">&#128506; Mappa Stand</a>
-      <% if(currentUser&&(currentUser.role==='admin'||currentUser.role==='organizer')){ %>
-        <a href="/import">&#128229; Import CSV</a>
-      <% } %>
-      <a href="/reports">&#128202; Reports</a>
-      <a href="/agenda">&#128197; Agenda</a>
-      <a href="/volunteers">🙋 Volontari</a>
-      <a href="/search">&#128269; Ricerca Pass</a>
-      <a href="/scan">&#128247; Scanner QR</a>
-          <a href="/contatore" class="nav-link<% if(typeof path !== 'undefined' && path=='/contatore'){%> active<%}%>">🎟️ Contatore</a>
-      <a href="/account/password">&#128273; Cambia Password</a>
-      <% if(currentUser&&currentUser.role!=='viewer'){ %>
-        <a href="/account/security">&#128274; Password di Sicurezza</a>
-      <% } %>
-      <% if(typeof canAccessPersonalArea !== 'undefined' && canAccessPersonalArea){ %>
-        <a href="/area-personale">&#128188; Area Personale</a>
-      <% } %>
-      <% if(typeof canAccessAccounting !== 'undefined' && canAccessAccounting){ %>
-        <a href="/area-personale/rimborsi">&#128181; Richieste Rimborsi</a>
-      <% } %>
-      <% if(currentUser&&(currentUser.role==='admin'||currentUser.role==='organizer')){ %>
-        <a href="/admin/logistica">📦 Logistica</a>
-        <a href="/admin/bacheca">&#128226; Bacheca</a>
-        <a href="/admin/accreditamento">&#127981; Accreditamento</a>
-      <% } %>
-      <% if(currentUser&&currentUser.role==='admin'){ %>
-        <a href="/admin/settings">&#9881;&#65039; Impostazioni</a>
-        <a href="/admin/logs">&#128220; Log Azioni</a>
-      <% } %>
-    <% } %>
-  </nav>
+
   <% } %>
+</nav>
+<% } %>
+
+<script>
+(function(){
+  // ── Ricerca nella barra gialla dell'header: riusa la command palette esistente ──
+  var hs = document.getElementById('header-search-input');
+  if (hs) {
+    function openPaletteWithValue(){
+      var ov  = document.getElementById('cp-overlay');
+      var inp = document.getElementById('cp-q');
+      if (!ov || !inp) return;
+      ov.classList.add('open');
+      inp.value = hs.value;
+      inp.dispatchEvent(new Event('input'));
+      setTimeout(function(){ inp.focus(); }, 30);
+    }
+    hs.addEventListener('focus', openPaletteWithValue);
+    hs.addEventListener('keydown', function(e){
+      if (e.key === 'Enter') { e.preventDefault(); openPaletteWithValue(); }
+    });
+  }
+
+  // ── Menu a tendina Impostazioni: click/tap oltre all'hover (per tablet/mobile) ──
+  window.toggleNavDropdown = function(el){
+    var dd = el.closest('.nav-dropdown');
+    if (!dd) return false;
+    var wasOpen = dd.classList.contains('open');
+    document.querySelectorAll('.nav-dropdown.open').forEach(function(d){ d.classList.remove('open'); });
+    if (!wasOpen) dd.classList.add('open');
+    return false;
+  };
+  document.addEventListener('click', function(e){
+    if (!e.target.closest('.nav-dropdown')) {
+      document.querySelectorAll('.nav-dropdown.open').forEach(function(d){ d.classList.remove('open'); });
+    }
+  });
+
+  // ── Badge notifiche non lette (polling) ──
+  var badge = document.getElementById('notif-badge');
+  if (badge) {
+    function refreshBadge(){
+      fetch('/api/notifications/count').then(function(r){ return r.json(); }).then(function(data){
+        var n = (data && data.count) || 0;
+        if (n > 0) { badge.textContent = n > 99 ? '99+' : n; badge.style.display = 'flex'; }
+        else { badge.style.display = 'none'; }
+      }).catch(function(){});
+    }
+    refreshBadge();
+    setInterval(refreshBadge, 30000);
+  }
+})();
+</script>
