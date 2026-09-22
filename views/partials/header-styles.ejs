@@ -66,19 +66,16 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
 
 /* ============================================================
    TOPBAR
-   FIX 22/09 v5: "height:100%" su un figlio flex dentro un
-   contenitore la cui altezza dipende dal contenuto crea un
-   riferimento circolare — il browser lo ignora e usa la
-   dimensione naturale dell'immagine (enorme). Tornato ad
-   altezze FISSE in pixel, uguali al min-height del .topbar
-   ad ogni breakpoint: così l'immagine tocca sempre i bordi
-   in modo prevedibile, senza ambiguità.
+   FIX 22/09 v6: "Accesso come/Ruolo" spostato in overlay sul
+   bordo inferiore, sotto la scritta del logo (che è trasparente
+   lì, quindi il testo appare sul viola di sfondo). Ricerca
+   spostata a destra con margin-left:auto.
    ============================================================ */
 .topbar {
   position: relative;
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   gap: 1rem;
   padding: 0 1.5rem;
@@ -99,8 +96,20 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
   filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));
 }
 
+.topbar-user-line {
+  position: absolute;
+  left: 300px;
+  bottom: 10px;
+  font-size: 0.8rem;
+  color: #f0e6ff;
+  white-space: nowrap;
+  z-index: 3;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+}
+.topbar-user-line strong { color: var(--brand-yellow); }
+
 /* ============================================================
-   BARRA DI RICERCA
+   BARRA DI RICERCA — completamente gialla, spostata a destra
    ============================================================ */
 .header-search {
   display: flex;
@@ -109,26 +118,30 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
   background: var(--brand-yellow);
   border-radius: 999px;
   padding: 0.6rem 1.3rem;
-  flex: 1 1 320px;
-  max-width: 460px;
+  flex: 0 1 460px;
+  width: 460px;
+  margin-left: auto;
   box-shadow: var(--shadow-sm);
 }
 .header-search-icon { font-size: 1.1rem; color: var(--brand-dark); flex-shrink: 0; }
-.header-search-input {
+.header-search .header-search-input,
+input.header-search-input {
   flex: 1;
   min-width: 0;
-  border: none;
-  background: transparent;
+  border: none !important;
+  background: transparent !important;
   outline: none;
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--brand-dark);
   font-family: inherit;
+  padding: 0;
+  margin: 0;
 }
 .header-search-input::placeholder { color: rgba(30,45,78,0.65); font-weight: 700; }
 
 /* ============================================================
-   COLONNA DESTRA: icone + riga "Accesso come / Ruolo"
+   COLONNA DESTRA: solo icone (accesso/ruolo spostato nel topbar)
    ============================================================ */
 .header-right-col {
   display: flex;
@@ -188,15 +201,8 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
   border: 2px solid var(--brand-violet);
 }
 
-.brand-user {
-  font-size: 0.78rem;
-  color: #f0e6ff;
-  text-align: right;
-}
-.brand-user strong { color: var(--brand-yellow); }
-
 /* ============================================================
-   NAVBAR
+   NAVBAR — font ingrandito
    ============================================================ */
 .main-nav {
   display: flex;
@@ -215,7 +221,7 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
   align-items: center;
   padding: 0.65rem 1.1rem;
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 1.3rem;
   letter-spacing: 0.1px;
   text-transform: none;
   color: #ffffff;
@@ -236,7 +242,7 @@ a:hover { color: var(--text-link-hover); text-decoration: underline; }
   align-items: center;
   padding: 0.65rem 1.1rem;
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 1.3rem;
   letter-spacing: 0.1px;
   text-transform: none;
   color: #ffffff;
@@ -615,9 +621,10 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
   .content { padding: 1rem 1rem 2rem; }
   .topbar { flex-wrap: wrap; gap: 0.6rem; padding: 0 1rem; min-height: 100px; }
   .brand-combo { height: 100px; }
-  .header-search { order: 3; flex: 1 1 100%; max-width: none; }
-  .main-nav a { font-size: 0.92rem; padding: 0.55rem 0.8rem; }
-  .nav-dropdown-toggle { font-size: 0.92rem; padding: 0.55rem 0.8rem; }
+  .topbar-user-line { left: 240px; bottom: 6px; font-size: 0.7rem; }
+  .header-search { order: 3; flex: 1 1 100%; width: auto; max-width: none; margin-left: 0; }
+  .main-nav a { font-size: 1.05rem; padding: 0.55rem 0.8rem; }
+  .nav-dropdown-toggle { font-size: 1.05rem; padding: 0.55rem 0.8rem; }
   table { font-size: 0.78rem; }
   th, td { padding: 0.45rem 0.6rem; }
   .card { padding: 0.85rem 1rem; }
@@ -627,17 +634,17 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 @media (max-width: 600px) {
   .topbar { flex-direction: row; align-items: center; justify-content: space-between; padding: 0 0.75rem; min-height: 76px; gap: 0.5rem; flex-wrap: wrap; }
   .brand-combo { height: 76px; }
+  .topbar-user-line { display: none; }
   .header-search { display: none; }
   .header-right-col { align-items: flex-end; }
   .header-icons { gap: 0.4rem; }
   .icon-circle { width: 36px; height: 36px; }
   .icon-circle svg { width: 18px; height: 18px; }
-  .brand-user { font-size: 0.68rem; }
 
   .main-nav { overflow-x: auto; flex-wrap: nowrap; justify-content: flex-start; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 0; min-height: 38px; }
   .main-nav::-webkit-scrollbar { display: none; }
-  .main-nav a { flex-shrink: 0; font-size: 0.85rem; padding: 0.5rem 0.65rem; }
-  .nav-dropdown-toggle { flex-shrink: 0; font-size: 0.85rem; padding: 0.5rem 0.65rem; }
+  .main-nav a { flex-shrink: 0; font-size: 1rem; padding: 0.5rem 0.65rem; }
+  .nav-dropdown-toggle { flex-shrink: 0; font-size: 1rem; padding: 0.5rem 0.65rem; }
 
   .breadcrumb-bar { padding: 0.35rem 0.75rem; font-size: 0.73rem; }
 
@@ -676,8 +683,8 @@ fieldset.coords legend { padding: 0 0.3rem; font-size: 0.8rem; font-weight: 700;
 @media (max-width: 380px) {
   .topbar { padding: 0 0.5rem; min-height: 64px; }
   .brand-combo { height: 64px; }
-  .main-nav a { font-size: 0.78rem; padding: 0.45rem 0.55rem; }
-  .nav-dropdown-toggle { font-size: 0.78rem; padding: 0.45rem 0.55rem; }
+  .main-nav a { font-size: 0.9rem; padding: 0.45rem 0.55rem; }
+  .nav-dropdown-toggle { font-size: 0.9rem; padding: 0.45rem 0.55rem; }
   .content { padding: 0.6rem 0.5rem 1.8rem; }
   .icon-grid { grid-template-columns: repeat(2, 1fr); gap: 0.4rem; }
   table { min-width: 440px; }
