@@ -1,3 +1,80 @@
+<style>
+/* ── Menu hamburger mobile (sostituisce i pallini che andavano sotto il logo) ── */
+.hdr-burger-wrap { display: none; position: relative; }
+.hdr-burger { display: none; }
+
+.hdr-fan {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  z-index: 10000;
+  visibility: hidden;
+  pointer-events: none;
+  transition: visibility 0s linear .35s;
+}
+.hdr-fan.open {
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+.hdr-fan-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-18px) scale(.9);
+  transform-origin: top right;
+  transition: opacity .18s ease, transform .3s cubic-bezier(.16, 1, .3, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+.hdr-fan.open .hdr-fan-item {
+  opacity: 1;
+  transform: none;
+  transition-delay: calc(var(--i, 0) * 55ms);
+}
+.hdr-fan-item:hover { text-decoration: none; }
+.hdr-fan-label {
+  background: #fff;
+  color: #4c2c78;
+  font-weight: 700;
+  font-size: .85rem;
+  line-height: 1;
+  padding: .5rem .85rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  box-shadow: 0 3px 10px rgba(30, 20, 60, .28);
+}
+.hdr-fan-item .icon-circle {
+  box-shadow: 0 3px 10px rgba(30, 20, 60, .3), 0 0 0 2px rgba(107, 63, 160, .18);
+}
+.hdr-fan-form { margin: 0; }
+
+@media (max-width: 640px) {
+  .topbar { flex-wrap: nowrap; justify-content: space-between; }
+  .brand { min-width: 0; flex: 0 1 auto; }
+  .brand-combo { max-width: 100%; object-fit: contain; object-position: left center; }
+  .header-right-col { margin-left: auto; }
+  .header-icons { display: none; }
+  .hdr-burger-wrap { display: block; }
+  .hdr-burger { display: flex; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hdr-fan-item, .hdr-fan.open .hdr-fan-item { transition-duration: .01ms; transition-delay: 0s; }
+}
+</style>
+
 <header class="topbar">
   <div class="brand">
     <img src="/ciuco-logo-combo.png" alt="Ludicomix - Portale di gestione" class="brand-combo">
@@ -27,7 +104,7 @@
       <% if (currentUser.role === 'admin') { %>
         <a href="/notifications" class="icon-circle" title="Notifiche">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d2265" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          <span id="notif-badge" class="icon-badge" style="display:none">0</span>
+          <span id="notif-badge" class="icon-badge js-notif-badge" style="display:none">0</span>
         </a>
       <% } %>
       <a href="/scan" class="icon-circle" title="Scanner QR">
@@ -46,6 +123,55 @@
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d2265" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         </button>
       </form>
+    </div>
+
+    <!-- Menu hamburger (visibile solo su schermi stretti) -->
+    <div class="hdr-burger-wrap">
+      <button type="button" class="icon-circle hdr-burger" id="hdr-burger" aria-label="Menu" aria-haspopup="true" aria-expanded="false" aria-controls="hdr-fan">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d2265" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+        <% if (currentUser.role === 'admin') { %><span class="icon-badge js-notif-badge" style="display:none">0</span><% } %>
+      </button>
+
+      <div class="hdr-fan" id="hdr-fan">
+        <% var fanIdx = 0; %>
+        <% if (currentUser.role === 'admin') { %>
+          <a href="/notifications" class="hdr-fan-item" style="--i:<%= fanIdx++ %>">
+            <span class="hdr-fan-label">Notifiche</span>
+            <span class="icon-circle">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d2265" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              <span class="icon-badge js-notif-badge" style="display:none">0</span>
+            </span>
+          </a>
+        <% } %>
+        <a href="/scan" class="hdr-fan-item" style="--i:<%= fanIdx++ %>">
+          <span class="hdr-fan-label">Scanner QR</span>
+          <span class="icon-circle">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d2265" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+          </span>
+        </a>
+        <a href="/contatore" class="hdr-fan-item" style="--i:<%= fanIdx++ %>">
+          <span class="hdr-fan-label">Contatore presenze</span>
+          <span class="icon-circle">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d2265" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          </span>
+        </a>
+        <% if (currentUser.role === 'admin') { %>
+          <a href="/admin/logs" class="hdr-fan-item" style="--i:<%= fanIdx++ %>">
+            <span class="hdr-fan-label">Log azioni</span>
+            <span class="icon-circle">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d2265" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>
+            </span>
+          </a>
+        <% } %>
+        <form action="/logout" method="POST" class="hdr-fan-form">
+          <button type="submit" class="hdr-fan-item" style="--i:<%= fanIdx++ %>">
+            <span class="hdr-fan-label">Logout</span>
+            <span class="icon-circle">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d2265" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            </span>
+          </button>
+        </form>
+      </div>
     </div>
   </div>
   <% } %>
@@ -123,6 +249,29 @@
     });
   }
 
+  // ── Menu hamburger mobile (pallino con tre linee) ──
+  var burger = document.getElementById('hdr-burger');
+  var fan    = document.getElementById('hdr-fan');
+  if (burger && fan) {
+    var setFan = function(open){
+      fan.classList.toggle('open', open);
+      burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+    burger.addEventListener('click', function(e){
+      e.stopPropagation();
+      setFan(!fan.classList.contains('open'));
+    });
+    document.addEventListener('click', function(e){
+      if (!fan.contains(e.target) && !burger.contains(e.target)) setFan(false);
+    });
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape') setFan(false);
+    });
+    window.addEventListener('resize', function(){
+      if (window.innerWidth > 640) setFan(false);
+    });
+  }
+
   // ── Menu a tendina Impostazioni (fix definitivo v5: menu spostato
   //     come figlio diretto di body per evitare il bug di compositing
   //     WebKit dentro contenitori con overflow-x scrollabile) ──
@@ -185,14 +334,16 @@
     window.addEventListener('scroll', closeMenu, true);
   }
 
-  // ── Badge notifiche non lette (polling) ──
-  var badge = document.getElementById('notif-badge');
-  if (badge) {
+  // ── Badge notifiche non lette (polling): aggiorna tutti i badge (desktop, hamburger, menu) ──
+  var badges = document.querySelectorAll('.js-notif-badge');
+  if (badges.length) {
     function refreshBadge(){
       fetch('/api/notifications/count').then(function(r){ return r.json(); }).then(function(data){
         var n = (data && data.count) || 0;
-        if (n > 0) { badge.textContent = n > 99 ? '99+' : n; badge.style.display = 'flex'; }
-        else { badge.style.display = 'none'; }
+        badges.forEach(function(b){
+          if (n > 0) { b.textContent = n > 99 ? '99+' : n; b.style.display = 'flex'; }
+          else { b.style.display = 'none'; }
+        });
       }).catch(function(){});
     }
     refreshBadge();
