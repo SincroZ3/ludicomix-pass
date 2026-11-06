@@ -397,9 +397,10 @@ function zColor(z) { return z.map_color || TYPE_COLORS[z.map_type] || TYPE_COLOR
 
 /* ── MAPPA ADMIN ── */
 var adminMap = L.map('adminMap', { center: [43.7183, 10.9488], zoom: 15 });
-L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_53vx_1_46577390ca58d40234d5fa25', {
-  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
-  maxZoom: 19
+L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_53vx_1_46577390ca58d40234d5fa25', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attribution/">CARTO</a>',
+  maxNativeZoom: 18,
+  maxZoom: 20
 }).addTo(adminMap);
 
 var adminMarkers = {};
