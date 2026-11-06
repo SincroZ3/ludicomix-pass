@@ -484,9 +484,9 @@ var map = L.map('map', {
   attributionControl: true
 });
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_53vx_1_46577390ca58d40234d5fa25', {
   attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
-  subdomains: 'abcd', maxZoom: 19
+  maxZoom: 19
 }).addTo(map);
 
 /* ══════════════════════════════════════════
