@@ -1,6 +1,6 @@
 /**
  * routes/portale.js
- * ──────────────────────────────────────────────────────────────────
+ * ──────────────────────────────────────────────────────────────────────
  * Portale espositore: pagina principale, nominativi, download pass,
  * service requests (logistica), bacheca, CRM ticket.
  *
@@ -14,7 +14,7 @@
  *   GET  /api/portale/:token/service-requests
  *   POST /portale/:token/bacheca/read          (già in bacheca.js — skip)
  *   GET  /api/portale/:token/unread            (già in bacheca.js — skip)
- * ──────────────────────────────────────────────────────────────────
+ * ──────────────────────────────────────────────────────────────────────
  */
 
 const path = require('path');
@@ -76,7 +76,7 @@ module.exports = function registerPortaleRoutes(
     return true;
   }
 
-  // ── GET /portale/:token ──────────────────────────────────────────
+  // ── GET /portale/:token ───────────────────────────────────────────────────────
   app.get('/portale/:token', async (req, res) => {
     const token = req.params.token;
     try {
@@ -95,6 +95,13 @@ module.exports = function registerPortaleRoutes(
       // (portale aperto → mostra tutto; chiuso → mostra solo messaggio)
       // NB: non blocchiamo la GET del portale per consentire il download dei pass già generati
       // la verifica finestra è applicata solo nelle API di inserimento nominativi
+
+      // Annunci: solo quelli dell'edizione corrente (stesso criterio di routes/bacheca.js)
+      const cur = getCurrent ? getCurrent() : null;
+      const annEdClause    = cur ? 'AND (a.edition_id = ? OR a.edition_id IS NULL)' : '';
+      const annParams      = cur ? [token, token, cur.id] : [token, token];
+      const unreadEdClause = cur ? 'AND (a.edition_id = ? OR a.edition_id IS NULL)' : '';
+      const unreadParams   = cur ? [cur.id, token] : [token];
 
       const [parts, autoPasses, announcements, unreadRow, zoneInfo, zoneStands, refWRow, refHRow] =
         await Promise.all([
@@ -120,17 +127,19 @@ module.exports = function registerPortaleRoutes(
                AND (a.target_group_id IS NULL OR a.target_group_id = (
                  SELECT id FROM assignment_groups WHERE portal_token=? LIMIT 1
                ))
+               ${annEdClause}
              ORDER BY a.is_pinned DESC, a.created_at DESC`,
-            [token, token]
+            annParams
           ),
           dbGet(
             `SELECT COUNT(*) AS cnt FROM announcements a
              WHERE (a.expires_at IS NULL OR a.expires_at > datetime('now','localtime'))
+               ${unreadEdClause}
                AND NOT EXISTS (
                  SELECT 1 FROM announcement_reads ar
                  WHERE ar.announcement_id=a.id AND ar.portal_token=?
                )`,
-            [token]
+            unreadParams
           ),
           group.zone
             ? dbGet(`SELECT z.id, z.name, z.background_image FROM zones z WHERE z.name=? LIMIT 1`, [group.zone])
@@ -197,7 +206,7 @@ module.exports = function registerPortaleRoutes(
     );
   });
 
-  // ── Download auto-pass (parcheggio) dal portale ──────────────────
+  // ── Download auto-pass (parcheggio) dal portale ────────────────────
   app.get('/portale/:token/download-auto/:apId', (req, res) => {
     db.get(
       `SELECT ag.portal_enabled, ag.id AS group_id, ag.name AS group_name,
@@ -221,7 +230,7 @@ module.exports = function registerPortaleRoutes(
     );
   });
 
-  // ── POST nominativo dal portale ──────────────────────────────────
+  // ── POST nominativo dal portale ─────────────────────────────────────────
   app.post('/api/portale/:token/participants', async (req, res) => {
     const token = req.params.token;
     const { firstname, lastname, role } = req.body;
@@ -260,7 +269,7 @@ module.exports = function registerPortaleRoutes(
     }
   });
 
-  // ── DELETE nominativo dal portale ────────────────────────────────
+  // ── DELETE nominativo dal portale ────────────────────────────────────────
   app.post('/api/portale/:token/participants/:pid/delete', async (req, res) => {
     const token = req.params.token;
     const pid   = parseInt(req.params.pid, 10);
@@ -283,7 +292,7 @@ module.exports = function registerPortaleRoutes(
     }
   });
 
-  // ── Richiesta servizio/logistica dal portale ─────────────────────
+  // ── Richiesta servizio/logistica dal portale ─────────────────────────
   app.post('/api/portale/:token/service-request', async (req, res) => {
     const token = req.params.token;
     try {
@@ -321,7 +330,7 @@ module.exports = function registerPortaleRoutes(
     }
   });
 
-  // ── Lista richieste servizio del gruppo ──────────────────────────
+  // ── Lista richieste servizio del gruppo ──────────────────────────────────
   app.get('/api/portale/:token/service-requests', async (req, res) => {
     const token = req.params.token;
     try {
