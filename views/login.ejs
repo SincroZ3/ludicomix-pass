@@ -13,260 +13,143 @@
       --violet-light: #9565c7;
       --yellow: #f5c842;
       --yellow-light: #ffe16f;
+      --navy: #1e2d4e;
       --ink: #25143b;
-      --glass: rgba(255, 255, 255, .17);
-      --glass-strong: rgba(255, 255, 255, .25);
-      --glass-border: rgba(255, 255, 255, .43);
     }
-
     * { box-sizing: border-box; }
-    html, body { min-height: 100%; }
+    html, body { margin: 0; max-width: 100vw; overflow-x: hidden; }
 
-    body {
-      margin: 0;
+    body.gateway-body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       min-height: 100vh;
-      overflow-x: hidden;
-      color: #fff;
+      min-height: 100dvh;
+      padding: 20px;
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
       background:
-        radial-gradient(circle at 7% 13%, rgba(226, 190, 255, .43) 0, rgba(226, 190, 255, 0) 28rem),
-        radial-gradient(circle at 91% 84%, rgba(249, 207, 79, .17) 0, rgba(249, 207, 79, 0) 25rem),
-        radial-gradient(circle at 76% 9%, rgba(186, 136, 239, .32) 0, rgba(186, 136, 239, 0) 29rem),
-        linear-gradient(135deg, var(--violet-deep) 0%, var(--violet) 48%, var(--violet-light) 100%);
+        linear-gradient(135deg, rgba(63, 33, 104, .62) 0%, rgba(107, 63, 160, .38) 55%, rgba(30, 45, 78, .55) 100%),
+        url('/ciuco-login.jpg') center center / cover no-repeat;
+      background-color: var(--violet-deep);
     }
 
-    .login-wrapper {
-      position: relative;
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-      padding: 2rem 1.25rem;
-      isolation: isolate;
+    .gateway-box {
+      width: min(360px, 100%);
+      padding: 38px 32px 30px;
+      text-align: center;
+      background: #fff;
+      border-radius: 20px;
+      border-top: 5px solid var(--yellow);
+      box-shadow: 0 12px 40px rgba(29, 10, 55, .45);
     }
 
-    .login-wrapper::before,
-    .login-wrapper::after {
-      content: "";
-      position: fixed;
-      z-index: -1;
-      pointer-events: none;
-      border-radius: 50%;
-      filter: blur(2px);
-    }
-
-    .login-wrapper::before {
-      width: min(54vw, 720px);
-      height: min(54vw, 720px);
-      left: -18vw;
-      bottom: -27vw;
-      background: radial-gradient(circle, rgba(255, 226, 113, .20), transparent 68%);
-    }
-
-    .login-wrapper::after {
-      width: min(48vw, 620px);
-      height: min(48vw, 620px);
-      right: -17vw;
-      top: -20vw;
-      background: radial-gradient(circle, rgba(255, 255, 255, .20), transparent 67%);
-    }
-
-    .login-scene {
-      width: min(100%, 480px);
-      position: relative;
-    }
-
-    .brand-lockup {
+    .gateway-logo {
       display: block;
-      width: min(82%, 370px);
+      width: 82%;
+      max-width: 250px;
       height: auto;
-      margin: 0 auto 1.25rem;
-      filter: drop-shadow(0 12px 22px rgba(32, 12, 55, .32));
+      margin: 0 auto 16px;
       user-select: none;
       -webkit-user-drag: none;
     }
 
-    .login-box {
-      position: relative;
-      overflow: hidden;
-      padding: 2rem;
-      border: 1px solid var(--glass-border);
-      border-radius: 28px;
-      background: linear-gradient(135deg, rgba(255, 255, 255, .29), rgba(255, 255, 255, .10));
-      box-shadow:
-        0 25px 70px rgba(29, 10, 55, .40),
-        inset 0 1px 0 rgba(255, 255, 255, .56),
-        inset 0 -1px 0 rgba(46, 17, 73, .18);
-      -webkit-backdrop-filter: blur(24px) saturate(150%);
-      backdrop-filter: blur(24px) saturate(150%);
-    }
-
-    .login-box::before {
-      content: "";
-      position: absolute;
-      pointer-events: none;
-      top: -55%;
-      left: -25%;
-      width: 100%;
-      height: 100%;
-      transform: rotate(-22deg);
-      background: linear-gradient(110deg, transparent 22%, rgba(255, 255, 255, .30) 48%, transparent 72%);
-    }
-
-    .login-content { position: relative; z-index: 1; }
-
-    .login-title {
-      margin: 0;
-      font-size: clamp(1.55rem, 5vw, 2rem);
-      letter-spacing: -.035em;
+    .gateway-title {
+      margin: 0 0 4px;
+      font-size: 1.3rem;
       font-weight: 800;
-      text-align: center;
-      text-shadow: 0 1px 2px rgba(40, 15, 65, .22);
+      color: var(--violet-dark);
     }
 
-    .login-subtitle {
-      margin: .35rem 0 1.6rem;
-      color: rgba(255, 255, 255, .84);
-      font-size: .92rem;
-      font-weight: 500;
-      text-align: center;
+    .gateway-subtitle {
+      margin: 0 0 20px;
+      font-size: .85rem;
+      color: #777;
     }
 
-    .login-form-group { margin: 0 0 1rem; }
+    .gateway-form { text-align: left; }
 
-    .login-form-group label {
-      display: block;
-      margin: 0 0 .45rem;
-      color: #fff;
-      font-size: .84rem;
-      font-weight: 750;
-      letter-spacing: .01em;
-      text-shadow: 0 1px 1px rgba(40, 15, 65, .25);
-    }
-
-    .required { color: var(--yellow-light); }
-
-    .login-form-group input {
+    .gateway-form input {
       width: 100%;
-      height: 48px;
-      padding: 0 .95rem;
+      padding: 12px 4px;
+      margin-bottom: 14px;
+      border: none;
+      border-bottom: 2px solid #ddd;
+      border-radius: 0;
+      background: transparent;
       color: var(--ink);
       font: inherit;
-      font-size: .98rem;
-      font-weight: 650;
-      background: rgba(255, 255, 255, .78);
-      border: 1px solid rgba(255, 255, 255, .72);
-      border-radius: 14px;
-      box-shadow: inset 0 1px 2px rgba(54, 21, 83, .11), 0 5px 15px rgba(39, 13, 65, .10);
+      font-size: .95rem;
       outline: none;
-      transition: transform .16s ease, background .16s ease, border-color .16s ease, box-shadow .16s ease;
+      transition: border-color .16s ease;
+    }
+    .gateway-form input::placeholder { color: #999; }
+    .gateway-form input:focus { border-bottom-color: var(--violet); }
+
+    .error-msg {
+      margin: 0 0 12px;
+      padding: .65rem .8rem;
+      color: #8a1530;
+      font-size: .88rem;
+      line-height: 1.35;
+      background: #fdebef;
+      border-left: 4px solid #c0213f;
+      border-radius: 8px;
+      text-align: left;
     }
 
-    .login-form-group input::placeholder { color: rgba(37, 20, 59, .50); }
-
-    .login-form-group input:focus {
-      background: rgba(255, 255, 255, .95);
-      border-color: var(--yellow-light);
-      box-shadow:
-        0 0 0 4px rgba(255, 224, 106, .29),
-        inset 0 1px 2px rgba(54, 21, 83, .08),
-        0 8px 20px rgba(39, 13, 65, .16);
-      transform: translateY(-1px);
-    }
-
-    .alert {
-      display: flex;
-      gap: .55rem;
-      align-items: flex-start;
-      margin: 0 0 1rem;
-      padding: .78rem .9rem;
-      color: #fff;
-      font-size: .86rem;
-      line-height: 1.4;
-      background: rgba(151, 25, 54, .58);
-      border: 1px solid rgba(255, 216, 224, .65);
-      border-radius: 14px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .20);
-    }
-
-    .login-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .btn-violet {
+      display: block;
       width: 100%;
-      min-height: 50px;
-      margin-top: 1.35rem;
-      padding: .72rem 1rem;
-      color: #332047;
+      margin-top: 10px;
+      padding: 13px 16px;
+      color: #fff;
       font-family: inherit;
       font-size: 1rem;
-      font-weight: 850;
-      letter-spacing: .015em;
+      font-weight: 800;
+      letter-spacing: .01em;
       cursor: pointer;
-      background: linear-gradient(180deg, #ffe77c 0%, var(--yellow) 48%, #e7b726 100%);
-      border: 1px solid rgba(255, 255, 255, .72);
-      border-radius: 16px;
-      box-shadow: 0 10px 22px rgba(37, 13, 58, .29), inset 0 1px 0 rgba(255,255,255,.70);
+      background: linear-gradient(180deg, var(--violet) 0%, var(--violet-dark) 100%);
+      border: none;
+      border-bottom: 3px solid var(--yellow);
+      border-radius: 10px;
+      box-shadow: 0 6px 16px rgba(63, 33, 104, .35);
       transition: transform .16s ease, filter .16s ease, box-shadow .16s ease;
     }
+    .btn-violet:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 9px 20px rgba(63, 33, 104, .42); }
+    .btn-violet:active { transform: translateY(0); }
 
-    .login-btn:hover {
-      filter: brightness(1.06);
-      box-shadow: 0 13px 28px rgba(37, 13, 58, .36), inset 0 1px 0 rgba(255,255,255,.78);
-      transform: translateY(-2px);
-    }
-
-    .login-btn:active { transform: translateY(0) scale(.985); }
-
-    .login-footer {
-      margin: 1.2rem 0 0;
-      color: rgba(255, 255, 255, .70);
+    .gateway-footer {
+      margin: 18px 0 0;
       font-size: .73rem;
-      text-align: center;
+      color: #999;
     }
 
     @media (max-width: 520px) {
-      .login-wrapper { padding: 1.5rem 1rem; }
-      .brand-lockup { width: min(94%, 350px); margin-bottom: .9rem; }
-      .login-box { padding: 1.55rem 1.2rem; border-radius: 24px; }
+      .gateway-box { padding: 30px 22px 24px; }
     }
-
     @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+      *, *::before, *::after { transition-duration: .01ms !important; }
     }
   </style>
 </head>
-<body>
-  <main class="login-wrapper">
-    <section class="login-scene" aria-labelledby="login-title">
-      <img class="brand-lockup" src="/ciuco-logo-combo.png" alt="Ludicomix — Portale di gestione">
+<body class="gateway-body">
+  <main class="gateway-box">
+    <img class="gateway-logo" src="/ciuco-logo-combo.png" alt="Ludicomix — Portale di gestione">
+    <h1 class="gateway-title">Area riservata</h1>
+    <p class="gateway-subtitle">Accedi con le tue credenziali</p>
 
-      <div class="login-box">
-        <div class="login-content">
-          <h1 class="login-title" id="login-title">Bentornato</h1>
-          <p class="login-subtitle">Area di gestione pass</p>
+    <% if (error) { %>
+      <div class="error-msg" role="alert"><%= error %></div>
+    <% } %>
 
-          <form method="POST" action="/login" autocomplete="on">
-            <div class="login-form-group">
-              <label for="username">Username <span class="required">*</span></label>
-              <input id="username" type="text" name="username" required autofocus autocomplete="username">
-            </div>
+    <form class="gateway-form" method="POST" action="/login" autocomplete="on">
+      <input id="username" type="text" name="username" placeholder="Username" required autofocus autocomplete="username">
+      <input id="password" type="password" name="password" placeholder="Password" required autocomplete="current-password">
+      <button type="submit" class="btn-violet">Entra nel portale</button>
+    </form>
 
-            <div class="login-form-group">
-              <label for="password">Password <span class="required">*</span></label>
-              <input id="password" type="password" name="password" required autocomplete="current-password">
-            </div>
-
-            <% if (error) { %>
-              <div class="alert" role="alert"><span aria-hidden="true">⚠</span><span><%= error %></span></div>
-            <% } %>
-
-            <button type="submit" class="login-btn">Entra nel portale</button>
-          </form>
-
-          <p class="login-footer">Ludicomix Empoli · Area riservata</p>
-        </div>
-      </div>
-    </section>
+    <p class="gateway-footer">Ludicomix Empoli · Area riservata</p>
   </main>
 </body>
 </html>
