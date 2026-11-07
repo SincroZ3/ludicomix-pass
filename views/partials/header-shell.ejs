@@ -60,6 +60,66 @@
 }
 .hdr-fan-form { margin: 0; }
 
+/* ── Tooltip animato sulle icone tonde (solo desktop con mouse) ── */
+.header-icons .icon-tip {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: -6px;
+  z-index: 10001;
+  width: max-content;
+  max-width: 230px;
+  padding: .55rem .8rem .6rem;
+  border-radius: 12px;
+  background: #2b1a47;
+  color: #fff;
+  text-align: left;
+  text-transform: none;
+  font-family: -apple-system, 'Segoe UI', Arial, sans-serif;
+  cursor: default;
+  box-shadow: 0 8px 22px rgba(20, 10, 40, .35);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-8px) scale(.95);
+  transform-origin: top right;
+  transition: opacity .16s ease, transform .2s ease, visibility 0s linear .2s;
+}
+.header-icons .icon-tip::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  right: 24px;
+  width: 10px;
+  height: 10px;
+  background: #2b1a47;
+  border-radius: 2px;
+  transform: rotate(45deg);
+}
+.header-icons .icon-tip .tip-title {
+  display: block;
+  font-size: .85rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #f5c842;
+}
+.header-icons .icon-tip .tip-desc {
+  display: block;
+  margin-top: .2rem;
+  font-size: .75rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: #efe7fb;
+}
+@media (hover: hover) and (min-width: 641px) {
+  .header-icons .icon-circle:hover .icon-tip,
+  .header-icons .icon-circle:focus-visible .icon-tip {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition: opacity .18s ease .35s, transform .28s cubic-bezier(.16, 1, .3, 1) .35s, visibility 0s linear .35s;
+  }
+}
+
 @media (max-width: 640px) {
   .topbar { flex-wrap: nowrap; justify-content: space-between; }
   .brand { min-width: 0; flex: 0 1 auto; }
@@ -72,6 +132,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .hdr-fan-item, .hdr-fan.open .hdr-fan-item { transition-duration: .01ms; transition-delay: 0s; }
+  .header-icons .icon-tip { transition-duration: .01ms !important; transition-delay: 0s !important; }
 }
 </style>
 
@@ -102,25 +163,30 @@
   <div class="header-right-col">
     <div class="header-icons">
       <% if (currentUser.role === 'admin') { %>
-        <a href="/notifications" class="icon-circle" title="Notifiche">
+        <a href="/notifications" class="icon-circle" aria-label="Notifiche">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d2265" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <span id="notif-badge" class="icon-badge js-notif-badge" style="display:none">0</span>
+          <span class="icon-tip" role="tooltip"><span class="tip-title">Notifiche</span><span class="tip-desc">Avvisi di sistema e nuove richieste dal portale.</span></span>
         </a>
       <% } %>
-      <a href="/scan" class="icon-circle" title="Scanner QR">
+      <a href="/scan" class="icon-circle" aria-label="Scanner QR">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d2265" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+        <span class="icon-tip" role="tooltip"><span class="tip-title">Scanner QR</span><span class="tip-desc">Scansiona i pass e verifica gli ingressi.</span></span>
       </a>
-      <a href="/contatore" class="icon-circle" title="Contatore presenze">
+      <a href="/contatore" class="icon-circle" aria-label="Contatore presenze">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d2265" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span class="icon-tip" role="tooltip"><span class="tip-title">Contatore presenze</span><span class="tip-desc">Conteggio delle persone presenti all'evento.</span></span>
       </a>
       <% if (currentUser.role === 'admin') { %>
-        <a href="/admin/logs" class="icon-circle" title="Log azioni">
+        <a href="/admin/logs" class="icon-circle" aria-label="Log azioni">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d2265" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>
+          <span class="icon-tip" role="tooltip"><span class="tip-title">Log azioni</span><span class="tip-desc">Cronologia delle operazioni fatte dagli utenti.</span></span>
         </a>
       <% } %>
       <form action="/logout" method="POST" class="icon-circle-form">
-        <button type="submit" class="icon-circle" title="Logout">
+        <button type="submit" class="icon-circle" aria-label="Logout">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d2265" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          <span class="icon-tip" role="tooltip"><span class="tip-title">Logout</span><span class="tip-desc">Esci dal portale in sicurezza.</span></span>
         </button>
       </form>
     </div>
