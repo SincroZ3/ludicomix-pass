@@ -1,0 +1,183 @@
+/* ============================================================
+   LUDICOMIX — ludi-ui.css  (strato di stile condiviso)
+   Caricato DOPO header-styles.ejs: le regole qui sotto prevalgono
+   senza modificare gli stili esistenti.
+   Per annullare tutto basta togliere il <link> da
+   views/partials/header.ejs.
+   ============================================================ */
+
+:root {
+  --ui-radius: 14px;
+  --ui-shadow-card: 0 2px 10px rgba(30, 45, 78, .07), 0 1px 2px rgba(30, 45, 78, .05);
+  --ui-shadow-pop: 0 10px 28px rgba(30, 45, 78, .18);
+  --ui-violet-tint: rgba(107, 63, 160, .08);
+  --ui-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
+/* ============================================================
+   NAVBAR — bianca, testo navy, sottolineatura gialla sulla voce attiva
+   (la classe .nav-active viene assegnata da ludi-ui.js)
+   ============================================================ */
+.main-nav {
+  background: #fff;
+  border-bottom: 1px solid var(--border-light);
+  box-shadow: 0 8px 18px -14px rgba(30, 45, 78, .35);
+  padding: 0 1rem;
+  min-height: 54px;
+}
+
+.main-nav a,
+.nav-dropdown-toggle {
+  position: relative;
+  color: var(--brand-dark);
+  font-family: var(--ui-font);
+  font-size: .95rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  text-shadow: none;
+  padding: .95rem 1rem;
+  border-radius: 0;
+  transition: color .15s, background .15s;
+}
+
+.main-nav a::after,
+.nav-dropdown-toggle::after {
+  content: "";
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--brand-yellow);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform .2s ease;
+}
+
+.main-nav a:hover,
+.nav-dropdown-toggle:hover {
+  background: var(--ui-violet-tint);
+  color: var(--brand-dark);
+  text-decoration: none;
+}
+.main-nav a:hover::after,
+.nav-dropdown-toggle:hover::after { transform: scaleX(.45); }
+
+.main-nav a.nav-active,
+.nav-dropdown-toggle.nav-active {
+  background: transparent;
+  color: var(--brand-violet-dark);
+}
+.main-nav a.nav-active::after,
+.nav-dropdown-toggle.nav-active::after { transform: scaleX(1); }
+
+/* Menu a tendina "Impostazioni" */
+.nav-dropdown-menu {
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  box-shadow: var(--ui-shadow-pop);
+  overflow: hidden;
+}
+.nav-dropdown-menu a { font-family: var(--ui-font); }
+
+@media (max-width: 900px) {
+  .main-nav a,
+  .nav-dropdown-toggle { font-size: .9rem; padding: .85rem .75rem; }
+  .main-nav a::after,
+  .nav-dropdown-toggle::after { left: .75rem; right: .75rem; }
+}
+@media (max-width: 600px) {
+  .main-nav { min-height: 46px; }
+  .main-nav a,
+  .nav-dropdown-toggle { font-size: .88rem; padding: .75rem .65rem; }
+  .main-nav a::after,
+  .nav-dropdown-toggle::after { left: .65rem; right: .65rem; }
+  .page-title { font-size: 1.3rem; }
+}
+
+/* ============================================================
+   TITOLO PAGINA E BREADCRUMB — piu' leggeri
+   ============================================================ */
+.page-title {
+  border-bottom: 0;
+  padding-bottom: 0;
+  margin: .5rem 0 1.25rem;
+  font-family: var(--ui-font);
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  color: var(--brand-dark);
+}
+
+.breadcrumb-bar {
+  background: transparent;
+  border-bottom: 0;
+  padding: .25rem 0;
+  font-size: .82rem;
+}
+
+/* ============================================================
+   COMPONENTI NUOVI (usati dal passo 2: home e poi le altre pagine)
+   ============================================================ */
+.ui-card {
+  background: #fff;
+  border: 1px solid var(--border-light);
+  border-radius: var(--ui-radius);
+  box-shadow: var(--ui-shadow-card);
+  padding: 1.1rem 1.25rem;
+}
+
+.ui-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--ic-bg, rgba(107, 63, 160, .12));
+  color: var(--ic, var(--brand-violet));
+}
+.ui-icon svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .25rem .7rem;
+  border-radius: 999px;
+  font-size: .75rem;
+  font-weight: 700;
+  background: var(--b-bg, #eceef3);
+  color: var(--b-fg, #4a5568);
+}
+.ui-badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.ui-badge--violet { --b-bg: #ece4f7; --b-fg: #5b2e8b; }
+.ui-badge--blue   { --b-bg: #e0edf8; --b-fg: #1d6fa4; }
+.ui-badge--yellow { --b-bg: #fdf1c9; --b-fg: #7d5a00; }
+.ui-badge--green  { --b-bg: #dcf3e6; --b-fg: #1d6a39; }
+.ui-badge--red    { --b-bg: #fbe1de; --b-fg: #a52a1f; }
+.ui-badge--gray   { --b-bg: #eceef3; --b-fg: #4a5568; }
+
+@media (prefers-reduced-motion: reduce) {
+  .main-nav a,
+  .nav-dropdown-toggle,
+  .main-nav a::after,
+  .nav-dropdown-toggle::after { transition: none; }
+}
