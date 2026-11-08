@@ -1,0 +1,267 @@
+/* ============================================================
+   LUDICOMIX — ludi-participants.css
+   Pagina Assegnatari Pass (views/participants.ejs) nello stile del mockup.
+   Selettori limitati a questa pagina (section.category-panel, #cat-tabs,
+   #search-input, #modal-group...). Nessuna modifica a markup o script
+   della pagina. Per annullare togliere il <link> da partials/header.ejs.
+   ============================================================ */
+
+/* ---------- Filtri ---------- */
+.card:has(#search-input) {
+  padding: 1.3rem 1.5rem !important;
+  border: 0;
+  border-radius: 22px;
+  box-shadow: 0 6px 22px rgba(30, 45, 78, .07);
+}
+.card:has(#search-input) label {
+  font-size: .8rem !important;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+#search-input,
+#zone-filter {
+  padding: .65rem .9rem;
+  border: 1.5px solid #e4def0;
+  border-radius: 12px;
+  background: #faf9fd;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+}
+#search-input:focus,
+#zone-filter:focus {
+  border-color: #8b5cc8;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(139, 92, 200, .18);
+  outline: none;
+}
+.card:has(#search-input) button.secondary {
+  height: auto !important;
+  margin-bottom: 0 !important;
+  padding: .7rem 1.15rem;
+  border: 1.5px solid #d9cdee;
+  border-radius: 12px;
+  background: #fff;
+  color: #6b3fa0;
+  font-family: var(--ui-font, inherit);
+  font-size: .88rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.card:has(#search-input) button.secondary:hover { background: #f3f0fa; }
+
+/* ---------- Tab categorie ---------- */
+#cat-tabs {
+  gap: .6rem;
+  margin-bottom: 1.3rem;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+#cat-tabs .pill-tab {
+  padding: .55rem 1.15rem;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--brand-dark);
+  font-family: var(--ui-font, inherit);
+  font-size: .88rem;
+  letter-spacing: 0;
+  box-shadow: 0 3px 10px rgba(30, 45, 78, .07);
+}
+#cat-tabs .pill-tab:hover {
+  background: #fff;
+  color: var(--brand-violet);
+  box-shadow: 0 5px 14px rgba(30, 45, 78, .12);
+}
+#cat-tabs .pill-tab.active {
+  color: #fff;
+  background: linear-gradient(135deg, #8b5cc8, #6b3fa0);
+  box-shadow: 0 6px 14px rgba(107, 63, 160, .35);
+}
+
+/* ---------- Intestazione categoria e pulsante principale ---------- */
+section.category-panel .category-header h2 {
+  font-family: var(--ui-font, inherit);
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -.01em;
+  color: var(--brand-dark);
+}
+section.category-panel .chip {
+  border: 0;
+  background: #ece4f7;
+  color: #5b2e8b;
+}
+.category-header button.primary {
+  padding: .7rem 1.3rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #8b5cc8, #6b3fa0);
+  color: #fff;
+  font-family: var(--ui-font, inherit);
+  font-size: .9rem;
+  letter-spacing: 0;
+  text-transform: none;
+  box-shadow: 0 6px 14px rgba(107, 63, 160, .3);
+}
+.category-header button.primary:hover {
+  background: linear-gradient(135deg, #9a6ad6, #7a4cb0);
+}
+
+/* ---------- Tabella ---------- */
+section.category-panel .table-wrapper {
+  border: 0;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 6px 22px rgba(30, 45, 78, .07);
+}
+section.category-panel thead tr { background: #ece9f8; }
+section.category-panel th {
+  padding: .95rem 1rem;
+  color: #4c2c78;
+  font-family: var(--ui-font, inherit);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+}
+section.category-panel tbody tr:nth-child(odd),
+section.category-panel tbody tr:nth-child(even) { background: #fff; }
+section.category-panel tbody tr:hover { background: #f7f5fd; }
+section.category-panel td {
+  padding: .95rem 1rem;
+  border-bottom: 1px solid #f0edf7;
+  font-size: .88rem;
+}
+
+/* Nome gruppo con avatar a iniziali (data-initials e --av impostati da ludi-ui.js) */
+section.category-panel tr.group-row td:first-child strong {
+  display: inline-flex;
+  align-items: center;
+  gap: .8rem;
+  font-size: .98rem;
+  color: var(--brand-dark);
+}
+section.category-panel tr.group-row td:first-child strong[data-initials]::before {
+  content: attr(data-initials);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--av, #8b5cc8);
+  color: #fff;
+  font-size: .8rem;
+  font-weight: 800;
+}
+
+/* Zona con segnaposto */
+section.category-panel tr.group-row td:nth-child(3)::before {
+  content: "";
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  margin-right: .4rem;
+  vertical-align: -2px;
+  background: #8b5cc8;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0z'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0z'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* Barra di avanzamento assegnatari / max pass (data-bar e --pct da ludi-ui.js) */
+section.category-panel tr.group-row td[data-bar] { min-width: 120px; }
+section.category-panel tr.group-row td[data-bar]::after {
+  content: "";
+  display: block;
+  height: 6px;
+  margin-top: .5rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #8b5cc8 0, #6b3fa0 calc(var(--pct, 0) * 1%), #e8e4f4 calc(var(--pct, 0) * 1%), #e8e4f4 100%);
+}
+section.category-panel tr.group-row td[data-over]::after {
+  background: linear-gradient(90deg, #e5506a 0, #e5506a 100%);
+}
+
+/* Azioni */
+section.category-panel a.link-action {
+  display: inline-flex;
+  align-items: center;
+  padding: .4rem .95rem;
+  border-radius: 999px;
+  background: #f3f0fa;
+  color: #6b3fa0;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background .15s, color .15s;
+}
+section.category-panel a.link-action:hover {
+  background: #6b3fa0;
+  color: #fff;
+  text-decoration: none;
+}
+section.category-panel button.btn-danger {
+  padding: .4rem .95rem;
+  border-radius: 999px;
+  background: #fdeceb;
+  color: #c0392b;
+  font-family: var(--ui-font, inherit);
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+section.category-panel button.btn-danger:hover {
+  background: #c0392b;
+  color: #fff;
+}
+
+/* ---------- Finestre (nuovo gruppo, cancellazione, limite pass) ---------- */
+#modal-group,
+#modal-delete-group,
+#modal-maronno {
+  background: rgba(30, 20, 60, .45);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+#modal-group .modal,
+#modal-delete-group .modal,
+#modal-maronno .modal {
+  overflow: hidden;
+  border-radius: 22px;
+  box-shadow: 0 30px 80px rgba(30, 20, 60, .4);
+}
+#modal-group .modal-header,
+#modal-delete-group .modal-header,
+#modal-maronno .modal-header { padding: 1.1rem 1.4rem; }
+#modal-group input,
+#modal-group select,
+#modal-group textarea {
+  padding: .6rem .85rem;
+  border: 1.5px solid #e4def0;
+  border-radius: 12px;
+  background: #faf9fd;
+}
+#modal-group input:focus,
+#modal-group select:focus,
+#modal-group textarea:focus {
+  border-color: #8b5cc8;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(139, 92, 200, .18);
+  outline: none;
+}
+#modal-group button.primary {
+  padding: .65rem 1.3rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #8b5cc8, #6b3fa0);
+  color: #fff;
+  text-transform: none;
+  letter-spacing: 0;
+  box-shadow: 0 6px 14px rgba(107, 63, 160, .3);
+}
+#modal-group button.secondary,
+#modal-delete-group button.secondary,
+#modal-maronno button.secondary {
+  padding: .65rem 1.2rem;
+  border: 1.5px solid #d9cdee;
+  border-radius: 12px;
+  color: #6b3fa0;
+  text-transform: none;
+  letter-spacing: 0;
+}
