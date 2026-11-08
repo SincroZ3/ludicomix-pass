@@ -1,0 +1,157 @@
+/* ============================================================
+   LUDICOMIX — ludi-participants-actions.css
+   Colonne Pass / Stato / Azioni della pagina Assegnatari Pass
+   (costruite da ludi-participants.js). Per annullare: togliere i due
+   collegamenti da views/partials/header.ejs.
+   ============================================================ */
+
+.ui-col-hidden { display: none !important; }
+
+section.category-panel th.ui-th-actions { text-align: right; }
+
+/* Pass: pillola "usati / massimo" */
+section.category-panel tr.group-row td:nth-child(5) .chip {
+  padding: .25rem .75rem;
+  font-size: .85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Stato portale */
+.ui-state {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  padding: .3rem .85rem;
+  border-radius: 999px;
+  font-size: .78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ui-state::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.ui-state--attivo      { background: #dcf3e6; color: #1d6a39; }
+.ui-state--disattivato { background: #fbe1de; color: #a52a1f; }
+.ui-state--inattivo    { background: #eceef3; color: #4a5568; }
+
+/* Azioni: tre icone */
+.ui-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: .35rem;
+}
+.ui-act {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #6b3fa0;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background .15s, color .15s, transform .15s;
+}
+.ui-act svg {
+  width: 19px;
+  height: 19px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ui-act:hover {
+  background: #f3f0fa;
+  color: #6b3fa0;
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+.ui-act:focus-visible { outline: 2px solid #8b5cc8; outline-offset: 2px; }
+.ui-act-del { color: #c0392b; }
+.ui-act-del:hover { background: #fdeceb; color: #c0392b; }
+.ui-act-note.has-note::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f5c842;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* Popup note */
+.ui-note-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(30, 20, 60, .45);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+.ui-note-overlay.show { opacity: 1; }
+.ui-note-box {
+  width: min(460px, 100%);
+  padding: 1.6rem 1.7rem 1.4rem;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 30px 80px rgba(30, 20, 60, .4);
+  transform: translateY(12px) scale(.96);
+  transition: transform .25s cubic-bezier(.16, 1, .3, 1);
+}
+.ui-note-overlay.show .ui-note-box { transform: none; }
+.ui-note-box::after { content: ""; display: block; clear: both; }
+.ui-note-box h3 {
+  margin: 0 0 .8rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--brand-dark);
+}
+.ui-note-text {
+  margin: 0 0 1.2rem;
+  white-space: pre-wrap;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+.ui-note-empty {
+  margin: 0 0 1.2rem;
+  padding: 1rem;
+  border-radius: 14px;
+  background: #f6f7fb;
+  color: #8a8fa3;
+  font-weight: 600;
+  text-align: center;
+}
+.ui-note-close {
+  float: right;
+  padding: .55rem 1.3rem;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #8b5cc8, #6b3fa0);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(107, 63, 160, .3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-note-overlay, .ui-note-box, .ui-act { transition: none; }
+}

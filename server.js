@@ -20,7 +20,7 @@ const db           = require('./db');
 const crmRoutes    = require('./routes/crm');
 const agendaRoutes = require('./agenda_routes');
 
-// ── Route modules ────────────────────────────────────────────────
+// ── Route modules ───────────────────────────────────────────────────────────────
 const registerScan           = require('./routes/scan');
 const registerContatore      = require('./routes/contatore');
 const registerNotifications  = require('./routes/notifications');
@@ -39,8 +39,9 @@ const registerVolunteers     = require('./routes/volunteers');
 const registerLogistica      = require('./routes/logistica');
 const registerAreaPersonale  = require('./routes/area-personale');
 const registerAiAssistant    = require('./routes/ai-assistant');
+const registerUiExtras       = require('./routes/ui-extras');
 
-// ── DB helpers ──────────────────────────────────────────────────
+// ── DB helpers ───────────────────────────────────────────────────────────────────
 const dbAll = promisify(db.all.bind(db));
 const dbGet = promisify(db.get.bind(db));
 function dbRun(sql, ...p) {
@@ -53,7 +54,7 @@ function dbRun(sql, ...p) {
   });
 }
 
-// ── Cache edizione corrente ──────────────────────────────────────
+// ── Cache edizione corrente ───────────────────────────────────────────────────────────
 let _currentEdition = null;
 function refreshCurrentEdition(cb) {
   db.get('SELECT * FROM editions WHERE is_current=1 LIMIT 1', [], (_e, row) => {
@@ -67,7 +68,7 @@ function edFilterP()  { return _currentEdition ? `AND p.edition_id = ${_currentE
 function edVal()      { return _currentEdition ? _currentEdition.id : null; }
 refreshCurrentEdition();
 
-// ── Email & Notifiche ────────────────────────────────────────────
+// ── Email & Notifiche ─────────────────────────────────────────────────────────────
 function trySendEmail(subj, html) {
   db.all("SELECT key,value FROM app_settings WHERE key LIKE 'smtp_%'", [], (_e, rows) => {
     if (!rows) return;
@@ -116,7 +117,7 @@ function logAction(userId, action, entityType, entityId, details) {
   );
 }
 
-// ── Migrations ──────────────────────────────────────────────────
+// ── Migrations ─────────────────────────────────────────────────────────────────────
 function runMigration(sql, label) {
   db.run(sql, err => {
     if (err && !err.message.includes('duplicate column'))
@@ -139,7 +140,7 @@ runMigration("ALTER TABLE users ADD COLUMN birth_date TEXT",  'user_birth_date')
 runMigration("ALTER TABLE users ADD COLUMN fiscal_code TEXT", 'user_fiscal_code');
 runMigration("ALTER TABLE users ADD COLUMN iban TEXT",        'user_iban');
 
-// ── Express app ──────────────────────────────────────────────────
+// ── Express app ────────────────────────────────────────────────────────────────
 const app      = express();
 const PORT     = process.env.PORT || 8080;
 const DATA_DIR = process.env.DATA_DIR || __dirname;
@@ -180,7 +181,7 @@ app.use('/login', rateLimit({
   validate: { xForwardedForHeader: false },
 }));
 
-// ── Ruoli & middleware auth ──────────────────────────────────────
+// ── Ruoli & middleware auth ─────────────────────────────────────────────────────────
 const ROLES = {
   ADMIN:      'admin',
   ORGANIZER:  'organizer',
@@ -297,7 +298,7 @@ function requireAccounting(req, res, next) {
     : res.status(403).sendFile(path.join(__dirname, 'views', '403.html'));
 }
 
-// ── Locals globali ──────────────────────────────────────────────
+// ── Locals globali ───────────────────────────────────────────────────────────────
 app.use((req, res, next) => {
   res.locals.currentUser    = req.session.user || null;
   res.locals.currentEdition = _currentEdition;
@@ -308,7 +309,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ── Multer shared ────────────────────────────────────────────────
+// ── Multer shared ────────────────────────────────────────────────────────────────
 const uploadMemory = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 2 * 1024 * 1024 },
@@ -352,13 +353,13 @@ const uploadSignature = multer({
   },
 });
 
-// ── CRM & Agenda (legacy) ────────────────────────────────────────
+// ── CRM & Agenda (legacy) ──────────────────────────────────────────────────────
 crmRoutes(app, db, {
   requireAuth, requireNotViewer, requireOrganizer, logAction, uploadMemory, hasPerm, parsePerms,
 });
 app.use('/', agendaRoutes(logAction, getCurrent));
 
-// ── Oggetto middlewares completo (passato a tutti i moduli) ──────
+// ── Oggetto middlewares completo (passato a tutti i moduli) ───────────────────────────────────
 const middlewares = {
   requireAuth,
   requireAdmin,
@@ -385,7 +386,7 @@ const middlewares = {
   getCurrentEdition: () => _currentEdition,
 };
 
-// ── Registra moduli — generatePassForParticipant è condiviso ─────
+// ── Registra moduli — generatePassForParticipant è condiviso ────────────────────────
 // passes.js viene registrato PRIMA di participants e portale
 // perché questi due usano generatePassForParticipant
 registerPasses(app, db, middlewares);
@@ -416,8 +417,9 @@ registerVolunteers    (app, db, middlewares);
 registerLogistica     (app, db, middlewares);
 registerAreaPersonale (app, db, middlewares);
 registerAiAssistant   (app, db, { requireAuth });
+registerUiExtras     (app, db, middlewares);
 
-// ── Auth routes ──────────────────────────────────────────────────
+// ── Auth routes ─────────────────────────────────────────────────────────────────
 app.get('/', (req, res) => res.redirect(req.session.user ? '/home' : '/login'));
 
 app.get('/login', (req, res) => {
@@ -449,7 +451,7 @@ app.post('/logout', requireAuth, (req, res) => {
   });
 });
 
-// ── Home ─────────────────────────────────────────────────────────
+// ── Home ───────────────────────────────────────────────────────────────────────────────────
 app.get('/home', requireAuth, async (req, res) => {
   try {
     const [r1, r2, r3, r4, alertGroups, recentActivity] = await Promise.all([
@@ -514,7 +516,7 @@ function todayMidnight() {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} 00:00:00`;
 }
 
-// ── API: dashboard-stats (polling live dalla home) ───────────────
+// ── API: dashboard-stats (polling live dalla home) ────────────────────────────────
 app.get('/api/dashboard-stats', requireAuth, async (req, res) => {
   try {
     const edId       = _currentEdition ? _currentEdition.id : null;
@@ -655,7 +657,7 @@ app.get('/api/dashboard-stats', requireAuth, async (req, res) => {
   }
 });
 
-// ── Start ────────────────────────────────────────────────────────
+// ── Start ───────────────────────────────────────────────────────────────────────────────────────
 app.listen(PORT, () =>
   console.log(`✅  Ludicomix Pass avviato su http://localhost:${PORT}`)
 );
