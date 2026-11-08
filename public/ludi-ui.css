@@ -288,3 +288,129 @@ body .spill:nth-child(5) { --pc: #e5506a; }
   body .kpi-value { font-size: 2.1rem; }
   body .spill { padding: .75rem 1rem; font-size: .85rem; }
 }
+
+/* ============================================================
+   DASHBOARD HOME — pannelli, accesso rapido, tab live, aree e liste
+   (stesso stile delle card KPI). Dove home.ejs usa stili scritti
+   direttamente nell'HTML serve !important.
+   ============================================================ */
+body .dash-box {
+  background: #fff;
+  border: 0;
+  border-radius: 22px;
+  box-shadow: 0 6px 22px rgba(30, 45, 78, .07);
+  padding: 1.5rem 1.6rem;
+}
+body .dash-box h3 {
+  margin: 0 0 1.1rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--brand-dark);
+}
+body .bottom-row { gap: 1.4rem; margin-top: 1.4rem; }
+
+/* Accesso rapido */
+body .icon-grid { gap: 1rem; margin-top: 0; }
+body .icon-item {
+  border: 0;
+  border-radius: 18px;
+  padding: 1.3rem .75rem 1.2rem;
+  gap: .8rem;
+  font-size: .92rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--brand-dark);
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(30, 45, 78, .08);
+}
+body .icon-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(30, 45, 78, .14);
+  color: var(--brand-violet-dark);
+}
+body .icon-item:nth-child(6n+1) { --cc: #8b5cc8; }
+body .icon-item:nth-child(6n+2) { --cc: #4f8fe6; }
+body .icon-item:nth-child(6n+3) { --cc: #2fae68; }
+body .icon-item:nth-child(6n+4) { --cc: #e5506a; }
+body .icon-item:nth-child(6n+5) { --cc: #1fbfb8; }
+body .icon-item:nth-child(6n)   { --cc: #f08a24; }
+body .icon-item .ui-icon {
+  width: 52px;
+  height: 52px;
+  color: #fff;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--cc) 78%, #fff), var(--cc));
+  box-shadow: 0 5px 12px color-mix(in srgb, var(--cc) 32%, transparent);
+}
+body .icon-item .ui-icon svg { width: 26px; height: 26px; stroke-width: 1.8; }
+body a.icon-item[href="/admin/hub"] {
+  --cc: #f5c842;
+  box-shadow: 0 4px 16px rgba(245, 200, 66, .35);
+}
+body a.icon-item[href="/admin/hub"] .ui-icon { color: #4a3300; }
+
+/* Tab live */
+body .live-tabs { gap: .6rem; margin: 1.5rem 0 1rem; padding-bottom: .4rem; }
+body .ltab {
+  padding: .65rem 1.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--brand-dark);
+  font-size: .9rem;
+  font-weight: 700;
+  box-shadow: 0 3px 10px rgba(30, 45, 78, .07);
+}
+body .ltab svg { width: 18px; height: 18px; }
+body .ltab:hover {
+  color: var(--brand-violet);
+  box-shadow: 0 5px 14px rgba(30, 45, 78, .12);
+}
+body .ltab.active {
+  color: #fff;
+  background: linear-gradient(135deg, #8b5cc8, #6b3fa0);
+  box-shadow: 0 6px 14px rgba(107, 63, 160, .35);
+}
+
+/* Presenze live per area: quattro card affiancate */
+body #tab-presenze .dash-box > div {
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 1.1rem !important;
+}
+body .area-card {
+  background: #f6f7fb;
+  border: 0;
+  border-radius: 16px;
+  padding: 1.1rem 1.25rem;
+  box-shadow: none;
+}
+body .area-card > div:first-child {
+  margin-bottom: .45rem !important;
+  font-size: .95rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: var(--brand-dark) !important;
+}
+body .area-card > div[id^="pres-"] {
+  font-size: 2.3rem !important;
+  color: var(--brand-dark) !important;
+}
+
+/* Attenzione stand e Attivita' recente */
+body #alert-groups-container span[style*="border-radius:9999px"] {
+  padding: .3rem .8rem !important;
+  font-size: .72rem !important;
+  box-shadow: 0 3px 8px rgba(30, 45, 78, .18);
+}
+body .act-item { padding: .7rem 0; font-size: .85rem; }
+
+@media (max-width: 900px) {
+  body #tab-presenze .dash-box > div { grid-template-columns: repeat(2, 1fr) !important; }
+}
+@media (max-width: 600px) {
+  body .dash-box { padding: 1.2rem 1.1rem; border-radius: 18px; }
+  body .icon-grid { grid-template-columns: repeat(2, 1fr); gap: .8rem; }
+}
