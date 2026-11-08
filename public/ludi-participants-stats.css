@@ -1,0 +1,117 @@
+/* ludi-participants-stats.css — card riepilogo e ricerca collassabile (Assegnatari Pass).
+   Per annullare togliere i due collegamenti da views/partials/header.ejs. */
+
+/* Card riepilogo */
+.ui-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.1rem;
+  margin: 0 0 1.3rem;
+}
+.ui-stat {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  padding: 1.1rem 1.4rem;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 6px 22px rgba(30, 45, 78, .07);
+}
+.ui-stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: #ece4f7;
+  color: #6b3fa0;
+}
+.ui-stat-icon svg {
+  width: 28px;
+  height: 28px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ui-stat--danger .ui-stat-icon { background: #fde2e2; }
+.ui-stat--danger .ui-stat-icon svg { width: 30px; height: 30px; stroke-width: 2.4; }
+.ui-stat-label {
+  font-size: .9rem;
+  font-weight: 600;
+  color: var(--brand-dark);
+}
+.ui-stat-value {
+  font-size: 2.2rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -.02em;
+  color: var(--brand-dark);
+  font-variant-numeric: tabular-nums;
+}
+.ui-stat--danger .ui-stat-value { color: #e5322d; }
+.ui-stat--danger .ui-stat-value.is-ok { color: #2fae68; }
+
+/* Ricerca collassabile */
+.ui-filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--brand-dark);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.ui-filter-title {
+  display: inline-flex;
+  align-items: center;
+  gap: .6rem;
+}
+.ui-filter-title svg,
+.ui-filter-chev svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: #6b3fa0;
+}
+.ui-filter-active {
+  padding: .15rem .65rem;
+  border-radius: 999px;
+  background: #ece4f7;
+  color: #5b2e8b;
+  font-size: .72rem;
+  font-weight: 800;
+}
+.ui-filter-active[hidden] { display: none; }
+.ui-filter-chev {
+  margin-left: auto;
+  display: inline-flex;
+  transition: transform .2s ease;
+}
+.ui-open .ui-filter-chev { transform: rotate(180deg); }
+.ui-filter-body { display: none; }
+.ui-open .ui-filter-body { display: block; margin-top: 1rem; }
+.card:has(#search-input):not(.ui-open) { padding: .95rem 1.4rem !important; }
+
+@media (max-width: 700px) {
+  .ui-stats { grid-template-columns: 1fr; gap: .8rem; }
+  .ui-stat { padding: .9rem 1.1rem; }
+  .ui-stat-icon { width: 50px; height: 50px; }
+  .ui-stat-value { font-size: 1.9rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-filter-chev { transition: none; }
+}
