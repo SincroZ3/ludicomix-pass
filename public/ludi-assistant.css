@@ -1,0 +1,252 @@
+/* ============================================================
+   LUDICOMIX — ludi-assistant.css
+   Stile dell'assistente Ciuchino e della ricerca unificata (Ctrl+O),
+   allineato al resto del portale. Solo aspetto: posizioni, dimensioni
+   e animazioni restano quelle di header-styles.ejs.
+   Per annullare basta togliere il <link> da views/partials/header.ejs.
+   ============================================================ */
+
+/* ---------- Assistente: pannello ---------- */
+body #donkey-panel,
+body #donkey-panel.centered {
+  border: 0;
+  border-radius: 22px;
+  box-shadow: 0 24px 60px rgba(30, 20, 60, .35);
+}
+body #donkey-panel:after,
+body #donkey-panel.centered:after { display: none; }
+
+body #donkey-backdrop {
+  background: rgba(30, 20, 60, .45);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+/* ---------- Assistente: testata (viola come il portale, vero ciuchino) ---------- */
+body #donkey-head {
+  gap: .75rem;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, #4c2c78 0%, #6b3fa0 50%, #8b5cc0 100%);
+}
+body #donkey-head > span:first-child {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  font-size: 0;
+  border-radius: 50%;
+  background: #fff url("/ciuchino_static.png") center bottom / contain no-repeat;
+  box-shadow: 0 3px 10px rgba(20, 10, 40, .3);
+}
+body #donkey-head strong {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+body #donkey-head .donkey-sub {
+  padding: .2rem .65rem;
+  border-radius: 999px;
+  font-size: .72rem;
+  font-weight: 600;
+  color: #f3ecfb;
+  background: rgba(255, 255, 255, .16);
+}
+body #donkey-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1.3rem;
+  background: rgba(255, 255, 255, .16);
+  transition: background .15s;
+}
+body #donkey-close:hover { background: rgba(255, 255, 255, .3); }
+
+/* ---------- Assistente: conversazione ---------- */
+body #donkey-chat {
+  padding: 1.1rem 1.25rem;
+  background: #f8f7fc;
+}
+body .donkey-msg {
+  padding: .9rem 1.1rem;
+  font-size: .95rem;
+  line-height: 1.5;
+  border-radius: 18px;
+}
+body .donkey-msg.assistant {
+  color: var(--brand-dark);
+  background: #fff;
+  border-radius: 18px 18px 18px 6px;
+  box-shadow: 0 3px 12px rgba(30, 45, 78, .08);
+}
+body .donkey-msg.user {
+  color: #fff;
+  background: linear-gradient(135deg, #8b5cc8, #6b3fa0);
+  border-radius: 18px 18px 6px 18px;
+  box-shadow: 0 4px 12px rgba(107, 63, 160, .3);
+}
+
+body .donkey-links button,
+body .donkey-links a {
+  display: inline-flex;
+  align-items: center;
+  padding: .35rem .95rem;
+  border: 1.5px solid #d9cdee;
+  border-radius: 999px;
+  background: #fff;
+  color: #6b3fa0;
+  font-size: .82rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+body .donkey-links button:hover,
+body .donkey-links a:hover {
+  background: #f3f0fa;
+  border-color: #b79be0;
+  text-decoration: none;
+}
+
+body .donkey-feedback button {
+  border: 1px solid #e4def0;
+  border-radius: 999px;
+  background: #fff;
+  color: #4c2c78;
+  font-weight: 700;
+  cursor: pointer;
+}
+body .donkey-feedback button:hover:not(:disabled) { background: #f3f0fa; }
+
+/* ---------- Assistente: suggerimenti e campo di scrittura ---------- */
+body #donkey-suggestions {
+  gap: .5rem;
+  padding: .8rem 1.25rem;
+  border-top: 1px solid #eee9f6;
+}
+body #donkey-suggestions button {
+  padding: .45rem .95rem;
+  border: 0;
+  border-radius: 999px;
+  background: #f3f0fa;
+  color: #4c2c78;
+  font-size: .82rem;
+  font-weight: 700;
+  transition: background .15s, color .15s;
+}
+body #donkey-suggestions button:hover {
+  background: #6b3fa0;
+  color: #fff;
+}
+
+body #donkey-form {
+  gap: .6rem;
+  padding: .9rem 1.25rem 1.1rem;
+  border-top: 1px solid #eee9f6;
+}
+body #donkey-q {
+  flex: 1;
+  min-width: 0;
+  padding: .7rem 1.15rem;
+  border: 1.5px solid #e4def0;
+  border-radius: 999px;
+  background: #faf9fd;
+  color: var(--brand-dark);
+  font-size: .95rem;
+  outline: none;
+  caret-color: #6b3fa0;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+}
+body #donkey-q:focus {
+  border-color: #8b5cc8;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(139, 92, 200, .18);
+}
+body #donkey-send {
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cc8, #6b3fa0);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(107, 63, 160, .35);
+  transition: transform .15s, box-shadow .15s;
+}
+body #donkey-send:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 9px 18px rgba(107, 63, 160, .4);
+}
+
+/* ---------- Pulsante ciuchino, fumetto di saluto e pulsante ricerca mobile ---------- */
+body #donkey-greet-bubble {
+  border: 0;
+  border-radius: 16px 16px 4px 16px;
+  box-shadow: 0 10px 28px rgba(30, 20, 60, .25);
+}
+body #donkey-greet-bubble:after {
+  border-color: #fff transparent transparent transparent;
+}
+body #donkey-badge {
+  border: 2px solid #fff;
+  background: linear-gradient(135deg, #8b5cc8, #6b3fa0);
+  color: #fff;
+}
+body #search-fab {
+  background: linear-gradient(135deg, #8b5cc8, #6b3fa0);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(107, 63, 160, .4);
+}
+
+/* ---------- Ricerca unificata (Ctrl+O) e risultati anche dentro l'assistente ---------- */
+body #cp-overlay {
+  background: rgba(30, 20, 60, .45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+body #cp-box {
+  max-width: 640px;
+  border-radius: 22px;
+  box-shadow: 0 30px 80px rgba(30, 20, 60, .4);
+}
+body #cp-header {
+  gap: .8rem;
+  padding: 1rem 1.3rem;
+  background: #fff;
+  border-bottom: 1px solid #eee9f6;
+}
+body #cp-q { font-size: 1.1rem; }
+body #cp-hint { font-size: .72rem; color: #8a8fa3; }
+
+body .cp-section-title {
+  padding: .8rem 1.4rem .3rem;
+  border-top: 0;
+  color: #6b3fa0;
+  font-size: .7rem;
+  letter-spacing: .8px;
+}
+body .cp-item {
+  margin: .15rem .6rem;
+  padding: .65rem .85rem;
+  border-radius: 12px;
+}
+body .cp-item:hover,
+body .cp-item.focused { background: #f3f0fa; }
+
+body .cp-footer {
+  padding: .75rem 1.3rem;
+  border-top: 1px solid #eee9f6;
+  background: #faf9fd;
+}
+body .cp-footer kbd {
+  padding: .1rem .4rem;
+  border: 1px solid #e4def0;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 1px 0 #e4def0;
+  color: #4c2c78;
+}
