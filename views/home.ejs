@@ -1,6 +1,6 @@
 <%- include('partials/header') %>
 <nav class="breadcrumb-bar">Sei in: <strong>Home</strong></nav>
-<h1 class="page-title">Dashboard <span id="dash-live-badge" style="font-size:.65rem;font-weight:600;letter-spacing:.5px;color:#2d6a4f;border:1px solid #2d6a4f;border-radius:9999px;padding:.15rem .55rem;vertical-align:middle;opacity:0;transition:opacity .4s">● LIVE</span></h1>
+<h1 class="page-title">Dashboard <span id="dash-live-badge" style="font-size:.65rem;font-weight:600;letter-spacing:.5px;color:#fff;background:#2d6a4f;border:1px solid #2d6a4f;border-radius:9999px;padding:.15rem .65rem;vertical-align:middle;opacity:0;transition:opacity .4s">● LIVE</span></h1>
 <style>
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:.9rem;margin-bottom:1.5rem}
 .kpi-card{background:var(--bg-white);border:1px solid var(--border);border-radius:var(--radius-md);padding:1rem 1.2rem;box-shadow:var(--shadow-sm);border-top:3px solid var(--kc,var(--accent-blue))}
@@ -35,6 +35,26 @@
 .bottom-row{display:grid;gap:1rem;margin-top:1rem}
 .bottom-row.two-col{grid-template-columns:1fr 1fr}
 @media(max-width:680px){.bottom-row.two-col{grid-template-columns:1fr}}
+/* ── Restyle passo 2: card morbide, icone a linea, pillole (aggiunto in coda, le regole sopra restano) ── */
+.kpi-grid{gap:1rem}
+.kpi-card{border:1px solid var(--border-light);border-radius:var(--ui-radius,14px);padding:1.15rem 1.3rem;box-shadow:var(--ui-shadow-card,var(--shadow-sm))}
+.kpi-card .ui-icon{--ic:var(--kc);--ic-bg:color-mix(in srgb,var(--kc) 14%,#fff)}
+.kpi-label{margin-top:.75rem;font-size:.88rem;text-transform:none;letter-spacing:0;font-weight:600;color:var(--text-secondary)}
+.kpi-value{font-size:2.1rem;letter-spacing:-.02em}
+.status-pills{gap:.6rem}
+.spill{gap:.5rem;padding:.4rem .5rem .4rem .85rem;background:#fff;border:1px solid var(--border-light);box-shadow:var(--ui-shadow-card,var(--shadow-sm));font-size:.76rem;letter-spacing:.3px}
+.spill::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--sc,#888);flex-shrink:0}
+.spill span{padding:.1rem .6rem}
+.dash-box{border:1px solid var(--border-light);border-radius:var(--ui-radius,14px);box-shadow:var(--ui-shadow-card,var(--shadow-sm));padding:1.15rem 1.3rem}
+.dash-box h3{font-size:.78rem;letter-spacing:.6px}
+.icon-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.9rem}
+.icon-item{gap:.65rem;padding:1.1rem .75rem;border:1px solid var(--border-light);border-radius:var(--ui-radius,14px);font-size:.8rem;color:var(--brand-dark);box-shadow:var(--ui-shadow-card,var(--shadow-sm))}
+.icon-item:hover{border-color:var(--brand-violet-light);color:var(--brand-violet-dark);transform:translateY(-2px);box-shadow:var(--shadow-md);text-decoration:none}
+.ltab{display:inline-flex;align-items:center;gap:.45rem;padding:.5rem 1rem;border:1px solid var(--border-light);background:#fff;color:var(--text-secondary);font-size:.8rem}
+.ltab svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ltab:hover{border-color:var(--brand-violet-light);color:var(--brand-violet)}
+.ltab.active{background:var(--brand-violet);border-color:var(--brand-violet);color:#fff}
+.area-card{background:#fff;border:1px solid var(--border-light);border-radius:12px;padding:.85rem 1rem;box-shadow:var(--ui-shadow-card,var(--shadow-sm))}
 </style>
 <% var ps=(stats&&stats.passesByStatus)?stats.passesByStatus:{}; %>
 <% var totCons=(ps['CONSEGNATO']||0)+(ps['RICONSEGNATO']||0); %>
@@ -43,27 +63,32 @@
 
 <div class="kpi-grid">
   <div class="kpi-card" style="--kc:#1d6fa4">
-    <div class="kpi-label">&#128101; Partecipanti</div>
+    <span class="ui-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+    <div class="kpi-label">Partecipanti</div>
     <div class="kpi-value" id="kpi-participants"><%= stats.totalParticipants %></div>
     <div class="kpi-sub">registrati</div>
   </div>
   <div class="kpi-card" style="--kc:#6b3fa0">
-    <div class="kpi-label">&#127931; Pass generati</div>
+    <span class="ui-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9a2 2 0 0 0 0 6v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-6V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z"/><path d="M13 5v2M13 11v2M13 17v2"/></svg></span>
+    <div class="kpi-label">Pass generati</div>
     <div class="kpi-value" id="kpi-passes"><%= stats.totalPasses %></div>
     <div class="kpi-sub">totali</div>
   </div>
   <div class="kpi-card" style="--kc:#2d6a4f">
-    <div class="kpi-label">&#10003; Consegnati</div>
+    <span class="ui-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg></span>
+    <div class="kpi-label">Consegnati</div>
     <div class="kpi-value" id="kpi-consegnati"><%= totCons %></div>
     <div class="kpi-sub">consegnati + riconsegnati</div>
   </div>
   <div class="kpi-card" id="kpi-senza-card" style="--kc:<%= stats.senzaPass>0?'#c0392b':'#2d6a4f' %>">
-    <div class="kpi-label">&#9888; Senza pass</div>
+    <span class="ui-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16h.01"/></svg></span>
+    <div class="kpi-label">Senza pass</div>
     <div class="kpi-value" id="kpi-senza"><%= stats.senzaPass %></div>
     <div class="kpi-sub">partecipanti senza pass</div>
   </div>
   <div class="kpi-card" style="--kc:#2d6a4f">
-    <div class="kpi-label">🚶 Visitatori oggi</div>
+    <span class="ui-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></span>
+    <div class="kpi-label">Visitatori oggi</div>
     <div class="kpi-value" id="kpi-visitatori">–</div>
     <div class="kpi-sub" id="kpi-visitatori-sub">QR + contatore manuale</div>
   </div>
@@ -71,27 +96,27 @@
 
 <div class="status-pills">
   <% STATI.forEach(function(s){ %>
-    <div class="spill"><%= s %> <span id="pill-<%= s %>" style="background:<%= pillC[s]||'#888' %>"><%= ps[s]||0 %></span></div>
+    <div class="spill" style="--sc:<%= pillC[s]||'#888' %>"><%= s %> <span id="pill-<%= s %>" style="background:<%= pillC[s]||'#888' %>"><%= ps[s]||0 %></span></div>
   <% }); %>
 </div>
 
 <div class="dash-box">
-  <h3>&#9889; Accesso rapido</h3>
+  <h3>Accesso rapido</h3>
   <div class="icon-grid">
-    <a href="/participants"     class="icon-item"><span class="icon-emoji">&#128101;</span>Assegnatari Pass</a>
-    <a href="/passes"           class="icon-item"><span class="icon-emoji">&#127931;</span>Pass Generati</a>
-    <a href="/reports"          class="icon-item"><span class="icon-emoji">&#128202;</span>Reports</a>
-    <a href="/volunteers"       class="icon-item"><span class="icon-emoji">&#128587;</span>Volontari</a>
-    <a href="/admin/logistica"  class="icon-item"><span class="icon-emoji">&#128230;</span>Logistica</a>
-    <a href="/search"           class="icon-item"><span class="icon-emoji">&#128269;</span>Ricerca Pass</a>
-    <a href="/account/password" class="icon-item"><span class="icon-emoji">&#128273;</span>Cambia Password</a>
-    <a href="/account/security" class="icon-item"><span class="icon-emoji">&#128274;</span>Password Sicurezza</a>
+    <a href="/participants"     class="icon-item"><span class="ui-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Assegnatari Pass</a>
+    <a href="/passes"           class="icon-item"><span class="ui-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9a2 2 0 0 0 0 6v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-6V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z"/><path d="M13 5v2M13 11v2M13 17v2"/></svg></span>Pass Generati</a>
+    <a href="/reports"          class="icon-item"><span class="ui-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>Reports</a>
+    <a href="/volunteers"       class="icon-item"><span class="ui-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg></span>Volontari</a>
+    <a href="/admin/logistica"  class="icon-item"><span class="ui-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></span>Logistica</a>
+    <a href="/search"           class="icon-item"><span class="ui-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>Ricerca Pass</a>
+    <a href="/account/password" class="icon-item"><span class="ui-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 8.8-8.8"/><path d="m16 7 3 3"/></svg></span>Cambia Password</a>
+    <a href="/account/security" class="icon-item"><span class="ui-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>Password Sicurezza</a>
     <% if(currentUser&&(currentUser.role==='admin'||currentUser.role==='organizer')){ %>
-      <a href="/admin/mappa-pubblica" class="icon-item"><span class="icon-emoji">&#128506;</span>Gestione Mappa</a>
+      <a href="/admin/mappa-pubblica" class="icon-item"><span class="ui-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg></span>Gestione Mappa</a>
     <% } %>
     <% if(currentUser&&(currentUser.role==='admin'||currentUser.role==='organizer')){ %>
       <a href="/admin/hub" class="icon-item" style="border-color:#f5c842;background:rgba(245,200,66,.07)">
-        <span class="icon-emoji">&#9881;&#65039;</span>
+        <span class="ui-icon" style="--ic:#92400e;--ic-bg:rgba(245,200,66,.35)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span>
         <span style="color:#92400e;font-weight:800">Admin Hub</span>
       </a>
     <% } %>
@@ -107,10 +132,10 @@
 
 <!-- ── Tab bar LIVE ──────────────────────────────────────────────────── -->
 <div class="live-tabs">
-  <button class="ltab active" onclick="switchLiveTab('presenze',this)">🎡 Presenze live per area</button>
-  <button class="ltab" onclick="switchLiveTab('ingressi',this)">📊 Ingressi per ora</button>
-  <button class="ltab" onclick="switchLiveTab('alert',this)">⚠️ Alert intelligenti</button>
-  <button class="ltab" onclick="switchLiveTab('storico',this);loadStorico()">📅 Storico giorni</button>
+  <button class="ltab active" onclick="switchLiveTab('presenze',this)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Presenze live per area</button>
+  <button class="ltab" onclick="switchLiveTab('ingressi',this)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Ingressi per ora</button>
+  <button class="ltab" onclick="switchLiveTab('alert',this)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>Alert intelligenti</button>
+  <button class="ltab" onclick="switchLiveTab('storico',this);loadStorico()"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Storico giorni</button>
 </div>
 
 <!-- Panel: Presenze live per area -->
@@ -118,8 +143,8 @@
   <div class="dash-box">
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.7rem">
       <% [['mariambini','🎡','Mariambini'],['palazzetto','🏟️','Palazzetto'],['la_perla','🎬','La Perla'],['ludostria','🎲','Ludostria']].forEach(function(a){ %>
-      <div style="background:var(--bg-section);border:1px solid var(--border);border-radius:var(--radius-md);padding:.75rem 1rem;">
-        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:.3rem"><%= a[1] %> <%= a[2] %></div>
+      <div class="area-card">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:.3rem"><%= a[2] %></div>
         <div id="pres-<%= a[0] %>" style="font-size:2rem;font-weight:800;color:#1d6fa4;line-height:1;font-variant-numeric:tabular-nums">–</div>
         <div style="display:flex;gap:.6rem;margin-top:.2rem;font-size:.7rem;font-variant-numeric:tabular-nums">
           <span style="color:#2d6a4f">↑ <span id="pres-in-<%= a[0] %>">–</span></span>
@@ -197,7 +222,7 @@
 <!-- ── Sezione inferiore: Attenzione stand (+ Attività recente per admin) ─ -->
 <div class="bottom-row<% if(currentUser&&currentUser.role==='admin'){ %> two-col<% } %>">
   <div class="dash-box">
-    <h3>&#128276; Attenzione stand</h3>
+    <h3>Attenzione stand</h3>
     <div id="alert-groups-container">
     <% if(!alertGroups||alertGroups.length===0){ %>
       <p style="color:var(--text-muted);font-size:.82rem;margin:0;">Tutto ok &mdash; nessun problema rilevato &#127881;</p>
@@ -229,7 +254,7 @@
   </div>
   <% if(currentUser&&currentUser.role==='admin'){ %>
   <div class="dash-box">
-    <h3>&#128336; Attivit&agrave; recente</h3>
+    <h3>Attivit&agrave; recente</h3>
     <div id="activity-container">
     <% if(!recentActivity||recentActivity.length===0){ %>
       <p style="color:var(--text-muted);font-size:.82rem;margin:0;">Nessuna attivit&agrave; registrata.</p>
@@ -484,10 +509,10 @@ function renderStorico() {
   var to   = document.getElementById('storico-filter-to').value;
 
   var areaLabel = {
-    mariambini: '🎡 Mariambini',
-    palazzetto: '🏟️ Palazzetto',
-    la_perla:   '🎬 La Perla',
-    ludostria:  '🎲 Ludostria'
+    mariambini: 'Mariambini',
+    palazzetto: 'Palazzetto',
+    la_perla:   'La Perla',
+    ludostria:  'Ludostria'
   };
 
   var filtered = _storicoData.filter(function(r){
