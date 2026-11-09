@@ -1,0 +1,47 @@
+/* ludi-group-2.css — passo 2: sezioni richiudibili, form, finestre */
+/* ── Sezioni richiudibili ── */
+#tab-pass>details{margin-bottom:.7rem!important}
+#tab-pass>details>summary{position:relative;padding-right:2.4rem!important;font-size:.84rem!important;cursor:pointer;transition:background .15s,border-color .15s}
+#tab-pass>details>summary:hover{background:var(--lg-lav)}
+#tab-pass>details>summary::after{content:"";position:absolute;right:1.1rem;top:50%;width:7px;height:7px;border-right:2px solid var(--lg-purple);border-bottom:2px solid var(--lg-purple);transform:translateY(-70%) rotate(45deg);transition:transform .2s}
+#tab-pass>details[open]>summary::after{transform:translateY(-30%) rotate(225deg)}
+#tab-pass>details>summary .chip{background:#dcfce7!important;color:#166534!important;border-radius:999px;font-size:.68rem;font-weight:700;padding:.12rem .55rem}
+#tab-pass>details>.card{background:#fff;border:1px solid var(--lg-line)!important;border-radius:18px!important;box-shadow:var(--lg-shadow);padding:1.1rem 1.25rem}
+#tab-pass>details p code{background:var(--lg-lav);color:var(--lg-purple-d);border-radius:6px;padding:.05rem .4rem}
+
+/* ── Campi ── */
+#tab-pass>details label,.lg-modal-scope label{font-size:.78rem;font-weight:700;color:var(--lg-navy)}
+#tab-pass>details input[type=text],#tab-pass>details input[type=email],#tab-pass>details input[type=number],#tab-pass>details input[type=password],#tab-pass>details select,#tab-pass>details textarea,
+#imp-modal input[type=file],#modal-edit-contact input[type=text],#modal-edit-contact input[type=email]{border:1.5px solid #d9cff0!important;border-radius:12px!important;padding:.55rem .75rem!important;background:#fff;transition:border-color .15s,box-shadow .15s}
+#tab-pass>details input:focus,#tab-pass>details select:focus,#tab-pass>details textarea:focus,#modal-edit-contact input:focus{outline:none;border-color:var(--lg-purple)!important;box-shadow:0 0 0 3px rgba(107,63,160,.15)}
+#bulk-names{background:#fcfbff;min-height:170px}
+#tab-pass>details .card .card{background:var(--lg-lav)!important;border:1px dashed #cfc3ea!important;border-radius:14px!important;box-shadow:none}
+#tab-pass>details .card-title{font-size:.68rem;letter-spacing:.5px;color:#4c3a8a}
+#bulk-count{color:var(--lg-muted)}
+
+/* ── Pulsanti nelle sezioni ── */
+#tab-pass>details button.primary{display:inline-flex;align-items:center;gap:.45rem;background:var(--lg-purple)!important;color:#fff!important;border:none!important;border-radius:999px!important;padding:.55rem 1.25rem!important;font-weight:700;box-shadow:0 4px 12px rgba(107,63,160,.28)}
+#tab-pass>details button.primary:hover{background:var(--lg-purple-d)!important}
+#tab-pass>details button[onclick^="avviaBulk"]{background:#f5c842!important;color:var(--lg-navy)!important;box-shadow:0 4px 12px rgba(245,200,66,.45)}
+#tab-pass>details button[onclick^="avviaBulk"]:hover{background:#eab92c!important}
+#tab-pass>details .alert{border-radius:12px}
+
+/* ── Finestre (overlay) ── */
+#imp-modal,#storico-modal,#modal-edit-contact{backdrop-filter:blur(3px);background:rgba(30,20,60,.5)!important}
+#imp-modal>div,#storico-modal>div,#modal-edit-contact>div{border-radius:22px!important;box-shadow:0 24px 70px rgba(50,25,100,.35)!important;border:1px solid var(--lg-line)}
+#imp-modal>div>div:first-child{background:var(--lg-lav);border-bottom:1px solid var(--lg-line)!important;border-radius:22px 22px 0 0}
+#imp-modal>div>div:first-child strong{color:var(--lg-purple-d)}
+#imp-modal button.primary,#imp-btn-confirm{border-radius:999px!important;padding:.5rem 1.2rem!important}
+#imp-modal button.primary{background:var(--lg-purple)!important;color:#fff!important;border:none!important}
+#imp-modal button.secondary{border-radius:999px!important}
+#imp-tbl thead tr{background:#efeafb!important}
+#imp-tbl th{color:#4c3a8a;border-bottom:none!important}
+#storico-modal h3{color:var(--lg-navy)}
+#storico-body thead tr{background:#efeafb!important}
+#modal-edit-contact h3{color:var(--lg-navy)}
+#modal-edit-contact button[type=submit]{background:var(--lg-purple)!important;border-radius:999px!important;padding:.45rem 1.3rem!important}
+#modal-edit-contact button[type=button]{border-radius:999px!important}
+#modal-stallo .modal,#modal-maronno .modal{border-radius:22px!important;overflow:hidden;box-shadow:0 24px 70px rgba(50,25,100,.35)}
+#modal-stallo .modal-header,#modal-maronno .modal-header{border-radius:22px 22px 0 0}
+#modal-stallo .modal-actions button,#modal-maronno .modal-actions button{border-radius:999px}
+#modal-stallo .modal-actions button.primary{background:var(--lg-purple)}
