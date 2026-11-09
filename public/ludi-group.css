@@ -85,3 +85,7 @@ button.lg-del:hover{background:#fee2e2!important}
 #bulk-status-bar{background:#fff!important;border:1px solid var(--lg-line)!important;border-radius:18px!important;box-shadow:var(--lg-shadow)}
 #bulk-status-bar button.primary{border-radius:999px;background:var(--lg-purple)}
 #bulk-status-bar button.secondary{border-radius:999px}
+#tab-pass .table-wrapper thead th{font-size:.68rem!important}
+.lg-btn:has(.lg-dot){padding-right:1.6rem}
+.lg-dot{top:50%;right:.7rem;transform:translateY(-50%)}
+.lg-actionbar select{padding:.5rem .8rem;border-radius:12px;border:1.5px solid #d9cff0;background:#fff;min-width:240px}
