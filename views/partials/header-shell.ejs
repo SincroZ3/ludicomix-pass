@@ -2,6 +2,9 @@
 /* La topbar sta sopra la barra di navigazione gialla: tooltip e menu non finiscono più sotto */
 .topbar { z-index: 30; }
 
+/* Senza la barra di ricerca gialla le icone restano a destra */
+.header-right-col { margin-left: auto; }
+
 /* ── Menu hamburger mobile (sostituisce i pallini che andavano sotto il logo) ── */
 .hdr-burger-wrap { display: none; position: relative; }
 .hdr-burger { display: none; }
@@ -158,13 +161,12 @@
     %></strong>
   </div>
 
-  <div class="header-search">
-    <span class="header-search-icon">&#128269;</span>
-    <input type="text" id="header-search-input" class="header-search-input" placeholder="Cosa stai cercando?" autocomplete="off">
-  </div>
-
   <div class="header-right-col">
     <div class="header-icons">
+      <button type="button" class="icon-circle" id="hdr-search-btn" aria-label="Cerca">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d2265" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <span class="icon-tip" role="tooltip"><span class="tip-title">Cerca</span><span class="tip-desc">Cerca partecipanti, pass e gruppi. Scorciatoia: Ctrl+O.</span></span>
+      </button>
       <% if (currentUser.role === 'admin') { %>
         <a href="/notifications" class="icon-circle" aria-label="Notifiche">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d2265" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
@@ -300,21 +302,17 @@
 
 <script>
 (function(){
-  // ── Ricerca nella barra gialla dell'header: riusa la command palette esistente ──
-  var hs = document.getElementById('header-search-input');
-  if (hs) {
-    function openPaletteWithValue(){
+  // ── Icona lente nell'header: apre la ricerca rapida (stessa del pulsante flottante e di Ctrl+O) ──
+  var searchBtn = document.getElementById('hdr-search-btn');
+  if (searchBtn) {
+    searchBtn.addEventListener('click', function(){
+      var fab = document.getElementById('search-fab');
+      if (fab) { fab.click(); return; }
       var ov  = document.getElementById('cp-overlay');
       var inp = document.getElementById('cp-q');
-      if (!ov || !inp) return;
+      if (!ov) return;
       ov.classList.add('open');
-      inp.value = hs.value;
-      inp.dispatchEvent(new Event('input'));
-      setTimeout(function(){ inp.focus(); }, 30);
-    }
-    hs.addEventListener('focus', openPaletteWithValue);
-    hs.addEventListener('keydown', function(e){
-      if (e.key === 'Enter') { e.preventDefault(); openPaletteWithValue(); }
+      if (inp) setTimeout(function(){ inp.focus(); }, 50);
     });
   }
 
