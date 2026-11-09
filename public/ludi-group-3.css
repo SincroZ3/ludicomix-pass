@@ -1,0 +1,53 @@
+/* ludi-group-3.css — passo 3: pannello "Aggiungi assegnatari" a destra + ritocchi passo 1 */
+
+/* Ritocchi dal controllo visivo */
+#tab-pass .table-wrapper thead th{font-size:.68rem!important}
+.lg-btn:has(.lg-dot){padding-right:1.6rem}
+.lg-dot{top:50%;right:.7rem;transform:translateY(-50%)}
+.lg-actionbar select{padding:.5rem .8rem;border-radius:12px;border:1.5px solid #d9cff0;background:#fff;min-width:220px}
+
+/* Layout a due colonne */
+.lg-split{display:grid;grid-template-columns:minmax(0,1fr);gap:1.2rem;align-items:start}
+.lg-main{min-width:0}
+.lg-addbtn{margin:0!important;display:inline-flex!important;align-items:center;gap:.45rem;background:var(--lg-purple)!important;color:#fff!important;border:none!important;border-radius:999px!important;padding:.47rem 1.1rem!important;font-size:.78rem!important;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(107,63,160,.3)}
+.lg-addbtn:hover{background:var(--lg-purple-d)!important}
+.lg-addbtn[aria-pressed="true"]{background:var(--lg-purple-d)!important}
+
+/* Pannello */
+.lg-drawer{display:none;background:#fff;border:1px solid var(--lg-line);border-radius:22px;box-shadow:var(--lg-shadow);padding:1.1rem 1.25rem 1.3rem}
+.lg-drawer-head{display:flex;align-items:center;gap:.65rem;margin-bottom:1rem}
+.lg-drawer-head .lg-dico{width:32px;height:32px;border-radius:50%;background:var(--lg-lav);color:var(--lg-purple);display:flex;align-items:center;justify-content:center}
+.lg-drawer-head h3{flex:1;margin:0;font-size:1rem;color:var(--lg-navy)}
+.lg-drawer-x{width:32px;height:32px;border:none;border-radius:50%;background:transparent;color:var(--lg-muted);font-size:1.3rem;line-height:1;cursor:pointer}
+.lg-drawer-x:hover{background:var(--lg-lav);color:var(--lg-purple)}
+
+/* Contenuto spostato: una sola colonna */
+.lg-drawer-body p{font-size:.78rem!important;color:var(--lg-muted)!important;margin:0 0 .9rem!important}
+.lg-drawer-body code{background:var(--lg-lav);color:var(--lg-purple-d);border-radius:6px;padding:.05rem .4rem}
+.lg-drawer-body div[style*="grid-template-columns"]{grid-template-columns:1fr!important;gap:.9rem!important}
+.lg-drawer-body label{font-size:.78rem;font-weight:700;color:var(--lg-navy)}
+.lg-drawer-body textarea{width:100%;box-sizing:border-box;border:1.5px solid #d9cff0!important;border-radius:14px!important;padding:.7rem .85rem!important;background:#fcfbff;min-height:190px;transition:border-color .15s,box-shadow .15s}
+.lg-drawer-body textarea:focus{outline:none;border-color:var(--lg-purple)!important;box-shadow:0 0 0 3px rgba(107,63,160,.15)}
+.lg-drawer-body .card{background:var(--lg-lav)!important;border:1px dashed #cfc3ea!important;border-radius:14px!important;box-shadow:none;padding:.8rem .95rem}
+.lg-drawer-body .card-title{font-size:.68rem;letter-spacing:.5px;color:#4c3a8a}
+.lg-drawer-body #bulk-preview-list{min-height:60px}
+.lg-drawer-body button[onclick^="avviaBulk"]{align-self:stretch!important;width:100%;justify-content:center;display:inline-flex;align-items:center;gap:.45rem;background:var(--lg-purple)!important;color:#fff!important;border:none!important;border-radius:999px!important;padding:.65rem 1.2rem!important;font-weight:700;box-shadow:0 4px 12px rgba(107,63,160,.3)}
+.lg-drawer-body button[onclick^="avviaBulk"]:hover{background:var(--lg-purple-d)!important}
+.lg-drawer-body .alert{border-radius:12px}
+
+/* Desktop: pannello affiancato all'elenco */
+@media(min-width:1280px){
+  .lg-split.lg-open{grid-template-columns:minmax(0,1fr) 370px}
+  .lg-split.lg-open .lg-drawer{display:block;position:sticky;top:1rem;margin-top:1.3rem}
+}
+
+/* Schermi stretti: cassetto da destra */
+.lg-backdrop{display:none;position:fixed;inset:0;background:rgba(30,20,60,.45);backdrop-filter:blur(2px);z-index:8999}
+@media(max-width:1279px){
+  .lg-drawer{display:block;position:fixed;top:0;right:0;bottom:0;width:min(430px,100vw);box-sizing:border-box;overflow-y:auto;z-index:9000;border-radius:22px 0 0 22px;box-shadow:-12px 0 40px rgba(50,25,100,.3);transform:translateX(110%);visibility:hidden;transition:transform .25s ease,visibility 0s linear .25s}
+  .lg-split.lg-open .lg-drawer{transform:none;visibility:visible;transition:transform .25s ease}
+  .lg-backdrop.on{display:block}
+}
+@media(max-width:600px){
+  .lg-drawer{width:100vw;border-radius:0}
+}
