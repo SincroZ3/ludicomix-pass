@@ -220,3 +220,11 @@ form[action$="/max-auto-passes"] button:hover{background:var(--lg-purple-d)!impo
   form[action$="/max-auto-passes"] input[type=number]{width:100%!important}
   form[action$="/max-auto-passes"] button{width:100%;justify-content:center}
 }
+
+/* Mobile (v11): nomi degli assegnatari piu grandi */
+@media(max-width:700px){
+  .lg-name{gap:.75rem}
+  .lg-name .lg-av{width:46px;height:46px;font-size:.85rem}
+  #tab-pass .table-wrapper tbody td.lg-c-name strong{font-size:1.2rem;line-height:1.25;font-weight:800;color:var(--lg-navy)}
+  #tab-pass .table-wrapper tbody td.lg-c-code{font-size:.84rem}
+}
