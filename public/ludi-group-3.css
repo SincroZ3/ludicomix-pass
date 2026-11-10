@@ -107,3 +107,24 @@
 .lg-drawer-body .card{padding:.6rem .8rem}
 .lg-drawer-body #bulk-preview-list{min-height:30px}
 .lg-drawer-body button.primary,.lg-drawer-body button[onclick^="avviaBulk"]{padding:.55rem 1.1rem!important}
+
+/* Riquadri statistiche (v6): centrati e piu grandi */
+.lg-stats{gap:.9rem;align-items:stretch}
+.lg-stat{display:flex;flex-direction:column;justify-content:center;align-items:center;min-width:150px;padding:1rem 1.3rem;text-align:center;border-radius:20px}
+.lg-stat-top{justify-content:center;font-size:.8rem}
+.lg-stat-top .lg-ico{width:30px;height:30px}
+.lg-stat-top .lg-ico svg{width:16px;height:16px}
+.lg-stat-val{font-size:2.4rem;line-height:1.1;margin-top:.5rem}
+.lg-bar{width:100%;margin-top:.6rem}
+.lg-bar-lbl{width:100%;text-align:center;margin-top:.25rem;font-size:.72rem}
+
+/* Sezione Pass parcheggio (v6) */
+.card:has(form[action$="/max-auto-passes"]){background:#fff!important;border:1px solid var(--lg-line)!important;border-radius:22px!important;box-shadow:var(--lg-shadow)!important;padding:1.2rem 1.5rem 1.3rem!important}
+.card:has(form[action$="/max-auto-passes"]) :is(h2,h3,h4,.card-title){color:var(--lg-navy);letter-spacing:.4px}
+.card:has(form[action$="/max-auto-passes"]) p{font-size:.78rem;color:var(--lg-muted)}
+form[action$="/max-auto-passes"]{display:flex!important;flex-wrap:wrap;align-items:flex-end!important;gap:.8rem 1rem!important}
+form[action$="/max-auto-passes"] label{font-size:.78rem;font-weight:700;color:var(--lg-navy)}
+form[action$="/max-auto-passes"] input[type=number]{width:120px!important;box-sizing:border-box;margin:.3rem 0 0!important;border:1.5px solid #d9cff0!important;border-radius:12px!important;padding:.5rem .8rem!important;background:#fff}
+form[action$="/max-auto-passes"] input[type=number]:focus{outline:none;border-color:var(--lg-purple)!important;box-shadow:0 0 0 3px rgba(107,63,160,.15)}
+form[action$="/max-auto-passes"] button{display:inline-flex;align-items:center;gap:.4rem;margin:0!important;background:var(--lg-purple)!important;color:#fff!important;border:none!important;border-radius:999px!important;padding:.6rem 1.3rem!important;font-weight:700;box-shadow:0 4px 12px rgba(107,63,160,.3);cursor:pointer}
+form[action$="/max-auto-passes"] button:hover{background:var(--lg-purple-d)!important}
