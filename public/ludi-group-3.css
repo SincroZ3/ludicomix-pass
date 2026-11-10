@@ -128,3 +128,9 @@ form[action$="/max-auto-passes"] input[type=number]{width:120px!important;box-si
 form[action$="/max-auto-passes"] input[type=number]:focus{outline:none;border-color:var(--lg-purple)!important;box-shadow:0 0 0 3px rgba(107,63,160,.15)}
 form[action$="/max-auto-passes"] button{display:inline-flex;align-items:center;gap:.4rem;margin:0!important;background:var(--lg-purple)!important;color:#fff!important;border:none!important;border-radius:999px!important;padding:.6rem 1.3rem!important;font-weight:700;box-shadow:0 4px 12px rgba(107,63,160,.3);cursor:pointer}
 form[action$="/max-auto-passes"] button:hover{background:var(--lg-purple-d)!important}
+
+/* Testata (v7): riquadri e bottoni alla stessa altezza, testi allineati */
+.lg-stats,.lg-actions{align-self:stretch}
+.lg-actions{justify-content:space-between;gap:.6rem}
+.lg-actions .lg-btn{flex:1 1 0;min-height:0}
+.lg-stat:not(:has(.lg-bar))::after{content:"";display:block;height:2.2rem;flex:0 0 auto}
