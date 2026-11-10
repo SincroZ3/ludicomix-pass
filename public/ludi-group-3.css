@@ -134,3 +134,13 @@ form[action$="/max-auto-passes"] button:hover{background:var(--lg-purple-d)!impo
 .lg-actions{justify-content:space-between;gap:.6rem}
 .lg-actions .lg-btn{flex:1 1 0;min-height:0}
 .lg-stat:not(:has(.lg-bar))::after{content:"";display:block;height:2.2rem;flex:0 0 auto}
+
+/* Testata (v8): tutto ridotto del 5% */
+.lg-stats{gap:.85rem}
+.lg-stat{min-width:143px;padding:.95rem 1.25rem}
+.lg-stat-top{font-size:.76rem}
+.lg-stat-top .lg-ico{width:28px;height:28px}
+.lg-stat-val{font-size:2.28rem}
+.lg-bar-lbl{font-size:.68rem}
+.lg-stat:not(:has(.lg-bar))::after{height:2.1rem}
+.lg-actions .lg-btn{font-size:.74rem;padding-left:1.05rem;padding-right:1.05rem}
