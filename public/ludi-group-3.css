@@ -93,3 +93,17 @@
 .lg-drawer-body #bulk-names{min-height:150px}
 @media(min-width:1280px){.lg-split.lg-open .lg-drawer{display:flex;height:min(680px,calc(100vh - 2rem))}}
 @media(max-width:1279px){.lg-drawer{display:flex}}
+
+/* Pannello compatto (v5): 480px */
+@media(min-width:1280px){.lg-split.lg-open .lg-drawer{height:min(480px,calc(100vh - 2rem))}}
+.lg-drawer{padding:.9rem 1.1rem 1.1rem}
+.lg-drawer-head{margin-bottom:.7rem}
+.lg-drawer-body p{font-size:.74rem!important;margin:0 0 .6rem!important}
+.lg-drawer-body form{gap:.6rem!important}
+.lg-drawer-body label{font-size:.74rem}
+.lg-drawer-body input[type=text],.lg-drawer-body input[type=email],.lg-drawer-body input[type=number],.lg-drawer-body input[type=password],.lg-drawer-body select,.lg-drawer-body textarea{padding:.42rem .7rem!important}
+.lg-drawer-body textarea{min-height:90px}
+.lg-drawer-body #bulk-names{min-height:100px}
+.lg-drawer-body .card{padding:.6rem .8rem}
+.lg-drawer-body #bulk-preview-list{min-height:30px}
+.lg-drawer-body button.primary,.lg-drawer-body button[onclick^="avviaBulk"]{padding:.55rem 1.1rem!important}
