@@ -67,3 +67,9 @@
   .lg-backdrop.on{display:block}
 }
 @media(max-width:600px){.lg-drawer{width:100vw;border-radius:0}}
+
+/* Tabella compatta con il pannello aperto */
+#tab-pass .table-wrapper thead th:first-child,#tab-pass .table-wrapper tbody td:first-child{padding-left:.9rem!important;padding-right:.3rem!important;width:1%}
+.lg-split.lg-open .table-wrapper thead th,.lg-split.lg-open .table-wrapper tbody td{padding-left:.5rem!important;padding-right:.5rem!important}
+.lg-name strong{white-space:nowrap}
+.lg-hidecol{display:none!important}

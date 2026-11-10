@@ -153,3 +153,18 @@
     })
     .catch(function(){ table.removeAttribute('data-lg-tipo'); });
 })();
+
+/* Nasconde la colonna Email quando e' vuota per tutti gli assegnatari */
+(function(){
+  var chk = document.getElementById('chk-all');
+  var table = chk ? chk.closest('table') : null;
+  if(!table || !table.tBodies[0]) return;
+  var ths = [].slice.call(table.tHead.rows[0].cells);
+  var i = ths.map(function(t){ return t.textContent.trim().toLowerCase(); }).indexOf('email');
+  if(i < 0) return;
+  var rows = [].slice.call(table.tBodies[0].rows);
+  var empty = rows.every(function(r){ var c = r.cells[i]; return !c || !c.textContent.replace(/[\s\u2014-]/g,''); });
+  if(!empty) return;
+  ths[i].classList.add('lg-hidecol');
+  rows.forEach(function(r){ if(r.cells[i]) r.cells[i].classList.add('lg-hidecol'); });
+})();
