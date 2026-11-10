@@ -144,3 +144,15 @@ form[action$="/max-auto-passes"] button:hover{background:var(--lg-purple-d)!impo
 .lg-bar-lbl{font-size:.68rem}
 .lg-stat:not(:has(.lg-bar))::after{height:2.1rem}
 .lg-actions .lg-btn{font-size:.74rem;padding-left:1.05rem;padding-right:1.05rem}
+
+/* Testata (v9): ulteriore -15% */
+.lg-stats{gap:.72rem}
+.lg-stat{min-width:122px;padding:.81rem 1.06rem}
+.lg-stat-top{font-size:.65rem}
+.lg-stat-top .lg-ico{width:24px;height:24px}
+.lg-stat-top .lg-ico svg{width:14px;height:14px}
+.lg-stat-val{font-size:1.94rem;margin-top:.43rem}
+.lg-bar{margin-top:.5rem}
+.lg-bar-lbl{font-size:.58rem}
+.lg-stat:not(:has(.lg-bar))::after{height:1.8rem}
+.lg-actions .lg-btn{font-size:.63rem;padding-left:.9rem;padding-right:.9rem}
