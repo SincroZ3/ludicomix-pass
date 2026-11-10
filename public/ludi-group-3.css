@@ -73,3 +73,9 @@
 .lg-split.lg-open .table-wrapper thead th,.lg-split.lg-open .table-wrapper tbody td{padding-left:.5rem!important;padding-right:.5rem!important}
 .lg-name strong{white-space:nowrap}
 .lg-hidecol{display:none!important}
+
+/* Tabella ancora piu compatta (v3) */
+@media(min-width:1280px){.lg-split.lg-open{grid-template-columns:minmax(0,1fr) 340px}}
+.lg-split.lg-open .table-wrapper thead th,.lg-split.lg-open .table-wrapper tbody td{padding-left:.35rem!important;padding-right:.35rem!important}
+.lg-split.lg-open .lg-type{padding:.2rem .5rem}
+.lg-split.lg-open .lg-badge{padding:.24rem .55rem!important}
