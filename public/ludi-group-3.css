@@ -79,3 +79,17 @@
 .lg-split.lg-open .table-wrapper thead th,.lg-split.lg-open .table-wrapper tbody td{padding-left:.35rem!important;padding-right:.35rem!important}
 .lg-split.lg-open .lg-type{padding:.2rem .5rem}
 .lg-split.lg-open .lg-badge{padding:.24rem .55rem!important}
+
+/* Pannello ad altezza fissa (v4): 680px, azione in fondo */
+.lg-drawer{flex-direction:column}
+.lg-drawer-head{flex:0 0 auto}
+.lg-drawer-body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.lg-view.on{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;overflow-y:auto;padding:3px}
+.lg-drawer-body form{display:flex!important;flex-direction:column;flex:1 1 auto}
+.lg-drawer-body form>div:last-child{margin-top:auto}
+.lg-view[data-view="add"]>div[style*="grid-template-columns"]{flex:1 1 auto;display:flex!important;flex-direction:column;min-height:0}
+.lg-view[data-view="add"]>div[style*="grid-template-columns"]>div:last-child{flex:1 1 auto;display:flex;flex-direction:column}
+.lg-view[data-view="add"] button[onclick^="avviaBulk"]{margin-top:auto}
+.lg-drawer-body #bulk-names{min-height:150px}
+@media(min-width:1280px){.lg-split.lg-open .lg-drawer{display:flex;height:min(680px,calc(100vh - 2rem))}}
+@media(max-width:1279px){.lg-drawer{display:flex}}
