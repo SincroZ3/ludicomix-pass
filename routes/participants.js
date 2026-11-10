@@ -190,6 +190,23 @@ module.exports = function registerParticipantsRoutes(
     );
   });
 
+  // ── Tipologia dell'ultimo pass attivo per ogni assegnatario del gruppo ──
+  app.get('/assignment-groups/:id/pass-types', requireAuth, (req, res) => {
+    db.all(
+      `SELECT pa.id AS participant_id,
+              (SELECT pt.name FROM passes ps JOIN pass_types pt ON pt.id=ps.pass_type_id
+                WHERE ps.participant_id=pa.id AND ps.status!='INVALIDATO' ORDER BY ps.id DESC LIMIT 1) AS type_name
+       FROM participants pa WHERE pa.assignment_group_id=?`,
+      [req.params.id],
+      (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Errore lettura tipologie' });
+        const map = {};
+        (rows || []).forEach(r => { map[r.participant_id] = r.type_name || null; });
+        res.json(map);
+      }
+    );
+  });
+
   // ── Limite pass stand ────────────────────────────────────────────
   app.post('/assignment-groups/:id/limit', requireAuth, requireNotViewer, (req, res) => {
     const id   = parseInt(req.params.id, 10);
