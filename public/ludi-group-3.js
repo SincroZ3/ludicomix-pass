@@ -168,3 +168,24 @@
   ths[i].classList.add('lg-hidecol');
   rows.forEach(function(r){ if(r.cells[i]) r.cells[i].classList.add('lg-hidecol'); });
 })();
+
+/* Mobile: etichetta le colonne della tabella con classi lg-c-* (usate dal layout a schede) */
+(function(){
+  var chk = document.getElementById('chk-all');
+  var table = chk ? chk.closest('table') : null;
+  if(!table || !table.tHead || !table.tBodies[0]) return;
+  var MAP = {'cognome e nome':'name','email':'email','cod. riferimento':'code','stato pass':'stato','tipo':'tipo','storico pass':'storico','pdf':'pdf','sostituisci':'sost','cancella':'del'};
+  function tag(){
+    var ths = [].slice.call(table.tHead.rows[0].cells);
+    var keys = ths.map(function(t, i){
+      if(i === 0 && t.querySelector('input')) return 'chk';
+      return MAP[t.textContent.trim().toLowerCase()] || 'x';
+    });
+    ths.forEach(function(t, i){ t.classList.add('lg-c-' + keys[i]); });
+    [].forEach.call(table.tBodies[0].rows, function(r){
+      [].forEach.call(r.cells, function(c, i){ if(keys[i]) c.classList.add('lg-c-' + keys[i]); });
+    });
+  }
+  tag();
+  if(window.MutationObserver) new MutationObserver(tag).observe(table.tHead.rows[0], {childList:true});
+})();
