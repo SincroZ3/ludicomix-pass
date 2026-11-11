@@ -1,0 +1,94 @@
+/* ludi-group-4.css — altre sezioni della scheda gruppo (Portale, Docs Espositore, Ticket, Referenti,
+   Pagamenti, Dati Fiscali, Documenti, Materiali). Solo estetica: nessun dato, form o funzione cambia.
+   La scheda Pass Nominativi (#tab-pass) non viene toccata.
+   Per annullare: togliere il <link> da views/partials/header.ejs. */
+
+/* Card e titoli */
+.crm-panel:not(#tab-pass) .card { background: #fff; border: 1px solid var(--lg-line, #ece6f7) !important; border-radius: 22px !important; box-shadow: var(--lg-shadow, 0 6px 22px rgba(30,45,78,.07)) !important; padding: 1.2rem 1.5rem 1.3rem !important; }
+.crm-panel:not(#tab-pass) .card-title { display: flex; align-items: center; gap: .55rem; margin: 0 0 .9rem; font-size: .76rem !important; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--lg-navy, #1e2d4e); }
+.crm-panel:not(#tab-pass) .card-title::before { content: ""; flex: 0 0 auto; width: 5px; height: 1.05em; border-radius: 3px; background: linear-gradient(180deg, #8b5cc8, #6b3fa0); }
+
+/* Etichette e campi */
+.crm-panel:not(#tab-pass) label { font-size: .78rem !important; font-weight: 700; color: var(--lg-navy, #1e2d4e); }
+.crm-panel:not(#tab-pass) :is(input:not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea) { border: 1.5px solid #d9cff0 !important; border-radius: 12px !important; padding: .55rem .8rem !important; background: #fff; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; }
+.crm-panel:not(#tab-pass) :is(input, select, textarea):focus { outline: none; border-color: #6b3fa0 !important; box-shadow: 0 0 0 3px rgba(107,63,160,.15); }
+.crm-panel:not(#tab-pass) input[type=checkbox], .crm-panel:not(#tab-pass) input[type=radio] { accent-color: #6b3fa0; }
+.crm-panel:not(#tab-pass) table :is(input:not([type=checkbox]), select) { padding: .35rem .6rem !important; border-radius: 10px !important; }
+
+/* Pulsanti */
+.crm-panel:not(#tab-pass) button.primary { background: linear-gradient(135deg, #8b5cc8, #6b3fa0) !important; color: #fff !important; border: none !important; border-radius: 999px !important; padding: .6rem 1.3rem !important; font-weight: 700; box-shadow: 0 4px 12px rgba(107,63,160,.3); }
+.crm-panel:not(#tab-pass) button.primary:hover { background: linear-gradient(135deg, #9a6ad6, #7a4cb0) !important; }
+.crm-panel:not(#tab-pass) :is(button.secondary, a.secondary) { background: #fff !important; border: 1.5px solid #d9cdee !important; color: #6b3fa0 !important; border-radius: 999px !important; padding: .45rem 1rem !important; font-weight: 700; text-decoration: none; }
+.crm-panel:not(#tab-pass) :is(button.secondary, a.secondary):hover { background: #f3f0fa !important; }
+.crm-panel:not(#tab-pass) button.btn-danger { background: #fdeceb !important; color: #c0392b !important; border: none !important; border-radius: 999px !important; padding: .4rem .9rem !important; font-weight: 700; }
+.crm-panel:not(#tab-pass) table button { border-radius: 999px !important; padding: .3rem .75rem !important; font-weight: 700; }
+#tab-portale .card button:not(.primary):not(.secondary):not(.btn-danger) { border-radius: 999px !important; }
+
+/* Voci "Aggiungi..." (details) come pillole */
+.crm-panel:not(#tab-pass) details > summary { display: inline-flex; align-items: center; gap: .5rem; padding: .5rem 1.1rem !important; border-radius: 999px; background: #f3f0fa; color: #6b3fa0 !important; font-weight: 700; cursor: pointer; list-style: none; }
+.crm-panel:not(#tab-pass) details > summary::-webkit-details-marker { display: none; }
+.crm-panel:not(#tab-pass) details > summary::before { content: "+"; font-weight: 800; }
+.crm-panel:not(#tab-pass) details[open] > summary { background: #6b3fa0; color: #fff !important; }
+.crm-panel:not(#tab-pass) details[open] > summary::before { content: "\2013"; }
+
+/* Riquadri informativi (interruttori portale, finestra inserimento) */
+.crm-panel:not(#tab-pass) [style*="f8fafc"] { background: #faf8ff !important; border: 1px solid #ece6f7 !important; border-radius: 14px !important; padding: .7rem .95rem !important; }
+.crm-panel:not(#tab-pass) [style*="f0f9ff"] { background: #f3effa !important; border: 1px solid #e0d6f3 !important; border-radius: 12px !important; }
+
+/* Tabelle (Referenti, Pagamenti, Materiali) */
+.crm-panel:not(#tab-pass) table { border-collapse: separate !important; border-spacing: 0; }
+.crm-panel:not(#tab-pass) table thead tr { background: #ece9f8 !important; border: 0 !important; }
+.crm-panel:not(#tab-pass) table th { padding: .75rem .85rem !important; border: 0 !important; color: #4c2c78 !important; font-size: .68rem !important; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.crm-panel:not(#tab-pass) table th:first-child { border-radius: 12px 0 0 12px; }
+.crm-panel:not(#tab-pass) table th:last-child { border-radius: 0 12px 12px 0; }
+.crm-panel:not(#tab-pass) table td { padding: .8rem .85rem !important; border-bottom: 1px solid #f0edf7 !important; vertical-align: middle; }
+.crm-panel:not(#tab-pass) table tbody tr { border: 0 !important; }
+.crm-panel:not(#tab-pass) table tbody tr:hover { background: #f7f5fd; }
+
+/* Badge dei tab */
+.crm-badge { background: #ece4f7 !important; color: #5b2e8b !important; }
+.crm-badge-danger { background: #fde2e2 !important; color: #b91c1c !important; }
+
+/* Documenti, Docs espositore, Ticket */
+.crm-panel:not(#tab-pass) [id^="doc-row-"] { background: #faf8ff !important; border: 1px solid #ece6f7 !important; border-radius: 14px !important; padding: .7rem .9rem !important; flex-wrap: wrap; }
+#tickets-list > div, #portal-docs-list > div { border: 1px solid #ece6f7 !important; border-radius: 16px !important; box-shadow: 0 3px 12px rgba(30,45,78,.06); }
+
+/* Finestra modifica referente */
+#modal-edit-contact > div { border-radius: 22px !important; box-shadow: 0 30px 80px rgba(30,20,60,.4) !important; }
+#modal-edit-contact :is(input:not([type=checkbox]), select) { border: 1.5px solid #d9cff0 !important; border-radius: 12px !important; padding: .55rem .8rem !important; }
+
+/* ===== Mobile (fino a 700px) ===== */
+@media (max-width: 700px) {
+  .crm-panel:not(#tab-pass) .card { padding: 1rem !important; border-radius: 18px !important; }
+  .crm-panel:not(#tab-pass) [style*="1fr 1fr"] { grid-template-columns: 1fr !important; }
+  .crm-panel:not(#tab-pass) [style*="grid-column"] { grid-column: auto !important; }
+  .crm-panel:not(#tab-pass) :is(input:not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea) { font-size: 16px !important; max-width: 100%; }
+  .crm-panel:not(#tab-pass) :is(input[style*="width:65px"], input[style*="width:58px"]) { width: 80px !important; }
+
+  /* Tabelle -> schede */
+  .crm-panel:not(#tab-pass) table, .crm-panel:not(#tab-pass) tbody { display: block; width: 100% !important; }
+  .crm-panel:not(#tab-pass) thead { display: none; }
+  .crm-panel:not(#tab-pass) table tbody tr { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem .8rem; align-items: center; background: #faf8ff; border: 1px solid #ece6f7 !important; border-radius: 16px; padding: .8rem .9rem; margin-bottom: .65rem; }
+  .crm-panel:not(#tab-pass) table td { display: block; grid-column: 1 / -1; padding: 0 !important; border: 0 !important; min-width: 0; overflow-wrap: anywhere; }
+
+  #tab-referenti table td:nth-child(1) { font-size: 1.05rem; }
+  #tab-referenti table td:nth-child(5) { display: flex; flex-wrap: wrap; gap: .4rem; padding-top: .3rem !important; }
+
+  #tab-pagamenti table td:nth-child(1) { font-size: 1rem; }
+  #tab-pagamenti table td:nth-child(2) { grid-column: 1; text-align: left !important; font-size: 1.05rem; color: #6b3fa0; }
+  #tab-pagamenti table td:nth-child(3) { grid-column: 2; justify-self: end; }
+  #tab-pagamenti table td:nth-child(3)::before { content: "Scad. "; color: #8a8fa3; }
+  #tab-pagamenti table td:nth-child(4) { grid-column: 1; }
+  #tab-pagamenti table td:nth-child(5) { grid-column: 2; justify-self: end; }
+
+  #tab-materiali table td:nth-child(1) { display: none; }
+  #tab-materiali table td:nth-child(3) { order: -1; font-size: 1.05rem; }
+  #tab-materiali table td:nth-child(2) { grid-column: 1; color: #6b6785; }
+  #tab-materiali table td:nth-child(4) { grid-column: 2; justify-self: end; text-align: right !important; }
+  #tab-materiali table td:nth-child(4)::before { content: "Qt\00e0: "; color: #8a8fa3; font-weight: 600; }
+  #tab-materiali table td:nth-child(5) { grid-column: 1; }
+  #tab-materiali table td:nth-child(6) { grid-column: 2; justify-self: end; }
+  #tab-materiali table td:nth-child(6)::before { content: "Conf.: "; color: #8a8fa3; font-weight: 600; }
+
+  #tab-portale .card > div[style*="flex"] { gap: .5rem; }
+}
