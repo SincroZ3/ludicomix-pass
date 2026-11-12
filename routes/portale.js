@@ -21,6 +21,9 @@ const path = require('path');
 const fs   = require('fs');
 const { promisify } = require('util');
 
+// Versione degli asset UI: cambia ad ogni avvio del server per evitare la cache.
+const PORTALE_ASSET_V = Date.now().toString(36);
+
 // ── Helper: pagina "portale non disponibile" ─────────────────────
 function portalClosedPage(msg, title = 'Portale non disponibile', emoji = '⏳', color = '#1e2d4e') {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
@@ -188,10 +191,18 @@ module.exports = function registerPortaleRoutes(
           console.error('Errore render portale:', renderErr);
           return res.status(500).send('Errore interno');
         }
-        // Nuova interfaccia del portale (public/ludi-portale.css e .js).
+        // Nuova interfaccia del portale (public/ludi-portale*.css e .js).
         // Per annullare: sostituire questo blocco con res.send(html).
-        const cssTag = '<link rel="stylesheet" href="/ludi-portale.css?v=1">';
-        const jsTag  = '<script src="/ludi-portale.js?v=1" defer></script>';
+        const v = PORTALE_ASSET_V;
+        const winData = JSON.stringify({
+          from:     group.portal_open_from  || null,
+          until:    group.portal_open_until || null,
+          contract: group.contract_status   || null,
+        }).replace(/</g, '\\u003c');
+        const cssTag = `<link rel="stylesheet" href="/ludi-portale.css?v=${v}"><link rel="stylesheet" href="/ludi-portale-desk.css?v=${v}">`;
+        const jsTag  = `<script>window.__PT_WINDOW=${winData};</script>` +
+                       `<script src="/ludi-portale.js?v=${v}" defer></script>` +
+                       `<script src="/ludi-portale-desk.js?v=${v}" defer></script>`;
         let out = html.replace('</head>', () => cssTag + '</head>');
         const i = out.lastIndexOf('</body>');
         out = i === -1 ? out + jsTag : out.slice(0, i) + jsTag + out.slice(i);
