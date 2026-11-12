@@ -1,6 +1,7 @@
 /* ludi-logistica.js — Logistica & Servizi: testata, tab con icone, richieste a colonne, Fabbisogni in sintesi.
    Non cambia i comandi della pagina: i pulsanti delle card azionano il select dello stato e il cestino gia' presenti
-   nella tabella (updateStatus / deleteReq). In caso di errore la pagina resta com'e'. */
+   nella tabella (updateStatus / deleteReq). Il pannello Fabbisogni e i contatori si ricalcolano dalle richieste a ogni modifica.
+   In caso di errore la pagina resta com'e'. */
 (function () {
   'use strict';
   try { init(); } catch (e) { if (window.console) console.error('[ludi-logistica]', e); }
@@ -50,6 +51,7 @@
     var card = table.closest('.log-card');
     var body = card.querySelector('.log-card-body');
     var head = card.querySelector('.log-card-head');
+    var countEl = head.lastElementChild;
     var wrap = table.parentNode;
     wrap.classList.add('lg-table-wrap');
 
@@ -111,49 +113,78 @@
     body.insertBefore(layout, wrap);
     layout.appendChild(board);
 
-    /* Fabbisogni in sintesi (dati reali del Resoconto fabbisogni, passati dal server) */
-    function buildNeeds() {
-      var data = window.__LG_NEEDS || [];
-      var box = el('aside', 'lg-needs');
-      var h = el('h3', '');
-      h.innerHTML = svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>');
-      h.appendChild(document.createTextNode('Fabbisogni in sintesi'));
-      box.appendChild(h);
-      if (!data.length) {
-        box.appendChild(el('p', 'lg-needs-empty', 'Nessun fabbisogno registrato. Usa \u00abSync richieste portale\u00bb per importare le richieste dei gruppi.'));
-      } else {
-        data.forEach(function (n) {
-          var req = Number(n.req) || 0, conf = Number(n.conf) || 0, del = Number(n.del) || 0;
-          var row = el('div', 'lg-need');
-          var top = el('div', 'lg-need-top');
-          top.appendChild(el('strong', '', n.label));
-          top.appendChild(el('span', '', del + ' / ' + req));
-          row.appendChild(top);
-          var bar = el('div', 'lg-need-bar');
-          var c = document.createElement('i');
-          c.className = 'c';
-          c.style.width = (req > 0 ? Math.min(100, Math.round(conf / req * 100)) : 0) + '%';
-          var d = document.createElement('i');
-          d.className = 'd';
-          d.style.width = (req > 0 ? Math.min(100, Math.round(del / req * 100)) : 0) + '%';
-          bar.appendChild(c);
-          bar.appendChild(d);
-          row.appendChild(bar);
-          box.appendChild(row);
+    /* Fabbisogni in sintesi: calcolato dalle richieste mostrate, si aggiorna a ogni modifica */
+    var needsBox = el('aside', 'lg-needs');
+    var nh = el('h3', '');
+    nh.innerHTML = svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>');
+    nh.appendChild(document.createTextNode('Fabbisogni in sintesi'));
+    needsBox.appendChild(nh);
+    var needsList = el('div', 'lg-needs-list');
+    needsBox.appendChild(needsList);
+    var needsLink = el('a', 'lg-link', 'Apri resoconto completo');
+    needsLink.href = '/admin/logistica/resoconto';
+    needsBox.appendChild(needsLink);
+    layout.appendChild(needsBox);
+
+    function updateNeeds(by) {
+      var map = {}, order = [];
+      COLS.forEach(function (c) {
+        by[c.st].forEach(function (row) {
+          var type = stripEmoji(row.cells[2].textContent) || 'Altro';
+          var key = type.toLowerCase();
+          var q = parseInt(row.cells[3].textContent, 10) || 0;
+          if (!map[key]) { map[key] = { label: type, req: 0, app: 0, del: 0 }; order.push(key); }
+          if (c.st === 'annullato') return;
+          var m = map[key];
+          m.req += q;
+          if (c.st === 'approvato' || c.st === 'consegnato') m.app += q;
+          if (c.st === 'consegnato') m.del += q;
         });
-        var lg = el('div', 'lg-need-legend');
-        var l1 = el('span', ''); var b1 = document.createElement('b'); b1.style.background = '#c9b5ea'; l1.appendChild(b1); l1.appendChild(document.createTextNode('Confermati'));
-        var l2 = el('span', ''); var b2 = document.createElement('b'); b2.style.background = '#6b3fa0'; l2.appendChild(b2); l2.appendChild(document.createTextNode('Consegnati su richiesti'));
-        lg.appendChild(l1);
-        lg.appendChild(l2);
-        box.appendChild(lg);
+      });
+      var list = order.map(function (k) { return map[k]; }).filter(function (m) { return m.req > 0; });
+      list.sort(function (a, b) { return b.req - a.req; });
+      needsList.innerHTML = '';
+      if (!list.length) {
+        needsList.appendChild(el('p', 'lg-needs-empty', 'Nessuna richiesta attiva da mostrare.'));
+        return;
       }
-      var a = el('a', 'lg-link', 'Apri resoconto completo');
-      a.href = '/admin/logistica/resoconto';
-      box.appendChild(a);
-      return box;
+      list.forEach(function (n) {
+        var row = el('div', 'lg-need');
+        var top = el('div', 'lg-need-top');
+        top.appendChild(el('strong', '', n.label));
+        var val = el('span', '', n.app + ' / ' + n.req);
+        val.title = 'Approvati ' + n.app + ' (consegnati ' + n.del + ') su ' + n.req + ' richiesti';
+        top.appendChild(val);
+        row.appendChild(top);
+        var bar = el('div', 'lg-need-bar');
+        var c = document.createElement('i');
+        c.className = 'c';
+        c.style.width = Math.min(100, Math.round(n.app / n.req * 100)) + '%';
+        var d = document.createElement('i');
+        d.className = 'd';
+        d.style.width = Math.min(100, Math.round(n.del / n.req * 100)) + '%';
+        bar.appendChild(c);
+        bar.appendChild(d);
+        row.appendChild(bar);
+        needsList.appendChild(row);
+      });
+      var lg = el('div', 'lg-need-legend');
+      var l1 = el('span', ''); var b1 = document.createElement('b'); b1.style.background = '#c9b5ea'; l1.appendChild(b1); l1.appendChild(document.createTextNode('Approvati'));
+      var l2 = el('span', ''); var b2 = document.createElement('b'); b2.style.background = '#6b3fa0'; l2.appendChild(b2); l2.appendChild(document.createTextNode('Consegnati'));
+      lg.appendChild(l1);
+      lg.appendChild(l2);
+      needsList.appendChild(lg);
     }
-    layout.appendChild(buildNeeds());
+
+    function updateCounters(by, total) {
+      var pending = by.in_attesa.length;
+      if (countEl && countEl.tagName === 'SPAN') countEl.textContent = total + ' totali, ' + pending + ' in attesa';
+      var badge = document.getElementById('badge-req');
+      if (badge) {
+        badge.textContent = String(pending);
+        badge.classList.toggle('alert', pending > 0);
+      }
+    }
 
     function rebuild() {
       var rows = [].slice.call(table.querySelectorAll('tbody tr[id^="sr-row-"]'));
@@ -207,8 +238,15 @@
         col.appendChild(cb);
         board.appendChild(col);
       });
+      updateNeeds(by);
+      updateCounters(by, rows.length);
     }
     rebuild();
+
+    /* Cambi di stato fatti anche dal menu della tabella */
+    table.addEventListener('change', function (e) {
+      if (e.target && e.target.classList && e.target.classList.contains('status-sel')) rebuild();
+    });
 
     var tbody = table.querySelector('tbody');
     if (tbody && window.MutationObserver) {
