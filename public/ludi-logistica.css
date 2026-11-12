@@ -1,0 +1,113 @@
+/* ludi-logistica.css — Logistica & Servizi: stile coerente con il portale (viola, pillole, card arrotondate).
+   Tutte le regole sono sotto body.lg-on, aggiunto da ludi-logistica.js: se lo script non parte la pagina resta com'era.
+   Per annullare: in routes/logistica.js passare false a renderWithShell(... 'admin-logistica' ...). */
+
+body.lg-on { background: #f6f3fb; }
+body.lg-on .container { max-width: 1240px !important; padding: 0 1.25rem !important; }
+
+/* Testata */
+body.lg-on .lg-hero { position: relative; overflow: hidden; background: #fff; border: 1px solid #ece6f7; border-radius: 24px; box-shadow: 0 8px 28px rgba(30,45,78,.08); padding: 1.1rem 1.6rem !important; margin-bottom: 1.1rem !important; }
+body.lg-on .lg-hero::before { content: ""; position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 0; background: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 220' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='a' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%238b5cc8' stop-opacity='.03'/%3E%3Cstop offset='1' stop-color='%236b3fa0' stop-opacity='.22'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0 220C220 214 420 176 600 112S880 22 1000 12V220H0Z' fill='url(%23a)'/%3E%3Cpath d='M0 220C250 218 450 196 650 154S900 96 1000 86V220H0Z' fill='%238b5cc8' fill-opacity='.08'/%3E%3Cpath d='M0 220C280 220 480 212 700 190S920 164 1000 158V220H0Z' fill='%236b3fa0' fill-opacity='.06'/%3E%3C/svg%3E") center / 100% 100% no-repeat; pointer-events: none; }
+body.lg-on .lg-hero > * { position: relative; z-index: 1; }
+body.lg-on .lg-hero h1 { font-size: 2rem !important; color: #1e2d4e; }
+body.lg-on .lg-hero p { font-size: .95rem !important; color: #6b6a86 !important; }
+body.lg-on .lg-hero img { height: 110px !important; border-radius: 16px !important; filter: none !important; }
+body.lg-on .lg-hero a[href$="/resoconto"] { background: linear-gradient(135deg, #8b5cc8, #6b3fa0) !important; color: #fff !important; padding: .65rem 1.3rem !important; font-size: .88rem !important; box-shadow: 0 6px 16px rgba(107,63,160,.3); }
+body.lg-on .lg-hero #btn-sync-gmr { background: #fff !important; color: #4c2c78 !important; padding: .65rem 1.3rem !important; font-size: .88rem !important; border: 1.5px solid #d9cff0 !important; box-shadow: 0 4px 12px rgba(30,45,78,.08); }
+body.lg-on .alert-banner { border-radius: 999px; }
+
+/* Tab a pillola */
+body.lg-on .log-tabs { display: flex; gap: .55rem; margin-bottom: 1.3rem; flex-wrap: wrap; }
+body.lg-on .log-tab { flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: .5rem; background: #fff; border: 0; border-radius: 999px; padding: .8rem 1.1rem; font-size: .9rem; font-weight: 700; color: #1e2d4e; box-shadow: 0 3px 10px rgba(30,45,78,.07); }
+body.lg-on .log-tab:hover { background: #f1ecfa; color: #4c2c78; border: 0; }
+body.lg-on .log-tab.active { background: linear-gradient(135deg, #8b5cc8, #6b3fa0); color: #fff; border: 0; box-shadow: 0 6px 14px rgba(107,63,160,.35); }
+body.lg-on .log-tab svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
+body.lg-on .cnt-pill { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 .4rem; margin: 0; border-radius: 999px; background: #ece6f7; color: #4c2c78; font-size: .74rem; font-weight: 800; }
+body.lg-on .cnt-pill.alert { background: #fdd35c; color: #3d2b00; }
+
+/* Card, tabelle, moduli, pulsanti delle altre schede */
+body.lg-on .log-card { border: 1px solid #ece6f7; border-radius: 22px; box-shadow: 0 6px 22px rgba(30,45,78,.07); }
+body.lg-on .log-card-head { background: transparent; border-bottom: 1px solid #f0edf7; padding: 1rem 1.4rem; }
+body.lg-on .log-card-title { color: #1e2d4e; font-size: .85rem; letter-spacing: .07em; }
+body.lg-on .log-card-body { padding: 1.2rem 1.4rem; }
+body.lg-on .sr-table th { background: #f6f3fb; color: #6b5a8a; border-bottom: 0; }
+body.lg-on .sr-table th:first-child { border-radius: 12px 0 0 12px; }
+body.lg-on .sr-table th:last-child { border-radius: 0 12px 12px 0; }
+body.lg-on .sr-table td { border-bottom: 1px solid #f3eff9; }
+body.lg-on .sr-table tr:hover td { background: #faf8ff; }
+body.lg-on .btn-sm { background: linear-gradient(135deg, #8b5cc8, #6b3fa0); color: #fff; border-radius: 999px; padding: .55rem 1.3rem; box-shadow: 0 4px 12px rgba(107,63,160,.28); }
+body.lg-on .btn-del { background: #fde8e8; border-radius: 999px; padding: .35rem .65rem; }
+body.lg-on .btn-return { border-radius: 999px; }
+body.lg-on .status-sel { border: 1.5px solid #d9cff0; border-radius: 999px; padding: .3rem .7rem; }
+body.lg-on .status-sel:focus { border-color: #6b3fa0; }
+body.lg-on .form-row input, body.lg-on .form-row select { border: 1.5px solid #d9cff0; border-radius: 12px; }
+body.lg-on .form-row input:focus, body.lg-on .form-row select:focus { border-color: #6b3fa0; box-shadow: 0 0 0 3px rgba(107,63,160,.15); }
+body.lg-on .eq-card { background: #fff; border: 1px solid #ece6f7; border-radius: 18px; }
+body.lg-on .loc-header { background: #f6f3fb; border-left: 4px solid #8b5cc8; border-radius: 12px; }
+body.lg-on .section-title { color: #1e2d4e; border-bottom: 2px solid #ece6f7; }
+body.lg-on .cfg-item { background: #f6f3fb; border-color: #e4def0; }
+
+/* Richieste: vista a colonne + pannello Fabbisogni in sintesi */
+.lg-view-sw { display: inline-flex; background: #f1ecfa; border-radius: 999px; padding: .2rem; }
+.lg-view-sw button { border: 0; background: none; border-radius: 999px; padding: .3rem .95rem; font: inherit; font-size: .78rem; font-weight: 700; color: #6b5a8a; cursor: pointer; }
+.lg-view-sw button.on { background: #fff; color: #4c2c78; box-shadow: 0 2px 6px rgba(30,45,78,.12); }
+#panel-richieste .log-card.lg-board-on { background: transparent; border: 0; box-shadow: none; overflow: visible; }
+#panel-richieste .lg-board-on > .log-card-head { border: 0; padding: 0 .2rem 1rem; }
+#panel-richieste .lg-board-on > .log-card-body { padding: 0; }
+#panel-richieste .lg-board-on .lg-table-wrap { display: none; }
+#panel-richieste .log-card:not(.lg-board-on) .lg-layout { display: none; }
+
+.lg-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 1.1rem; align-items: start; }
+.lg-board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.1rem; align-items: start; }
+.lg-col { background: rgba(255,255,255,.55); border: 1px solid #ece6f7; border-radius: 20px; overflow: hidden; min-height: 140px; }
+.lg-col-hd { display: flex; align-items: center; gap: .55rem; padding: .8rem 1rem; font-weight: 800; font-size: .95rem; color: #1e2d4e; }
+.lg-col[data-st="in_attesa"] .lg-col-hd { background: #fde9a6; }
+.lg-col[data-st="approvato"] .lg-col-hd { background: #c9efd8; }
+.lg-col[data-st="consegnato"] .lg-col-hd { background: #cfe8fb; }
+.lg-col[data-st="annullato"] .lg-col-hd { background: #fbcfd0; }
+.lg-col-body { padding: .7rem; display: grid; gap: .7rem; }
+.lg-card { background: #fff; border: 1px solid #f0ebf8; border-radius: 16px; padding: .85rem .95rem; box-shadow: 0 3px 12px rgba(30,45,78,.06); }
+.lg-card-top { display: flex; align-items: center; gap: .6rem; }
+.lg-ico { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%; background: #efe9fa; color: #6b3fa0; display: flex; align-items: center; justify-content: center; }
+.lg-ico svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.lg-grp { font-weight: 800; font-size: .85rem; color: #1e2d4e; line-height: 1.2; overflow-wrap: anywhere; }
+.lg-type { margin-top: .55rem; font-size: .85rem; font-weight: 700; color: #3b3560; }
+.lg-note { margin-top: .25rem; font-size: .78rem; color: #6b7280; overflow-wrap: anywhere; }
+.lg-card-ft { display: flex; align-items: center; gap: .4rem; margin-top: .7rem; }
+.lg-date { margin-right: auto; font-size: .72rem; color: #9a94ad; }
+.lg-act { width: 30px; height: 30px; border-radius: 50%; border: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.lg-act svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.lg-act.adv { background: #ece6f7; color: #6b3fa0; }
+.lg-act.ok { background: #dcf3e6; color: #1d6a39; }
+.lg-act.no { background: #fdeceb; color: #c0392b; }
+.lg-act.del { background: #fde8e8; color: #c0392b; }
+.lg-act:hover { filter: brightness(.95); }
+.lg-empty { padding: 1rem; text-align: center; font-size: .8rem; color: #a39cbc; }
+
+/* Pannello Fabbisogni in sintesi */
+.lg-needs { background: #fff; border: 1px solid #ece6f7; border-radius: 20px; box-shadow: 0 6px 22px rgba(30,45,78,.07); padding: 1.1rem 1.2rem; }
+.lg-needs h3 { display: flex; align-items: center; gap: .5rem; margin: 0 0 .9rem; font-size: 1rem; color: #1e2d4e; }
+.lg-needs h3 svg { width: 20px; height: 20px; stroke: #6b3fa0; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.lg-need { margin-bottom: .95rem; }
+.lg-need-top { display: flex; justify-content: space-between; gap: .5rem; font-size: .82rem; font-weight: 700; color: #1e2d4e; margin-bottom: .35rem; }
+.lg-need-top span { color: #6b5a8a; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lg-need-bar { position: relative; height: 9px; border-radius: 999px; background: #ece6f7; overflow: hidden; }
+.lg-need-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; }
+.lg-need-bar .c { background: #c9b5ea; }
+.lg-need-bar .d { background: linear-gradient(90deg, #8b5cc8, #6b3fa0); }
+.lg-need-legend { display: flex; gap: .9rem; font-size: .7rem; color: #7c7596; margin: .1rem 0 1rem; }
+.lg-need-legend b { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: .3rem; vertical-align: middle; }
+.lg-needs-empty { font-size: .82rem; color: #7c7596; line-height: 1.45; margin: 0 0 1rem; }
+.lg-needs a.lg-link { display: block; text-align: center; padding: .6rem 1rem; border-radius: 999px; background: #f1ecfa; color: #4c2c78; font-weight: 700; font-size: .82rem; text-decoration: none; }
+.lg-needs a.lg-link:hover { background: #e7defa; }
+
+@media (max-width: 1100px) {
+  .lg-layout { grid-template-columns: 1fr; }
+  .lg-board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .lg-board { grid-template-columns: 1fr; }
+  body.lg-on .lg-hero h1 { font-size: 1.5rem !important; }
+  body.lg-on .lg-hero img { height: 80px !important; }
+  body.lg-on .log-tab { padding: .6rem .8rem; font-size: .8rem; }
+}

@@ -1,6 +1,6 @@
 /**
  * routes/logistica.js
- * ──────────────────────────────────────────────────────────────────
+ * ────────────────────────────────────────────────────────────────────────
  * Gestione logistica: richieste servizi, attrezzatura, prestiti,
  * checklist operativa, catering staff, fornitori, hub admin.
  *
@@ -10,11 +10,57 @@
  *   GET/POST/DELETE /admin/catering/*
  *   GET/POST/DELETE /admin/fornitori/*
  *   GET             /admin/hub
- * ──────────────────────────────────────────────────────────────────
+ * ────────────────────────────────────────────────────────────────────────
  */
 'use strict';
 
 const { promisify } = require('util');
+
+// Versione degli asset UI: cambia ad ogni avvio del server per evitare la cache.
+const LOGI_ASSET_V = Date.now().toString(36);
+
+/**
+ * Renderizza una pagina di logistica inserendo l'header condiviso del portale di gestione
+ * (logo ciuco-logo-combo, barra utente, menu, ricerca, Ciuchino Assistente).
+ * Se qualcosa non va, la pagina viene inviata cosi' com'e'.
+ * Per annullare: sostituire le chiamate renderWithShell(...) con res.render(...).
+ */
+function renderWithShell(res, view, data, withAssets, extra) {
+  res.render(view, data, (err, html) => {
+    if (err) {
+      console.error('[logistica] render', view, err.message);
+      return res.status(500).send('Errore interno');
+    }
+    res.render('partials/header', {}, (e2, shell) => {
+      try {
+        if (e2 || !shell) return res.send(html);
+        const hd = /<head[^>]*>([\s\S]*?)<\/head>/i.exec(shell);
+        const bd = /<body[^>]*>([\s\S]*?)<main class="content">/i.exec(shell);
+        if (!hd || !bd) return res.send(html);
+        const headExtra = hd[1].replace(/<meta[^>]*>/gi, '').replace(/<title>[\s\S]*?<\/title>/i, '');
+        let out = html;
+        const styleLink = '<link rel="stylesheet" href="/style.css">';
+        out = out.includes(styleLink)
+          ? out.replace(styleLink, () => styleLink + headExtra)
+          : out.replace('</head>', () => headExtra + '</head>');
+        if (withAssets) {
+          out = out.replace('</head>', () => '<link rel="stylesheet" href="/ludi-logistica.css?v=' + LOGI_ASSET_V + '"></head>');
+        }
+        out = out.replace(/<body[^>]*>/i, (m) => m + bd[1]);
+        if (withAssets) {
+          const data = extra ? '<script>window.__LG_NEEDS=' + JSON.stringify(extra.needs || []).replace(/</g, '\\u003c') + ';</script>' : '';
+          const tag = data + '<script src="/ludi-logistica.js?v=' + LOGI_ASSET_V + '" defer></script>';
+          const i = out.lastIndexOf('</body>');
+          out = i === -1 ? out + tag : out.slice(0, i) + tag + out.slice(i);
+        }
+        res.send(out);
+      } catch (e) {
+        console.error('[logistica] shell', e.message);
+        res.send(html);
+      }
+    });
+  });
+}
 
 module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requireOrganizer, logAction, edVal, edFilter }) {
 
@@ -30,9 +76,9 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
     });
   }
 
-  // ════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════
   // LOGISTICA
-  // ════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════
 
   app.get('/admin/logistica', requireAuth, requireOrganizer, async (req, res) => {
     try {
@@ -58,7 +104,18 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
       const groups = await dbAll(`SELECT id, name FROM assignment_groups ag WHERE 1=1 ${edFilter ? edFilter() : ''} ORDER BY name`);
       const materialTypes = await dbAll(`SELECT * FROM logistic_categories ORDER BY sort_order, label`);
       const storageLocations = await dbAll(`SELECT * FROM logistic_locations ORDER BY sort_order, label`);
-      res.render('admin-logistica', { requests, equipment, loans, groups, materialTypes, storageLocations, saved: req.query.saved || null });
+
+      // Sintesi fabbisogni per tipologia (stessa fonte del Resoconto fabbisogni)
+      let needs = [];
+      try {
+        const nrows = await dbAll(`SELECT category, SUM(quantity) AS req, SUM(confirmed_qty) AS conf, SUM(delivered_qty) AS del
+                                 FROM group_material_requests GROUP BY category ORDER BY req DESC`);
+        const lab = {};
+        materialTypes.forEach(c => { lab[c.key_name] = c.label; });
+        needs = nrows.map(r => ({ label: lab[r.category] || r.category || 'Altro', req: r.req || 0, conf: r.conf || 0, del: r.del || 0 }));
+      } catch (_) { needs = []; }
+
+      renderWithShell(res, 'admin-logistica', { requests, equipment, loans, groups, materialTypes, storageLocations, saved: req.query.saved || null }, true, { needs });
     } catch (err) {
       console.error('Errore /admin/logistica:', err);
       res.status(500).send('Errore interno');
@@ -253,9 +310,9 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
     } catch (err) { res.status(500).send('Errore export: ' + err.message); }
   });
 
-  // ════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════
   // CHECKLIST
-  // ════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════
 
   app.get('/admin/checklist', requireAuth, requireOrganizer, async (req, res) => {
     try {
@@ -263,7 +320,7 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
       const items     = await dbAll(`SELECT * FROM checklist_items ORDER BY template_id, sort_order`);
       const runs      = await dbAll(`SELECT cr.*, ct.title AS template_title, ct.phase, ct.area FROM checklist_runs cr JOIN checklist_templates ct ON ct.id=cr.template_id ORDER BY cr.started_at DESC LIMIT 50`);
       const editions  = await dbAll(`SELECT * FROM editions ORDER BY year DESC`);
-      res.render('admin-checklist', { templates, items, runs, editions, saved: req.query.saved || null });
+      renderWithShell(res, 'admin-checklist', { templates, items, runs, editions, saved: req.query.saved || null }, false);
     } catch (err) { res.status(500).send('Errore: ' + err.message); }
   });
 
@@ -320,7 +377,7 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
       const run      = await dbGet(`SELECT cr.*, ct.title FROM checklist_runs cr JOIN checklist_templates ct ON ct.id=cr.template_id WHERE cr.id=?`, [+req.params.id]);
       if (!run) return res.status(404).send('Run non trovata');
       const runItems = await dbAll(`SELECT cri.*, ci.text FROM checklist_run_items cri JOIN checklist_items ci ON ci.id=cri.item_id WHERE cri.run_id=? ORDER BY ci.sort_order`, [+req.params.id]);
-      res.render('admin-checklist-run', { run, runItems });
+      renderWithShell(res, 'admin-checklist-run', { run, runItems }, false);
     } catch (err) { res.status(500).send('Errore: ' + err.message); }
   });
 
@@ -339,16 +396,16 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
-  // ════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════
   // CATERING
-  // ════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════
 
   app.get('/admin/catering', requireAuth, requireOrganizer, async (req, res) => {
     try {
       const shifts   = await dbAll(`SELECT * FROM catering_shifts ORDER BY date DESC, meal_type`);
       const orders   = await dbAll(`SELECT * FROM catering_orders ORDER BY shift_id, staff_name`);
       const editions = await dbAll(`SELECT * FROM editions ORDER BY year DESC`);
-      res.render('admin-catering', { shifts, orders, editions, req, saved: req.query.saved || null });
+      renderWithShell(res, 'admin-catering', { shifts, orders, editions, req, saved: req.query.saved || null }, false);
     } catch (err) { res.status(500).send('Errore: ' + err.message); }
   });
 
@@ -391,9 +448,9 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
-  // ════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════
   // FORNITORI
-  // ════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════
 
   const MATERIAL_CATALOG = {
     corrente:        { label: 'Corrente',          icon: '⚡' },
@@ -411,7 +468,7 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
       const items     = await dbAll(`SELECT * FROM supplier_items ORDER BY supplier_id, created_at DESC`);
       const editions  = await dbAll(`SELECT * FROM editions ORDER BY year DESC`);
       const materialTypes = await dbAll(`SELECT * FROM logistic_categories ORDER BY sort_order, label`);
-      res.render('admin-fornitori', { suppliers, items, editions, materialTypes, saved: req.query.saved || null });
+      renderWithShell(res, 'admin-fornitori', { suppliers, items, editions, materialTypes, saved: req.query.saved || null }, false);
     } catch (err) { res.status(500).send('Errore: ' + err.message); }
   });
 
@@ -481,9 +538,9 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
-  // ════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════
   // HUB ADMIN
-  // ════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════
 
   app.get('/admin/hub', requireAuth, requireOrganizer, (req, res) => {
     res.render('admin-hub', { currentUser: req.session.user });
