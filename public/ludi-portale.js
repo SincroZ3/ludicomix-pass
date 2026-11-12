@@ -23,7 +23,8 @@
       nominativi: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 3-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 5a3.5 3.5 0 0 1 0 7"/><path d="M18.5 14.5c1.9.8 3 2.7 3 5.5"/>',
       mappa: '<path d="M9 4L3 6.5v13L9 17l6 2.5 6-2.5v-13L15 7z"/><path d="M9 4v13M15 7v12.5"/>',
       documenti: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M10 13h6M10 17h6"/>',
-      assistenza: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>'
+      assistenza: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
+      annuncio: '<path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M16 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/>'
     };
     function svg(n) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (ICON[n] || '') + '</svg>'; }
     function el(tag, cls, text) {
@@ -33,6 +34,81 @@
       return e;
     }
     function txt(e) { return (e.textContent || '').replace(/\s+/g, ' ').trim(); }
+
+    /* Icona Comunicazioni: cerchio viola con badge (rosso = non lette, grigio = attive ma lette).
+       La sezione compare/scompare toccando l'icona; si apre da sola solo se c'e' un messaggio importante non letto. */
+    function setupBacheca() {
+      var bach = document.getElementById('bacheca');
+      if (!bach) return null;
+      var cards = [].slice.call(bach.querySelectorAll('#bach-body .item-card'));
+      var total = cards.length;
+      if (!total) return null;
+      function isUnread(c) { return !c.classList.contains('read') && !c.closest('#read-list'); }
+      var unread = cards.filter(isUnread).length;
+      var ub = document.getElementById('unread-badge');
+      var ubn = ub ? (parseInt(txt(ub), 10) || 0) : 0;
+      if (ubn > unread) unread = ubn;
+      var important = cards.some(function (c) {
+        return isUnread(c) && (/unread-(urgent|warning)/.test(c.className) || c.textContent.indexOf('\uD83D\uDCCC') > -1);
+      });
+      var open = important;
+      var seen = false;
+      var pending = null;
+      var origFetch = window.fetch;
+
+      /* La lettura viene registrata solo quando la sezione viene aperta */
+      if (origFetch && unread > 0 && !important) {
+        window.fetch = function (u, o) {
+          var url = typeof u === 'string' ? u : ((u && u.url) || '');
+          if (!open && /bacheca\/read/.test(url)) {
+            pending = [u, o];
+            return Promise.resolve(new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
+          }
+          return origFetch.apply(this, arguments);
+        };
+      }
+
+      var bell = el('button', 'pt-bell');
+      bell.type = 'button';
+      bell.setAttribute('aria-label', 'Comunicazioni');
+      bell.innerHTML = svg('annuncio');
+      var badge = el('span', 'pt-bell-badge');
+      bell.appendChild(badge);
+
+      function refresh() {
+        var red = unread > 0 && !seen;
+        badge.textContent = String(red ? unread : total);
+        badge.className = 'pt-bell-badge ' + (red ? 'red' : 'grey');
+        bell.classList.toggle('on', open);
+        bach.classList.toggle('pt-bach-closed', !open);
+      }
+      function flush() {
+        if (pending && origFetch) { var p = pending; pending = null; origFetch.apply(window, p); }
+      }
+      function setOpen(v) {
+        open = v;
+        if (v) { seen = true; flush(); }
+        refresh();
+      }
+      bell.addEventListener('click', function () { setOpen(!open); });
+
+      if (important) setTimeout(function () { seen = true; refresh(); }, 2200);
+
+      /* Nuovi messaggi arrivati mentre il portale e' aperto */
+      if (ub && window.MutationObserver) {
+        new MutationObserver(function () {
+          var n = parseInt(txt(ub), 10) || 0;
+          if (n > 0 && (n !== unread || seen)) {
+            unread = n;
+            if (n > total) total = n;
+            seen = open;
+            refresh();
+          }
+        }).observe(ub, { childList: true, characterData: true, subtree: true, attributes: true });
+      }
+      refresh();
+      return { bell: bell };
+    }
 
     /* 1 — Classifica i blocchi figli di .wrap */
     var panels = { home: [], nominativi: [], mappa: [], documenti: [], servizi: [], ticket: [] };
@@ -100,11 +176,16 @@
       standPill = pills.children[0];
       standPill.classList.add('pt-pill-stand');
     }
+    var bachSetup = setupBacheca();
+    if (bachSetup) {
+      if (standPill && standPill.parentNode === pills) pills.insertBefore(bachSetup.bell, standPill.nextSibling);
+      else pills.appendChild(bachSetup.bell);
+    }
     var hero = el('section', 'pt-hero');
     hero.appendChild(el('div', 'pt-avatar', ini));
     var hb = el('div', 'pt-hero-body');
     if (h1) hb.appendChild(h1);
-    hb.appendChild(el('p', 'pt-hero-sub', 'Il tuo spazio alla fiera ti aspetta!'));
+    hb.appendChild(el('p', 'pt-hero-sub', 'Il tuo spazio a Ludicomix ti aspetta!'));
     if (pills.children.length) hb.appendChild(pills);
     hero.appendChild(hb);
     inner.appendChild(hero);
@@ -399,7 +480,7 @@
       if (k === 'mappa') setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 60);
     }
 
-    /* 6 — Pallini di notifica (non lette, ticket aperti) */
+    /* 6 — Pallini di notifica (ticket aperti) */
     function setDot(k, n) {
       [].forEach.call(document.querySelectorAll('[data-k="' + k + '"] .pt-dot'), function (d) {
         d.textContent = n > 0 ? String(n) : '';
@@ -407,9 +488,6 @@
       });
     }
     function syncDots() {
-      var ub = document.getElementById('unread-badge');
-      var u = ub && ub.style.display !== 'none' ? parseInt(txt(ub), 10) || 0 : 0;
-      setDot('home', u);
       var tb = document.querySelector('#ticket-section .sec-card-badge-blue');
       setDot('assistenza', tb ? parseInt(txt(tb), 10) || 0 : 0);
     }
