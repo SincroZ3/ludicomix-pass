@@ -201,6 +201,29 @@
     document.body.appendChild(bottom);
     document.body.classList.add('pt-on');
 
+    /* 5b — Nominativi: ogni persona una sola volta (pass + gestione nominativi) */
+    function normName(s) { return (s || '').replace(/\s+/g, ' ').trim().toLowerCase(); }
+    function dedupePersone() {
+      var passNames = {};
+      [].forEach.call(document.querySelectorAll('.pass-card .pass-name'), function (n) { passNames[normName(n.textContent)] = true; });
+      var rowNames = {};
+      [].forEach.call(document.querySelectorAll('#nom-list .item-card'), function (r) {
+        var box = r.children[1];
+        var n = box && box.firstElementChild ? box.firstElementChild : box;
+        var key = normName(n ? n.textContent : '');
+        if (!key) return;
+        if (passNames[key] && !r.querySelector('button')) r.classList.add('pt-hide');
+        else rowNames[key] = true;
+      });
+      [].forEach.call(document.querySelectorAll('.nopass-card .nopass-name'), function (n) {
+        if (rowNames[normName(n.textContent)]) {
+          var c = n.closest('.nopass-card');
+          if (c) c.classList.add('pt-hide');
+        }
+      });
+    }
+    dedupePersone();
+
     function show(k, sub, user) {
       if (!panelEls[k]) k = 'home';
       Object.keys(panelEls).forEach(function (x) { panelEls[x].classList.toggle('on', x === k); });
