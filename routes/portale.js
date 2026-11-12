@@ -1,6 +1,6 @@
 /**
  * routes/portale.js
- * ──────────────────────────────────────────────────────────────────────
+ * ──────────────────────────────────────────────────────────────────────────────
  * Portale espositore: pagina principale, nominativi, download pass,
  * service requests (logistica), bacheca, CRM ticket.
  *
@@ -14,7 +14,7 @@
  *   GET  /api/portale/:token/service-requests
  *   POST /portale/:token/bacheca/read          (già in bacheca.js — skip)
  *   GET  /api/portale/:token/unread            (già in bacheca.js — skip)
- * ──────────────────────────────────────────────────────────────────────
+ * ──────────────────────────────────────────────────────────────────────────────
  */
 
 const path = require('path');
@@ -76,7 +76,7 @@ module.exports = function registerPortaleRoutes(
     return true;
   }
 
-  // ── GET /portale/:token ───────────────────────────────────────────────────────
+  // ── GET /portale/:token ────────────────────────────────────────────────────────────────────
   app.get('/portale/:token', async (req, res) => {
     const token = req.params.token;
     try {
@@ -183,6 +183,19 @@ module.exports = function registerPortaleRoutes(
         portalDocs:         portalDocs         || [],
         tickets:            ticketsRaw         || [],
         logisticCategories: logisticCategories || [],
+      }, (renderErr, html) => {
+        if (renderErr) {
+          console.error('Errore render portale:', renderErr);
+          return res.status(500).send('Errore interno');
+        }
+        // Nuova interfaccia del portale (public/ludi-portale.css e .js).
+        // Per annullare: sostituire questo blocco con res.send(html).
+        const cssTag = '<link rel="stylesheet" href="/ludi-portale.css?v=1">';
+        const jsTag  = '<script src="/ludi-portale.js?v=1" defer></script>';
+        let out = html.replace('</head>', () => cssTag + '</head>');
+        const i = out.lastIndexOf('</body>');
+        out = i === -1 ? out + jsTag : out.slice(0, i) + jsTag + out.slice(i);
+        res.send(out);
       });
     } catch (err) {
       console.error('Errore GET /portale/:token:', err);
@@ -190,7 +203,7 @@ module.exports = function registerPortaleRoutes(
     }
   });
 
-  // ── Download pass nominativo dal portale ─────────────────────────
+  // ── Download pass nominativo dal portale ─────────────────────────────
   app.get('/portale/:token/download/:passId', (req, res) => {
     db.get(
       `SELECT ag.portal_enabled
@@ -206,7 +219,7 @@ module.exports = function registerPortaleRoutes(
     );
   });
 
-  // ── Download auto-pass (parcheggio) dal portale ────────────────────
+  // ── Download auto-pass (parcheggio) dal portale ───────────────────────
   app.get('/portale/:token/download-auto/:apId', (req, res) => {
     db.get(
       `SELECT ag.portal_enabled, ag.id AS group_id, ag.name AS group_name,
@@ -230,7 +243,7 @@ module.exports = function registerPortaleRoutes(
     );
   });
 
-  // ── POST nominativo dal portale ─────────────────────────────────────────
+  // ── POST nominativo dal portale ────────────────────────────────────────────────────
   app.post('/api/portale/:token/participants', async (req, res) => {
     const token = req.params.token;
     const { firstname, lastname, role } = req.body;
@@ -269,7 +282,7 @@ module.exports = function registerPortaleRoutes(
     }
   });
 
-  // ── DELETE nominativo dal portale ────────────────────────────────────────
+  // ── DELETE nominativo dal portale ───────────────────────────────────────────
   app.post('/api/portale/:token/participants/:pid/delete', async (req, res) => {
     const token = req.params.token;
     const pid   = parseInt(req.params.pid, 10);
@@ -330,7 +343,7 @@ module.exports = function registerPortaleRoutes(
     }
   });
 
-  // ── Lista richieste servizio del gruppo ──────────────────────────────────
+  // ── Lista richieste servizio del gruppo ──────────────────────────────────────────
   app.get('/api/portale/:token/service-requests', async (req, res) => {
     const token = req.params.token;
     try {

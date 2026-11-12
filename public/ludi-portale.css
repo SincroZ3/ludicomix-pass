@@ -1,0 +1,127 @@
+/* ludi-portale.css — Portale Espositore: nuova interfaccia (testata, tab, barra mobile, Home, stile sezioni).
+   Tutte le regole sono sotto body.pt-on, aggiunto da ludi-portale.js: se lo script non parte la pagina resta com'era.
+   Per annullare: togliere l'inserimento in routes/portale.js (res.render con callback). */
+
+.pt-hide { display: none !important; }
+
+body.pt-on { background: #f6f3fb; }
+body.pt-on .hdr-stand { background: transparent; padding: 1.3rem 0 .3rem; overflow: visible; }
+body.pt-on .hdr-stand::before { display: none; }
+body.pt-on .hdr-inner, body.pt-on .wrap { max-width: 1040px; }
+body.pt-on .wrap { padding-top: .6rem; }
+
+/* Scheda di benvenuto */
+.pt-hero { position: relative; overflow: hidden; display: flex; align-items: center; gap: 1.2rem; background: #fff; border: 1px solid #ece6f7; border-radius: 24px; box-shadow: 0 8px 28px rgba(30,45,78,.08); padding: 1.3rem 1.6rem; }
+.pt-hero::after { content: ""; position: absolute; right: -60px; top: -70px; width: 280px; height: 280px; border-radius: 50%; background: radial-gradient(circle, rgba(139,92,200,.18), transparent 70%); pointer-events: none; }
+.pt-avatar { flex: 0 0 auto; width: 78px; height: 78px; border-radius: 50%; background: linear-gradient(135deg, #8b5cc8, #6b3fa0); color: #fff; font-weight: 800; font-size: 1.6rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(107,63,160,.35); }
+.pt-hero-body { position: relative; z-index: 1; min-width: 0; }
+body.pt-on .hdr-title { margin: 0; color: #1e2d4e; font-size: clamp(1.3rem, 3.2vw, 1.9rem); line-height: 1.2; overflow-wrap: anywhere; }
+body.pt-on .hdr-title span { color: #6b3fa0; }
+.pt-hero-sub { margin: .3rem 0 0; font-size: .85rem; color: #64748b; }
+.pt-pills { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .75rem; }
+.pt-pill { display: inline-flex; align-items: center; padding: .35rem .85rem; border-radius: 999px; background: #f1ecfa; color: #4c2c78; font-size: .78rem; font-weight: 700; }
+
+/* Tab desktop */
+.pt-tabs { position: sticky; top: 0; z-index: 60; display: flex; gap: .5rem; overflow-x: auto; padding: .8rem .15rem; margin: .4rem 0 .5rem; background: rgba(246,243,251,.92); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); scrollbar-width: none; }
+.pt-tabs::-webkit-scrollbar { display: none; }
+.pt-tab { position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; gap: .5rem; padding: .6rem 1.15rem; border: 0; border-radius: 999px; background: #fff; color: #1e2d4e; font: inherit; font-size: .88rem; font-weight: 700; cursor: pointer; box-shadow: 0 3px 10px rgba(30,45,78,.07); transition: box-shadow .15s, transform .1s; }
+.pt-tab:hover { box-shadow: 0 5px 14px rgba(30,45,78,.12); }
+.pt-tab svg, .pt-bitem svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
+.pt-tab.on { color: #fff; background: linear-gradient(135deg, #8b5cc8, #6b3fa0); box-shadow: 0 6px 14px rgba(107,63,160,.35); }
+.pt-dot { display: none; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #e5322d; color: #fff; font-size: .66rem; font-weight: 800; line-height: 18px; text-align: center; }
+.pt-dot.show { display: inline-block; }
+
+/* Barra mobile (nascosta su desktop) */
+.pt-bottom { display: none; }
+
+/* Pannelli */
+.pt-panel { display: none; }
+.pt-panel.on { display: block; animation: pt-in .25s ease; }
+@keyframes pt-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.pt-subpanel { display: none; }
+.pt-subpanel.on { display: block; }
+.pt-seg { display: inline-flex; background: #fff; border-radius: 999px; padding: .25rem; box-shadow: 0 3px 10px rgba(30,45,78,.07); margin-bottom: 1rem; }
+.pt-seg button { border: 0; background: none; padding: .5rem 1.3rem; border-radius: 999px; font: inherit; font-weight: 700; color: #475569; cursor: pointer; }
+.pt-seg button.on { background: linear-gradient(135deg, #8b5cc8, #6b3fa0); color: #fff; }
+
+/* Riquadri scorciatoia in Home */
+.pt-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 0 0 1.4rem; }
+.pt-tile { position: relative; display: flex; flex-direction: column; gap: .45rem; text-align: left; padding: 1.2rem 1.3rem; border: 1px solid #ece6f7; border-radius: 22px; background: #fff; box-shadow: 0 6px 22px rgba(30,45,78,.07); font: inherit; cursor: pointer; transition: transform .15s, box-shadow .15s; }
+.pt-tile:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(30,45,78,.12); }
+.pt-tile-ico { width: 46px; height: 46px; border-radius: 50%; background: #efe9fa; color: #6b3fa0; display: flex; align-items: center; justify-content: center; }
+.pt-tile-ico svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.pt-tile h3 { margin: .2rem 0 0; font-size: 1.05rem; color: #1e2d4e; }
+.pt-tile p { margin: 0; font-size: .82rem; color: #64748b; line-height: 1.4; }
+.pt-tile-chip { position: absolute; top: 1rem; right: 1rem; padding: .2rem .65rem; border-radius: 999px; background: #fdf0c4; color: #7d5a00; font-size: .72rem; font-weight: 800; }
+.pt-tile-bar { height: 8px; border-radius: 999px; background: #ece6f7; overflow: hidden; margin-top: .3rem; }
+.pt-tile-bar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #8b5cc8, #6b3fa0); }
+
+/* Card e sezioni esistenti */
+body.pt-on .sec-card { border-radius: 22px; border: 1px solid #ece6f7; box-shadow: 0 6px 22px rgba(30,45,78,.07); }
+body.pt-on .sec-card-hd { padding: 1rem 1.4rem; border-bottom: 1px solid #f0edf7; }
+body.pt-on .sec-card-title { letter-spacing: .07em; color: #1e2d4e; }
+body.pt-on .sec-card-body { padding: 1.2rem 1.4rem; }
+body.pt-on .sec-title { margin: 1.4rem 0 .9rem; color: #1e2d4e; letter-spacing: .08em; }
+body.pt-on .sec-title::after { background: #e4def0; }
+body.pt-on .btn { border-radius: 999px; }
+body.pt-on .btn-accent, body.pt-on .btn-primary { background: linear-gradient(135deg, #8b5cc8, #6b3fa0); color: #fff; box-shadow: 0 4px 12px rgba(107,63,160,.28); }
+body.pt-on .btn-outline { border: 1.5px solid #d9cdee; color: #6b3fa0; background: #fff; }
+body.pt-on .fld-input, body.pt-on .fld-select, body.pt-on .fld-textarea { border: 1.5px solid #d9cff0; border-radius: 12px; padding: .55rem .8rem; }
+body.pt-on .fld-input:focus, body.pt-on .fld-select:focus, body.pt-on .fld-textarea:focus { border-color: #6b3fa0; box-shadow: 0 0 0 3px rgba(107,63,160,.15); }
+body.pt-on details.sec-details { border: 0; background: transparent; overflow: visible; }
+body.pt-on details.sec-details summary { display: inline-flex; align-items: center; padding: .55rem 1.2rem; border-radius: 999px; background: #f3f0fa; color: #6b3fa0; }
+body.pt-on details.sec-details[open] summary { background: #6b3fa0; color: #fff; border-bottom-color: transparent; }
+body.pt-on details.sec-details .details-body { padding: .9rem 0 0; }
+body.pt-on .item-card { border-radius: 16px; border-color: #ece6f7; background: #faf8ff; }
+
+/* Riquadri informativi e avanzamento */
+body.pt-on .info-strip { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 1.2rem; }
+body.pt-on .info-card { border-radius: 18px; border-color: #ece6f7; padding: 1rem 1.2rem; box-shadow: 0 6px 22px rgba(30,45,78,.07); }
+body.pt-on .info-card-value { font-size: 1.5rem; font-weight: 800; }
+body.pt-on .prog-card { border-radius: 22px; border-color: #ece6f7; }
+body.pt-on .prog-bar-track { height: 12px; background: #ece6f7; }
+body.pt-on .prog-bar-fill { height: 12px; }
+
+/* Pass */
+body.pt-on .pass-grid { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+body.pt-on .pass-card { border-radius: 20px; border-color: #ece6f7; box-shadow: 0 6px 22px rgba(30,45,78,.07); }
+body.pt-on .pass-avatar { width: 46px; height: 46px; }
+body.pt-on .pass-type-badge { background: #efe9fa; color: #5b2e8b; }
+body.pt-on .btn-dl { background: linear-gradient(135deg, #8b5cc8, #6b3fa0); border-radius: 999px; padding: .7rem 1rem; box-shadow: 0 4px 12px rgba(107,63,160,.28); }
+body.pt-on .btn-dl:hover { background: linear-gradient(135deg, #9a6ad6, #7a4cb0); }
+body.pt-on .nopass-card { border-radius: 16px; }
+
+/* Mappa */
+body.pt-on .dove-card { border-radius: 22px; border-color: #ece6f7; box-shadow: 0 6px 22px rgba(30,45,78,.07); }
+body.pt-on .dove-btn { border-radius: 999px; }
+
+/* Servizi */
+body.pt-on .srv-type-btn { border-radius: 16px; border-color: #e4def0; background: #fff; }
+body.pt-on .srv-type-btn.sel { background: linear-gradient(135deg, #8b5cc8, #6b3fa0); border-color: #6b3fa0; color: #fff; }
+
+/* ===== Telefono (fino a 760px) ===== */
+@media (max-width: 760px) {
+  body.pt-on { padding-bottom: 5.4rem; }
+  .pt-tabs { display: none; }
+  .pt-bottom { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; background: #fff; border-top: 1px solid #ece6f7; box-shadow: 0 -6px 20px rgba(30,45,78,.1); padding: .35rem .3rem calc(.35rem + env(safe-area-inset-bottom)); }
+  .pt-bitem { position: relative; flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: .15rem; padding: .45rem 0 .3rem; border: 0; background: none; color: #64748b; font: inherit; font-size: .66rem; font-weight: 700; cursor: pointer; }
+  .pt-bitem svg { width: 22px; height: 22px; }
+  .pt-bitem.on { color: #6b3fa0; }
+  .pt-bitem.on::before { content: ""; position: absolute; top: -.35rem; width: 28px; height: 3px; border-radius: 3px; background: #6b3fa0; }
+  .pt-bitem .pt-dot { position: absolute; top: .15rem; left: calc(50% + 6px); min-width: 16px; height: 16px; line-height: 16px; font-size: .6rem; }
+  .pt-hero { padding: 1rem; gap: .85rem; border-radius: 20px; }
+  .pt-avatar { width: 54px; height: 54px; font-size: 1.15rem; }
+  .pt-pills { gap: .35rem; margin-top: .55rem; }
+  .pt-pill { padding: .28rem .65rem; font-size: .72rem; }
+  .pt-tiles { grid-template-columns: 1fr; gap: .7rem; }
+  .pt-tile { flex-direction: row; flex-wrap: wrap; align-items: center; column-gap: .9rem; padding: 1rem; border-radius: 18px; }
+  .pt-tile-ico { width: 42px; height: 42px; }
+  .pt-tile h3 { margin: 0; flex: 1 1 0; }
+  .pt-tile p, .pt-tile-bar { flex: 1 0 100%; }
+  .pt-tile-chip { position: static; margin-left: auto; }
+  body.pt-on .sec-card-hd { padding: .8rem 1rem; }
+  body.pt-on .sec-card-body { padding: 1rem; }
+  body.pt-on .info-strip { grid-template-columns: 1fr 1fr; }
+  .pt-seg { display: flex; }
+  .pt-seg button { flex: 1; padding: .5rem .5rem; }
+}
