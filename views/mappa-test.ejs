@@ -1,0 +1,10 @@
+<%- include('partials/header') %>
+<nav class="breadcrumb-bar">Sei in: <a href="/home">Home</a> &rsaquo; <a href="/mappa">Mappa Stand</a> &rsaquo; <strong>Mappa test 3D</strong></nav>
+<link rel="stylesheet" href="/ludi-mappa.css?v=<%= assetV %>">
+<link rel="stylesheet" href="/ludi-mappatest.css?v=<%= assetV %>">
+<h1 class="page-title">Mappa Stand — test 3D</h1>
+<div id="mt-root"></div>
+<script id="mt-data" type="application/json"><%- JSON.stringify(data).replace(/</g, '\\u003c') %></script>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
+<script type="module" src="/ludi-mappatest.js?v=<%= assetV %>"></script>
+<%- include('partials/footer') %>

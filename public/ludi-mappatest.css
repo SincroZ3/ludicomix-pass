@@ -1,0 +1,51 @@
+/* ludi-mappatest.css — Mappa Stand TEST 3D (/admin/mappatest). Si appoggia a ludi-mappa.css (testata, zone a pillola, riepilogo). */
+
+body.mp-on .mt-main { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 1.1rem; align-items: start; }
+body.mp-on .mt-card { background: #fff; border: 1px solid #ece6f7; border-radius: 24px; box-shadow: 0 8px 28px rgba(30,45,78,.08); overflow: hidden; }
+body.mp-on .mt-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; padding: .7rem 1rem; border-bottom: 1px solid #f0edf7; }
+body.mp-on .mt-seg { display: inline-flex; background: #f1ecfa; border-radius: 999px; padding: .2rem; }
+body.mp-on .mt-seg button { border: 0; background: none; border-radius: 999px; padding: .35rem .9rem; font: inherit; font-size: .8rem; font-weight: 700; color: #6b5a8a; cursor: pointer; }
+body.mp-on .mt-seg button.on { background: #fff; color: #4c2c78; box-shadow: 0 2px 6px rgba(30,45,78,.12); }
+body.mp-on .mt-chk { display: inline-flex; align-items: center; gap: .35rem; font-size: .8rem; font-weight: 600; color: #475569; margin: 0; }
+body.mp-on .mt-chk input { width: auto; margin: 0; display: inline-block; }
+
+body.mp-on .mt-view { position: relative; height: clamp(520px, 68vh, 800px); background: radial-gradient(circle at 50% 30%, #fff, #e9e2f6); }
+body.mp-on .mt-view canvas { display: block; width: 100%; height: 100%; }
+body.mp-on .mt-banner { display: none; position: absolute; left: 12px; top: 12px; z-index: 20; max-width: 62%; flex-wrap: wrap; align-items: center; gap: .6rem; background: rgba(30,45,78,.95); color: #fff; border-radius: 22px; padding: .55rem 1.1rem; font-size: .82rem; font-weight: 600; box-shadow: 0 8px 24px rgba(20,10,40,.35); }
+body.mp-on .mt-banner b { color: #f5c842; }
+body.mp-on .mt-banner .dim { opacity: .8; }
+body.mp-on .mt-banner .mt-seg { background: rgba(255,255,255,.16); }
+body.mp-on .mt-banner .mt-seg button { color: #fff; }
+body.mp-on .mt-banner .mt-seg button.on { background: #fff; color: #4c2c78; }
+body.mp-on .mt-leg { position: absolute; right: 12px; top: 12px; z-index: 10; max-width: 34%; background: rgba(255,255,255,.93); border: 1px solid #ece6f7; border-radius: 16px; padding: .5rem .8rem; font-size: .74rem; display: flex; gap: .4rem .8rem; flex-wrap: wrap; }
+body.mp-on .mt-leg span { display: inline-flex; align-items: center; gap: .3rem; font-weight: 600; }
+body.mp-on .mt-leg i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+body.mp-on .mt-tray { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 10; background: rgba(255,255,255,.93); border: 1px solid #ece6f7; border-radius: 18px; padding: .5rem .8rem; display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; max-height: 40%; overflow: auto; }
+body.mp-on .mt-tray b { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: #6b5a8a; }
+body.mp-on .mt-chip { border: 1.5px solid #d9cff0; background: #fff; border-radius: 14px; padding: .3rem .75rem; font: inherit; font-size: .78rem; font-weight: 700; color: #4c2c78; cursor: pointer; }
+body.mp-on .mt-chip:hover { border-color: #6b3fa0; box-shadow: 0 4px 12px rgba(107,63,160,.18); }
+body.mp-on .mt-msg { display: none; position: absolute; inset: 0; z-index: 15; align-items: center; justify-content: center; text-align: center; padding: 2rem; font-weight: 700; color: #6b5a8a; background: rgba(246,243,251,.9); }
+
+body.mp-on .mt-side { display: block; }
+body.mp-on .mt-panel { background: #fff; border: 1px solid #ece6f7; border-radius: 20px; box-shadow: 0 6px 22px rgba(30,45,78,.06); padding: .9rem 1rem; margin-bottom: .9rem; }
+body.mp-on .mt-panel h3 { margin: 0 0 .6rem; font-size: .76rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: #6b5a8a; }
+body.mp-on .mt-f { display: block; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #64748b; margin: .55rem 0 0; }
+body.mp-on .mt-f input { width: 100%; margin-top: .2rem; border: 1.5px solid #d9cff0; border-radius: 12px; padding: .4rem .65rem; font: inherit; font-size: .86rem; }
+body.mp-on .mt-row { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .7rem; }
+body.mp-on .mt-btn { display: inline-flex; align-items: center; border: 1.5px solid #d9cff0; background: #fff; color: #4c2c78; font: inherit; font-size: .78rem; font-weight: 700; padding: .4rem .9rem; border-radius: 999px; cursor: pointer; }
+body.mp-on .mt-btn.pri { border-color: transparent; background: linear-gradient(135deg, #8b5cc8, #6b3fa0); color: #fff; }
+body.mp-on .mt-btn.lock { border-color: #e6c75a; background: #fff8dd; color: #7d5a00; }
+body.mp-on .mt-btn.del { border-color: #f3c5c1; background: #fdeceb; color: #b3321f; }
+body.mp-on .mt-btn[disabled] { opacity: .45; cursor: not-allowed; }
+body.mp-on .mt-note { font-size: .8rem; line-height: 1.5; color: #64748b; margin-top: .4rem; }
+body.mp-on .mt-name { font-size: 1.1rem; font-weight: 800; color: #1e2d4e; }
+body.mp-on .mt-tag { display: inline-block; background: #fff8dd; color: #7d5a00; border: 1px solid #e6c75a; border-radius: 999px; padding: .05rem .55rem; font-size: .7rem; font-weight: 800; margin-left: .4rem; }
+
+#mt-tip { position: fixed; pointer-events: none; background: #2b1a47; color: #fff; border-radius: 10px; padding: .4rem .6rem; font-size: .76rem; display: none; z-index: 9990; box-shadow: 0 6px 18px rgba(20,10,40,.4); }
+#mt-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: #1e2d4e; color: #fff; padding: .5rem 1rem; border-radius: 999px; font-size: .82rem; font-weight: 700; display: none; z-index: 9995; }
+
+@media (max-width: 1000px) {
+  body.mp-on .mt-main { grid-template-columns: 1fr; }
+  body.mp-on .mt-banner { max-width: 94%; }
+  body.mp-on .mt-leg { display: none; }
+}

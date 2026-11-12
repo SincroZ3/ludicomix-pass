@@ -17,6 +17,8 @@
  *   POST /admin/mappa-pubblica/zone/:id
  *   POST /admin/groups/:id/map-position
  *   POST /admin/groups/:id/map-xy
+ *   GET  /admin/mappatest            (pagina di prova 3D, solo admin)
+ *   POST /admin/mappatest/...        (salvataggi della pagina di prova)
  * ────────────────────────────────────────────────────────────────────────
  */
 
@@ -291,6 +293,167 @@ module.exports = function registerMappaRoutes(
       }
       res.json({ ok: true });
     });
+  });
+
+  // ═══ MAPPA TEST 3D — pagina di prova su /admin/mappatest (solo admin) ═════════════════════════
+  // I dati stanno in tabelle separate (map_test_layout, map_test_zone):
+  // la mappa reale (assignment_groups.map_*) non viene mai scritta da queste rotte.
+  db.serialize(() => {
+    db.run(`CREATE TABLE IF NOT EXISTS map_test_layout (
+      group_id INTEGER PRIMARY KEY, zone TEXT, fx REAL, fy REAL, wf REAL, df REAL,
+      rot REAL DEFAULT 0, shape TEXT, height REAL DEFAULT 2.5, locked INTEGER DEFAULT 0, updated_at TEXT)`,
+      (e) => { if (e) console.error('[mappatest] tabella layout', e.message); });
+    db.run(`CREATE TABLE IF NOT EXISTS map_test_zone (zone TEXT PRIMARY KEY, width_m REAL)`,
+      (e) => { if (e) console.error('[mappatest] tabella zone', e.message); });
+  });
+
+  app.get('/admin/mappatest', requireAuth, requireAdmin, (req, res) => {
+    db.all("SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope='internal') ORDER BY sort_order, name", [], (e1, zones) => {
+      if (e1) return res.status(500).send('Errore DB');
+      const cur = edFilter ? edFilter() : '';
+      const f = cur ? cur.replace(/AND ag\.edition_id = (\d+)/, 'AND (ag.edition_id = $1 OR ag.edition_id IS NULL)') : '';
+      db.all(
+        `SELECT ag.id, ag.name AS stand_name, ag.stand_code, ag.zone, ag.map_x, ag.map_y, ag.notes,
+                COUNT(CASE WHEN p.status!='INVALIDATO' THEN 1 END) AS pass_count,
+                SUM(CASE WHEN p.status IN ('CONSEGNATO','RICONSEGNATO') THEN 1 ELSE 0 END) AS consegnati
+         FROM assignment_groups ag
+         LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
+         LEFT JOIN passes p ON p.participant_id = pa.id
+         WHERE (1=1) ${f}
+         GROUP BY ag.id ORDER BY ag.zone, ag.name`,
+        [],
+        (e2, groups) => {
+          if (e2) return res.status(500).send('Errore DB');
+          db.all('SELECT * FROM map_test_layout', [], (e3, lays) => {
+            db.all('SELECT * FROM map_test_zone', [], (e4, zset) => {
+              const byG = {};
+              (lays || []).forEach((l) => { byG[l.group_id] = l; });
+              const wBy = {};
+              (zset || []).forEach((z) => { wBy[z.zone] = z.width_m; });
+              const data = {
+                zones: (zones || []).map((z) => ({
+                  id: z.id, name: z.name, bg: z.background_image || null,
+                  refW: z.map_ref_w || null, refH: z.map_ref_h || null, widthM: wBy[z.name] || null,
+                })),
+                stands: (groups || []).map((g) => {
+                  const l = byG[g.id];
+                  let shape = null;
+                  if (l && l.shape) { try { shape = JSON.parse(l.shape); } catch (_) { shape = null; } }
+                  return {
+                    id: g.id, name: g.stand_name, zone: g.zone || null, code: g.stand_code || '',
+                    pc: g.pass_count || 0, cs: g.consegnati || 0, notes: g.notes || '',
+                    importable: g.map_x != null && g.map_y != null,
+                    L: l ? { fx: l.fx, fy: l.fy, wf: l.wf, df: l.df, rot: l.rot || 0, shape, h: l.height || 2.5, locked: l.locked ? 1 : 0 } : null,
+                  };
+                }),
+              };
+              res.render('mappa-test', { data, assetV: MAPPA_ASSET_V });
+            });
+          });
+        }
+      );
+    });
+  });
+
+  // Salva posizione/forma/altezza (rifiuta se lo stand e' bloccato)
+  app.post('/admin/mappatest/layout/:id', requireAuth, requireAdmin, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const b = req.body || {};
+    const num = (v) => (v !== '' && v != null && isFinite(+v)) ? +v : null;
+    const fx = num(b.fx), fy = num(b.fy), wf = num(b.wf), df = num(b.df);
+    if ([fx, fy, wf, df].some((v) => v === null) || wf <= 0 || df <= 0) return res.status(400).json({ ok: false, error: 'dati non validi' });
+    const rot = num(b.rot) || 0;
+    const h = Math.max(0.2, Math.min(12, num(b.height) || 2.5));
+    let shape = null;
+    if (Array.isArray(b.shape) && b.shape.length >= 3 && b.shape.every((p) => Array.isArray(p) && isFinite(+p[0]) && isFinite(+p[1]))) {
+      shape = JSON.stringify(b.shape.map((p) => [+p[0], +p[1]]));
+    }
+    db.get('SELECT locked FROM map_test_layout WHERE group_id=?', [id], (e, row) => {
+      if (e) return res.status(500).json({ ok: false, error: e.message });
+      if (row && row.locked) return res.status(423).json({ ok: false, error: 'Stand bloccato' });
+      db.run(
+        `INSERT INTO map_test_layout (group_id, zone, fx, fy, wf, df, rot, shape, height, locked, updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,0,datetime('now','localtime'))
+         ON CONFLICT(group_id) DO UPDATE SET zone=excluded.zone, fx=excluded.fx, fy=excluded.fy, wf=excluded.wf, df=excluded.df,
+           rot=excluded.rot, shape=excluded.shape, height=excluded.height, updated_at=excluded.updated_at`,
+        [id, String(b.zone || ''), fx, fy, wf, df, rot, shape, h],
+        (err) => res.json(err ? { ok: false, error: err.message } : { ok: true })
+      );
+    });
+  });
+
+  // Blocca / sblocca uno stand
+  app.post('/admin/mappatest/layout/:id/lock', requireAuth, requireAdmin, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const v = req.body && +req.body.locked ? 1 : 0;
+    db.run('UPDATE map_test_layout SET locked=? WHERE group_id=?', [v, id], function (err) {
+      if (err) return res.status(500).json({ ok: false, error: err.message });
+      if (!this.changes) return res.status(404).json({ ok: false, error: 'Stand non presente in pianta' });
+      res.json({ ok: true });
+    });
+  });
+
+  // Rimuove uno stand dalla pianta di test (rifiuta se bloccato)
+  app.post('/admin/mappatest/layout/:id/remove', requireAuth, requireAdmin, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    db.run('DELETE FROM map_test_layout WHERE group_id=? AND locked=0', [id], function (err) {
+      if (err) return res.status(500).json({ ok: false, error: err.message });
+      if (!this.changes) return res.status(423).json({ ok: false, error: 'Stand bloccato o non presente' });
+      res.json({ ok: true });
+    });
+  });
+
+  // Scala reale della zona (larghezza della pianta in metri)
+  app.post('/admin/mappatest/zone-scale', requireAuth, requireAdmin, (req, res) => {
+    const zone = String((req.body && req.body.zone) || '');
+    const w = Math.max(10, Math.min(500, +(req.body && req.body.width_m) || 0));
+    if (!zone || !w) return res.status(400).json({ ok: false, error: 'dati non validi' });
+    db.run('INSERT INTO map_test_zone (zone, width_m) VALUES (?,?) ON CONFLICT(zone) DO UPDATE SET width_m=excluded.width_m', [zone, w],
+      (err) => res.json(err ? { ok: false, error: err.message } : { ok: true }));
+  });
+
+  // Blocca / sblocca tutti gli stand di una zona
+  app.post('/admin/mappatest/zone-lock', requireAuth, requireAdmin, (req, res) => {
+    const zone = String((req.body && req.body.zone) || '');
+    const v = req.body && +req.body.locked ? 1 : 0;
+    if (!zone) return res.status(400).json({ ok: false, error: 'zona mancante' });
+    db.run('UPDATE map_test_layout SET locked=? WHERE zone=?', [v, zone],
+      (err) => res.json(err ? { ok: false, error: err.message } : { ok: true }));
+  });
+
+  // Importa le posizioni della mappa attuale nella tabella di test (non scrive sulla mappa reale, non tocca gli stand bloccati)
+  app.post('/admin/mappatest/import', requireAuth, requireAdmin, (req, res) => {
+    const zone = String((req.body && req.body.zone) || '');
+    if (!zone) return res.status(400).json({ ok: false, error: 'zona mancante' });
+    db.all(
+      'SELECT id, map_x, map_y, map_w, map_h, map_shape, map_rot FROM assignment_groups WHERE zone=? AND map_x IS NOT NULL AND map_y IS NOT NULL',
+      [zone],
+      (err, rows) => {
+        if (err) return res.status(500).json({ ok: false, error: err.message });
+        let n = 0;
+        const sql = `INSERT INTO map_test_layout (group_id, zone, fx, fy, wf, df, rot, shape, height, locked, updated_at)
+          VALUES (?,?,?,?,?,?,?,?,2.5,0,datetime('now','localtime'))
+          ON CONFLICT(group_id) DO UPDATE SET zone=excluded.zone, fx=excluded.fx, fy=excluded.fy, wf=excluded.wf, df=excluded.df,
+            rot=excluded.rot, shape=excluded.shape, updated_at=excluded.updated_at WHERE map_test_layout.locked=0`;
+        db.serialize(() => {
+          (rows || []).forEach((r) => {
+            let shape = null;
+            if (r.map_shape) {
+              try {
+                const arr = JSON.parse(r.map_shape);
+                if (Array.isArray(arr)) shape = JSON.stringify(arr.map((p) => [p[0] / 100, p[1] / 100]));
+              } catch (_) { shape = null; }
+            }
+            db.run(sql, [r.id, zone, r.map_x / 100, r.map_y / 100, (r.map_w || 8) / 100, (r.map_h || 5) / 100, r.map_rot || 0, shape],
+              function (e) { if (!e && this.changes) n++; });
+          });
+          db.run('SELECT 1', [], () => {
+            try { logAction(req.session.user.id, 'mappatest_import', 'zone', null, 'Importate ' + n + ' posizioni in mappa test: ' + zone); } catch (_) {}
+            res.json({ ok: true, imported: n });
+          });
+        });
+      }
+    );
   });
 
 };
