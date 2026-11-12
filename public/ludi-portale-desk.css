@@ -6,6 +6,10 @@
 .pt-pill-ok { background: #dcf3e6; color: #1d6a39; }
 .pt-tile-prog { display: none; }
 
+/* Pillola gialla di segnalazione (risposte ai ticket, documenti) */
+.pt-tile-chip.pt-chip-hot { background: #fdd35c; color: #3d2b00; font-size: .85rem; font-weight: 800; padding: .35rem .95rem; box-shadow: 0 3px 8px rgba(245,200,66,.4); }
+.pt-seg .pt-dot { margin-left: .45rem; vertical-align: middle; }
+
 @media (min-width: 761px) {
   .pt-desk-only { display: block; }
 
@@ -31,6 +35,8 @@
   .pt-tile h3 { padding-right: 2.2rem; font-size: 1.3rem; }
   .pt-tile p { padding-right: 1.6rem; font-size: .88rem; }
   .pt-tile::after { content: "\203A"; position: absolute; right: 1.4rem; top: 1.5rem; transform: none; font-size: 1.7rem; line-height: 1; color: #a99bc8; }
+  .pt-tile.pt-has-chip::after { top: 50%; transform: translateY(-50%); }
+  .pt-tile-chip.pt-chip-hot { top: 1.4rem; right: 1.5rem; font-size: .9rem; }
   .pt-tile-prog { display: flex; align-items: center; gap: .8rem; width: 100%; margin-top: auto; }
   .pt-tile-bar2 { flex: 1 1 auto; min-width: 120px; height: 9px; border-radius: 999px; background: #ece6f7; overflow: hidden; }
   .pt-tile-bar2 i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, #8b5cc8, #6b3fa0); transition: width .5s ease; }

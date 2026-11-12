@@ -23,7 +23,7 @@
       nominativi: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 3-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 5a3.5 3.5 0 0 1 0 7"/><path d="M18.5 14.5c1.9.8 3 2.7 3 5.5"/>',
       mappa: '<path d="M9 4L3 6.5v13L9 17l6 2.5 6-2.5v-13L15 7z"/><path d="M9 4v13M15 7v12.5"/>',
       documenti: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M10 13h6M10 17h6"/>',
-      assistenza: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
+      assistenza: '<path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Zm0 0a9 9 0 1 1 18 0m0 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z"/><path d="M21 16v2a4 4 0 0 1-4 4h-5"/>',
       annuncio: '<path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M16 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/>'
     };
     function svg(n) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (ICON[n] || '') + '</svg>'; }
@@ -208,6 +208,7 @@
 
     var subs = {};
     var currentSub = 'servizi';
+    var ticketSegDot = null;
     if (panels.servizi.length || panels.ticket.length) {
       var assist = el('div', 'pt-panel');
       assist.id = 'pt-assistenza';
@@ -227,6 +228,10 @@
           b.type = 'button';
           b.setAttribute('data-sub-btn', p[0]);
           b.addEventListener('click', function () { showSub(p[0]); });
+          if (p[0] === 'ticket') {
+            ticketSegDot = el('span', 'pt-dot');
+            b.appendChild(ticketSegDot);
+          }
           seg.appendChild(b);
         });
         assist.appendChild(seg);
@@ -251,6 +256,7 @@
     var avail = defs.filter(function (d) { return d.k === 'home' || panelEls[d.k]; });
     var tiles = el('div', 'pt-tiles');
     var nomTile = null, nomChip = null, nomBarFill = null;
+    var asTile = null, asChip = null;
     avail.forEach(function (d) {
       if (d.k === 'home') return;
       var t = el('button', 'pt-tile');
@@ -269,10 +275,7 @@
         bar.appendChild(nomBarFill);
         t.appendChild(bar);
       }
-      if (d.k === 'assistenza') {
-        var tb = document.querySelector('#ticket-section .sec-card-badge-blue');
-        if (tb && txt(tb)) t.appendChild(el('span', 'pt-tile-chip', txt(tb) + ' aperti'));
-      }
+      if (d.k === 'assistenza') asTile = t;
       t.addEventListener('click', function () { show(d.k, null, true); });
       tiles.appendChild(t);
     });
@@ -480,16 +483,41 @@
       if (k === 'mappa') setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 60);
     }
 
-    /* 6 — Pallini di notifica (ticket aperti) */
+    /* 6 — Segnalazioni Assistenza: ticket aperti con ultima risposta dell'Organizzazione */
     function setDot(k, n) {
       [].forEach.call(document.querySelectorAll('[data-k="' + k + '"] .pt-dot'), function (d) {
         d.textContent = n > 0 ? String(n) : '';
         d.classList.toggle('show', n > 0);
       });
     }
+    function answeredCount() {
+      var n = 0;
+      [].forEach.call(document.querySelectorAll('#ticket-section .item-card[id^="ticket-"]'), function (c) {
+        if (!c.querySelector('.pill-green')) return;
+        var b = c.querySelectorAll('.reply-bubble');
+        if (b.length && b[b.length - 1].classList.contains('reply-admin')) n++;
+      });
+      return n;
+    }
     function syncDots() {
       var tb = document.querySelector('#ticket-section .sec-card-badge-blue');
-      setDot('assistenza', tb ? parseInt(txt(tb), 10) || 0 : 0);
+      var open = tb ? parseInt(txt(tb), 10) || 0 : 0;
+      var ans = answeredCount();
+      setDot('assistenza', ans > 0 ? ans : open);
+      if (ticketSegDot) {
+        ticketSegDot.textContent = ans > 0 ? String(ans) : '';
+        ticketSegDot.classList.toggle('show', ans > 0);
+      }
+      if (asTile) {
+        if (!asChip) { asChip = el('span', 'pt-tile-chip'); asTile.appendChild(asChip); }
+        var label = '';
+        if (ans > 0) label = ans + (ans === 1 ? ' risposta' : ' risposte');
+        else if (open > 0) label = open + (open === 1 ? ' aperto' : ' aperti');
+        asChip.textContent = label;
+        asChip.classList.toggle('pt-hide', !label);
+        asChip.classList.toggle('pt-chip-hot', ans > 0);
+        asTile.classList.toggle('pt-has-chip', !!label);
+      }
     }
     syncDots();
     setInterval(syncDots, 20000);

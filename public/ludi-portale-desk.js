@@ -79,7 +79,10 @@
       if (p && DESC[key]) p.textContent = DESC[key];
       if (key === 'Documenti e modulistica' && !t.querySelector('.pt-tile-chip')) {
         var n = document.querySelectorAll('#documenti-section .item-card').length;
-        if (n > 0) t.appendChild(el('span', 'pt-tile-chip', n + (n === 1 ? ' caricato' : ' caricati')));
+        if (n > 0) {
+          t.appendChild(el('span', 'pt-tile-chip pt-chip-hot', n + (n === 1 ? ' caricato' : ' caricati')));
+          t.classList.add('pt-has-chip');
+        }
       }
     });
     var nomTile = document.querySelector('.pt-tile-nom');
