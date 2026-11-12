@@ -1,0 +1,77 @@
+/* ludi-portale-desk.css — Portale Espositore, layout desktop (>= 761px) come da mockup.
+   Elementi creati da ludi-portale-desk.js. Il telefono non viene toccato. */
+
+.pt-desk-only { display: none; }
+.pt-hero-art { display: none; }
+.pt-pill svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; margin-right: .45rem; flex: 0 0 auto; }
+.pt-pill-ok { background: #dcf3e6; color: #1d6a39; }
+.pt-tile-prog { display: none; }
+
+@media (min-width: 761px) {
+  .pt-desk-only { display: block; }
+
+  /* Scheda di benvenuto */
+  .pt-hero { min-height: 190px; padding: 1.7rem 1.9rem; }
+  .pt-avatar { width: 104px; height: 104px; font-size: 2.2rem; }
+  body.pt-on .hdr-title { font-size: 2rem; }
+  .pt-hero-sub { margin-top: .45rem; font-size: 1rem; }
+  .pt-hero-body { max-width: 64%; }
+  .pt-pills { margin-top: 1rem; gap: .6rem; }
+  .pt-pill { padding: .55rem 1.1rem; font-size: .85rem; }
+  .pt-hero::after { display: none; }
+  .pt-hero-art { position: absolute; top: 0; right: 0; bottom: 0; width: 36%; z-index: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .pt-hero-art::before { content: ""; position: absolute; inset: 0; background: radial-gradient(130% 150% at 100% 0%, rgba(139,92,200,.42), rgba(139,92,200,.15) 55%, rgba(139,92,200,0) 74%); -webkit-mask-image: linear-gradient(90deg, transparent, #000 38%); mask-image: linear-gradient(90deg, transparent, #000 38%); }
+  .pt-art-logo { position: relative; text-align: center; line-height: 1; }
+  .pt-art-w { display: block; font-size: 2.7rem; font-weight: 900; letter-spacing: -.03em; color: #1e2d4e; }
+  .pt-art-w em { font-style: normal; color: #8b5cc8; }
+  .pt-art-s { display: block; margin-top: .4rem; padding-left: .45em; font-size: .9rem; font-weight: 800; letter-spacing: .45em; color: #6b3fa0; }
+  .pt-art-logo::after { content: ""; display: block; width: 92px; height: 14px; margin: .5rem auto 0; border-bottom: 5px solid #f5c842; border-radius: 0 0 92px 92px; }
+
+  /* Barra sezioni a tutta larghezza */
+  .pt-tab { flex: 1 1 0; justify-content: center; padding: .8rem 1rem; }
+
+  /* Home: riquadri + card finestra */
+  #pt-home .info-strip, #pt-home .prog-card { display: none; }
+  .pt-tile { min-height: 210px; padding: 1.4rem 1.5rem; }
+  .pt-tile-ico { width: 56px; height: 56px; }
+  .pt-tile-ico svg { width: 26px; height: 26px; }
+  .pt-tile h3 { font-size: 1.3rem; }
+  .pt-tile p { padding-right: 1.6rem; font-size: .88rem; }
+  .pt-tile::after { content: "\203A"; position: absolute; right: 1.2rem; top: 50%; transform: translateY(-50%); font-size: 1.7rem; line-height: 1; color: #a99bc8; }
+  .pt-tile-prog { display: flex; align-items: center; gap: .8rem; margin-top: auto; }
+  .pt-tile-bar2 { flex: 1 1 auto; height: 9px; border-radius: 999px; background: #ece6f7; overflow: hidden; }
+  .pt-tile-bar2 i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, #8b5cc8, #6b3fa0); transition: width .5s ease; }
+  .pt-tile-count { font-size: .88rem; font-weight: 800; color: #1e2d4e; font-variant-numeric: tabular-nums; }
+}
+
+@media (min-width: 981px) {
+  #pt-home.on { display: grid; grid-template-columns: minmax(0, 1fr) 340px; column-gap: 1.4rem; align-items: start; }
+  #pt-home.on > #bacheca { grid-column: 1 / -1; }
+  #pt-home.on > .pt-tiles { grid-column: 1; }
+  #pt-home.on > .pt-win { grid-column: 2; }
+}
+
+/* Card "Finestra inserimento nominativi" */
+.pt-win { margin: 0 0 1.4rem; overflow: hidden; background: #fff; border: 1px solid #ece6f7; border-radius: 22px; box-shadow: 0 6px 22px rgba(30,45,78,.07); }
+.pt-win-hd { display: flex; align-items: center; gap: .85rem; padding: 1.1rem 1.3rem; background: linear-gradient(135deg, #6b3fa0, #8b5cc8); color: #fff; }
+.pt-win-hd svg { flex: 0 0 auto; width: 34px; height: 34px; stroke: #fff; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.pt-win-hd h3 { margin: 0; font-size: 1.15rem; line-height: 1.25; font-weight: 700; }
+.pt-win-body { padding: 1.1rem 1.3rem 1.3rem; }
+.pt-win-status { display: flex; align-items: center; gap: .6rem; padding: .8rem 1rem; border-radius: 14px; background: #f6f3fb; color: #1e2d4e; font-size: .95rem; font-weight: 700; }
+.pt-win-status svg { flex: 0 0 auto; width: 22px; height: 22px; stroke: #6b3fa0; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pt-win-status.closed { background: #fdeceb; color: #922b21; }
+.pt-win-status.closed svg { stroke: #c0392b; }
+.pt-win-cd { display: grid; grid-template-columns: repeat(4, 1fr); gap: .55rem; margin: 1rem 0; }
+.pt-win-cd > div { padding: .7rem .2rem; border-radius: 14px; background: #f6f3fb; text-align: center; }
+.pt-win-cd b { display: block; font-size: 1.7rem; line-height: 1; color: #4c2c78; font-variant-numeric: tabular-nums; }
+.pt-win-cd small { font-size: .72rem; color: #8a8fa3; }
+.pt-win-note { display: flex; align-items: flex-start; gap: .6rem; margin: 0 0 1rem; padding-bottom: 1rem; border-bottom: 1px solid #f0edf7; font-size: .85rem; line-height: 1.4; color: #475569; }
+.pt-win-note i { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; background: #f5c842; color: #fff; font-style: normal; font-weight: 800; font-size: .8rem; display: flex; align-items: center; justify-content: center; }
+.pt-win-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: .6rem; padding: .95rem 1rem; border: 0; border-radius: 14px; background: linear-gradient(135deg, #6b3fa0, #8b5cc8); color: #fff; font: inherit; font-weight: 700; cursor: pointer; box-shadow: 0 6px 16px rgba(107,63,160,.3); }
+.pt-win-btn svg { width: 20px; height: 20px; stroke: #fff; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.pt-win-btn span { margin-left: auto; font-size: 1.3rem; line-height: 1; }
+
+/* Telefono: nessun elemento desktop */
+@media (max-width: 760px) {
+  .pt-pill svg, .pt-hero-art, .pt-win, .pt-tile-prog { display: none; }
+}
