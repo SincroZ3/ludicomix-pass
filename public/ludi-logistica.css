@@ -4,6 +4,7 @@
 
 body.lg-on { background: #f6f3fb; }
 body.lg-on .container { max-width: 1240px !important; padding: 0 1.25rem !important; }
+body.lg-on .breadcrumb-bar { max-width: 1240px; margin: 0 auto; padding: 1rem 1.25rem .25rem; box-sizing: border-box; }
 
 /* Testata */
 body.lg-on .lg-hero { position: relative; overflow: hidden; background: #fff; border: 1px solid #ece6f7; border-radius: 24px; box-shadow: 0 8px 28px rgba(30,45,78,.08); padding: 1.1rem 1.6rem !important; margin-bottom: 1.1rem !important; }
@@ -59,22 +60,22 @@ body.lg-on .cfg-item { background: #f6f3fb; border-color: #e4def0; }
 
 .lg-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 1.1rem; align-items: start; }
 .lg-board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.1rem; align-items: start; }
-.lg-col { background: rgba(255,255,255,.55); border: 1px solid #ece6f7; border-radius: 20px; overflow: hidden; min-height: 140px; }
+.lg-col { min-width: 0; background: rgba(255,255,255,.55); border: 1px solid #ece6f7; border-radius: 20px; overflow: hidden; min-height: 140px; }
 .lg-col-hd { display: flex; align-items: center; gap: .55rem; padding: .8rem 1rem; font-weight: 800; font-size: .95rem; color: #1e2d4e; }
 .lg-col[data-st="in_attesa"] .lg-col-hd { background: #fde9a6; }
 .lg-col[data-st="approvato"] .lg-col-hd { background: #c9efd8; }
 .lg-col[data-st="consegnato"] .lg-col-hd { background: #cfe8fb; }
 .lg-col[data-st="annullato"] .lg-col-hd { background: #fbcfd0; }
-.lg-col-body { padding: .7rem; display: grid; gap: .7rem; }
-.lg-card { background: #fff; border: 1px solid #f0ebf8; border-radius: 16px; padding: .85rem .95rem; box-shadow: 0 3px 12px rgba(30,45,78,.06); }
+.lg-col-body { padding: .7rem; display: grid; grid-template-columns: minmax(0, 1fr); gap: .7rem; }
+.lg-card { min-width: 0; box-sizing: border-box; background: #fff; border: 1px solid #f0ebf8; border-radius: 16px; padding: .85rem .95rem; box-shadow: 0 3px 12px rgba(30,45,78,.06); }
 .lg-card-top { display: flex; align-items: center; gap: .6rem; }
 .lg-ico { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%; background: #efe9fa; color: #6b3fa0; display: flex; align-items: center; justify-content: center; }
 .lg-ico svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-.lg-grp { font-weight: 800; font-size: .85rem; color: #1e2d4e; line-height: 1.2; overflow-wrap: anywhere; }
-.lg-type { margin-top: .55rem; font-size: .85rem; font-weight: 700; color: #3b3560; }
+.lg-grp { min-width: 0; font-weight: 800; font-size: .85rem; color: #1e2d4e; line-height: 1.2; overflow-wrap: anywhere; }
+.lg-type { margin-top: .55rem; font-size: .85rem; font-weight: 700; color: #3b3560; overflow-wrap: anywhere; }
 .lg-note { margin-top: .25rem; font-size: .78rem; color: #6b7280; overflow-wrap: anywhere; }
-.lg-card-ft { display: flex; align-items: center; gap: .4rem; margin-top: .7rem; }
-.lg-date { margin-right: auto; font-size: .72rem; color: #9a94ad; }
+.lg-card-ft { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .4rem; margin-top: .7rem; }
+.lg-date { flex: 1 1 100%; margin: 0 0 .1rem; font-size: .72rem; color: #9a94ad; }
 .lg-act { width: 30px; height: 30px; border-radius: 50%; border: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
 .lg-act svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .lg-act.adv { background: #ece6f7; color: #6b3fa0; }
