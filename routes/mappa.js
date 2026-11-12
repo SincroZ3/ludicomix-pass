@@ -1,6 +1,6 @@
 /**
  * routes/mappa.js
- * ──────────────────────────────────────────────────────────────────
+ * ────────────────────────────────────────────────────────────────────────
  * Mappa interattiva interna, gestione zone, posizionamento stand.
  *
  * Route registrate:
@@ -17,12 +17,15 @@
  *   POST /admin/mappa-pubblica/zone/:id
  *   POST /admin/groups/:id/map-position
  *   POST /admin/groups/:id/map-xy
- * ──────────────────────────────────────────────────────────────────
+ * ────────────────────────────────────────────────────────────────────────
  */
 
 const path   = require('path');
 const fs     = require('fs');
 const multer = require('multer');
+
+// Versione degli asset UI della mappa: cambia ad ogni avvio del server per evitare la cache.
+const MAPPA_ASSET_V = Date.now().toString(36);
 
 module.exports = function registerMappaRoutes(
   app, db,
@@ -30,18 +33,18 @@ module.exports = function registerMappaRoutes(
 ) {
   const DATA_DIR = process.env.DATA_DIR || __dirname.replace('/routes', '');
 
-  // ── Multer per upload background zone ───────────────────────────
+  // ── Multer per upload background zone ───────────────────────────────
   const bgUpload = multer({
     dest: path.join(DATA_DIR, 'generated'),
     fileFilter: (_req, file, cb) => cb(null, /image\//.test(file.mimetype)),
   });
 
-  // ── Serve file background ────────────────────────────────────────
+  // ── Serve file background ────────────────────────────────────────────────────
   app.get('/zone-bg/:filename', (req, res) => {
     res.sendFile(path.join(DATA_DIR, 'generated', path.basename(req.params.filename)));
   });
 
-  // ── Pagina mappa interna ─────────────────────────────────────────
+  // ── Pagina mappa interna ───────────────────────────────────────────────────────
   app.get('/mappa', requireAuth, (req, res) => {
     db.all(
       "SELECT * FROM zones WHERE (zone_scope IS NULL OR zone_scope='internal') ORDER BY sort_order, name",
@@ -70,11 +73,30 @@ module.exports = function registerMappaRoutes(
           [],
           (err2, groups) => {
             if (err2) return res.status(500).send('Errore DB');
+            // Render con inserimento degli asset UI (ludi-mappa.css/js). Se qualcosa non va la pagina resta quella di prima.
+            // Per annullare: sostituire il render con callback con res.render('mappa', {...}).
             res.render('mappa', {
               zones:    zones  || [],
               groups:   groups || [],
               isAdmin:  !!(req.session.user?.role === 'admin'),
               canEdit:  !!(req.session.user?.role !== 'viewer'),
+            }, (rErr, html) => {
+              if (rErr) {
+                console.error('[mappa] render', rErr.message);
+                return res.status(500).send('Errore interno');
+              }
+              try {
+                let out = html;
+                const css = '<link rel="stylesheet" href="/ludi-mappa.css?v=' + MAPPA_ASSET_V + '">';
+                out = out.includes('</head>') ? out.replace('</head>', () => css + '</head>') : css + out;
+                const tag = '<script src="/ludi-mappa.js?v=' + MAPPA_ASSET_V + '" defer></script>';
+                const i = out.lastIndexOf('</body>');
+                out = i === -1 ? out + tag : out.slice(0, i) + tag + out.slice(i);
+                res.send(out);
+              } catch (e) {
+                console.error('[mappa] assets', e.message);
+                res.send(html);
+              }
             });
           }
         );
@@ -82,7 +104,7 @@ module.exports = function registerMappaRoutes(
     );
   });
 
-  // ── Crea zona interna ────────────────────────────────────────────
+  // ── Crea zona interna ────────────────────────────────────────────────────────
   app.post('/admin/zones', requireAuth, requireOrganizer, (req, res) => {
     const { name, sort_order } = req.body;
     if (!name?.trim()) return res.status(400).send('Nome zona obbligatorio');
@@ -100,7 +122,7 @@ module.exports = function registerMappaRoutes(
     );
   });
 
-  // ── Modifica zona ────────────────────────────────────────────────
+  // ── Modifica zona ─────────────────────────────────────────────────────────
   app.post('/admin/zones/:id/edit', requireAuth, requireAdmin, (req, res) => {
     const id = parseInt(req.params.id, 10);
     const { name, sort_order } = req.body;
@@ -116,7 +138,7 @@ module.exports = function registerMappaRoutes(
     );
   });
 
-  // ── Elimina zona ─────────────────────────────────────────────────
+  // ── Elimina zona ─────────────────────────────────────────────────────────
   app.post('/admin/zones/:id/delete', requireAuth, requireOrganizer, (req, res) => {
     const id = parseInt(req.params.id, 10);
     db.run('DELETE FROM zones WHERE id=?', [id], (err) => {
@@ -126,7 +148,7 @@ module.exports = function registerMappaRoutes(
     });
   });
 
-  // ── Cambia scope zona (internal / public / both) ─────────────────
+  // ── Cambia scope zona (internal / public / both) ─────────────────────────
   app.post('/admin/zones/:id/set-scope', requireAuth, requireOrganizer, (req, res) => {
     const id          = parseInt(req.params.id, 10);
     const { zone_scope } = req.body;
@@ -139,7 +161,7 @@ module.exports = function registerMappaRoutes(
     });
   });
 
-  // ── Upload sfondo zona ───────────────────────────────────────────
+  // ── Upload sfondo zona ──────────────────────────────────────────────────
   app.post('/admin/zones/:id/upload-bg', requireAuth, requireAdmin, bgUpload.single('bg_image'), (req, res) => {
     const zoneId = parseInt(req.params.id, 10);
     if (!req.file) return res.redirect('/mappa');
@@ -156,7 +178,7 @@ module.exports = function registerMappaRoutes(
     });
   });
 
-  // ── Rimuovi sfondo zona ──────────────────────────────────────────
+  // ── Rimuovi sfondo zona ───────────────────────────────────────────────────
   app.post('/admin/zones/:id/delete-bg', requireAuth, requireAdmin, (req, res) => {
     const zoneId = parseInt(req.params.id, 10);
     db.get('SELECT background_image FROM zones WHERE id=?', [zoneId], (_e, row) => {
@@ -167,7 +189,7 @@ module.exports = function registerMappaRoutes(
     });
   });
 
-  // ── Zone manager (mappa pubblica) ────────────────────────────────
+  // ── Zone manager (mappa pubblica) ────────────────────────────────────────
   app.get('/admin/zone-manager', requireAuth, requireOrganizer, (req, res) => {
     db.all('SELECT * FROM zones ORDER BY sort_order, name', [], (err, zones) => {
       if (err) return res.status(500).send('Errore DB zone');
@@ -219,7 +241,7 @@ module.exports = function registerMappaRoutes(
     }
   });
 
-  // ── Posizione griglia stand (legacy) ────────────────────────────
+  // ── Posizione griglia stand (legacy) ───────────────────────────────────────
   app.post('/admin/groups/:id/map-position', requireAuth, requireNotViewer, (req, res) => {
     const id   = parseInt(req.params.id, 10);
     const row  = parseInt(req.body.map_row,  10) || null;
@@ -230,7 +252,7 @@ module.exports = function registerMappaRoutes(
     );
   });
 
-  // ── Posizione XY drag&drop stand ─────────────────────────────────
+  // ── Posizione XY drag&drop stand ───────────────────────────────────────────
   app.post('/admin/groups/:id/map-xy', requireAuth, requireNotViewer, (req, res) => {
     const id   = parseInt(req.params.id, 10);
     const toF  = (v) => (v !== '' && v != null) ? parseFloat(v)  : null;

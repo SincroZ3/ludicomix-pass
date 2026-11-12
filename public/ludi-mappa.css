@@ -1,0 +1,81 @@
+/* ludi-mappa.css — Mappa Stand (gestionale): stile coerente con il resto del portale (viola, pillole, card arrotondate).
+   Tutte le regole sono sotto body.mp-on, aggiunto da ludi-mappa.js: se lo script non parte la pagina resta com'era.
+   Per annullare: in routes/mappa.js tornare a res.render('mappa', {...}) senza callback. */
+
+body.mp-on { background: #f6f3fb; }
+body.mp-on .page-title { display: none; }
+
+/* Testata */
+body.mp-on .mp-hero { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; background: #fff; border: 1px solid #ece6f7; border-radius: 24px; box-shadow: 0 8px 28px rgba(30,45,78,.08); padding: 1.3rem 1.8rem; margin: .4rem 0 1.1rem; }
+body.mp-on .mp-hero::before { content: ""; position: absolute; inset: 0; z-index: 0; background: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 220' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='a' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%238b5cc8' stop-opacity='.03'/%3E%3Cstop offset='1' stop-color='%236b3fa0' stop-opacity='.22'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0 220C220 214 420 176 600 112S880 22 1000 12V220H0Z' fill='url(%23a)'/%3E%3Cpath d='M0 220C250 218 450 196 650 154S900 96 1000 86V220H0Z' fill='%238b5cc8' fill-opacity='.08'/%3E%3Cpath d='M0 220C280 220 480 212 700 190S920 164 1000 158V220H0Z' fill='%236b3fa0' fill-opacity='.06'/%3E%3C/svg%3E") center / 100% 100% no-repeat; pointer-events: none; }
+body.mp-on .mp-hero > * { position: relative; z-index: 1; }
+body.mp-on .mp-hero h1 { margin: 0; font-size: 2rem; font-weight: 800; letter-spacing: -.02em; color: #1e2d4e; border: 0; padding: 0; }
+body.mp-on .mp-hero p { margin: .3rem 0 0; font-size: .95rem; color: #6b6a86; }
+body.mp-on .mp-hero-stats { display: flex; gap: .6rem; flex-wrap: wrap; }
+body.mp-on .mp-k { display: inline-flex; align-items: baseline; gap: .4rem; background: #fff; border: 1px solid #ece6f7; border-radius: 999px; padding: .5rem 1rem; font-size: .84rem; color: #4c2c78; font-weight: 600; box-shadow: 0 4px 12px rgba(30,45,78,.07); }
+body.mp-on .mp-k b { font-size: 1.15rem; font-weight: 800; color: #1e2d4e; }
+body.mp-on .mp-k.warn b { color: #b3321f; }
+
+/* Zone a pillola */
+body.mp-on .zone-tabs { gap: .55rem; margin-bottom: 1.1rem; }
+body.mp-on .ztab { display: inline-flex; align-items: center; gap: .4rem; border: 0; border-radius: 999px; padding: .65rem 1.15rem; background: #fff; color: #1e2d4e; font-size: .9rem; font-weight: 700; box-shadow: 0 3px 10px rgba(30,45,78,.07); }
+body.mp-on .ztab:hover:not(.active) { background: #f1ecfa; color: #4c2c78; border: 0; }
+body.mp-on .ztab.active { background: linear-gradient(135deg, #8b5cc8, #6b3fa0); color: #fff; border: 0; box-shadow: 0 6px 14px rgba(107,63,160,.35); }
+body.mp-on .ztab span { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 .4rem; margin: 0 !important; opacity: 1 !important; border-radius: 999px; background: #ece6f7; color: #4c2c78; font-size: .72rem !important; font-weight: 800; }
+body.mp-on .ztab.active span { background: rgba(255,255,255,.25); color: #fff; }
+
+/* Riepilogo zona e ricerca */
+body.mp-on .mp-strip { display: flex; align-items: center; justify-content: space-between; gap: .8rem; flex-wrap: wrap; margin-bottom: .9rem; }
+body.mp-on .mp-kpis { display: flex; gap: .5rem; flex-wrap: wrap; }
+body.mp-on .mp-search { display: flex; align-items: center; gap: .55rem; flex: 0 1 320px; background: #fff; border-radius: 999px; padding: .5rem 1rem; box-shadow: 0 3px 10px rgba(30,45,78,.07); margin: 0; }
+body.mp-on .mp-search svg { width: 17px; height: 17px; stroke: #6b5a8a; fill: none; stroke-width: 2; stroke-linecap: round; flex: 0 0 auto; }
+body.mp-on .mp-search input { flex: 1; min-width: 0; margin: 0; padding: 0; border: 0 !important; outline: none; box-shadow: none !important; background: transparent; font: inherit; font-size: .9rem; color: #1e2d4e; }
+
+/* Barra strumenti planimetria */
+body.mp-on .map-toolbar { gap: .55rem; margin-bottom: .8rem; }
+body.mp-on .map-toolbar label { border-radius: 999px !important; border: 1.5px solid #d9cff0 !important; color: #4c2c78; background: #fff !important; padding: .5rem 1.1rem !important; font-size: .8rem !important; box-shadow: 0 3px 10px rgba(30,45,78,.06); }
+body.mp-on .map-toolbar .btn-danger { border-radius: 999px; background: #fdeceb; color: #b3321f; padding: .5rem 1.1rem !important; font-size: .78rem !important; }
+
+/* Riquadro mappa */
+body.mp-on .map-area { background-color: #fff; border: 1px solid #ece6f7; border-radius: 24px; box-shadow: 0 8px 28px rgba(30,45,78,.08); }
+body.mp-on .map-area.has-bg { background-color: #fff; }
+body.mp-on .map-area.drag-over { border-color: #6b3fa0; box-shadow: 0 0 0 4px rgba(107,63,160,.15), 0 8px 28px rgba(30,45,78,.08); }
+
+/* Stand */
+body.mp-on .stand-box { border-radius: 8px; box-shadow: 0 3px 10px rgba(30,45,78,.28), inset 0 0 0 1.5px rgba(255,255,255,.5); }
+body.mp-on .stand-box:hover { box-shadow: 0 6px 18px rgba(30,45,78,.4), inset 0 0 0 1.5px rgba(255,255,255,.7); }
+body.mp-on .stand-box.mp-dim { opacity: .16 !important; }
+body.mp-on .stand-box.mp-hit { box-shadow: 0 0 0 3px #f5c842, 0 8px 22px rgba(30,45,78,.45) !important; z-index: 40 !important; }
+body.mp-on .chip-box.mp-dim { opacity: .3; }
+body.mp-on .chip-box.mp-hit { border-color: #f5c842; box-shadow: 0 0 0 2px #f5c842; }
+
+/* Scheda stand (popup) e note */
+body.mp-on .stp { border-radius: 18px; border: 1px solid #ece6f7; box-shadow: 0 14px 40px rgba(30,45,78,.22); padding: 1rem 1.1rem; }
+body.mp-on .stp-title { color: #1e2d4e; }
+body.mp-on .stp-btn { border-radius: 999px; padding: .35rem .9rem; border-color: #d9cff0; background: #fff; color: #4c2c78; }
+body.mp-on .stp-btn.primary { border-color: transparent; background: linear-gradient(135deg, #8b5cc8, #6b3fa0); color: #fff; }
+body.mp-on .stp-btn.danger { border-radius: 999px; }
+body.mp-on .note-modal { border-radius: 20px; }
+
+/* Barra modifica forma */
+body.mp-on .shape-toolbar { border-radius: 999px; background: #4c2c78; padding: .45rem 1rem; }
+body.mp-on .shape-toolbar button { border-radius: 999px; }
+
+/* Vassoi */
+body.mp-on .unp-tray, body.mp-on .oob-tray { border-radius: 20px; padding: .8rem 1rem; box-shadow: 0 6px 22px rgba(30,45,78,.06); }
+body.mp-on .unp-tray { border: 1px solid #ece6f7; }
+body.mp-on .unp-tray-hdr { color: #6b5a8a; }
+body.mp-on .unp-badge { background: #ece6f7; color: #4c2c78; font-weight: 800; }
+body.mp-on .chip-box { border-radius: 14px; background: #f6f3fb; border: 1px solid #e4def0; padding: .4rem .75rem; }
+body.mp-on .chip-box:hover { border-color: #6b3fa0; box-shadow: 0 4px 12px rgba(107,63,160,.18); }
+body.mp-on .oob-chip { border-radius: 14px; }
+
+/* Legenda */
+body.mp-on .mp-legend { background: #fff; border: 1px solid #ece6f7; border-radius: 999px; padding: .55rem 1rem; box-shadow: 0 3px 10px rgba(30,45,78,.06); width: fit-content; }
+body.mp-on .mp-legend .leg { padding: .25rem .8rem; }
+
+@media (max-width: 640px) {
+  body.mp-on .mp-hero { padding: 1rem 1.1rem; }
+  body.mp-on .mp-hero h1 { font-size: 1.5rem; }
+  body.mp-on .mp-search { flex-basis: 100%; }
+}
