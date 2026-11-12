@@ -1,0 +1,87 @@
+/* ludi-logistica-cat.css — Catalogo attrezzature a schede (Logistica). Tutte le regole usano il prefisso lgc-.
+   Per annullare: togliere i due link a ludi-logistica-cat.* da routes/logistica.js. */
+
+#panel-attrezzature.lgc-on > .section-title,
+#panel-attrezzature.lgc-on > .loc-section,
+#panel-attrezzature.lgc-on > .empty { display: none; }
+
+.lgc-head { display: flex; align-items: center; justify-content: space-between; gap: .8rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.lgc-title { display: flex; align-items: center; gap: .6rem; font-size: 1.35rem; font-weight: 800; color: #1e2d4e; margin: 0; }
+.lgc-title svg { width: 26px; height: 26px; stroke: #1e2d4e; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.lgc-add { display: inline-flex; align-items: center; gap: .4rem; border: 0; cursor: pointer; font: inherit; font-size: .88rem; font-weight: 700; color: #fff; padding: .65rem 1.3rem; border-radius: 999px; background: linear-gradient(135deg, #8b5cc8, #6b3fa0); box-shadow: 0 6px 16px rgba(107,63,160,.3); }
+
+.lgc-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin-bottom: 1.1rem; }
+.lgc-kpi { display: flex; align-items: center; gap: .9rem; background: #fff; border-radius: 20px; padding: 1rem 1.2rem; box-shadow: 0 6px 22px rgba(30,45,78,.07); }
+.lgc-kpi .ic { flex: 0 0 auto; width: 52px; height: 52px; border-radius: 50%; background: #efe9fa; color: #6b3fa0; display: flex; align-items: center; justify-content: center; }
+.lgc-kpi .ic svg { width: 26px; height: 26px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.lgc-kpi .lb { font-size: .9rem; font-weight: 600; color: #4a5568; }
+.lgc-kpi .vl { font-size: 2rem; line-height: 1.1; font-weight: 800; color: #1e2d4e; }
+
+.lgc-tools { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
+.lgc-search { flex: 1 1 280px; display: flex; align-items: center; gap: .6rem; background: #fff; border-radius: 999px; padding: .6rem 1.1rem; box-shadow: 0 3px 10px rgba(30,45,78,.07); }
+.lgc-search svg { width: 18px; height: 18px; stroke: #6b5a8a; fill: none; stroke-width: 2; stroke-linecap: round; flex: 0 0 auto; }
+.lgc-search input { flex: 1; min-width: 0; border: 0 !important; outline: none; background: transparent; font: inherit; font-size: .92rem; color: #1e2d4e; padding: 0; margin: 0; box-shadow: none !important; }
+.lgc-chips { display: flex; gap: .45rem; flex-wrap: wrap; }
+.lgc-chip { border: 1.5px solid #d9cff0; background: #fff; color: #4c2c78; font: inherit; font-size: .84rem; font-weight: 700; padding: .45rem 1rem; border-radius: 999px; cursor: pointer; }
+.lgc-chip small { margin-left: .35rem; font-size: .72rem; font-weight: 700; opacity: .7; }
+.lgc-chip.on { background: linear-gradient(135deg, #8b5cc8, #6b3fa0); border-color: transparent; color: #fff; box-shadow: 0 4px 12px rgba(107,63,160,.3); }
+
+.lgc-group { margin-bottom: 1.5rem; }
+.lgc-gh { display: flex; align-items: center; gap: .6rem; margin-bottom: .75rem; }
+.lgc-gh::before { content: ""; width: 6px; height: 24px; border-radius: 4px; background: linear-gradient(180deg, #8b5cc8, #6b3fa0); }
+.lgc-gh b { font-size: 1.1rem; font-weight: 800; color: #1e2d4e; }
+.lgc-gh span { font-size: .85rem; color: #6b7280; }
+.lgc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+
+.lgc-card { position: relative; display: flex; gap: .9rem; background: #fff; border: 1px solid #ece6f7; border-radius: 20px; padding: 1rem 1.1rem; box-shadow: 0 6px 22px rgba(30,45,78,.07); min-width: 0; }
+.lgc-ico { flex: 0 0 auto; width: 58px; height: 58px; border-radius: 50%; background: #f1ecfa; color: #6b3fa0; display: flex; align-items: center; justify-content: center; }
+.lgc-ico svg { width: 30px; height: 30px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.lgc-main { flex: 1; min-width: 0; }
+.lgc-name { font-size: 1.02rem; font-weight: 800; color: #1e2d4e; line-height: 1.2; overflow-wrap: anywhere; }
+.lgc-meta { margin-top: .15rem; font-size: .76rem; color: #8a84a3; overflow-wrap: anywhere; }
+.lgc-bar { position: relative; height: 9px; border-radius: 999px; background: #ece6f7; margin-top: .6rem; overflow: hidden; }
+.lgc-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: #3fb56b; }
+.lgc-bar.warn i { background: #f1b72a; }
+.lgc-bar.out i { background: #e0503c; }
+.lgc-av { margin-top: .35rem; font-size: .82rem; font-weight: 700; color: #1d6a39; }
+.lgc-av.warn { color: #8a5d00; }
+.lgc-av.out { color: #b3321f; }
+.lgc-av em { font-style: normal; font-weight: 600; color: #6b7280; margin-left: .4rem; }
+.lgc-note { margin-top: .35rem; font-size: .8rem; color: #6b7280; font-style: italic; overflow-wrap: anywhere; }
+.lgc-acts { display: flex; align-items: center; gap: .45rem; margin-top: .75rem; }
+.lgc-btn { display: inline-flex; align-items: center; gap: .35rem; border: 1.5px solid #d9cff0; background: #fff; color: #4c2c78; font: inherit; font-size: .82rem; font-weight: 700; padding: .42rem 1rem; border-radius: 999px; cursor: pointer; }
+.lgc-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.lgc-btn.pri { border-color: transparent; background: linear-gradient(135deg, #8b5cc8, #6b3fa0); color: #fff; }
+.lgc-btn[disabled] { opacity: .45; cursor: not-allowed; }
+.lgc-btn.danger { border-color: #f3c5c1; background: #fdeceb; color: #b3321f; }
+.lgc-more { position: relative; margin-left: auto; }
+.lgc-dots { width: 32px; height: 32px; border: 0; border-radius: 50%; background: transparent; color: #6b5a8a; cursor: pointer; font-size: 1.2rem; font-weight: 800; line-height: 1; }
+.lgc-dots:hover { background: #f1ecfa; }
+.lgc-pop { display: none; position: absolute; right: 0; bottom: 100%; margin-bottom: .3rem; z-index: 5; background: #fff; border: 1px solid #ece6f7; border-radius: 14px; box-shadow: 0 10px 28px rgba(30,45,78,.18); padding: .35rem; min-width: 150px; }
+.lgc-pop.open { display: block; }
+.lgc-pop button { display: block; width: 100%; text-align: left; border: 0; background: none; font: inherit; font-size: .84rem; font-weight: 700; padding: .5rem .8rem; border-radius: 10px; cursor: pointer; color: #b3321f; }
+.lgc-pop button:hover { background: #fdeceb; }
+.lgc-empty { text-align: center; padding: 2.2rem 1rem; color: #8a84a3; font-size: .92rem; background: #fff; border-radius: 20px; }
+
+.lgc-ov { display: none; position: fixed; inset: 0; z-index: 9000; background: rgba(30,45,78,.5); align-items: flex-start; justify-content: center; padding: 6vh 1rem 2rem; overflow-y: auto; backdrop-filter: blur(2px); }
+.lgc-ov.open { display: flex; }
+.lgc-modal { width: 100%; max-width: 820px; background: #fff; border-radius: 24px; box-shadow: 0 20px 60px rgba(10,20,45,.35); overflow: hidden; }
+.lgc-mh { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.4rem; background: #f6f3fb; font-weight: 800; color: #1e2d4e; }
+.lgc-x { border: 0; background: #fff; width: 32px; height: 32px; border-radius: 50%; font-size: 1.1rem; cursor: pointer; color: #6b5a8a; box-shadow: 0 2px 6px rgba(30,45,78,.12); }
+.lgc-mb { padding: 1.2rem 1.4rem 1.4rem; }
+.lgc-modal .log-card { margin: 0; border: 0; box-shadow: none; border-radius: 0; }
+.lgc-modal .log-card-body { padding: 1.2rem 1.4rem 1.4rem; }
+.lgc-f { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem 1rem; }
+.lgc-f label { display: block; font-size: .72rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #64748b; margin: 0; }
+.lgc-f input, .lgc-f select { display: block; width: 100%; margin-top: .3rem; border: 1.5px solid #d9cff0; border-radius: 12px; padding: .5rem .75rem; font: inherit; font-size: .9rem; color: #1e2d4e; background: #fff; }
+.lgc-f .full { grid-column: 1 / -1; }
+.lgc-fa { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1.1rem; }
+
+@media (max-width: 900px) {
+  .lgc-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .lgc-grid { grid-template-columns: 1fr; }
+  .lgc-f { grid-template-columns: 1fr; }
+  .lgc-kpi .vl { font-size: 1.6rem; }
+}

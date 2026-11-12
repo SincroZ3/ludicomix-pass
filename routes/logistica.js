@@ -44,12 +44,14 @@ function renderWithShell(res, view, data, withAssets, extra) {
           ? out.replace(styleLink, () => styleLink + headExtra)
           : out.replace('</head>', () => headExtra + '</head>');
         if (withAssets) {
-          out = out.replace('</head>', () => '<link rel="stylesheet" href="/ludi-logistica.css?v=' + LOGI_ASSET_V + '"></head>');
+          out = out.replace('</head>', () => '<link rel="stylesheet" href="/ludi-logistica.css?v=' + LOGI_ASSET_V + '"><link rel="stylesheet" href="/ludi-logistica-cat.css?v=' + LOGI_ASSET_V + '"></head>');
         }
         out = out.replace(/<body[^>]*>/i, (m) => m + bd[1]);
         if (withAssets) {
-          const data = extra ? '<script>window.__LG_NEEDS=' + JSON.stringify(extra.needs || []).replace(/</g, '\\u003c') + ';</script>' : '';
-          const tag = data + '<script src="/ludi-logistica.js?v=' + LOGI_ASSET_V + '" defer></script>';
+          const j = (v) => JSON.stringify(v || []).replace(/</g, '\\u003c');
+          const needsTag = extra ? '<script>window.__LG_NEEDS=' + j(extra.needs) + ';</script>' : '';
+          const eqTag = extra && extra.eq ? '<script>window.__LG_EQ=' + j(extra.eq) + ';window.__LG_CATS=' + j(extra.cats) + ';window.__LG_LOCS=' + j(extra.locs) + ';</script>' : '';
+          const tag = needsTag + eqTag + '<script src="/ludi-logistica.js?v=' + LOGI_ASSET_V + '" defer></script><script src="/ludi-logistica-cat.js?v=' + LOGI_ASSET_V + '" defer></script>';
           const i = out.lastIndexOf('</body>');
           out = i === -1 ? out + tag : out.slice(0, i) + tag + out.slice(i);
         }
@@ -115,7 +117,17 @@ module.exports = function registerLogisticaRoutes(app, db, { requireAuth, requir
         needs = nrows.map(r => ({ label: lab[r.category] || r.category || 'Altro', req: r.req || 0, conf: r.conf || 0, del: r.del || 0 }));
       } catch (_) { needs = []; }
 
-      renderWithShell(res, 'admin-logistica', { requests, equipment, loans, groups, materialTypes, storageLocations, saved: req.query.saved || null }, true, { needs });
+      // Dati del catalogo attrezzature per la vista a schede (con quantita' in prestito)
+      const loanedMap = {};
+      loans.forEach(l => { if (!l.returned_at) loanedMap[l.equipment_id] = (loanedMap[l.equipment_id] || 0) + (l.qty || 0); });
+      const eq = equipment.map(e => ({
+        id: e.id, name: e.name || '', category: e.category || '', total: e.total_qty || 0,
+        used: loanedMap[e.id] || 0, location: e.location || '', location_custom: e.location_custom || '', notes: e.notes || ''
+      }));
+      const cats = materialTypes.map(c => ({ key: c.key_name, label: c.label, icon: c.icon || '' }));
+      const locs = storageLocations.map(l => ({ key: l.key_name, label: l.label, icon: l.icon || '' }));
+
+      renderWithShell(res, 'admin-logistica', { requests, equipment, loans, groups, materialTypes, storageLocations, saved: req.query.saved || null }, true, { needs, eq, cats, locs });
     } catch (err) {
       console.error('Errore /admin/logistica:', err);
       res.status(500).send('Errore interno');
