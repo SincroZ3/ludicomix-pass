@@ -1,6 +1,8 @@
 /* ludi-logistica.js — Logistica & Servizi: testata, tab con icone, richieste a colonne, Fabbisogni in sintesi.
    Non cambia i comandi della pagina: i pulsanti delle card azionano il select dello stato e il cestino gia' presenti
-   nella tabella (updateStatus / deleteReq). Il pannello Fabbisogni e i contatori si ricalcolano dalle richieste a ogni modifica.
+   nella tabella (updateStatus / deleteReq). Il pannello Fabbisogni ha due blocchi separati:
+   - Richieste ricevute: calcolato dalle card, si aggiorna a ogni modifica;
+   - Fabbisogni gruppi: dati del Resoconto (window.__LG_NEEDS), riletti dalla pagina stessa ogni 20 secondi.
    In caso di errore la pagina resta com'e'. */
 (function () {
   'use strict';
@@ -10,6 +12,10 @@
     var cont = document.querySelector('.container');
     if (!cont || document.body.classList.contains('lg-on')) return;
     document.body.classList.add('lg-on');
+
+    var st0 = document.createElement('style');
+    st0.textContent = '.lg-sub{margin:1.1rem 0 .7rem;padding-top:.9rem;border-top:1px solid #f0edf7;font-size:.72rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#6b5a8a}.lg-sub:first-of-type{margin-top:0;padding-top:0;border-top:0}.lg-sub small{display:block;margin-top:.15rem;font-size:.7rem;font-weight:600;letter-spacing:0;text-transform:none;color:#9a94ad}';
+    document.head.appendChild(st0);
 
     function el(tag, cls, text) {
       var e = document.createElement(tag);
@@ -113,18 +119,59 @@
     body.insertBefore(layout, wrap);
     layout.appendChild(board);
 
-    /* Fabbisogni in sintesi: calcolato dalle richieste mostrate, si aggiorna a ogni modifica */
+    /* Fabbisogni in sintesi: due blocchi separati */
     var needsBox = el('aside', 'lg-needs');
     var nh = el('h3', '');
     nh.innerHTML = svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>');
     nh.appendChild(document.createTextNode('Fabbisogni in sintesi'));
     needsBox.appendChild(nh);
-    var needsList = el('div', 'lg-needs-list');
-    needsBox.appendChild(needsList);
+
+    var subReq = el('div', 'lg-sub', 'Richieste ricevute');
+    subReq.appendChild(el('small', '', 'Dalle card qui a sinistra, in tempo reale'));
+    needsBox.appendChild(subReq);
+    var reqList = el('div', 'lg-needs-list');
+    needsBox.appendChild(reqList);
+
+    var subGmr = el('div', 'lg-sub', 'Fabbisogni gruppi');
+    var gmrWhen = el('small', '', 'Dal Resoconto fabbisogni');
+    subGmr.appendChild(gmrWhen);
+    needsBox.appendChild(subGmr);
+    var gmrList = el('div', 'lg-needs-list');
+    needsBox.appendChild(gmrList);
+
     var needsLink = el('a', 'lg-link', 'Apri resoconto completo');
     needsLink.href = '/admin/logistica/resoconto';
     needsBox.appendChild(needsLink);
     layout.appendChild(needsBox);
+
+    function barRow(label, a, b, total, valText, title) {
+      var row = el('div', 'lg-need');
+      var top = el('div', 'lg-need-top');
+      top.appendChild(el('strong', '', label));
+      var val = el('span', '', valText);
+      val.title = title;
+      top.appendChild(val);
+      row.appendChild(top);
+      var bar = el('div', 'lg-need-bar');
+      var c = document.createElement('i');
+      c.className = 'c';
+      c.style.width = Math.min(100, Math.round(a / total * 100)) + '%';
+      var d = document.createElement('i');
+      d.className = 'd';
+      d.style.width = Math.min(100, Math.round(b / total * 100)) + '%';
+      bar.appendChild(c);
+      bar.appendChild(d);
+      row.appendChild(bar);
+      return row;
+    }
+    function legend(l1t, l2t) {
+      var lg = el('div', 'lg-need-legend');
+      var l1 = el('span', ''); var b1 = document.createElement('b'); b1.style.background = '#c9b5ea'; l1.appendChild(b1); l1.appendChild(document.createTextNode(l1t));
+      var l2 = el('span', ''); var b2 = document.createElement('b'); b2.style.background = '#6b3fa0'; l2.appendChild(b2); l2.appendChild(document.createTextNode(l2t));
+      lg.appendChild(l1);
+      lg.appendChild(l2);
+      return lg;
+    }
 
     function updateNeeds(by) {
       var map = {}, order = [];
@@ -143,38 +190,50 @@
       });
       var list = order.map(function (k) { return map[k]; }).filter(function (m) { return m.req > 0; });
       list.sort(function (a, b) { return b.req - a.req; });
-      needsList.innerHTML = '';
+      reqList.innerHTML = '';
       if (!list.length) {
-        needsList.appendChild(el('p', 'lg-needs-empty', 'Nessuna richiesta attiva da mostrare.'));
+        reqList.appendChild(el('p', 'lg-needs-empty', 'Nessuna richiesta attiva da mostrare.'));
         return;
       }
       list.forEach(function (n) {
-        var row = el('div', 'lg-need');
-        var top = el('div', 'lg-need-top');
-        top.appendChild(el('strong', '', n.label));
-        var val = el('span', '', n.app + ' / ' + n.req);
-        val.title = 'Approvati ' + n.app + ' (consegnati ' + n.del + ') su ' + n.req + ' richiesti';
-        top.appendChild(val);
-        row.appendChild(top);
-        var bar = el('div', 'lg-need-bar');
-        var c = document.createElement('i');
-        c.className = 'c';
-        c.style.width = Math.min(100, Math.round(n.app / n.req * 100)) + '%';
-        var d = document.createElement('i');
-        d.className = 'd';
-        d.style.width = Math.min(100, Math.round(n.del / n.req * 100)) + '%';
-        bar.appendChild(c);
-        bar.appendChild(d);
-        row.appendChild(bar);
-        needsList.appendChild(row);
+        reqList.appendChild(barRow(n.label, n.app, n.del, n.req, n.app + ' / ' + n.req,
+          'Approvati ' + n.app + ' (consegnati ' + n.del + ') su ' + n.req + ' richiesti'));
       });
-      var lg = el('div', 'lg-need-legend');
-      var l1 = el('span', ''); var b1 = document.createElement('b'); b1.style.background = '#c9b5ea'; l1.appendChild(b1); l1.appendChild(document.createTextNode('Approvati'));
-      var l2 = el('span', ''); var b2 = document.createElement('b'); b2.style.background = '#6b3fa0'; l2.appendChild(b2); l2.appendChild(document.createTextNode('Consegnati'));
-      lg.appendChild(l1);
-      lg.appendChild(l2);
-      needsList.appendChild(lg);
+      reqList.appendChild(legend('Approvati', 'Consegnati'));
     }
+
+    function renderGmr(data) {
+      gmrList.innerHTML = '';
+      var list = (data || []).filter(function (n) { return (Number(n.req) || 0) > 0; });
+      if (!list.length) {
+        gmrList.appendChild(el('p', 'lg-needs-empty', 'Nessun fabbisogno dei gruppi registrato. Usa \u00abSync richieste portale\u00bb per importarli.'));
+        return;
+      }
+      list.forEach(function (n) {
+        var req = Number(n.req) || 0, conf = Number(n.conf) || 0, del = Number(n.del) || 0;
+        gmrList.appendChild(barRow(n.label, conf, del, req, del + ' / ' + req,
+          'Confermati ' + conf + ', consegnati ' + del + ' su ' + req + ' richiesti'));
+      });
+      gmrList.appendChild(legend('Confermati', 'Consegnati'));
+    }
+    renderGmr(window.__LG_NEEDS);
+
+    /* Riletture dei fabbisogni gruppi dalla pagina stessa (nessuna rotta nuova) */
+    function refreshGmr() {
+      if (document.hidden || !window.fetch) return;
+      fetch(location.pathname, { credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
+        .then(function (r) { return r.ok ? r.text() : ''; })
+        .then(function (html) {
+          var m = /window\.__LG_NEEDS=(\[[\s\S]*?\]);<\/script>/.exec(html || '');
+          if (!m) return;
+          renderGmr(JSON.parse(m[1]));
+          var d = new Date();
+          gmrWhen.textContent = 'Dal Resoconto fabbisogni \u00b7 aggiornato alle ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+        })
+        .catch(function () {});
+    }
+    setInterval(refreshGmr, 20000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshGmr(); });
 
     function updateCounters(by, total) {
       var pending = by.in_attesa.length;
