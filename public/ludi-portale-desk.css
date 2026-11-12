@@ -2,7 +2,6 @@
    Elementi creati da ludi-portale-desk.js. Il telefono non viene toccato. */
 
 .pt-desk-only { display: none; }
-.pt-hero-art { display: none; }
 .pt-pill svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; margin-right: .45rem; flex: 0 0 auto; }
 .pt-pill-ok { background: #dcf3e6; color: #1d6a39; }
 .pt-tile-prog { display: none; }
@@ -10,22 +9,16 @@
 @media (min-width: 761px) {
   .pt-desk-only { display: block; }
 
-  /* Scheda di benvenuto */
+  /* Scheda di benvenuto con onde viola */
   .pt-hero { min-height: 190px; padding: 1.7rem 1.9rem; }
-  .pt-avatar { width: 104px; height: 104px; font-size: 2.2rem; }
+  .pt-hero::after { display: none; }
+  .pt-hero::before { content: ""; position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 0; background: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 220' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='a' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%238b5cc8' stop-opacity='.03'/%3E%3Cstop offset='1' stop-color='%236b3fa0' stop-opacity='.22'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0 220C220 214 420 176 600 112S880 22 1000 12V220H0Z' fill='url(%23a)'/%3E%3Cpath d='M0 220C250 218 450 196 650 154S900 96 1000 86V220H0Z' fill='%238b5cc8' fill-opacity='.08'/%3E%3Cpath d='M0 220C280 220 480 212 700 190S920 164 1000 158V220H0Z' fill='%236b3fa0' fill-opacity='.06'/%3E%3C/svg%3E") center / 100% 100% no-repeat; pointer-events: none; }
+  .pt-avatar { position: relative; z-index: 1; width: 104px; height: 104px; font-size: 2.2rem; }
   body.pt-on .hdr-title { font-size: 2rem; }
   .pt-hero-sub { margin-top: .45rem; font-size: 1rem; }
-  .pt-hero-body { max-width: 64%; }
+  .pt-hero-body { max-width: 82%; }
   .pt-pills { margin-top: 1rem; gap: .6rem; }
   .pt-pill { padding: .55rem 1.1rem; font-size: .85rem; }
-  .pt-hero::after { display: none; }
-  .pt-hero-art { position: absolute; top: 0; right: 0; bottom: 0; width: 36%; z-index: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-  .pt-hero-art::before { content: ""; position: absolute; inset: 0; background: radial-gradient(130% 150% at 100% 0%, rgba(139,92,200,.42), rgba(139,92,200,.15) 55%, rgba(139,92,200,0) 74%); -webkit-mask-image: linear-gradient(90deg, transparent, #000 38%); mask-image: linear-gradient(90deg, transparent, #000 38%); }
-  .pt-art-logo { position: relative; text-align: center; line-height: 1; }
-  .pt-art-w { display: block; font-size: 2.7rem; font-weight: 900; letter-spacing: -.03em; color: #1e2d4e; }
-  .pt-art-w em { font-style: normal; color: #8b5cc8; }
-  .pt-art-s { display: block; margin-top: .4rem; padding-left: .45em; font-size: .9rem; font-weight: 800; letter-spacing: .45em; color: #6b3fa0; }
-  .pt-art-logo::after { content: ""; display: block; width: 92px; height: 14px; margin: .5rem auto 0; border-bottom: 5px solid #f5c842; border-radius: 0 0 92px 92px; }
 
   /* Barra sezioni a tutta larghezza */
   .pt-tab { flex: 1 1 0; justify-content: center; padding: .8rem 1rem; }
@@ -35,13 +28,13 @@
   .pt-tile { min-height: 210px; padding: 1.4rem 1.5rem; }
   .pt-tile-ico { width: 56px; height: 56px; }
   .pt-tile-ico svg { width: 26px; height: 26px; }
-  .pt-tile h3 { font-size: 1.3rem; }
+  .pt-tile h3 { padding-right: 2.2rem; font-size: 1.3rem; }
   .pt-tile p { padding-right: 1.6rem; font-size: .88rem; }
-  .pt-tile::after { content: "\203A"; position: absolute; right: 1.2rem; top: 50%; transform: translateY(-50%); font-size: 1.7rem; line-height: 1; color: #a99bc8; }
-  .pt-tile-prog { display: flex; align-items: center; gap: .8rem; margin-top: auto; }
-  .pt-tile-bar2 { flex: 1 1 auto; height: 9px; border-radius: 999px; background: #ece6f7; overflow: hidden; }
+  .pt-tile::after { content: "\203A"; position: absolute; right: 1.4rem; top: 1.5rem; transform: none; font-size: 1.7rem; line-height: 1; color: #a99bc8; }
+  .pt-tile-prog { display: flex; align-items: center; gap: .8rem; width: 100%; margin-top: auto; }
+  .pt-tile-bar2 { flex: 1 1 auto; min-width: 120px; height: 9px; border-radius: 999px; background: #ece6f7; overflow: hidden; }
   .pt-tile-bar2 i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, #8b5cc8, #6b3fa0); transition: width .5s ease; }
-  .pt-tile-count { font-size: .88rem; font-weight: 800; color: #1e2d4e; font-variant-numeric: tabular-nums; }
+  .pt-tile-count { flex: 0 0 auto; font-size: .88rem; font-weight: 800; color: #1e2d4e; font-variant-numeric: tabular-nums; }
 }
 
 @media (min-width: 981px) {
@@ -73,5 +66,5 @@
 
 /* Telefono: nessun elemento desktop */
 @media (max-width: 760px) {
-  .pt-pill svg, .pt-hero-art, .pt-win, .pt-tile-prog { display: none; }
+  .pt-pill svg, .pt-win, .pt-tile-prog { display: none; }
 }

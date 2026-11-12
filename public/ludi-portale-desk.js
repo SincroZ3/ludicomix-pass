@@ -1,4 +1,4 @@
-/* ludi-portale-desk.js — Portale Espositore (desktop): icone nelle pillole, logo, riquadri con avanzamento,
+/* ludi-portale-desk.js — Portale Espositore (desktop): icone nelle pillole, riquadri con avanzamento,
    card "Finestra inserimento nominativi" con conto alla rovescia.
    Lavora sul DOM costruito da ludi-portale.js; in caso di errore la pagina resta com'e'. */
 (function () {
@@ -8,7 +8,6 @@
   function init() {
     if (!document.body.classList.contains('pt-on')) return;
     var home = document.getElementById('pt-home');
-    var hero = document.querySelector('.pt-hero');
     var W = window.__PT_WINDOW || {};
 
     var P = {
@@ -66,14 +65,7 @@
       }
     }
 
-    /* 2 — Logo scritto a destra della scheda */
-    if (hero && !hero.querySelector('.pt-hero-art')) {
-      var art = el('div', 'pt-hero-art');
-      art.innerHTML = '<div class="pt-art-logo"><span class="pt-art-w">Ludico<em>mix</em></span><span class="pt-art-s">EMPOLI</span></div>';
-      hero.appendChild(art);
-    }
-
-    /* 3 — Riquadri: descrizioni, avanzamento Nominativi, chip Documenti */
+    /* 2 — Riquadri: descrizioni, avanzamento Nominativi, chip Documenti */
     var DESC = {
       'Nominativi': "Gestisci l'elenco dei nominativi del tuo stand.",
       'Mappa': 'Scopri dove si trova il tuo stand in fiera.',
@@ -126,7 +118,7 @@
       }
     }
 
-    /* 4 — Card "Finestra inserimento nominativi" con conto alla rovescia */
+    /* 3 — Card "Finestra inserimento nominativi" con conto alla rovescia */
     if (!home) return;
     var target = document.querySelector('.pt-tab[data-k="nominativi"]') ? 'nominativi' : (document.querySelector('.pt-tab[data-k="documenti"]') ? 'documenti' : null);
     function pad(n) { return n < 10 ? '0' + n : String(n); }
