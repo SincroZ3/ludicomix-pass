@@ -10,6 +10,14 @@
     var inner = document.querySelector('.hdr-stand .hdr-inner');
     if (!wrap || !inner || document.body.classList.contains('pt-on')) return;
 
+    /* Limite posti letto dal contatore originale (es. "4 / 5 slot"); 0 = illimitati */
+    var maxSlots = 0;
+    var scEl = document.getElementById('slot-counter');
+    if (scEl) {
+      var mm = /\/\s*(\d+)/.exec(scEl.textContent || '');
+      if (mm) maxSlots = parseInt(mm[1], 10) || 0;
+    }
+
     var ICON = {
       home: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
       nominativi: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 3-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 5a3.5 3.5 0 0 1 0 7"/><path d="M18.5 14.5c1.9.8 3 2.7 3 5.5"/>',
@@ -70,6 +78,7 @@
     var name = nameEl ? txt(nameEl) : (h1 ? txt(h1) : '');
     var ini = name.split(/[^A-Za-z\u00C0-\u00FF0-9]+/).filter(Boolean).slice(0, 2).map(function (w) { return w.charAt(0); }).join('').toUpperCase() || '?';
     var pills = el('div', 'pt-pills');
+    var standPill = null;
     var strip = wrap.querySelector('.info-strip');
     if (strip) {
       [].forEach.call(strip.querySelectorAll('.info-card'), function (c) {
@@ -80,15 +89,22 @@
         if (/assegnatari|pass pronti/.test(l)) return;
         var v = txt(val);
         if (!v) return;
-        pills.appendChild(el('span', 'pt-pill', /codice stand/.test(l) ? 'Stand ' + v : v));
+        var isStand = /codice stand/.test(l);
+        var p = el('span', 'pt-pill' + (isStand ? ' pt-pill-stand' : ''), isStand ? 'Stand ' + v : v);
+        if (isStand) standPill = p;
+        pills.appendChild(p);
         c.classList.add('pt-hide');
       });
+    }
+    if (!standPill && pills.children.length) {
+      standPill = pills.children[0];
+      standPill.classList.add('pt-pill-stand');
     }
     var hero = el('section', 'pt-hero');
     hero.appendChild(el('div', 'pt-avatar', ini));
     var hb = el('div', 'pt-hero-body');
     if (h1) hb.appendChild(h1);
-    hb.appendChild(el('p', 'pt-hero-sub', 'Portale Espositore \u00B7 Ludicomix Empoli'));
+    hb.appendChild(el('p', 'pt-hero-sub', 'Il tuo spazio alla fiera ti aspetta!'));
     if (pills.children.length) hb.appendChild(pills);
     hero.appendChild(hb);
     inner.appendChild(hero);
@@ -153,6 +169,7 @@
     ];
     var avail = defs.filter(function (d) { return d.k === 'home' || panelEls[d.k]; });
     var tiles = el('div', 'pt-tiles');
+    var nomTile = null, nomChip = null, nomBarFill = null;
     avail.forEach(function (d) {
       if (d.k === 'home') return;
       var t = el('button', 'pt-tile');
@@ -163,10 +180,13 @@
       t.appendChild(el('h3', '', d.k === 'documenti' ? 'Documenti e modulistica' : d.label));
       t.appendChild(el('p', '', d.d));
       if (d.k === 'nominativi') {
-        var pn = wrap.querySelector('.prog-num');
-        var pf = wrap.querySelector('.prog-bar-fill');
-        if (pn) t.appendChild(el('span', 'pt-tile-chip', txt(pn).replace(/\s+/g, ' ') + ' pass'));
-        if (pf && pf.style.width) { var bar = el('div', 'pt-tile-bar'); var i = document.createElement('i'); i.style.width = pf.style.width; bar.appendChild(i); t.appendChild(bar); }
+        nomTile = t;
+        nomChip = el('span', 'pt-tile-chip', '');
+        t.appendChild(nomChip);
+        var bar = el('div', 'pt-tile-bar');
+        nomBarFill = document.createElement('i');
+        bar.appendChild(nomBarFill);
+        t.appendChild(bar);
       }
       if (d.k === 'assistenza') {
         var tb = document.querySelector('#ticket-section .sec-card-badge-blue');
@@ -176,6 +196,63 @@
       tiles.appendChild(t);
     });
     if (tiles.children.length) homePanel.appendChild(tiles);
+
+    /* 4b — Scheda Nominativi con anello (Home su telefono) */
+    var nc = null;
+    var RING_C = 2 * Math.PI * 52;
+    if (panelEls.nominativi) {
+      var root = el('section', 'pt-nomcard pt-mobile-only');
+      var head = el('div', 'pt-nc-head');
+      var hi = el('span', '');
+      hi.innerHTML = svg('nominativi');
+      head.appendChild(hi.firstChild);
+      var hbox = el('div', '');
+      hbox.appendChild(el('h3', '', 'Nominativi'));
+      hbox.appendChild(el('p', '', 'Gestisci le persone del tuo stand e scarica i pass.'));
+      head.appendChild(hbox);
+      root.appendChild(head);
+      var body = el('div', 'pt-nc-body');
+      var ring = el('div', 'pt-ring');
+      ring.innerHTML = '<svg viewBox="0 0 120 120" aria-hidden="true"><circle class="bg" cx="60" cy="60" r="52"/><circle class="fg" cx="60" cy="60" r="52" stroke-dasharray="0 ' + RING_C.toFixed(1) + '"/></svg>';
+      var rc = el('div', 'pt-ring-c');
+      var big = el('b', '', '');
+      var small = el('small', '', '');
+      rc.appendChild(big);
+      rc.appendChild(small);
+      ring.appendChild(rc);
+      body.appendChild(ring);
+      var ul = el('ul', 'pt-legend');
+      function li(color, label) {
+        var l = document.createElement('li');
+        var dot = document.createElement('i');
+        dot.style.background = color;
+        l.appendChild(dot);
+        l.appendChild(document.createTextNode(label));
+        var b = document.createElement('b');
+        l.appendChild(b);
+        ul.appendChild(l);
+        return { li: l, b: b };
+      }
+      var lgReady = li('#2fae68', 'Pass pronti');
+      var lgPrep = li('#f5c842', 'In preparazione');
+      var lgFree = li('#b8b3c9', 'Posti liberi');
+      body.appendChild(ul);
+      root.appendChild(body);
+      var addBtn = el('button', 'pt-nc-btn', '+ Aggiungi nominativi');
+      addBtn.type = 'button';
+      addBtn.addEventListener('click', function () {
+        show('nominativi', null, true);
+        var d = document.getElementById('add-nom-details');
+        if (d) {
+          d.open = true;
+          setTimeout(function () { d.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 150);
+        }
+      });
+      root.appendChild(addBtn);
+      homePanel.insertBefore(root, tiles.children.length ? tiles : null);
+      if (nomTile) nomTile.classList.add('pt-tile-nom');
+      nc = { fg: ring.querySelector('.fg'), big: big, small: small, ready: lgReady.b, prep: lgPrep.b, free: lgFree.b, freeLi: lgFree.li };
+    }
 
     /* 5 — Navigazione: tab desktop + barra mobile */
     var tabs = el('nav', 'pt-tabs');
@@ -201,6 +278,11 @@
     document.body.appendChild(bottom);
     document.body.classList.add('pt-on');
 
+    if (standPill && panelEls.mappa) {
+      standPill.classList.add('pt-pill-go');
+      standPill.addEventListener('click', function () { show('mappa', null, true); });
+    }
+
     /* 5b — Nominativi: ogni persona una sola volta (pass + gestione nominativi) */
     function normName(s) { return (s || '').replace(/\s+/g, ' ').trim().toLowerCase(); }
     function dedupePersone() {
@@ -223,6 +305,85 @@
       });
     }
     dedupePersone();
+
+    /* 5c — Contatori sempre aggiornati (aggiunta/rimozione nominativi senza ricaricare) */
+    function counts() {
+      var list = document.getElementById('nom-list');
+      var ready = document.querySelectorAll('.pass-card').length;
+      var total;
+      if (list) {
+        total = [].filter.call(list.children, function (c) {
+          return c.classList.contains('item-card') && c.style.opacity !== '0';
+        }).length;
+      } else {
+        total = ready + document.querySelectorAll('.nopass-card').length;
+      }
+      if (total < ready) total = ready;
+      return { total: total, ready: ready };
+    }
+    function syncCounts() {
+      var c = counts();
+      var total = c.total, ready = c.ready;
+      var pct = total > 0 ? Math.round(ready / total * 100) : 0;
+      var prep = total - ready;
+
+      var sc = document.getElementById('slot-counter');
+      if (sc) {
+        if (maxSlots > 0) {
+          sc.textContent = total + ' / ' + maxSlots + ' slot';
+          sc.classList.toggle('pill-red', total >= maxSlots);
+          sc.classList.toggle('pill-green', total < maxSlots);
+        } else {
+          var su = document.getElementById('slot-used');
+          if (su) su.textContent = String(total);
+        }
+      }
+      [].forEach.call(document.querySelectorAll('.info-card'), function (card) {
+        var lab = card.querySelector('.info-card-label');
+        var val = card.querySelector('.info-card-value');
+        if (!lab || !val) return;
+        var l = txt(lab).toLowerCase();
+        if (/assegnatari/.test(l)) val.textContent = String(total);
+        else if (/pass pronti/.test(l)) {
+          val.textContent = ready + ' / ' + total;
+          val.style.color = pct === 100 ? 'var(--green)' : (pct > 0 ? 'var(--gold)' : 'var(--red)');
+        }
+      });
+      var pn = document.querySelector('.prog-num');
+      if (pn) pn.innerHTML = ready + '<span> / ' + total + '</span>';
+      var pf = document.querySelector('.prog-bar-fill');
+      if (pf) pf.style.width = pct + '%';
+      var ps = document.querySelector('.prog-sub');
+      if (ps) ps.textContent = (ready === total && total > 0) ? 'pass tutti pronti' : 'pass disponibili';
+      var pp = document.querySelector('.prog-pct');
+      if (pp) {
+        if (pct === 100) pp.innerHTML = '<strong>\u2713 Tutti i pass sono pronti!</strong>';
+        else if (pct === 0) pp.textContent = 'Nessun pass ancora generato';
+        else pp.innerHTML = '<strong>' + pct + '%</strong> completato \u2014 ' + prep + ' in preparazione';
+      }
+      if (nomChip) nomChip.textContent = ready + ' / ' + total + ' pass';
+      if (nomBarFill) nomBarFill.style.width = pct + '%';
+
+      if (nc) {
+        var frac = maxSlots > 0 ? Math.min(1, total / maxSlots) : (total > 0 ? ready / total : 0);
+        nc.fg.setAttribute('stroke-dasharray', (frac * RING_C).toFixed(1) + ' ' + RING_C.toFixed(1));
+        nc.big.innerHTML = '';
+        nc.big.appendChild(document.createTextNode(maxSlots > 0 ? String(total) : String(ready)));
+        var sp = document.createElement('span');
+        sp.textContent = '/' + (maxSlots > 0 ? maxSlots : total);
+        nc.big.appendChild(sp);
+        nc.small.textContent = maxSlots > 0 ? 'NOMINATIVI INSERITI' : 'PASS PRONTI';
+        nc.ready.textContent = String(ready);
+        nc.prep.textContent = String(prep);
+        if (maxSlots > 0) { nc.freeLi.style.display = ''; nc.free.textContent = String(Math.max(0, maxSlots - total)); }
+        else nc.freeLi.style.display = 'none';
+      }
+    }
+    var nomList = document.getElementById('nom-list');
+    if (nomList && window.MutationObserver) {
+      new MutationObserver(function () { syncCounts(); }).observe(nomList, { childList: true });
+    }
+    syncCounts();
 
     function show(k, sub, user) {
       if (!panelEls[k]) k = 'home';
