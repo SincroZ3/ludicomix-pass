@@ -1,7 +1,9 @@
-/* ludi-mappatest.js — Mappa Stand TEST: vista 3D con disegno e modifica forme, blocco stand, salvataggio in tabelle separate.
-   Pagina: /admin/mappatest (solo admin). Non modifica le posizioni della mappa reale. */
+/* ludi-mappatest.js — Mappa Stand TEST 3D: modello dell'edificio, disegno e modifica forme, blocco stand, salvataggio in tabelle separate.
+   Pagina: /admin/mappatest (solo admin). Non modifica le posizioni della mappa reale.
+   Modelli degli edifici: /mappatest-models/<nome-zona>.json (es. palazzetto.json). */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const DATA = JSON.parse(document.getElementById('mt-data').textContent);
 const root = document.getElementById('mt-root');
@@ -11,6 +13,7 @@ const $ = id => document.getElementById(id);
 const api = (url, body, method) => fetch(url, { method: method || 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) })
   .then(r => r.json().catch(() => ({})).then(d => Object.assign({ status: r.status }, d)))
   .catch(() => ({ ok: false, status: 0, error: 'Errore di rete' }));
+const loadImg = src => new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
 
 const zones = DATA.zones;
 const stands = DATA.stands.map(s => {
@@ -24,17 +27,20 @@ root.innerHTML = '' +
 '<div class="zone-tabs" id="zt"></div>' +
 '<div class="mp-strip"><div class="mp-kpis" id="kp"></div><label class="mp-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/></svg><input id="q" type="search" placeholder="Cerca stand nella zona\u2026"></label></div>' +
 '<div class="mt-main"><div class="mt-card">' +
- '<div class="mt-bar"><div class="mt-seg" id="views"><button data-v="top">Dall\'alto</button><button data-v="persp" class="on">Prospettiva</button><button data-v="iso">Isometrica</button></div>' +
+ '<div class="mt-bar"><div class="mt-seg" id="views"><button data-v="top">Dall\'alto</button><button data-v="persp" class="on">Prospettiva</button><button data-v="iso">Isometrica</button><button data-v="south">Fronte</button></div>' +
  '<div class="mt-seg" id="modes"><button data-m="pass" class="on">Pass</button><button data-m="neutro">Neutro</button></div>' +
+ '<label class="mt-chk"><input type="checkbox" id="bld" checked> Edificio</label><label class="mt-chk"><input type="checkbox" id="rf" checked> Tetti</label>' +
  '<label class="mt-chk"><input type="checkbox" id="lab" checked> Etichette</label><label class="mt-chk"><input type="checkbox" id="shd" checked> Ombre</label>' +
+ '<label class="mt-chk">Trasparenza <input type="range" id="trn" min="0" max="100" value="55"></label>' +
+ '<label class="mt-chk">Sole <input type="range" id="sunr" min="0" max="360" value="215"></label>' +
  '<label class="mt-chk">Altezze <input type="range" id="hsl" min="30" max="200" value="100"></label></div>' +
  '<div class="mt-view" id="vw"><div class="mt-banner" id="bn"></div><div class="mt-leg" id="lg"></div><div class="mt-tray" id="tr"></div><div class="mt-msg" id="ms"></div></div>' +
 '</div><aside class="mt-side">' +
- '<div class="mt-panel"><h3>Scala e dati</h3><label class="mt-f">Larghezza reale della pianta (m)<input id="wm" type="number" min="10" max="500" step="0.5"></label>' +
+ '<div class="mt-panel"><h3>Scala e dati</h3><label class="mt-f">Larghezza reale della pianta (m)<input id="wm" type="number" min="10" max="500" step="0.5"></label><div class="mt-note" id="wmn"></div>' +
  '<div class="mt-row"><button class="mt-btn" id="imp">Importa dalla mappa attuale</button></div><div class="mt-note" id="impn"></div>' +
  '<div class="mt-row"><button class="mt-btn lock" id="la">\uD83D\uDD12 Blocca tutti</button><button class="mt-btn" id="ua">Sblocca tutti</button><button class="mt-btn" id="ex">Esporta JSON</button></div></div>' +
  '<div class="mt-panel" id="sel"></div>' +
- '<div class="mt-panel"><h3>Come si usa</h3><div class="mt-note">Tasto sinistro sul pavimento: ruota la vista \u00b7 destro: sposta \u00b7 rotellina: zoom. Trascina gli stand per spostarli (aggancio a 0,5 m). Per gli stand \u201cda posizionare\u201d scegli il nome nella barra in basso e disegna la forma sulla pianta. Con \u201cModifica forma\u201d sposti i vertici, aggiungi punti dai segni gialli e togli un punto con doppio clic. Gli stand bloccati non si muovono per errore.</div></div>' +
+ '<div class="mt-panel"><h3>Come si usa</h3><div class="mt-note">Tasto sinistro sul pavimento: ruota la vista \u00b7 destro: sposta \u00b7 rotellina: zoom. Trascina gli stand per spostarli (aggancio a 0,5 m). Per gli stand \u201cda posizionare\u201d scegli il nome nella barra in basso e disegna la forma sulla pianta. Con \u201cModifica forma\u201d sposti i vertici, aggiungi punti dai segni gialli e togli un punto con doppio clic. Gli stand bloccati non si muovono per errore. \u201cTrasparenza\u201d e \u201cTetti\u201d servono per vedere dentro l\'edificio.</div></div>' +
 '</aside></div><div id="mt-tip"></div><div id="mt-toast"></div>';
 
 const vw = $('vw');
@@ -42,19 +48,26 @@ let renderer;
 try { renderer = new THREE.WebGLRenderer({ antialias: true }); } catch (e) { $('ms').style.display = 'flex'; $('ms').textContent = 'Il tuo browser non supporta WebGL: la vista 3D non \u00e8 disponibile.'; throw e; }
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.setClearColor(0x000000, 0);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
 vw.insertBefore(renderer.domElement, vw.firstChild);
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(40, 1, 0.5, 900);
+try { const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; } catch (e) { /* senza riflessi */ }
+const camera = new THREE.PerspectiveCamera(38, 1, 0.5, 1400);
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true; controls.maxPolarAngle = Math.PI / 2 - 0.03; controls.minDistance = 8; controls.maxDistance = 400;
-scene.add(new THREE.HemisphereLight(0xffffff, 0xb9a6e0, 0.95));
-const sun = new THREE.DirectionalLight(0xffffff, 1.15); sun.position.set(-40, 70, 30); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); scene.add(sun);
+controls.enableDamping = true; controls.maxPolarAngle = Math.PI / 2 - 0.03; controls.minDistance = 8; controls.maxDistance = 500;
+scene.add(new THREE.HemisphereLight(0xffffff, 0xcdbfe8, 0.55));
+const sun = new THREE.DirectionalLight(0xfff4e0, 2.1); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04; scene.add(sun);
+function setSun(deg) { const a = deg * Math.PI / 180, r = Math.max(W, D) * .9; sun.position.set(Math.cos(a) * r, r * .85, Math.sin(a) * r); }
 const world = new THREE.Group(); scene.add(world);
+const modelG = new THREE.Group(); scene.add(modelG);
+const gRoof = new THREE.Group(), gWall = new THREE.Group(), gLow = new THREE.Group(), gSol = new THREE.Group(), gSta = new THREE.Group(), gRai = new THREE.Group();
+modelG.add(gRoof, gWall, gLow, gSol, gSta, gRai);
 const overlay = new THREE.Group(); scene.add(overlay);
 
-let ZN = null, Z = null, W = 80, D = 30;
-let mode = 'pass', labelsOn = true, hScale = 1, selected = null, query = '';
-let floorMesh = null, slab = null, floorToken = 0, curView = 'persp';
+let ZN = null, Z = null, W = 80, D = 30, MODEL = null, PL = null, RAISED_S = [];
+let mode = 'pass', labelsOn = true, hScale = 1, selected = null, query = '', transp = .55;
+let floorMesh = null, slab = null, ground = null, floorToken = 0, zoneTok = 0, curView = 'persp', floorTex = null;
+const texMats = [];
 const meshes = new Map();
 const zs = () => stands.filter(s => s.zone === ZN);
 const dims = s => ({ w: s.wf * W, d: s.df * D });
@@ -62,27 +75,88 @@ const COL = { grey: '#9ca3af', green: '#2d6a4f', yellow: '#c9a227', red: '#c0392
 function colorOf(s) { if (mode === 'neutro') return COL.neutro; if (!s.pass) return COL.grey; const p = s.done / s.pass; return p >= .8 ? COL.green : p > 0 ? COL.yellow : COL.red; }
 let tt; function toast(t) { const e = $('mt-toast'); e.textContent = t; e.style.display = 'block'; clearTimeout(tt); tt = setTimeout(() => e.style.display = 'none', 2600); }
 
+/* ---------- materiali dell'edificio ---------- */
+const matRoof = new THREE.MeshStandardMaterial({ color: 0xf4f6f9, roughness: .55, metalness: .05, side: THREE.DoubleSide, transparent: true, depthWrite: false });
+const matWallB = new THREE.MeshStandardMaterial({ color: 0xb86f4e, roughness: .85, side: THREE.DoubleSide, transparent: true });
+const matGlass = new THREE.MeshPhysicalMaterial({ color: 0x9fc6e8, roughness: .08, metalness: .1, side: THREE.DoubleSide, transparent: true, depthWrite: false, envMapIntensity: 1.4 });
+const matLow = new THREE.MeshStandardMaterial({ color: 0xb4bccb, roughness: .8, transparent: true, depthWrite: false });
+const matSol = new THREE.MeshStandardMaterial({ color: 0x777784, roughness: .95 });
+const matSta = new THREE.MeshStandardMaterial({ color: 0xf0a030, roughness: .7 });
+function applyTransp() {
+  const t = transp;
+  matRoof.opacity = Math.max(.08, 1 - .92 * t); matWallB.opacity = Math.max(.12, 1 - .85 * t); matGlass.opacity = Math.max(.1, .85 - .75 * t); matLow.opacity = Math.max(.1, .85 - .75 * t);
+  [matRoof, matWallB, matGlass, matLow].forEach(m => { m.needsUpdate = true; });
+}
+
 /* ---------- pavimento ---------- */
-function fitSun() { const c = sun.shadow.camera, r = Math.max(W, D) * 0.7; c.left = -r; c.right = r; c.top = r; c.bottom = -r; c.near = 1; c.far = 400; c.updateProjectionMatrix(); }
-function composeFloor(bg, cb) {
+function fitSun() { const c = sun.shadow.camera, r = Math.max(W, D) * 0.75; c.left = -r; c.right = r; c.top = r; c.bottom = -r; c.near = 1; c.far = Math.max(W, D) * 4; c.updateProjectionMatrix(); setSun(+$('sunr').value); }
+function composeFloor(img, cb) {
   const cw = 2048, ch = Math.max(256, Math.round(cw * D / W)); const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch; const g = cv.getContext('2d');
   g.fillStyle = '#ffffff'; g.fillRect(0, 0, cw, ch);
-  const done = () => { const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; cb(t); };
-  if (!bg) { g.strokeStyle = '#e4dcf3'; g.lineWidth = 2; const st = cw / 16; for (let x = 0; x <= cw; x += st) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, ch); g.stroke(); } for (let y = 0; y <= ch; y += st) { g.beginPath(); g.moveTo(0, y); g.lineTo(cw, y); g.stroke(); } done(); return; }
-  const img = new Image(); img.onload = () => { const sc = Math.min(cw / img.width, ch / img.height); g.drawImage(img, (cw - img.width * sc) / 2, 0, img.width * sc, img.height * sc); done(); };
-  img.onerror = () => { done(); }; img.src = '/zone-bg/' + encodeURIComponent(bg);
+  if (!img) { g.strokeStyle = '#e4dcf3'; g.lineWidth = 2; const st = cw / 16; for (let x = 0; x <= cw; x += st) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, ch); g.stroke(); } for (let y = 0; y <= ch; y += st) { g.beginPath(); g.moveTo(0, y); g.lineTo(cw, y); g.stroke(); } }
+  else { const sc = Math.min(cw / img.naturalWidth, ch / img.naturalHeight); g.drawImage(img, (cw - img.naturalWidth * sc) / 2, 0, img.naturalWidth * sc, img.naturalHeight * sc); }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; cb(t);
 }
-function buildFloor() {
+function buildFloor(img) {
   const my = ++floorToken;
-  if (floorMesh) { world.remove(floorMesh); floorMesh.geometry.dispose(); floorMesh = null; }
-  if (slab) { world.remove(slab); slab.geometry.dispose(); slab = null; }
+  [floorMesh, slab, ground].forEach(m => { if (m) { world.remove(m); m.geometry.dispose(); } }); floorMesh = slab = ground = null; floorTex = null; texMats.length = 0;
   if (!Z) return;
+  ground = new THREE.Mesh(new THREE.CircleGeometry(Math.max(W, D) * 4, 64), new THREE.MeshStandardMaterial({ color: 0xe6def5, roughness: 1 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -.62; ground.receiveShadow = true; world.add(ground);
   slab = new THREE.Mesh(new THREE.BoxGeometry(W + 3, .6, D + 3), new THREE.MeshStandardMaterial({ color: 0xd9cff0, roughness: 1 }));
   slab.position.y = -.31; slab.receiveShadow = true; world.add(slab);
   floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .95 }));
-  floorMesh.rotation.x = -Math.PI / 2; floorMesh.receiveShadow = true; world.add(floorMesh);
-  composeFloor(Z.bg, t => { if (my !== floorToken || !floorMesh) return; floorMesh.material.map = t; floorMesh.material.needsUpdate = true; });
+  floorMesh.rotation.x = -Math.PI / 2; floorMesh.receiveShadow = true; world.add(floorMesh); texMats.push(floorMesh.material);
+  composeFloor(img, t => { if (my !== floorToken) return; floorTex = t; texMats.forEach(m => { m.map = t; m.needsUpdate = true; }); });
+  scene.fog = new THREE.Fog(0xe9e2f6, Math.max(W, D) * 2.2, Math.max(W, D) * 6);
   fitSun();
+}
+
+/* ---------- modello dell'edificio ---------- */
+function clearGroup(g) { while (g.children.length) { const o = g.children.pop(); o.traverse(c => { if (c.geometry) c.geometry.dispose(); }); } }
+function pointIn(poly, x, z) {
+  const inside = (ring) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const a = ring[i], b = ring[j]; if (((a[1] > z) !== (b[1] > z)) && (x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0])) c = !c; } return c; };
+  if (!inside(poly.o)) return false; for (const h of poly.h) if (inside(h)) return false; return true;
+}
+const baseOf = s => { if (!MODEL || !RAISED_S.length) return 0; const x = (s.fx - .5) * W, z = (s.fy - .5) * D; return RAISED_S.some(p => pointIn(p, x, z)) ? MODEL.heights.raise : 0; };
+function tris(arr, pts) { for (const p of pts) arr.push(p[0], p[1], p[2]); }
+function rawMesh(arr, mat) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); g.computeVertexNormals(); const m = new THREE.Mesh(g, mat); m.castShadow = mat !== matGlass; m.receiveShadow = true; return m; }
+function buildModel() {
+  [gRoof, gWall, gLow, gSol, gSta, gRai].forEach(clearGroup); RAISED_S = [];
+  if (!MODEL || !PL) return;
+  const m = MODEL, pw = m.planPx[0], ph = m.planPx[1], hh = m.heights;
+  const MX = px => ((PL.xOff + px / pw * PL.wFrac) - .5) * W, MZ = py => ((py / ph * PL.hFrac) - .5) * D;
+  const conv = p => ({ o: p.o.map(q => [MX(q[0]), MZ(q[1])]), h: p.h.map(r => r.map(q => [MX(q[0]), MZ(q[1])])) });
+  const shapeOf = p => { const sh = new THREE.Shape(); p.o.forEach((q, i) => i ? sh.lineTo(q[0], -q[1]) : sh.moveTo(q[0], -q[1])); p.h.forEach(r => { const hp = new THREE.Path(); r.forEach((q, i) => i ? hp.lineTo(q[0], -q[1]) : hp.moveTo(q[0], -q[1])); sh.holes.push(hp); }); return sh; };
+  const ext = (p, h, mat, grp, edge) => { const g = new THREE.ExtrudeGeometry(shapeOf(p), { depth: Math.max(h, .02), bevelEnabled: false }); g.rotateX(-Math.PI / 2); const me = new THREE.Mesh(g, mat); me.castShadow = mat !== matLow; me.receiveShadow = true;
+    if (edge !== false) me.add(new THREE.LineSegments(new THREE.EdgesGeometry(g, 25), new THREE.LineBasicMaterial({ color: 0x1e2d4e, transparent: true, opacity: .4 }))); grp.add(me); };
+  const b = m.bays, HR = hh.ridge, HE = hh.eave;
+  for (let k = 0; k < b.n; k++) {
+    const x0 = b.v0 + b.step * k, xc = x0 + b.half, x1 = x0 + b.step;
+    const TL = [x0, b.topValley], TA = [xc, b.topApex], TR = [x1, b.topValley], BR = [x1, b.botValley], BA = [xc, b.botApex], BL = [x0, b.botValley];
+    const hf = x => HE + (HR - HE) * (1 - Math.abs(x - xc) / b.half);
+    const P = (p, y) => [MX(p[0]), y, MZ(p[1])];
+    const rf = []; tris(rf, [P(TL, HE), P(TA, HR), P(BA, HR), P(TL, HE), P(BA, HR), P(BL, HE)]); tris(rf, [P(TA, HR), P(TR, HE), P(BR, HE), P(TA, HR), P(BR, HE), P(BA, HR)]);
+    const roofM = rawMesh(rf, matRoof); roofM.add(new THREE.LineSegments(new THREE.EdgesGeometry(roofM.geometry, 10), new THREE.LineBasicMaterial({ color: 0x8a93a6, transparent: true, opacity: .55 }))); gRoof.add(roofM);
+    const wall = (a, c, mat) => { const arr = []; tris(arr, [P(a, 0), P(c, 0), P(c, hf(c[0])), P(a, 0), P(c, hf(c[0])), P(a, hf(a[0]))]); gWall.add(rawMesh(arr, mat)); };
+    wall(TL, TA, matWallB); wall(TA, TR, matWallB); wall(BL, BA, matGlass); wall(BA, BR, matGlass);
+    if (k === 0) wall(TL, BL, matWallB); if (k === b.n - 1) wall(TR, BR, matWallB);
+    // montanti della facciata vetrata
+    [[BL, BA], [BA, BR]].forEach(([a, c]) => { for (let t = 0; t <= 4; t++) { const u = t / 4, x = a[0] + (c[0] - a[0]) * u, y = a[1] + (c[1] - a[1]) * u;
+      const pts = [new THREE.Vector3(MX(x), 0, MZ(y)), new THREE.Vector3(MX(x), hf(x), MZ(y))]; gWall.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x5b6577, transparent: true, opacity: .6 }))); } });
+  }
+  m.low.forEach(p => ext(conv(p), hh.low, matLow, gLow));
+  m.solid.forEach(p => ext(conv(p), hh.low + 0.1, matSol, gSol));
+  m.steps.forEach(p => ext(conv(p), hh.raise * (p.i + 1) / m.stepsN, matSta, gSta));
+  RAISED_S = m.raised.map(conv);
+  RAISED_S.forEach(p => {
+    const g = new THREE.ShapeGeometry(shapeOf(p)); const pos = g.attributes.position, uv = new Float32Array(pos.count * 2);
+    for (let i = 0; i < pos.count; i++) { uv[i * 2] = pos.getX(i) / W + .5; uv[i * 2 + 1] = .5 + pos.getY(i) / D; }
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.rotateX(-Math.PI / 2);
+    const mt = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .95, map: floorTex }); texMats.push(mt);
+    const me = new THREE.Mesh(g, mt); me.position.y = hh.raise + .03; me.receiveShadow = true; gRai.add(me);
+  });
+  applyTransp();
 }
 
 /* ---------- stand ---------- */
@@ -101,21 +175,20 @@ function clearStands() { meshes.forEach(m => { world.remove(m.group); m.group.tr
 function buildStand(s) {
   if (meshes.has(s.id)) { const old = meshes.get(s.id); world.remove(old.group); old.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); meshes.delete(s.id); }
   if (!s.placed || s.zone !== ZN) return;
-  const { w, d } = dims(s); let geo;
-  if (s.shape) {
-    const sh = new THREE.Shape(); s.shape.forEach((p, i) => { const x = (p[0] - .5) * w, y = (.5 - p[1]) * d; i ? sh.lineTo(x, y) : sh.moveTo(x, y); });
-    geo = new THREE.ExtrudeGeometry(sh, { depth: s.h, bevelEnabled: false }); geo.rotateX(-Math.PI / 2);
-  } else { geo = new THREE.BoxGeometry(w, s.h, d); geo.translate(0, s.h / 2, 0); }
-  const mat = new THREE.MeshStandardMaterial({ color: colorOf(s), roughness: .6, metalness: .05 });
+  const { w, d } = dims(s); const bt = Math.min(.07, s.h / 6, Math.min(w, d) / 8);
+  const sh = new THREE.Shape(); (s.shape || [[0, 0], [1, 0], [1, 1], [0, 1]]).forEach((p, i) => { const x = (p[0] - .5) * w, y = (.5 - p[1]) * d; i ? sh.lineTo(x, y) : sh.moveTo(x, y); });
+  const geo = new THREE.ExtrudeGeometry(sh, { depth: Math.max(.05, s.h - 2 * bt), bevelEnabled: true, bevelThickness: bt, bevelSize: bt, bevelOffset: -bt, bevelSegments: 2 });
+  geo.translate(0, 0, bt); geo.rotateX(-Math.PI / 2);
+  const mat = new THREE.MeshStandardMaterial({ color: colorOf(s), roughness: .5, metalness: .06 });
   const body = new THREE.Mesh(geo, mat); body.castShadow = true; body.receiveShadow = true; body.userData.id = s.id;
-  const emat = new THREE.LineBasicMaterial({ color: s.locked ? 0xc9a227 : 0x1e2d4e, transparent: true, opacity: s.locked ? .95 : .35 });
-  body.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 20), emat));
+  const emat = new THREE.LineBasicMaterial({ color: s.locked ? 0xc9a227 : 0x1e2d4e, transparent: true, opacity: s.locked ? .95 : .3 });
+  body.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 45), emat));
   const ls = Math.max(Math.min(w, d * 3), 2.2);
   const lab = new THREE.Mesh(new THREE.PlaneGeometry(ls, ls / 2), new THREE.MeshBasicMaterial({ map: labelTexture(s.name), transparent: true, depthWrite: false }));
-  lab.rotation.x = -Math.PI / 2; lab.position.y = s.h + .03; lab.visible = labelsOn; lab.raycast = () => {}; body.add(lab);
+  lab.rotation.x = -Math.PI / 2; lab.position.y = s.h + .04; lab.visible = labelsOn; lab.raycast = () => {}; body.add(lab);
   const grp = new THREE.Group(); grp.add(body);
   const lk = new THREE.Sprite(new THREE.SpriteMaterial({ map: lockTex, depthTest: false })); lk.scale.set(2, 2, 1); lk.visible = !!s.locked; lk.raycast = () => {}; lk.renderOrder = 5; grp.add(lk);
-  grp.position.set((s.fx - .5) * W, 0, (s.fy - .5) * D); grp.rotation.y = -s.rot * Math.PI / 180; body.scale.y = hScale; lk.position.y = s.h * hScale + 1.6;
+  grp.position.set((s.fx - .5) * W, baseOf(s), (s.fy - .5) * D); grp.rotation.y = -s.rot * Math.PI / 180; body.scale.y = hScale; lk.position.y = s.h * hScale + 1.6;
   world.add(grp); meshes.set(s.id, { group: grp, body, mat, lab, emat, lk });
 }
 function worldPts(s) {
@@ -149,7 +222,7 @@ function paint() {
     const sel = selected === s.id, bad = conflicts.has(s.id), hit = q && s.name.toLowerCase().indexOf(q) > -1;
     m.mat.emissive.set(bad ? 0xff2a2a : hit ? 0xf5c842 : sel ? 0xffffff : 0x000000); m.mat.emissiveIntensity = bad ? .55 : hit ? .6 : sel ? .28 : 0;
     m.mat.transparent = !!q && !hit; m.mat.opacity = (q && !hit) ? .2 : 1; m.mat.needsUpdate = true;
-    m.emat.color.set(s.locked ? 0xc9a227 : 0x1e2d4e); m.emat.opacity = s.locked ? .95 : .35; m.lk.visible = !!s.locked;
+    m.emat.color.set(s.locked ? 0xc9a227 : 0x1e2d4e); m.emat.opacity = s.locked ? .95 : .3; m.lk.visible = !!s.locked;
   });
 }
 
@@ -187,7 +260,7 @@ function renderSel() {
   if (!s || !s.placed || s.zone !== ZN) { c.innerHTML = '<h3>Stand selezionato</h3><div class="mt-note">Clicca uno stand per vedere i dettagli. Trascinalo sulla pianta per spostarlo.</div>'; return; }
   const d = dims(s), L = s.locked ? ' disabled' : '';
   c.innerHTML = '<h3>Stand selezionato</h3><div class="mt-name">' + esc(s.name) + (s.locked ? '<span class="mt-tag">\uD83D\uDD12 bloccato</span>' : '') + '</div>' +
-    '<div class="mt-note">' + (s.code ? esc(s.code) + ' \u00b7 ' : '') + s.done + '/' + s.pass + ' pass consegnati \u00b7 ' + d.w.toFixed(1) + ' \u00d7 ' + d.d.toFixed(1) + ' m \u00b7 h ' + s.h.toFixed(1) + ' m' + (conflicts.has(s.id) ? ' \u00b7 <b style="color:#b3321f">sovrapposto</b>' : '') + '</div>' +
+    '<div class="mt-note">' + (s.code ? esc(s.code) + ' \u00b7 ' : '') + s.done + '/' + s.pass + ' pass consegnati \u00b7 ' + d.w.toFixed(1) + ' \u00d7 ' + d.d.toFixed(1) + ' m \u00b7 h ' + s.h.toFixed(1) + ' m' + (baseOf(s) ? ' \u00b7 su pavimento rialzato' : '') + (conflicts.has(s.id) ? ' \u00b7 <b style="color:#b3321f">sovrapposto</b>' : '') + '</div>' +
     '<div class="mt-row"><button class="mt-btn lock" id="lk">' + (s.locked ? '\uD83D\uDD13 Sblocca' : '\uD83D\uDD12 Blocca') + '</button><button class="mt-btn pri" id="ef"' + L + '>\u270E Modifica forma</button></div>' +
     '<label class="mt-f">Altezza (m)<input id="hh" type="number" step="0.1" min="0.2" max="12" value="' + s.h + '"' + L + '></label>' +
     '<div class="mt-row"><button class="mt-btn" id="r1"' + L + '>\u27F2 \u221215\u00b0</button><button class="mt-btn" id="r2"' + L + '>\u27F3 +15\u00b0</button><button class="mt-btn" id="r3"' + L + '>90\u00b0</button></div>' +
@@ -217,10 +290,15 @@ let rotTimer = null;
 function rot(s, a) { if (s.locked) return; s.rot = (s.rot + a + 360) % 360; meshes.get(s.id).group.rotation.y = -s.rot * Math.PI / 180; refresh(); clearTimeout(rotTimer); rotTimer = setTimeout(() => saveGeom(s), 500); }
 
 /* ---------- puntatore ---------- */
-const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit = new THREE.Vector3();
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), hit = new THREE.Vector3();
+const planeY = h => new THREE.Plane(new THREE.Vector3(0, 1, 0), -h);
 function setNdc(e) { const r = renderer.domElement.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); }
 function pickStand(e) { setNdc(e); const h = ray.intersectObjects([...meshes.values()].map(m => m.body), false)[0]; return h ? h.object.userData.id : null; }
-function floorPoint(e) { setNdc(e); return ray.ray.intersectPlane(plane, hit) ? hit.clone() : null; }
+function floorPoint(e) {
+  setNdc(e);
+  if (MODEL && RAISED_S.length && ray.ray.intersectPlane(planeY(MODEL.heights.raise), hit)) { const p1 = hit.clone(); if (RAISED_S.some(p => pointIn(p, p1.x, p1.z))) return p1; }
+  return ray.ray.intersectPlane(planeY(0), hit) ? hit.clone() : null;
+}
 const snap = v => Math.round(v / .5) * .5;
 const inFloor = p => p && Math.abs(p.x) <= W / 2 && Math.abs(p.z) <= D / 2;
 const cvs = renderer.domElement;
@@ -237,7 +315,7 @@ function drawOverlay() {
   clearOverlay(); if (!dr) return; const pts = dr.pts.slice(); if (dr.cursor) pts.push(dr.cursor); const r = rr(); let list = pts;
   if (dr.kind === 'rect' && dr.pts.length === 1 && dr.cursor) { const a = dr.pts[0], b = dr.cursor; list = [a, [b[0], a[1]], b, [a[0], b[1]]]; }
   if (list.length > 1) { const g = new THREE.BufferGeometry().setFromPoints(list.concat(list.length > 2 ? [list[0]] : []).map(p => new THREE.Vector3(p[0], .5, p[1]))); const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x6b3fa0, depthTest: false })); l.renderOrder = 9; overlay.add(l); }
-  dr.pts.forEach((p, i) => overlay.add(dot(p[0], p[1], i === 0 ? r * 1.5 : r, i === 0 ? 0xf5c842 : 0x6b3fa0)));
+  dr.pts.forEach((p, i) => overlay.add(dot(p[0], p[1], i === 0 ? r * 1.5 : r, i === 0 ? 0xf5c842 : 0x6b3fa0, 2.0)));
 }
 function startDraw(s) {
   if (mState !== 'idle' || ZN === null) return; mState = 'draw'; selected = null; goView('top'); lockCam(true); dr = { stand: s, kind: 'poly', pts: [], cursor: null }; refresh(); drawBanner();
@@ -273,7 +351,7 @@ function startEdit(s) {
   $('ek').onclick = endEdit; $('ec').onclick = cancelEdit;
 }
 function buildHandles() {
-  clearOverlay(); if (!ed) return; ed.handles = []; ed.mids = []; const r = rr() * 1.1, y = Math.max(ed.s.h * hScale, .4) + .6, n = ed.pts.length;
+  clearOverlay(); if (!ed) return; ed.handles = []; ed.mids = []; const r = rr() * 1.1, y = baseOf(ed.s) + Math.max(ed.s.h * hScale, .4) + .6, n = ed.pts.length;
   ed.pts.forEach((p, i) => { overlay.add(dot(p[0], p[1], r * 1.25, 0x6b3fa0, y - .01)); const m = dot(p[0], p[1], r, 0xffffff, y); m.userData = { type: 'v', i }; ed.handles.push(m); overlay.add(m); });
   for (let i = 0; i < n; i++) { const a = ed.pts[i], b = ed.pts[(i + 1) % n]; const m = dot((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, r * .7, 0xf5c842, y); m.userData = { type: 'm', i }; ed.mids.push(m); overlay.add(m); }
   const g = new THREE.BufferGeometry().setFromPoints(ed.pts.concat([ed.pts[0]]).map(p => new THREE.Vector3(p[0], y - .02, p[1]))); const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x6b3fa0, depthTest: false })); l.renderOrder = 8; overlay.add(l);
@@ -307,7 +385,7 @@ cvs.addEventListener('pointermove', e => {
   if (drag) {
     const p = floorPoint(e); if (!p) return; const x = snap(p.x + drag.ox), z = snap(p.z + drag.oz);
     drag.s.fx = Math.max(.01, Math.min(.99, x / W + .5)); drag.s.fy = Math.max(.01, Math.min(.99, z / D + .5)); drag.moved = true;
-    meshes.get(drag.s.id).group.position.set((drag.s.fx - .5) * W, 0, (drag.s.fy - .5) * D); computeConflicts(); paint(); $('mt-tip').style.display = 'none'; return;
+    meshes.get(drag.s.id).group.position.set((drag.s.fx - .5) * W, baseOf(drag.s), (drag.s.fy - .5) * D); computeConflicts(); paint(); $('mt-tip').style.display = 'none'; return;
   }
   const tip = $('mt-tip');
   if (mState !== 'idle') { tip.style.display = 'none'; cvs.style.cursor = mState === 'draw' ? 'crosshair' : (pickHandle(e) ? 'move' : 'default'); return; }
@@ -337,31 +415,56 @@ addEventListener('keydown', e => {
 });
 
 /* ---------- viste e zone ---------- */
-const VIEWS = { top: { p: [0, 1.3, 0.001], t: [0, 0, 0] }, persp: { p: [0, .72, .82], t: [0, 0, .02] }, iso: { p: [.78, .72, .78], t: [0, 0, 0] } };
+const VIEWS = { top: { p: [0, 1.3, 0.001], t: [0, 0, 0] }, persp: { p: [0, .72, .82], t: [0, 0, .02] }, iso: { p: [.78, .72, .78], t: [0, 0, 0] }, south: { p: [.08, .22, 1.0], t: [.08, .03, 0] } };
 let tween = null;
-function goView(k) {
-  curView = k; const v = VIEWS[k], sc = Math.max(W, D) * 1.2;
-  const to = new THREE.Vector3(v.p[0] * sc, v.p[1] * sc, v.p[2] * sc), toT = new THREE.Vector3(v.t[0] * sc, 0, v.t[2] * sc);
-  tween = { t0: performance.now(), from: camera.position.clone(), fromT: controls.target.clone(), to, toT };
+function viewTarget(k) { const v = VIEWS[k], sc = Math.max(W, D) * 1.2; return { to: new THREE.Vector3(v.p[0] * sc, v.p[1] * sc, v.p[2] * sc), toT: new THREE.Vector3(v.t[0] * sc, v.t[1] * sc, v.t[2] * sc) }; }
+function goView(k, dur) {
+  curView = k; const { to, toT } = viewTarget(k);
+  tween = { t0: performance.now(), dur: dur || 700, from: camera.position.clone(), fromT: controls.target.clone(), to, toT };
   document.querySelectorAll('#views button').forEach(b => b.classList.toggle('on', b.dataset.v === k));
 }
-function setZone(name) {
+async function getModel(name) {
+  const slug = String(name || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  if (!slug) return null;
+  if (!(slug in getModel.cache)) { try { const r = await fetch('/mappatest-models/' + slug + '.json', { credentials: 'same-origin' }); getModel.cache[slug] = r.ok ? await r.json() : null; } catch (e) { getModel.cache[slug] = null; } }
+  return getModel.cache[slug];
+}
+getModel.cache = {};
+let firstZone = true;
+async function setZone(name) {
   if (mState === 'draw') cancelDraw(); if (mState === 'edit') cancelEdit();
+  const tok = ++zoneTok;
   ZN = name; Z = zones.find(z => z.name === name) || null; selected = null; query = ''; $('q').value = '';
-  W = (Z && Z.widthM) || 80; D = W * ((Z && Z.refH) || 600) / ((Z && Z.refW) || 1450);
-  $('wm').value = Z ? W : ''; $('wm').disabled = !Z;
-  clearStands(); clearOverlay(); buildFloor(); zs().forEach(buildStand);
+  const refW = (Z && Z.refW) || 1450, refH = (Z && Z.refH) || 600;
+  const [img, model] = Z ? await Promise.all([Z.bg ? loadImg('/zone-bg/' + encodeURIComponent(Z.bg)) : Promise.resolve(null), getModel(Z.name)]) : [null, null];
+  if (tok !== zoneTok) return;
+  PL = null; MODEL = null;
+  if (img) { const sc = Math.min(refW / img.naturalWidth, refH / img.naturalHeight); PL = { wFrac: img.naturalWidth * sc / refW, hFrac: img.naturalHeight * sc / refH, xOff: (refW - img.naturalWidth * sc) / 2 / refW }; }
+  if (img && model && Math.abs((img.naturalWidth / img.naturalHeight) / (model.planPx[0] / model.planPx[1]) - 1) < .03) MODEL = model;
+  W = MODEL ? (MODEL.planPx[0] * MODEL.mpp) / PL.wFrac : ((Z && Z.widthM) || 80);
+  D = W * refH / refW;
+  $('wm').value = Z ? Math.round(W * 10) / 10 : ''; $('wm').disabled = !Z || !!MODEL;
+  $('wmn').textContent = MODEL ? 'Scala presa dal modello 3D dell\'edificio (sala larga 51 m).' : (model && img ? 'Il modello 3D non corrisponde alla planimetria caricata: ignorato.' : '');
+  clearStands(); clearOverlay(); buildFloor(img); buildModel(); zs().forEach(buildStand);
+  gSol.visible = gLow.visible = gSta.visible = gRai.visible = gWall.visible = $('bld').checked; gRoof.visible = $('bld').checked && $('rf').checked;
   const ms = $('ms'); if (!Z) { ms.style.display = 'flex'; ms.innerHTML = zones.length ? 'Questi stand non hanno una zona assegnata: assegnali a una zona dalle impostazioni assegnatari.' : 'Nessuna zona configurata.'; } else ms.style.display = 'none';
-  refresh(); goView(curView); if (tween) { camera.position.copy(tween.to); controls.target.copy(tween.toT); tween = null; }
+  refresh();
+  const t = viewTarget(curView);
+  if (firstZone) { firstZone = false; camera.position.copy(t.to).multiplyScalar(1.7); controls.target.copy(t.toT); goView(curView, 1800); }
+  else { camera.position.copy(t.to); controls.target.copy(t.toT); tween = null; }
 }
 document.querySelectorAll('#views button').forEach(b => b.onclick = () => goView(b.dataset.v));
 document.querySelectorAll('#modes button').forEach(b => b.onclick = () => { document.querySelectorAll('#modes button').forEach(x => x.classList.remove('on')); b.classList.add('on'); mode = b.dataset.m; paint(); renderLegend(); });
 $('lab').onchange = e => { labelsOn = e.target.checked; meshes.forEach(m => m.lab.visible = labelsOn); };
-$('shd').onchange = e => { renderer.shadowMap.enabled = e.target.checked; sun.castShadow = e.target.checked; meshes.forEach(m => { m.mat.needsUpdate = true; }); if (floorMesh) floorMesh.material.needsUpdate = true; };
+$('shd').onchange = e => { renderer.shadowMap.enabled = e.target.checked; sun.castShadow = e.target.checked; scene.traverse(o => { if (o.material) o.material.needsUpdate = true; }); };
 $('hsl').oninput = e => { hScale = e.target.value / 100; zs().forEach(s => { const m = meshes.get(s.id); if (m) { m.body.scale.y = hScale; m.lk.position.y = s.h * hScale + 1.6; } }); };
+$('bld').onchange = e => { const on = e.target.checked; gSol.visible = gLow.visible = gSta.visible = gRai.visible = gWall.visible = on; gRoof.visible = on && $('rf').checked; };
+$('rf').onchange = e => { gRoof.visible = $('bld').checked && e.target.checked; };
+$('trn').oninput = e => { transp = e.target.value / 100; applyTransp(); };
+$('sunr').oninput = e => setSun(+e.target.value);
 $('q').oninput = e => { query = e.target.value; paint(); };
 $('wm').onchange = e => {
-  if (!Z) return; const v = Math.max(10, Math.min(500, parseFloat(e.target.value) || 80));
+  if (!Z || MODEL) return; const v = Math.max(10, Math.min(500, parseFloat(e.target.value) || 80));
   api('/admin/mappatest/zone-scale', { zone: Z.name, width_m: v }).then(d => { if (d && d.ok) { Z.widthM = v; setZone(Z.name); toast('Scala aggiornata'); } else { toast('Salvataggio non riuscito'); e.target.value = W; } });
 };
 $('imp').onclick = () => {
@@ -377,11 +480,11 @@ $('ex').onclick = () => {
 };
 function resize() { const r = vw.getBoundingClientRect(); renderer.setSize(r.width, r.height); camera.aspect = r.width / Math.max(1, r.height); camera.updateProjectionMatrix(); }
 if (window.ResizeObserver) new ResizeObserver(resize).observe(vw); else addEventListener('resize', resize);
-resize();
+resize(); applyTransp();
 setZone(zones.length ? zones[0].name : null);
 if (!zones.length) { $('ms').style.display = 'flex'; $('ms').textContent = 'Nessuna zona configurata.'; }
 (function loop(now) {
   requestAnimationFrame(loop);
-  if (tween) { const k = Math.min(1, (now - tween.t0) / 700), e = 1 - Math.pow(1 - k, 3); camera.position.lerpVectors(tween.from, tween.to, e); controls.target.lerpVectors(tween.fromT, tween.toT, e); if (k >= 1) tween = null; }
+  if (tween) { const k = Math.min(1, (now - tween.t0) / tween.dur), e = 1 - Math.pow(1 - k, 3); camera.position.lerpVectors(tween.from, tween.to, e); controls.target.lerpVectors(tween.fromT, tween.toT, e); if (k >= 1) tween = null; }
   controls.update(); renderer.render(scene, camera);
 })(0);
