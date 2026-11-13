@@ -298,6 +298,8 @@ module.exports = function registerMappaRoutes(
   // ═══ MAPPA TEST 3D — pagina di prova su /admin/mappatest (solo admin) ═════════════════════════
   // I dati stanno in tabelle separate (map_test_layout, map_test_zone):
   // la mappa reale (assignment_groups.map_*) non viene mai scritta da queste rotte.
+  // Colonne aggiunte: map_test_layout.model/label/color/kind (modelli predefiniti e oggetti liberi con id negativo),
+  // map_test_zone.outdoor (zona all'aperto). Gli ALTER TABLE danno errore se la colonna esiste già: l'errore è ignorato.
   db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS map_test_layout (
       group_id INTEGER PRIMARY KEY, zone TEXT, fx REAL, fy REAL, wf REAL, df REAL,
@@ -305,6 +307,39 @@ module.exports = function registerMappaRoutes(
       (e) => { if (e) console.error('[mappatest] tabella layout', e.message); });
     db.run(`CREATE TABLE IF NOT EXISTS map_test_zone (zone TEXT PRIMARY KEY, width_m REAL)`,
       (e) => { if (e) console.error('[mappatest] tabella zone', e.message); });
+    ['model TEXT', 'label TEXT', 'color TEXT', 'kind TEXT'].forEach((c) => {
+      db.run('ALTER TABLE map_test_layout ADD COLUMN ' + c, () => {});
+    });
+    db.run('ALTER TABLE map_test_zone ADD COLUMN outdoor INTEGER DEFAULT 0', () => {});
+  });
+
+  // Valida i dati di posizione/forma/modello inviati dalla pagina di prova
+  function parseTestGeom(b) {
+    b = b || {};
+    const num = (v) => (v !== '' && v != null && isFinite(+v)) ? +v : null;
+    const fx = num(b.fx), fy = num(b.fy), wf = num(b.wf), df = num(b.df);
+    if ([fx, fy, wf, df].some((v) => v === null) || wf <= 0 || df <= 0) return null;
+    let shape = null;
+    if (Array.isArray(b.shape) && b.shape.length >= 3 && b.shape.every((p) => Array.isArray(p) && isFinite(+p[0]) && isFinite(+p[1]))) {
+      shape = JSON.stringify(b.shape.map((p) => [+p[0], +p[1]]));
+    }
+    const kind = b.kind === 'obj' ? 'obj' : 'stand';
+    return {
+      fx, fy, wf, df, shape, kind,
+      rot: num(b.rot) || 0,
+      h: Math.max(0.2, Math.min(12, num(b.height) || 2.5)),
+      model: (typeof b.model === 'string' && /^[a-z0-9-]{1,24}$/.test(b.model)) ? b.model : null,
+      label: kind === 'obj' ? (String(b.label || '').trim().slice(0, 60) || 'Oggetto') : null,
+      color: (typeof b.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(b.color)) ? b.color : null,
+    };
+  }
+  const parseShape = (l) => {
+    if (!l || !l.shape) return null;
+    try { return JSON.parse(l.shape); } catch (_) { return null; }
+  };
+  const toLayout = (l) => ({
+    fx: l.fx, fy: l.fy, wf: l.wf, df: l.df, rot: l.rot || 0, shape: parseShape(l),
+    h: l.height || 2.5, locked: l.locked ? 1 : 0, model: l.model || null,
   });
 
   app.get('/admin/mappatest', requireAuth, requireAdmin, (req, res) => {
@@ -328,24 +363,29 @@ module.exports = function registerMappaRoutes(
             db.all('SELECT * FROM map_test_zone', [], (e4, zset) => {
               const byG = {};
               (lays || []).forEach((l) => { byG[l.group_id] = l; });
-              const wBy = {};
-              (zset || []).forEach((z) => { wBy[z.zone] = z.width_m; });
+              const wBy = {}, oBy = {};
+              (zset || []).forEach((z) => { wBy[z.zone] = z.width_m; oBy[z.zone] = z.outdoor ? 1 : 0; });
               const data = {
                 zones: (zones || []).map((z) => ({
                   id: z.id, name: z.name, bg: z.background_image || null,
                   refW: z.map_ref_w || null, refH: z.map_ref_h || null, widthM: wBy[z.name] || null,
+                  outdoor: oBy[z.name] || 0,
                 })),
                 stands: (groups || []).map((g) => {
                   const l = byG[g.id];
-                  let shape = null;
-                  if (l && l.shape) { try { shape = JSON.parse(l.shape); } catch (_) { shape = null; } }
                   return {
                     id: g.id, name: g.stand_name, zone: g.zone || null, code: g.stand_code || '',
                     pc: g.pass_count || 0, cs: g.consegnati || 0, notes: g.notes || '',
                     importable: g.map_x != null && g.map_y != null,
-                    L: l ? { fx: l.fx, fy: l.fy, wf: l.wf, df: l.df, rot: l.rot || 0, shape, h: l.height || 2.5, locked: l.locked ? 1 : 0 } : null,
+                    L: l ? toLayout(l) : null,
                   };
                 }),
+                // Oggetti liberi (biglietteria, palco, segreteria...): righe con id negativo, non sono stand
+                objects: (lays || []).filter((l) => l.kind === 'obj' && l.group_id < 0).map((l) => ({
+                  id: l.group_id, name: l.label || 'Oggetto', zone: l.zone || null, code: '',
+                  pc: 0, cs: 0, notes: '', importable: false, kind: 'obj', color: l.color || null,
+                  L: toLayout(l),
+                })),
               };
               res.render('mappa-test', { data, assetV: MAPPA_ASSET_V });
             });
@@ -355,29 +395,41 @@ module.exports = function registerMappaRoutes(
     });
   });
 
-  // Salva posizione/forma/altezza (rifiuta se lo stand e' bloccato)
+  // Salva posizione/forma/altezza/modello (rifiuta se lo stand e' bloccato)
   app.post('/admin/mappatest/layout/:id', requireAuth, requireAdmin, (req, res) => {
     const id = parseInt(req.params.id, 10);
-    const b = req.body || {};
-    const num = (v) => (v !== '' && v != null && isFinite(+v)) ? +v : null;
-    const fx = num(b.fx), fy = num(b.fy), wf = num(b.wf), df = num(b.df);
-    if ([fx, fy, wf, df].some((v) => v === null) || wf <= 0 || df <= 0) return res.status(400).json({ ok: false, error: 'dati non validi' });
-    const rot = num(b.rot) || 0;
-    const h = Math.max(0.2, Math.min(12, num(b.height) || 2.5));
-    let shape = null;
-    if (Array.isArray(b.shape) && b.shape.length >= 3 && b.shape.every((p) => Array.isArray(p) && isFinite(+p[0]) && isFinite(+p[1]))) {
-      shape = JSON.stringify(b.shape.map((p) => [+p[0], +p[1]]));
-    }
+    const g = parseTestGeom(req.body);
+    if (!g) return res.status(400).json({ ok: false, error: 'dati non validi' });
+    if ((g.kind === 'obj') !== (id < 0)) return res.status(400).json({ ok: false, error: 'tipo non coerente con l\'id' });
     db.get('SELECT locked FROM map_test_layout WHERE group_id=?', [id], (e, row) => {
       if (e) return res.status(500).json({ ok: false, error: e.message });
       if (row && row.locked) return res.status(423).json({ ok: false, error: 'Stand bloccato' });
+      if (g.kind === 'obj' && !row) return res.status(404).json({ ok: false, error: 'Oggetto non trovato' });
       db.run(
-        `INSERT INTO map_test_layout (group_id, zone, fx, fy, wf, df, rot, shape, height, locked, updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,0,datetime('now','localtime'))
+        `INSERT INTO map_test_layout (group_id, zone, fx, fy, wf, df, rot, shape, height, locked, updated_at, model, label, color, kind)
+         VALUES (?,?,?,?,?,?,?,?,?,0,datetime('now','localtime'),?,?,?,?)
          ON CONFLICT(group_id) DO UPDATE SET zone=excluded.zone, fx=excluded.fx, fy=excluded.fy, wf=excluded.wf, df=excluded.df,
-           rot=excluded.rot, shape=excluded.shape, height=excluded.height, updated_at=excluded.updated_at`,
-        [id, String(b.zone || ''), fx, fy, wf, df, rot, shape, h],
+           rot=excluded.rot, shape=excluded.shape, height=excluded.height, updated_at=excluded.updated_at,
+           model=excluded.model, label=excluded.label, color=excluded.color, kind=excluded.kind`,
+        [id, String(req.body.zone || ''), g.fx, g.fy, g.wf, g.df, g.rot, g.shape, g.h, g.model, g.label, g.color, g.kind],
         (err) => res.json(err ? { ok: false, error: err.message } : { ok: true })
+      );
+    });
+  });
+
+  // Crea un oggetto libero (biglietteria, palco, segreteria, altro): id negativo, non e' uno stand
+  app.post('/admin/mappatest/object', requireAuth, requireAdmin, (req, res) => {
+    const g = parseTestGeom(req.body);
+    const zone = String((req.body && req.body.zone) || '');
+    if (!g || g.kind !== 'obj' || !zone) return res.status(400).json({ ok: false, error: 'dati non validi' });
+    db.get('SELECT MIN(group_id) AS m FROM map_test_layout', [], (e, row) => {
+      if (e) return res.status(500).json({ ok: false, error: e.message });
+      const id = Math.min(-1, ((row && row.m) || 0) - 1);
+      db.run(
+        `INSERT INTO map_test_layout (group_id, zone, fx, fy, wf, df, rot, shape, height, locked, updated_at, model, label, color, kind)
+         VALUES (?,?,?,?,?,?,?,?,?,0,datetime('now','localtime'),?,?,?,'obj')`,
+        [id, zone, g.fx, g.fy, g.wf, g.df, g.rot, g.shape, g.h, g.model, g.label, g.color],
+        (err) => res.json(err ? { ok: false, error: err.message } : { ok: true, id })
       );
     });
   });
@@ -393,7 +445,7 @@ module.exports = function registerMappaRoutes(
     });
   });
 
-  // Rimuove uno stand dalla pianta di test (rifiuta se bloccato)
+  // Rimuove uno stand (o elimina un oggetto) dalla pianta di test (rifiuta se bloccato)
   app.post('/admin/mappatest/layout/:id/remove', requireAuth, requireAdmin, (req, res) => {
     const id = parseInt(req.params.id, 10);
     db.run('DELETE FROM map_test_layout WHERE group_id=? AND locked=0', [id], function (err) {
@@ -409,6 +461,15 @@ module.exports = function registerMappaRoutes(
     const w = Math.max(10, Math.min(500, +(req.body && req.body.width_m) || 0));
     if (!zone || !w) return res.status(400).json({ ok: false, error: 'dati non validi' });
     db.run('INSERT INTO map_test_zone (zone, width_m) VALUES (?,?) ON CONFLICT(zone) DO UPDATE SET width_m=excluded.width_m', [zone, w],
+      (err) => res.json(err ? { ok: false, error: err.message } : { ok: true }));
+  });
+
+  // Tipo di zona: all'aperto (gazebo 3x3 e 4x3) oppure al chiuso (stand 4x2,5 e 2x1,5)
+  app.post('/admin/mappatest/zone-outdoor', requireAuth, requireAdmin, (req, res) => {
+    const zone = String((req.body && req.body.zone) || '');
+    const v = req.body && +req.body.outdoor ? 1 : 0;
+    if (!zone) return res.status(400).json({ ok: false, error: 'zona mancante' });
+    db.run('INSERT INTO map_test_zone (zone, outdoor) VALUES (?,?) ON CONFLICT(zone) DO UPDATE SET outdoor=excluded.outdoor', [zone, v],
       (err) => res.json(err ? { ok: false, error: err.message } : { ok: true }));
   });
 
