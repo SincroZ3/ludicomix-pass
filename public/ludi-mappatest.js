@@ -20,7 +20,7 @@ const LBL = { color: (DATA.settings && DATA.settings.lbl_color) || '#ffffff', ou
 const stands = DATA.stands.concat(DATA.objects || []).map(s => {
   const L = s.L;
   return { id: s.id, name: s.name, zone: s.zone, code: s.code, pass: s.pc || 0, done: s.cs || 0, notes: s.notes, importable: !!s.importable, placed: !!L,
-    fx: L ? L.fx : .5, fy: L ? L.fy : .5, wf: L ? L.wf : .03, df: L ? L.df : .03, rot: L ? L.rot : 0, shape: L ? L.shape : null, h: L ? L.h : 2.5, locked: L ? !!L.locked : false, model: L ? (L.model || null) : null, kind: s.kind || 'stand', color: (L && L.color) || s.color || null, lscale: L ? (L.lscale || 1) : 1 };
+    fx: L ? L.fx : .5, fy: L ? L.fy : .5, wf: L ? L.wf : .03, df: L ? L.df : .03, rot: L ? L.rot : 0, shape: L ? L.shape : null, h: L ? L.h : 2.5, locked: L ? !!L.locked : false, model: L ? (L.model || null) : null, kind: s.kind || 'stand', color: (L && L.color) || s.color || null, lscale: L ? (L.lscale || 1) : 1, lrot: L ? (L.lrot || 0) : 0 };
 });
 
 stands.forEach(s => { if (s.model === 'obj-transenna' && s.shape) s.shape = dedupeShape(s.shape); });
@@ -191,7 +191,7 @@ function fitLabel(s) {
   const b = bboxOf(worldPts(s)), avail = (s.model === 'area' && isOut()) ? 2.2 : (b.x1 - b.x0), tw = m.lab.geometry.parameters.width * labelPx(s.name) / 256;
   const k = Math.max(.3, Math.min(4, Math.round(.92 * avail / tw * 20) / 20)); s.lscale = isFinite(k) ? k : 1; orientLabel(m.lab, s);
 }
-function orientLabel(lab, s) { lab.rotation.order = 'YXZ'; lab.rotation.set(-Math.PI / 2, s.rot * Math.PI / 180, 0); const k = s.lscale || 1; lab.scale.set(k, k, 1); }
+function orientLabel(lab, s) { lab.rotation.order = 'YXZ'; lab.rotation.set(-Math.PI / 2, (s.rot - (s.lrot || 0)) * Math.PI / 180, 0); const k = s.lscale || 1; lab.scale.set(k, k, 1); }
 function applyRot(s) { const m = meshes.get(s.id); if (!m) return; m.group.rotation.y = -s.rot * Math.PI / 180; orientLabel(m.lab, s); }
 function placeLock(lk, s) { const { w, d } = dims(s); lk.position.set(Math.max(0, w / 2 - .5), s.h * hScale + .7, -Math.max(0, d / 2 - .5)); }
 function isLine(s) { return s.model === 'obj-transenna'; }
@@ -294,6 +294,7 @@ function renderSel() {
     (obj ? '<label class="mt-f">Note (mostrate al passaggio del mouse)<textarea id="onote" rows="3" maxlength="500" style="width:100%;margin-top:.2rem;border:1.5px solid #d9cff0;border-radius:12px;padding:.4rem .65rem;font:inherit;font-size:.86rem"' + L + '>' + esc(s.notes || '') + '</textarea></label>'
       : '<label class="mt-f">Colore in vista neutra<input id="nc" type="color" value="' + esc(s.color || COL.neutro) + '"' + L + '></label><div class="mt-row" id="sw">' + SW.map(c => '<button class="mt-btn" data-c="' + c + '" title="' + c + '" style="width:26px;height:26px;padding:0;border-radius:8px;background:' + c + '"' + L + '></button>').join('') + '<button class="mt-btn" id="ncr"' + L + '>Predefinito</button></div>') +
     '<label class="mt-f">Dimensione nome (' + Math.round((s.lscale || 1) * 100) + '%)<input id="lsz" type="range" min="30" max="400" step="5" value="' + Math.round((s.lscale || 1) * 100) + '"' + L + '></label><div class="mt-row"><button class="mt-btn" id="lfit"' + L + '>Adatta allo spazio</button><button class="mt-btn" id="lrst"' + L + '>100%</button></div>' +
+    '<div class="mt-f">Rotazione nome (' + ((s.lrot || 0) ? Math.round(s.lrot) + '\u00b0' : 'automatica, sempre leggibile') + ')</div><div class="mt-row"><button class="mt-btn" id="lr1"' + L + '>\u27F2 \u221215\u00b0</button><button class="mt-btn" id="lr2"' + L + '>\u27F3 +15\u00b0</button><button class="mt-btn" id="lr3"' + L + '>90\u00b0</button><button class="mt-btn" id="lr4"' + L + '>Come lo stand</button><button class="mt-btn" id="lr0"' + L + '>Auto</button></div>' +
     '<label class="mt-f">Altezza (m)<input id="hh" type="number" step="0.1" min="0.2" max="12" value="' + s.h + '"' + L + '></label>' +
     '<div class="mt-row"><button class="mt-btn" id="r1"' + L + '>\u27F2 \u221215\u00b0</button><button class="mt-btn" id="r2"' + L + '>\u27F3 +15\u00b0</button><button class="mt-btn" id="r3"' + L + '>90\u00b0</button></div>' +
     '<div class="mt-row">' + (obj ? '' : '<a class="mt-btn" href="/assignment-groups/' + s.id + '" style="text-decoration:none">Apri scheda gruppo</a>') + '<button class="mt-btn del" id="rm"' + L + '>' + (obj ? 'Elimina oggetto' : 'Rimuovi dalla pianta') + '</button></div>';
@@ -313,12 +314,15 @@ function renderSel() {
   $('lsz').onchange = () => { renderSel(); saveGeom(s); };
   $('lfit').onclick = () => { fitLabel(s); renderSel(); saveGeom(s); };
   $('lrst').onclick = () => { s.lscale = 1; const m = meshes.get(s.id); if (m) orientLabel(m.lab, s); renderSel(); saveGeom(s); };
+  const setLr = v => { s.lrot = ((v % 360) + 360) % 360; const m = meshes.get(s.id); if (m) orientLabel(m.lab, s); renderSel(); saveGeom(s); };
+  $('lr1').onclick = () => setLr((s.lrot || 0) - 15); $('lr2').onclick = () => setLr((s.lrot || 0) + 15); $('lr3').onclick = () => setLr((s.lrot || 0) + 90);
+  $('lr4').onclick = () => setLr(s.rot); $('lr0').onclick = () => setLr(0);
   $('r1').onclick = () => rot(s, -15); $('r2').onclick = () => rot(s, 15); $('r3').onclick = () => rot(s, 90);
   $('rm').onclick = () => removeStand(s);
 }
 
 /* ---------- salvataggio ---------- */
-function geomBody(s) { return { zone: s.zone, fx: s.fx, fy: s.fy, wf: s.wf, df: s.df, rot: s.rot, shape: (isLine(s) && s.shape && s.shape.length === 2) ? s.shape.concat([s.shape[1]]) : s.shape, height: s.h, model: s.model || null, kind: s.kind || 'stand', label: s.kind === 'obj' ? s.name : null, color: s.color || null, notes: s.kind === 'obj' ? (s.notes || '') : null, lscale: s.lscale || 1 }; }
+function geomBody(s) { return { zone: s.zone, fx: s.fx, fy: s.fy, wf: s.wf, df: s.df, rot: s.rot, shape: (isLine(s) && s.shape && s.shape.length === 2) ? s.shape.concat([s.shape[1]]) : s.shape, height: s.h, model: s.model || null, kind: s.kind || 'stand', label: s.kind === 'obj' ? s.name : null, color: s.color || null, notes: s.kind === 'obj' ? (s.notes || '') : null, lscale: s.lscale || 1, lrot: s.lrot || 0 }; }
 function saveGeom(s, onFail) {
   return api('/admin/mappatest/layout/' + s.id, geomBody(s)).then(d => {
     if (d && d.ok) { toast('\u2713 Salvato (test)'); return true; }
