@@ -16,10 +16,11 @@ const api = (url, body, method) => fetch(url, { method: method || 'POST', creden
 const loadImg = src => new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
 
 const zones = DATA.zones;
+const LBL = { color: (DATA.settings && DATA.settings.lbl_color) || '#ffffff', outline: (DATA.settings && DATA.settings.lbl_outline) || '#000000' };
 const stands = DATA.stands.concat(DATA.objects || []).map(s => {
   const L = s.L;
   return { id: s.id, name: s.name, zone: s.zone, code: s.code, pass: s.pc || 0, done: s.cs || 0, notes: s.notes, importable: !!s.importable, placed: !!L,
-    fx: L ? L.fx : .5, fy: L ? L.fy : .5, wf: L ? L.wf : .03, df: L ? L.df : .03, rot: L ? L.rot : 0, shape: L ? L.shape : null, h: L ? L.h : 2.5, locked: L ? !!L.locked : false, model: L ? (L.model || null) : null, kind: s.kind || 'stand', color: s.color || null };
+    fx: L ? L.fx : .5, fy: L ? L.fy : .5, wf: L ? L.wf : .03, df: L ? L.df : .03, rot: L ? L.rot : 0, shape: L ? L.shape : null, h: L ? L.h : 2.5, locked: L ? !!L.locked : false, model: L ? (L.model || null) : null, kind: s.kind || 'stand', color: (L && L.color) || s.color || null, lscale: L ? (L.lscale || 1) : 1 };
 });
 
 stands.forEach(s => { if (s.model === 'obj-transenna' && s.shape) s.shape = dedupeShape(s.shape); });
@@ -38,7 +39,7 @@ root.innerHTML = '' +
  '<label class="mt-chk">Altezze <input type="range" id="hsl" min="30" max="200" value="100"></label></div>' +
  '<div class="mt-view" id="vw"><div class="mt-banner" id="bn"></div><div class="mt-leg" id="lg"></div><div class="mt-tray" id="tr"></div><div class="mt-msg" id="ms"></div></div>' +
 '</div><aside class="mt-side">' +
- '<div class="mt-panel"><h3 id="psh" style="cursor:pointer;user-select:none">Scala e dati <span id="pst">\u25BE</span></h3><div id="psb"><label class="mt-f">Larghezza reale della pianta (m)<input id="wm" type="number" min="10" max="500" step="0.5"></label><div class="mt-note" id="wmn"></div><label class="mt-chk" style="margin:6px 0"><input type="checkbox" id="outd"> Zona all&#39;aperto</label>' +
+ '<div class="mt-panel"><h3 id="psh" style="cursor:pointer;user-select:none">Scala e dati <span id="pst">\u25BE</span></h3><div id="psb"><label class="mt-f">Larghezza reale della pianta (m)<input id="wm" type="number" min="10" max="500" step="0.5"></label><div class="mt-note" id="wmn"></div><label class="mt-chk" style="margin:6px 0"><input type="checkbox" id="outd"> Zona all&#39;aperto</label><div class="mt-row" style="align-items:center"><label class="mt-chk">Colore nomi <input type="color" id="lblc"></label><label class="mt-chk">Contorno <input type="color" id="lblo"></label><button class="mt-btn" id="lblr">Predefiniti</button></div>' +
  '<div class="mt-row"><button class="mt-btn" id="imp">Importa dalla mappa attuale</button></div><div class="mt-note" id="impn"></div>' +
  '<div class="mt-row"><button class="mt-btn lock" id="la">\uD83D\uDD12 Blocca tutti</button><button class="mt-btn" id="ua">Sblocca tutti</button><button class="mt-btn" id="ex">Esporta JSON</button></div></div></div>' +
  '<div class="mt-panel" id="sel"></div>' +
@@ -75,7 +76,7 @@ const zs = () => stands.filter(s => s.zone === ZN);
 const isOut = () => !!(Z && Z.outdoor);
 const dims = s => ({ w: s.wf * W, d: s.df * D });
 const COL = { grey: '#9ca3af', green: '#2d6a4f', yellow: '#c9a227', red: '#c0392b', neutro: '#6b3fa0' };
-function colorOf(s) { if (s.kind === 'obj') return s.color || '#16a085'; if (mode === 'neutro') return COL.neutro; if (!s.pass) return COL.grey; const p = s.done / s.pass; return p >= .8 ? COL.green : p > 0 ? COL.yellow : COL.red; }
+function colorOf(s) { if (s.kind === 'obj') return s.color || '#16a085'; if (mode === 'neutro') return s.color || COL.neutro; if (!s.pass) return COL.grey; const p = s.done / s.pass; return p >= .8 ? COL.green : p > 0 ? COL.yellow : COL.red; }
 let tt; function toast(t) { const e = $('mt-toast'); e.textContent = t; e.style.display = 'block'; clearTimeout(tt); tt = setTimeout(() => e.style.display = 'none', 2600); }
 
 /* ---------- materiali dell'edificio ---------- */
@@ -174,16 +175,23 @@ function buildModel() {
 /* ---------- stand ---------- */
 function labelTexture(text) {
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128; const g = cv.getContext('2d');
-  g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; let fs = 40; g.font = 'bold ' + fs + 'px sans-serif';
+  g.fillStyle = LBL.color; g.textAlign = 'center'; g.textBaseline = 'middle'; let fs = 40; g.font = 'bold ' + fs + 'px sans-serif';
   while (g.measureText(text).width > 236 && fs > 16) { fs -= 2; g.font = 'bold ' + fs + 'px sans-serif'; }
-  g.shadowColor = 'rgba(0,0,0,.65)'; g.shadowBlur = 6; g.fillText(text, 128, 64);
+  g.shadowColor = LBL.outline; g.shadowBlur = 6; g.lineJoin = 'round'; g.lineWidth = 4; g.strokeStyle = LBL.outline; g.globalAlpha = .55; g.strokeText(text, 128, 64); g.globalAlpha = 1; g.fillText(text, 128, 64);
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 const lockTex = (() => { const cv = document.createElement('canvas'); cv.width = 96; cv.height = 96; const g = cv.getContext('2d');
   g.fillStyle = '#fff8dd'; g.beginPath(); g.arc(48, 48, 44, 0, 7); g.fill(); g.strokeStyle = '#c9a227'; g.lineWidth = 5; g.stroke();
   g.font = '50px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('\uD83D\uDD12', 48, 52);
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; })();
-function orientLabel(lab, s) { lab.rotation.order = 'YXZ'; lab.rotation.set(-Math.PI / 2, s.rot * Math.PI / 180, 0); }
+const SW = ['#6b3fa0', '#2d6a4f', '#c0392b', '#2980b9', '#e67e22', '#16a085', '#c9a227', '#7f8c8d'];
+function labelPx(text) { const g = document.createElement('canvas').getContext('2d'); let fs = 40; g.font = 'bold ' + fs + 'px sans-serif'; while (g.measureText(text).width > 236 && fs > 16) { fs -= 2; g.font = 'bold ' + fs + 'px sans-serif'; } return g.measureText(text).width; }
+function fitLabel(s) {
+  const m = meshes.get(s.id); if (!m || !m.lab.geometry) return;
+  const b = bboxOf(worldPts(s)), avail = (s.model === 'area' && isOut()) ? 2.2 : (b.x1 - b.x0), tw = m.lab.geometry.parameters.width * labelPx(s.name) / 256;
+  const k = Math.max(.3, Math.min(4, Math.round(.92 * avail / tw * 20) / 20)); s.lscale = isFinite(k) ? k : 1; orientLabel(m.lab, s);
+}
+function orientLabel(lab, s) { lab.rotation.order = 'YXZ'; lab.rotation.set(-Math.PI / 2, s.rot * Math.PI / 180, 0); const k = s.lscale || 1; lab.scale.set(k, k, 1); }
 function applyRot(s) { const m = meshes.get(s.id); if (!m) return; m.group.rotation.y = -s.rot * Math.PI / 180; orientLabel(m.lab, s); }
 function placeLock(lk, s) { const { w, d } = dims(s); lk.position.set(Math.max(0, w / 2 - .5), s.h * hScale + .7, -Math.max(0, d / 2 - .5)); }
 function isLine(s) { return s.model === 'obj-transenna'; }
@@ -283,6 +291,9 @@ function renderSel() {
     '<div class="mt-note">' + (obj ? 'Oggetto senza stand' : (s.code ? esc(s.code) + ' \u00b7 ' : '') + s.done + '/' + s.pass + ' pass consegnati') + ' \u00b7 ' + d.w.toFixed(1) + ' \u00d7 ' + d.d.toFixed(1) + ' m \u00b7 h ' + s.h.toFixed(1) + ' m' + (s.model ? ' \u00b7 modello ' + esc(modelLabel(s.model)) : '') + (baseOf(s) ? ' \u00b7 su pavimento rialzato' : '') + (conflicts.has(s.id) ? ' \u00b7 <b style="color:#b3321f">sovrapposto</b>' : '') + '</div>' +
     '<div class="mt-row"><button class="mt-btn lock" id="lk">' + (s.locked ? '\uD83D\uDD13 Sblocca' : '\uD83D\uDD12 Blocca') + '</button>' + (s.model && MODEL_DEFS[s.model] && !isLine(s) ? '<button class="mt-btn pri" id="ef"' + L + '>\u270E Ridimensiona</button><button class="mt-btn" id="mc"' + L + '>Forma libera</button>' : '<button class="mt-btn pri" id="ef"' + L + '>\u270E Modifica forma</button>') + (!obj && (!s.model || s.model === 'area') ? '<button class="mt-btn" id="sty"' + L + '>' + (s.model === 'area' ? 'Aspetto volume' : 'Aspetto area') + '</button>' : '') + '</div>' +
     (obj ? '<label class="mt-f">Nome<input id="on" type="text" maxlength="60" value="' + esc(s.name) + '"' + L + '></label><label class="mt-f">Colore<input id="oc" type="color" value="' + esc(s.color || '#16a085') + '"' + L + '></label>' : '') +
+    (obj ? '<label class="mt-f">Note (mostrate al passaggio del mouse)<textarea id="onote" rows="3" maxlength="500" style="width:100%;margin-top:.2rem;border:1.5px solid #d9cff0;border-radius:12px;padding:.4rem .65rem;font:inherit;font-size:.86rem"' + L + '>' + esc(s.notes || '') + '</textarea></label>'
+      : '<label class="mt-f">Colore in vista neutra<input id="nc" type="color" value="' + esc(s.color || COL.neutro) + '"' + L + '></label><div class="mt-row" id="sw">' + SW.map(c => '<button class="mt-btn" data-c="' + c + '" title="' + c + '" style="width:26px;height:26px;padding:0;border-radius:8px;background:' + c + '"' + L + '></button>').join('') + '<button class="mt-btn" id="ncr"' + L + '>Predefinito</button></div>') +
+    '<label class="mt-f">Dimensione nome (' + Math.round((s.lscale || 1) * 100) + '%)<input id="lsz" type="range" min="30" max="400" step="5" value="' + Math.round((s.lscale || 1) * 100) + '"' + L + '></label><div class="mt-row"><button class="mt-btn" id="lfit"' + L + '>Adatta allo spazio</button><button class="mt-btn" id="lrst"' + L + '>100%</button></div>' +
     '<label class="mt-f">Altezza (m)<input id="hh" type="number" step="0.1" min="0.2" max="12" value="' + s.h + '"' + L + '></label>' +
     '<div class="mt-row"><button class="mt-btn" id="r1"' + L + '>\u27F2 \u221215\u00b0</button><button class="mt-btn" id="r2"' + L + '>\u27F3 +15\u00b0</button><button class="mt-btn" id="r3"' + L + '>90\u00b0</button></div>' +
     '<div class="mt-row">' + (obj ? '' : '<a class="mt-btn" href="/assignment-groups/' + s.id + '" style="text-decoration:none">Apri scheda gruppo</a>') + '<button class="mt-btn del" id="rm"' + L + '>' + (obj ? 'Elimina oggetto' : 'Rimuovi dalla pianta') + '</button></div>';
@@ -293,12 +304,21 @@ function renderSel() {
   if ($('on')) $('on').onchange = e => { const old = s.name; s.name = (e.target.value || '').trim().slice(0, 60) || old; buildStand(s); saveGeom(s, () => { s.name = old; buildStand(s); refresh(); }); refresh(); };
   if ($('oc')) $('oc').onchange = e => { const old = s.color; s.color = e.target.value; paint(); saveGeom(s, () => { s.color = old; paint(); refresh(); }); };
   $('hh').onchange = e => { const old = s.h; s.h = Math.max(.2, Math.min(12, parseFloat(e.target.value) || 2.5)); buildStand(s); saveGeom(s, () => { s.h = old; buildStand(s); refresh(); }); refresh(); };
+  const setNc = v => { const old = s.color; s.color = v; paint(); saveGeom(s, () => { s.color = old; paint(); refresh(); }); refresh(); };
+  if ($('nc')) $('nc').onchange = e => setNc(e.target.value);
+  if ($('ncr')) $('ncr').onclick = () => setNc(null);
+  document.querySelectorAll('#sw button[data-c]').forEach(b => { b.onclick = () => setNc(b.dataset.c); });
+  if ($('onote')) $('onote').onchange = e => { const old = s.notes; s.notes = (e.target.value || '').slice(0, 500); saveGeom(s, () => { s.notes = old; refresh(); }); };
+  $('lsz').oninput = e => { s.lscale = e.target.value / 100; const m = meshes.get(s.id); if (m) orientLabel(m.lab, s); };
+  $('lsz').onchange = () => { renderSel(); saveGeom(s); };
+  $('lfit').onclick = () => { fitLabel(s); renderSel(); saveGeom(s); };
+  $('lrst').onclick = () => { s.lscale = 1; const m = meshes.get(s.id); if (m) orientLabel(m.lab, s); renderSel(); saveGeom(s); };
   $('r1').onclick = () => rot(s, -15); $('r2').onclick = () => rot(s, 15); $('r3').onclick = () => rot(s, 90);
   $('rm').onclick = () => removeStand(s);
 }
 
 /* ---------- salvataggio ---------- */
-function geomBody(s) { return { zone: s.zone, fx: s.fx, fy: s.fy, wf: s.wf, df: s.df, rot: s.rot, shape: (isLine(s) && s.shape && s.shape.length === 2) ? s.shape.concat([s.shape[1]]) : s.shape, height: s.h, model: s.model || null, kind: s.kind || 'stand', label: s.kind === 'obj' ? s.name : null, color: s.color || null }; }
+function geomBody(s) { return { zone: s.zone, fx: s.fx, fy: s.fy, wf: s.wf, df: s.df, rot: s.rot, shape: (isLine(s) && s.shape && s.shape.length === 2) ? s.shape.concat([s.shape[1]]) : s.shape, height: s.h, model: s.model || null, kind: s.kind || 'stand', label: s.kind === 'obj' ? s.name : null, color: s.color || null, notes: s.kind === 'obj' ? (s.notes || '') : null, lscale: s.lscale || 1 }; }
 function saveGeom(s, onFail) {
   return api('/admin/mappatest/layout/' + s.id, geomBody(s)).then(d => {
     if (d && d.ok) { toast('\u2713 Salvato (test)'); return true; }
@@ -434,7 +454,7 @@ cvs.addEventListener('pointermove', e => {
   const tip = $('mt-tip');
   if (mState !== 'idle') { tip.style.display = 'none'; cvs.style.cursor = mState === 'draw' ? 'crosshair' : (pickHandle(e) ? 'move' : 'default'); return; }
   const id = pickStand(e);
-  if (id != null) { const s = stands.find(x => x.id === id); tip.style.display = 'block'; tip.style.left = (e.clientX + 14) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; tip.innerHTML = '<b>' + esc(s.name) + '</b>' + (s.locked ? ' \uD83D\uDD12' : '') + '<br>' + s.done + '/' + s.pass + ' pass'; cvs.style.cursor = s.locked ? 'not-allowed' : 'grab'; }
+  if (id != null) { const s = stands.find(x => x.id === id); tip.style.display = 'block'; tip.style.left = (e.clientX + 14) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; tip.innerHTML = '<b>' + esc(s.name) + '</b>' + (s.locked ? ' \uD83D\uDD12' : '') + (s.kind === 'obj' ? (s.notes ? '<br>' + esc(s.notes).replace(/\n/g, '<br>') : '') : '<br>' + s.done + '/' + s.pass + ' pass'); cvs.style.cursor = s.locked ? 'not-allowed' : 'grab'; }
   else { tip.style.display = 'none'; cvs.style.cursor = 'default'; }
 });
 addEventListener('pointerup', e => {
@@ -728,7 +748,7 @@ $('outd').onchange = e => {
     '.mt-wide-btn{position:absolute;left:12px;top:12px;z-index:21;width:36px;height:36px;border-radius:12px;border:1.5px solid #d9cff0;background:rgba(255,255,255,.95);color:#4c2c78;font-size:18px;line-height:1;cursor:pointer;box-shadow:0 4px 12px rgba(30,45,78,.18)}' +
     'body.mp-on .mt-view .mt-banner{left:58px;max-width:calc(62% - 46px)}' +
     '@media (min-width:1001px){body.mp-on .mt-main.mt-wide{grid-template-columns:minmax(0,1fr)}body.mp-on .mt-main.mt-wide .mt-side{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:.9rem;align-items:start}body.mp-on .mt-main.mt-wide .mt-panel{margin-bottom:0}}' +
-    '@media (max-width:1000px){.mt-wide-btn{display:none}}';
+    '@media (max-width:1000px){.mt-wide-btn{display:none}}#mt-tip{max-width:260px;white-space:normal}';
   document.head.appendChild(st);
   const main = document.querySelector('.mt-main'), b = document.createElement('button'); b.className = 'mt-wide-btn'; vw.appendChild(b);
   const setWide = on => { main.classList.toggle('mt-wide', on); b.textContent = on ? '\u2921' : '\u2922'; b.title = on ? 'Riporta i menu a destra' : 'Allarga la finestra 3D a tutta larghezza (menu sotto)'; try { localStorage.setItem('mt-wide', on ? '1' : '0'); } catch (e) { /* ok */ } };
@@ -738,6 +758,11 @@ $('outd').onchange = e => {
   const setC = c => { bd.style.display = c ? 'none' : ''; t.textContent = c ? '\u25B8' : '\u25BE'; h.style.marginBottom = c ? '0' : ''; try { localStorage.setItem('mt-scale-c', c ? '1' : '0'); } catch (e) { /* ok */ } };
   h.onclick = () => setC(bd.style.display !== 'none');
   let c0 = false; try { c0 = localStorage.getItem('mt-scale-c') === '1'; } catch (e) { /* ok */ } if (c0) setC(true);
+  $('lblc').value = LBL.color; $('lblo').value = LBL.outline;
+  const setLbl = (k, v, key) => { LBL[k] = v; api('/admin/mappatest/setting', { key, value: v }).then(d => { if (!(d && d.ok)) toast('Salvataggio non riuscito'); }); zs().forEach(buildStand); };
+  $('lblc').onchange = e => setLbl('color', e.target.value, 'lbl_color');
+  $('lblo').onchange = e => setLbl('outline', e.target.value, 'lbl_outline');
+  $('lblr').onclick = () => { $('lblc').value = '#ffffff'; $('lblo').value = '#000000'; setLbl('color', '#ffffff', 'lbl_color'); setLbl('outline', '#000000', 'lbl_outline'); };
 })();
 
 /* ---------- viste e zone ---------- */
