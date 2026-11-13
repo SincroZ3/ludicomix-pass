@@ -22,6 +22,8 @@ const stands = DATA.stands.concat(DATA.objects || []).map(s => {
     fx: L ? L.fx : .5, fy: L ? L.fy : .5, wf: L ? L.wf : .03, df: L ? L.df : .03, rot: L ? L.rot : 0, shape: L ? L.shape : null, h: L ? L.h : 2.5, locked: L ? !!L.locked : false, model: L ? (L.model || null) : null, kind: s.kind || 'stand', color: s.color || null };
 });
 
+stands.forEach(s => { if (s.model === 'obj-transenna' && s.shape) s.shape = dedupeShape(s.shape); });
+
 root.innerHTML = '' +
 '<section class="mp-hero"><div><h1>Mappa Stand · test 3D</h1><p>Pagina di prova: i dati si salvano in tabelle separate e non toccano la mappa reale</p></div><div class="mp-hero-stats" id="hs"></div></section>' +
 '<div class="zone-tabs" id="zt"></div>' +
@@ -36,9 +38,9 @@ root.innerHTML = '' +
  '<label class="mt-chk">Altezze <input type="range" id="hsl" min="30" max="200" value="100"></label></div>' +
  '<div class="mt-view" id="vw"><div class="mt-banner" id="bn"></div><div class="mt-leg" id="lg"></div><div class="mt-tray" id="tr"></div><div class="mt-msg" id="ms"></div></div>' +
 '</div><aside class="mt-side">' +
- '<div class="mt-panel"><h3>Scala e dati</h3><label class="mt-f">Larghezza reale della pianta (m)<input id="wm" type="number" min="10" max="500" step="0.5"></label><div class="mt-note" id="wmn"></div><label class="mt-chk" style="margin:6px 0"><input type="checkbox" id="outd"> Zona all&#39;aperto</label>' +
+ '<div class="mt-panel"><h3 id="psh" style="cursor:pointer;user-select:none">Scala e dati <span id="pst">\u25BE</span></h3><div id="psb"><label class="mt-f">Larghezza reale della pianta (m)<input id="wm" type="number" min="10" max="500" step="0.5"></label><div class="mt-note" id="wmn"></div><label class="mt-chk" style="margin:6px 0"><input type="checkbox" id="outd"> Zona all&#39;aperto</label>' +
  '<div class="mt-row"><button class="mt-btn" id="imp">Importa dalla mappa attuale</button></div><div class="mt-note" id="impn"></div>' +
- '<div class="mt-row"><button class="mt-btn lock" id="la">\uD83D\uDD12 Blocca tutti</button><button class="mt-btn" id="ua">Sblocca tutti</button><button class="mt-btn" id="ex">Esporta JSON</button></div></div>' +
+ '<div class="mt-row"><button class="mt-btn lock" id="la">\uD83D\uDD12 Blocca tutti</button><button class="mt-btn" id="ua">Sblocca tutti</button><button class="mt-btn" id="ex">Esporta JSON</button></div></div></div>' +
  '<div class="mt-panel" id="sel"></div>' +
  '<div class="mt-panel"><h3>Come si usa</h3><div class="mt-note">Tasto sinistro sul pavimento: ruota la vista \u00b7 destro: sposta \u00b7 rotellina: zoom. Trascina gli stand per spostarli (aggancio a 0,5 m). Per gli stand \u201cda posizionare\u201d scegli il nome nella barra in basso e disegna la forma sulla pianta. Con \u201cModifica forma\u201d sposti i vertici, aggiungi punti dai segni gialli e togli un punto con doppio clic. Gli stand bloccati non si muovono per errore. \u201cTrasparenza\u201d e \u201cTetti\u201d servono per vedere dentro l\'edificio.</div></div>' +
 '</aside></div><div id="mt-tip"></div><div id="mt-toast"></div>';
@@ -181,10 +183,16 @@ const lockTex = (() => { const cv = document.createElement('canvas'); cv.width =
   g.fillStyle = '#fff8dd'; g.beginPath(); g.arc(48, 48, 44, 0, 7); g.fill(); g.strokeStyle = '#c9a227'; g.lineWidth = 5; g.stroke();
   g.font = '50px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('\uD83D\uDD12', 48, 52);
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+function orientLabel(lab, s) { lab.rotation.order = 'YXZ'; lab.rotation.set(-Math.PI / 2, s.rot * Math.PI / 180, 0); }
+function applyRot(s) { const m = meshes.get(s.id); if (!m) return; m.group.rotation.y = -s.rot * Math.PI / 180; orientLabel(m.lab, s); }
+function placeLock(lk, s) { const { w, d } = dims(s); lk.position.set(Math.max(0, w / 2 - .5), s.h * hScale + .7, -Math.max(0, d / 2 - .5)); }
+function isLine(s) { return s.model === 'obj-transenna'; }
+function dedupeShape(sh) { return sh.filter((p, i) => !i || p[0] !== sh[i - 1][0] || p[1] !== sh[i - 1][1]); }
 function clearStands() { meshes.forEach(m => { world.remove(m.group); m.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }); meshes.clear(); }
 function buildStand(s) {
   if (meshes.has(s.id)) { const old = meshes.get(s.id); world.remove(old.group); old.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); meshes.delete(s.id); }
   if (!s.placed || s.zone !== ZN) return;
+  if (s.model === 'area') { buildAreaStand(s); return; }
   if (s.model && MODEL_DEFS[s.model]) { buildModelStand(s); return; }
   const { w, d } = dims(s); const bt = Math.min(.07, s.h / 6, Math.min(w, d) / 8);
   const sh = new THREE.Shape(); (s.shape || [[0, 0], [1, 0], [1, 1], [0, 1]]).forEach((p, i) => { const x = (p[0] - .5) * w, y = (.5 - p[1]) * d; i ? sh.lineTo(x, y) : sh.moveTo(x, y); });
@@ -196,10 +204,10 @@ function buildStand(s) {
   body.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 45), emat));
   const ls = Math.max(Math.min(w, d * 3), 2.2);
   const lab = new THREE.Mesh(new THREE.PlaneGeometry(ls, ls / 2), new THREE.MeshBasicMaterial({ map: labelTexture(s.name), transparent: true, depthWrite: false }));
-  lab.rotation.x = -Math.PI / 2; lab.position.y = s.h + .04; lab.visible = labelsOn; lab.raycast = () => {}; body.add(lab);
+  orientLabel(lab, s); lab.position.y = s.h + .04; lab.visible = labelsOn; lab.raycast = () => {}; body.add(lab);
   const grp = new THREE.Group(); grp.add(body);
-  const lk = new THREE.Sprite(new THREE.SpriteMaterial({ map: lockTex, depthTest: false })); lk.scale.set(2, 2, 1); lk.visible = !!s.locked; lk.raycast = () => {}; lk.renderOrder = 5; grp.add(lk);
-  grp.position.set((s.fx - .5) * W, baseOf(s), (s.fy - .5) * D); grp.rotation.y = -s.rot * Math.PI / 180; body.scale.y = hScale; lk.position.y = s.h * hScale + 1.6;
+  const lk = new THREE.Sprite(new THREE.SpriteMaterial({ map: lockTex, depthTest: false })); lk.scale.set(1, 1, 1); lk.visible = !!s.locked; lk.raycast = () => {}; lk.renderOrder = 5; grp.add(lk);
+  grp.position.set((s.fx - .5) * W, baseOf(s), (s.fy - .5) * D); grp.rotation.y = -s.rot * Math.PI / 180; body.scale.y = hScale; placeLock(lk, s);
   world.add(grp); meshes.set(s.id, { group: grp, body, mat, lab, emat, lk });
 }
 function worldPts(s) {
@@ -225,7 +233,7 @@ function overlap(a, b) {
   return true;
 }
 let conflicts = new Set();
-function computeConflicts() { conflicts = new Set(); const pl = zs().filter(s => s.placed); for (let i = 0; i < pl.length; i++) for (let j = i + 1; j < pl.length; j++) if (overlap(pl[i], pl[j])) { conflicts.add(pl[i].id); conflicts.add(pl[j].id); } }
+function computeConflicts() { conflicts = new Set(); const pl = zs().filter(s => s.placed && !isLine(s) && s.model !== 'obj-colonnina'); for (let i = 0; i < pl.length; i++) for (let j = i + 1; j < pl.length; j++) if (overlap(pl[i], pl[j])) { conflicts.add(pl[i].id); conflicts.add(pl[j].id); } }
 function paint() {
   const q = query.trim().toLowerCase();
   zs().forEach(s => {
@@ -273,14 +281,15 @@ function renderSel() {
   const obj = s.kind === 'obj', d = dims(s), L = s.locked ? ' disabled' : '';
   c.innerHTML = '<h3>' + (obj ? 'Oggetto selezionato' : 'Stand selezionato') + '</h3><div class="mt-name">' + esc(s.name) + (s.locked ? '<span class="mt-tag">\uD83D\uDD12 bloccato</span>' : '') + '</div>' +
     '<div class="mt-note">' + (obj ? 'Oggetto senza stand' : (s.code ? esc(s.code) + ' \u00b7 ' : '') + s.done + '/' + s.pass + ' pass consegnati') + ' \u00b7 ' + d.w.toFixed(1) + ' \u00d7 ' + d.d.toFixed(1) + ' m \u00b7 h ' + s.h.toFixed(1) + ' m' + (s.model ? ' \u00b7 modello ' + esc(modelLabel(s.model)) : '') + (baseOf(s) ? ' \u00b7 su pavimento rialzato' : '') + (conflicts.has(s.id) ? ' \u00b7 <b style="color:#b3321f">sovrapposto</b>' : '') + '</div>' +
-    '<div class="mt-row"><button class="mt-btn lock" id="lk">' + (s.locked ? '\uD83D\uDD13 Sblocca' : '\uD83D\uDD12 Blocca') + '</button>' + (s.model ? '<button class="mt-btn pri" id="mc"' + L + '>Rendi personalizzato</button>' : '<button class="mt-btn pri" id="ef"' + L + '>\u270E Modifica forma</button>') + '</div>' +
+    '<div class="mt-row"><button class="mt-btn lock" id="lk">' + (s.locked ? '\uD83D\uDD13 Sblocca' : '\uD83D\uDD12 Blocca') + '</button>' + (s.model && MODEL_DEFS[s.model] && !isLine(s) ? '<button class="mt-btn pri" id="ef"' + L + '>\u270E Ridimensiona</button><button class="mt-btn" id="mc"' + L + '>Forma libera</button>' : '<button class="mt-btn pri" id="ef"' + L + '>\u270E Modifica forma</button>') + (!obj && (!s.model || s.model === 'area') ? '<button class="mt-btn" id="sty"' + L + '>' + (s.model === 'area' ? 'Aspetto volume' : 'Aspetto area') + '</button>' : '') + '</div>' +
     (obj ? '<label class="mt-f">Nome<input id="on" type="text" maxlength="60" value="' + esc(s.name) + '"' + L + '></label><label class="mt-f">Colore<input id="oc" type="color" value="' + esc(s.color || '#16a085') + '"' + L + '></label>' : '') +
     '<label class="mt-f">Altezza (m)<input id="hh" type="number" step="0.1" min="0.2" max="12" value="' + s.h + '"' + L + '></label>' +
     '<div class="mt-row"><button class="mt-btn" id="r1"' + L + '>\u27F2 \u221215\u00b0</button><button class="mt-btn" id="r2"' + L + '>\u27F3 +15\u00b0</button><button class="mt-btn" id="r3"' + L + '>90\u00b0</button></div>' +
     '<div class="mt-row">' + (obj ? '' : '<a class="mt-btn" href="/assignment-groups/' + s.id + '" style="text-decoration:none">Apri scheda gruppo</a>') + '<button class="mt-btn del" id="rm"' + L + '>' + (obj ? 'Elimina oggetto' : 'Rimuovi dalla pianta') + '</button></div>';
   $('lk').onclick = () => toggleLock(s);
   if ($('ef')) $('ef').onclick = () => startEdit(s);
-  if ($('mc')) $('mc').onclick = () => { const old = s.model; s.model = null; buildStand(s); saveGeom(s, () => { s.model = old; buildStand(s); refresh(); }); refresh(); toast('Ora la forma si modifica come uno stand personalizzato'); };
+  if ($('sty')) $('sty').onclick = () => { const old = s.model; s.model = old === 'area' ? null : 'area'; buildStand(s); saveGeom(s, () => { s.model = old; buildStand(s); refresh(); }); refresh(); };
+  if ($('mc')) $('mc').onclick = () => { const old = s.model; s.model = null; buildStand(s); saveGeom(s, () => { s.model = old; buildStand(s); refresh(); }); refresh(); toast('Ora e un volume libero: la forma si modifica con i vertici'); };
   if ($('on')) $('on').onchange = e => { const old = s.name; s.name = (e.target.value || '').trim().slice(0, 60) || old; buildStand(s); saveGeom(s, () => { s.name = old; buildStand(s); refresh(); }); refresh(); };
   if ($('oc')) $('oc').onchange = e => { const old = s.color; s.color = e.target.value; paint(); saveGeom(s, () => { s.color = old; paint(); refresh(); }); };
   $('hh').onchange = e => { const old = s.h; s.h = Math.max(.2, Math.min(12, parseFloat(e.target.value) || 2.5)); buildStand(s); saveGeom(s, () => { s.h = old; buildStand(s); refresh(); }); refresh(); };
@@ -289,7 +298,7 @@ function renderSel() {
 }
 
 /* ---------- salvataggio ---------- */
-function geomBody(s) { return { zone: s.zone, fx: s.fx, fy: s.fy, wf: s.wf, df: s.df, rot: s.rot, shape: s.shape, height: s.h, model: s.model || null, kind: s.kind || 'stand', label: s.kind === 'obj' ? s.name : null, color: s.color || null }; }
+function geomBody(s) { return { zone: s.zone, fx: s.fx, fy: s.fy, wf: s.wf, df: s.df, rot: s.rot, shape: (isLine(s) && s.shape && s.shape.length === 2) ? s.shape.concat([s.shape[1]]) : s.shape, height: s.h, model: s.model || null, kind: s.kind || 'stand', label: s.kind === 'obj' ? s.name : null, color: s.color || null }; }
 function saveGeom(s, onFail) {
   return api('/admin/mappatest/layout/' + s.id, geomBody(s)).then(d => {
     if (d && d.ok) { toast('\u2713 Salvato (test)'); return true; }
@@ -304,7 +313,7 @@ function removeStand(s) {
   api('/admin/mappatest/layout/' + s.id + '/remove', {}).then(d => { if (d && d.ok) { s.placed = false; s.shape = null; s.model = null; buildStand(s); if (s.kind === 'obj') { const ix = stands.indexOf(s); if (ix > -1) stands.splice(ix, 1); } selected = null; refresh(); } else toast(d && d.status === 423 ? 'Stand bloccato' : 'Operazione non riuscita'); });
 }
 let rotTimer = null;
-function rot(s, a) { if (s.locked) return; s.rot = (s.rot + a + 360) % 360; meshes.get(s.id).group.rotation.y = -s.rot * Math.PI / 180; refresh(); clearTimeout(rotTimer); rotTimer = setTimeout(() => saveGeom(s), 500); }
+function rot(s, a) { if (s.locked) return; s.rot = (s.rot + a + 360) % 360; applyRot(s); refresh(); clearTimeout(rotTimer); rotTimer = setTimeout(() => saveGeom(s), 500); }
 
 /* ---------- puntatore ---------- */
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), hit = new THREE.Vector3();
@@ -331,13 +340,14 @@ const rr = () => .5 * Math.max(W, D) / 80;
 function drawOverlay() {
   clearOverlay(); if (!dr) return; const pts = dr.pts.slice(); if (dr.cursor) pts.push(dr.cursor); const r = rr(); let list = pts;
   if (dr.kind === 'rect' && dr.pts.length === 1 && dr.cursor) { const a = dr.pts[0], b = dr.cursor; list = [a, [b[0], a[1]], b, [a[0], b[1]]]; }
-  if (list.length > 1) { const g = new THREE.BufferGeometry().setFromPoints(list.concat(list.length > 2 ? [list[0]] : []).map(p => new THREE.Vector3(p[0], .5, p[1]))); const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x6b3fa0, depthTest: false })); l.renderOrder = 9; overlay.add(l); }
+  if (list.length > 1) { const g = new THREE.BufferGeometry().setFromPoints(list.concat(list.length > 2 && dr.kind !== 'line' ? [list[0]] : []).map(p => new THREE.Vector3(p[0], .5, p[1]))); const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x6b3fa0, depthTest: false })); l.renderOrder = 9; overlay.add(l); }
   dr.pts.forEach((p, i) => overlay.add(dot(p[0], p[1], i === 0 ? r * 1.5 : r, i === 0 ? 0xf5c842 : 0x6b3fa0, 2.0)));
 }
-function startDraw(s) {
-  if (mState !== 'idle' || ZN === null) return; mState = 'draw'; selected = null; goView('top'); lockCam(true); dr = { stand: s, kind: 'poly', pts: [], cursor: null }; refresh(); drawBanner();
+function startDraw(s, kind) {
+  if (mState !== 'idle' || ZN === null) return; mState = 'draw'; selected = null; goView('top'); lockCam(true); dr = { stand: s, kind: kind || 'poly', pts: [], cursor: null }; refresh(); drawBanner();
 }
 function drawBanner() {
+  if (dr.kind === 'line') { setBanner('<span>Traccia <b>' + esc(dr.stand.name) + '</b></span><span class="dim">clic su ogni punto \u00b7 doppio clic o Invio per terminare \u00b7 Backspace toglie l\'ultimo</span><button class="mt-btn" id="dc">Annulla</button>'); $('dc').onclick = cancelDraw; return; }
   setBanner('<span>Disegna <b>' + esc(dr.stand.name) + '</b></span><div class="mt-seg"><button data-k="poly" class="' + (dr.kind === 'poly' ? 'on' : '') + '">Poligono</button><button data-k="rect" class="' + (dr.kind === 'rect' ? 'on' : '') + '">Rettangolo</button></div><span class="dim">' +
     (dr.kind === 'poly' ? 'clic sui punti \u00b7 doppio clic o Invio per chiudere \u00b7 Backspace toglie l\'ultimo' : 'clic su due angoli opposti') + '</span><button class="mt-btn" id="dc">Annulla</button>');
   banner.querySelectorAll('.mt-seg button').forEach(b => b.onclick = () => { dr.kind = b.dataset.k; dr.pts = []; drawOverlay(); drawBanner(); });
@@ -347,10 +357,10 @@ function cancelDraw() { dr = null; mState = 'idle'; clearOverlay(); setBanner(''
 function finishDraw() {
   if (!dr) return; let pts = dr.pts;
   if (dr.kind === 'rect') { if (pts.length < 2) return; const a = pts[0], b = pts[1]; pts = [[Math.min(a[0], b[0]), Math.min(a[1], b[1])], [Math.max(a[0], b[0]), Math.min(a[1], b[1])], [Math.max(a[0], b[0]), Math.max(a[1], b[1])], [Math.min(a[0], b[0]), Math.max(a[1], b[1])]]; }
-  if (pts.length < 3) { toast('Servono almeno 3 punti'); return; }
+  if (pts.length < (dr.kind === 'line' ? 2 : 3)) { toast(dr.kind === 'line' ? 'Servono almeno 2 punti' : 'Servono almeno 3 punti'); return; }
   const s = dr.stand, kind = dr.kind; applyWorldPts(s, pts); if (kind === 'rect') s.shape = null;
-  if (s.wf * W < .8 || s.df * D < .8) { toast('Forma troppo piccola'); return; }
-  s.model = null; commitPlaced(s);
+  if (kind !== 'line' && (s.wf * W < .8 || s.df * D < .8)) { toast('Forma troppo piccola'); return; }
+  s.model = kind === 'line' ? 'obj-transenna' : (s.kind === 'obj' ? null : 'area'); commitPlaced(s);
 }
 function addDrawPoint(p) {
   const x = snap(p.x), z = snap(p.z), last = dr.pts[dr.pts.length - 1]; if (last && last[0] === x && last[1] === z) return;
@@ -359,22 +369,38 @@ function addDrawPoint(p) {
 }
 
 /* modifica forma */
+function focusStand(s) {
+  const P = worldPts(s); let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; P.forEach(p => { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); });
+  const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, dist = Math.max(10, Math.max(x1 - x0, z1 - z0, 4) * 2.4), by = baseOf(s); curView = 'top';
+  tween = { t0: performance.now(), dur: 800, from: camera.position.clone(), fromT: controls.target.clone(), to: new THREE.Vector3(cx, by + dist, cz + .001), toT: new THREE.Vector3(cx, by, cz) };
+  document.querySelectorAll('#views button').forEach(b => b.classList.toggle('on', b.dataset.v === 'top'));
+}
 function startEdit(s) {
-  if (s.locked) { toast('Stand bloccato: sbloccalo per modificarlo'); return; } if (s.model) { toast('Modello predefinito: usa "Rendi personalizzato" per modificarne la forma'); return; } if (mState !== 'idle') return;
-  ed = { s, pts: worldPts(s).map(p => p.slice()), snapshot: { fx: s.fx, fy: s.fy, wf: s.wf, df: s.df, rot: s.rot, shape: s.shape }, handles: [], mids: [] };
-  mState = 'edit'; applyWorldPts(s, ed.pts); buildStand(s); goView('top'); lockCam(true); buildHandles();
-  setBanner('<span>Modifica forma di <b>' + esc(s.name) + '</b></span><span class="dim">trascina i vertici \u00b7 clic sui punti gialli per aggiungerne uno \u00b7 doppio clic su un vertice per toglierlo</span><button class="mt-btn pri" id="ek">\u2713 Fine</button><button class="mt-btn" id="ec">Annulla modifiche</button>');
+  if (s.locked) { toast('Stand bloccato: sbloccalo per modificarlo'); return; } if (mState !== 'idle') return;
+  const me = !!(s.model && MODEL_DEFS[s.model] && !isLine(s));
+  ed = { s, me, open: isLine(s), pts: worldPts(s).map(p => p.slice()), snapshot: { fx: s.fx, fy: s.fy, wf: s.wf, df: s.df, rot: s.rot, shape: s.shape }, handles: [], mids: [] };
+  mState = 'edit'; if (!me) { applyWorldPts(s, ed.pts); buildStand(s); } focusStand(s); lockCam(true); buildHandles();
+  setBanner('<span>' + (me ? 'Ridimensiona' : 'Modifica forma di') + ' <b>' + esc(s.name) + '</b></span><span class="dim">' + (me ? 'trascina gli angoli per allargare o restringere il modello' : 'trascina i vertici \u00b7 clic sui punti gialli per aggiungerne uno \u00b7 doppio clic su un vertice per toglierlo') + '</span><button class="mt-btn pri" id="ek">\u2713 Fine</button><button class="mt-btn" id="ec">Annulla modifiche</button>');
   $('ek').onclick = endEdit; $('ec').onclick = cancelEdit;
+}
+function modelEditMove(p) {
+  const s = ed.s, i = handleDrag, { w, d } = dims(s), cx = (s.fx - .5) * W, cz = (s.fy - .5) * D, a = -s.rot * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a);
+  const u = p.x - cx, v = p.z - cz, x = u * c - v * sn, y = u * sn + v * c;
+  const L = [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]], o = L[(i + 2) % 4];
+  const si = L[i][0] > o[0] ? 1 : -1, sj = L[i][1] > o[1] ? 1 : -1;
+  const nw = Math.max(.5, snap((x - o[0]) * si)), nd = Math.max(.5, snap((y - o[1]) * sj)), lx = o[0] + si * nw / 2, ly = o[1] + sj * nd / 2;
+  s.fx = (cx + lx * c + ly * sn) / W + .5; s.fy = (cz - lx * sn + ly * c) / D + .5; s.wf = nw / W; s.df = nd / D;
+  ed.pts = worldPts(s).map(q => q.slice()); buildStand(s); buildHandles(); computeConflicts(); paint();
 }
 function buildHandles() {
   clearOverlay(); if (!ed) return; ed.handles = []; ed.mids = []; const r = rr() * 1.1, y = baseOf(ed.s) + Math.max(ed.s.h * hScale, .4) + .6, n = ed.pts.length;
   ed.pts.forEach((p, i) => { overlay.add(dot(p[0], p[1], r * 1.25, 0x6b3fa0, y - .01)); const m = dot(p[0], p[1], r, 0xffffff, y); m.userData = { type: 'v', i }; ed.handles.push(m); overlay.add(m); });
-  for (let i = 0; i < n; i++) { const a = ed.pts[i], b = ed.pts[(i + 1) % n]; const m = dot((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, r * .7, 0xf5c842, y); m.userData = { type: 'm', i }; ed.mids.push(m); overlay.add(m); }
-  const g = new THREE.BufferGeometry().setFromPoints(ed.pts.concat([ed.pts[0]]).map(p => new THREE.Vector3(p[0], y - .02, p[1]))); const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x6b3fa0, depthTest: false })); l.renderOrder = 8; overlay.add(l);
+  const nm = ed.me ? 0 : (ed.open ? n - 1 : n); for (let i = 0; i < nm; i++) { const a = ed.pts[i], b = ed.pts[(i + 1) % n]; const m = dot((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, r * .7, 0xf5c842, y); m.userData = { type: 'm', i }; ed.mids.push(m); overlay.add(m); }
+  const g = new THREE.BufferGeometry().setFromPoints(ed.pts.concat(ed.open ? [] : [ed.pts[0]]).map(p => new THREE.Vector3(p[0], y - .02, p[1]))); const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x6b3fa0, depthTest: false })); l.renderOrder = 8; overlay.add(l);
 }
 function pickHandle(e) { if (!ed) return null; setNdc(e); const h = ray.intersectObjects(ed.handles.concat(ed.mids), false)[0]; return h ? h.object.userData : null; }
 function endEdit() {
-  if (!ed) return; const s = ed.s, snapG = ed.snapshot; applyWorldPts(s, ed.pts); ed = null; mState = 'idle'; clearOverlay(); setBanner(''); lockCam(false); buildStand(s); refresh();
+  if (!ed) return; const s = ed.s, snapG = ed.snapshot; if (!ed.me) applyWorldPts(s, ed.pts); ed = null; mState = 'idle'; clearOverlay(); setBanner(''); lockCam(false); buildStand(s); refresh();
   saveGeom(s, () => { Object.assign(s, snapG); buildStand(s); refresh(); });
 }
 function cancelEdit() { if (!ed) return; const s = ed.s; Object.assign(s, ed.snapshot); ed = null; mState = 'idle'; clearOverlay(); setBanner(''); lockCam(false); buildStand(s); refresh(); }
@@ -396,6 +422,7 @@ cvs.addEventListener('pointerdown', e => {
   }
 });
 cvs.addEventListener('pointermove', e => {
+  if (mState === 'edit' && handleDrag != null && ed.me) { const p = floorPoint(e); if (p) modelEditMove(p); return; }
   if (mState === 'edit' && handleDrag != null) { const p = floorPoint(e); if (!p) return; ed.pts[handleDrag] = [snap(Math.max(-W / 2, Math.min(W / 2, p.x))), snap(Math.max(-D / 2, Math.min(D / 2, p.z)))]; applyWorldPts(ed.s, ed.pts); buildStand(ed.s); buildHandles(); computeConflicts(); paint(); return; }
   if (mState === 'draw' && dr) { const p = floorPoint(e); if (p) { dr.cursor = [snap(p.x), snap(p.z)]; drawOverlay(); } return; }
   if (mState === 'place' && plc) { const p = floorPoint(e); if (p) plcMove(p); cvs.style.cursor = 'crosshair'; return; }
@@ -423,8 +450,8 @@ addEventListener('pointerup', e => {
   down = null;
 });
 cvs.addEventListener('dblclick', e => {
-  if (mState === 'draw' && dr && dr.kind === 'poly') { finishDraw(); return; }
-  if (mState === 'edit') { const h = pickHandle(e); if (h && h.type === 'v') { if (ed.pts.length <= 3) { toast('Servono almeno 3 vertici'); return; } ed.pts.splice(h.i, 1); applyWorldPts(ed.s, ed.pts); buildStand(ed.s); buildHandles(); computeConflicts(); paint(); } }
+  if (mState === 'draw' && dr && (dr.kind === 'poly' || dr.kind === 'line')) { finishDraw(); return; }
+  if (mState === 'edit' && !ed.me) { const h = pickHandle(e); if (h && h.type === 'v') { if (ed.pts.length <= (ed.open ? 2 : 3)) { toast('Servono almeno 3 vertici'); return; } ed.pts.splice(h.i, 1); applyWorldPts(ed.s, ed.pts); buildStand(ed.s); buildHandles(); computeConflicts(); paint(); } }
 });
 addEventListener('keydown', e => {
   if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
@@ -472,12 +499,90 @@ function buildDesk(w, d, H, mat) {
   g.add(box(w + .2, .1, d + .2, 0, ph, 0, mat), box(w * .8, .9, .5, 0, 0, d / 2 - .5, MF.wood), box(w * .8, .75, .6, 0, 0, -d / 2 + .5, mat));
   return g;
 }
+function mkTex(fn) { const cv = document.createElement('canvas'); cv.width = cv.height = 128; fn(cv.getContext('2d')); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; }
+let _bolt = null, _acc = null;
+const boltTex = () => _bolt || (_bolt = mkTex(g => { g.fillStyle = '#ffd23f'; g.beginPath(); g.arc(64, 64, 60, 0, 7); g.fill(); g.strokeStyle = '#1e2d4e'; g.lineWidth = 6; g.stroke(); g.fillStyle = '#1e2d4e'; g.beginPath(); [[74, 14], [32, 72], [58, 72], [48, 114], [98, 52], [70, 52], [86, 14]].forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.fill(); }));
+const accTex = () => _acc || (_acc = mkTex(g => { g.fillStyle = '#1f6fd6'; g.fillRect(0, 0, 128, 128); g.strokeStyle = '#fff'; g.fillStyle = '#fff'; g.lineWidth = 8; g.lineCap = 'round'; g.beginPath(); g.arc(58, 24, 9, 0, 7); g.fill(); g.beginPath(); g.moveTo(58, 38); g.lineTo(58, 74); g.lineTo(88, 74); g.lineTo(100, 108); g.moveTo(58, 54); g.lineTo(86, 54); g.stroke(); g.beginPath(); g.arc(54, 86, 22, -Math.PI * .1, Math.PI * 1.1); g.stroke(); }));
+function buildWc(w, d, H, mat) {
+  const g = new THREE.Group();
+  g.add(box(w, H, d, 0, 0, 0, mat), box(w * .6, H * .82, .05, 0, 0, d / 2 + .01, MF.dark), box(w + .1, .1, d + .1, 0, H, 0, MF.white), box(.5, .12, .5, w / 4, H + .1, -d / 4, MF.white));
+  return g;
+}
+function buildWcDis(w, d, H, mat) {
+  const g = buildWc(w, d, H, mat), sg = new THREE.Mesh(new THREE.PlaneGeometry(.6, .6), new THREE.MeshBasicMaterial({ map: accTex() }));
+  sg.position.set(-w / 2 + .5, H * .62, d / 2 + .04); g.add(sg); return g;
+}
+function buildBolt(w, d, H, mat) {
+  const g = new THREE.Group();
+  g.add(box(.3, H, .3, 0, 0, 0, MF.dark), box(.36, .14, .36, 0, H, 0, mat));
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(.55, 24), new THREE.MeshBasicMaterial({ map: boltTex(), transparent: true, side: THREE.DoubleSide }));
+  disc.rotation.x = -Math.PI / 2; disc.position.y = H + .22; g.add(disc); return g;
+}
+function buildFence(s, w, d, mat) {
+  const g = new THREE.Group(), P = (s.shape || [[0, 0], [1, 1]]).map(p => [(p[0] - .5) * w, (p[1] - .5) * d]), H = Math.max(.5, Math.min(3, s.h || 2));
+  for (let i = 0; i < P.length - 1; i++) {
+    const a = P[i], b = P[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz); if (L < .05) continue;
+    const n = Math.max(1, Math.round(L / 2)), pl = L / n, ang = -Math.atan2(dz, dx);
+    for (let k = 0; k < n; k++) {
+      const t = (k + .5) / n, pn = new THREE.Group(); pn.position.set(a[0] + dx * t, 0, a[1] + dz * t); pn.rotation.y = ang;
+      pn.add(box(pl - .04, .05, .04, 0, H - .12, 0, mat), box(pl - .04, .05, .04, 0, .22, 0, mat));
+      const nb = Math.max(3, Math.round(pl / .25));
+      for (let j = 0; j < nb; j++) pn.add(box(.02, H - .34, .02, -(pl - .12) / 2 + (pl - .12) * j / (nb - 1), .22, 0, mat));
+      pn.add(box(.05, H, .05, -pl / 2 + .03, 0, 0, MF.alu), box(.05, H, .05, pl / 2 - .03, 0, 0, MF.alu)); g.add(pn);
+    }
+  }
+  return g;
+}
+function inRing(P, x, z) { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const a = P[i], b = P[j]; if (((a[1] > z) !== (b[1] > z)) && (x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0])) c = !c; } return c; }
+function edgeDist(P, x, z) { let m = 1e9; for (let i = 0; i < P.length; i++) { const a = P[i], b = P[(i + 1) % P.length], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1; let t = ((x - a[0]) * dx + (z - a[1]) * dz) / l2; t = Math.max(0, Math.min(1, t)); m = Math.min(m, Math.hypot(x - a[0] - t * dx, z - a[1] - t * dz)); } return m; }
+function bboxOf(P) { let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; P.forEach(p => { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }); return { x0, x1, z0, z1 }; }
+function innerPoint(P) {
+  const b = bboxOf(P); let best = [(b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2], bd = -1;
+  for (let i = 1; i < 20; i++) for (let j = 1; j < 20; j++) { const x = b.x0 + (b.x1 - b.x0) * i / 20, z = b.z0 + (b.z1 - b.z0) * j / 20; if (!inRing(P, x, z)) continue; const dd = edgeDist(P, x, z); if (dd > bd) { bd = dd; best = [x, z]; } }
+  return { p: best, r: Math.max(bd, .3) };
+}
+function buildTables(P, ip) {
+  const g = new THREE.Group(), b = bboxOf(P), tw = 1.6, td = .8, hx = tw / 2 + .45, hz = td / 2 + .45;
+  const k = Math.max(1, Math.sqrt(((b.x1 - b.x0) * (b.z1 - b.z0)) / (2.6 * 2.2) / 40)), sx = 2.6 * k, sz = 2.2 * k; let n = 0;
+  const add = (x, z) => {
+    g.add(box(tw, .05, td, x, .73, z, MF.wood)); [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(c => g.add(box(.05, .73, .05, x + c[0] * (tw / 2 - .06), 0, z + c[1] * (td / 2 - .06), MF.alu)));
+    [[-.45, -1], [.45, -1], [-.45, 1], [.45, 1]].forEach(c => g.add(box(.38, .45, .38, x + c[0], 0, z + c[1] * (td / 2 + .25), MF.dark))); n++;
+  };
+  for (let x = b.x0 + hx; x <= b.x1 - hx + .01; x += sx) for (let z = b.z0 + hz; z <= b.z1 - hz + .01; z += sz) {
+    if ([[-hx, -hz], [hx, -hz], [hx, hz], [-hx, hz]].every(c => inRing(P, x + c[0], z + c[1]))) add(x, z);
+  }
+  if (!n) add(ip.p[0], ip.p[1]);
+  return g;
+}
+function buildAreaStand(s) {
+  const { w, d } = dims(s), P = (s.shape || [[0, 0], [1, 0], [1, 1], [0, 1]]).map(p => [(p[0] - .5) * w, (p[1] - .5) * d]);
+  const mat = new THREE.MeshStandardMaterial({ color: colorOf(s), roughness: .5, metalness: .06 });
+  const sh = new THREE.Shape(); P.forEach((p, i) => i ? sh.lineTo(p[0], -p[1]) : sh.moveTo(p[0], -p[1]));
+  const geo = new THREE.ExtrudeGeometry(sh, { depth: .1, bevelEnabled: false }); geo.rotateX(-Math.PI / 2);
+  const body = new THREE.Mesh(geo, mat); body.receiveShadow = true; body.userData.id = s.id;
+  const emat = new THREE.LineBasicMaterial({ color: s.locked ? 0xc9a227 : 0x1e2d4e, transparent: true, opacity: s.locked ? .95 : .3 });
+  body.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 45), emat));
+  const ip = innerPoint(P); let ly, ls;
+  if (isOut()) { const sz = Math.max(1, Math.min(2, ip.r * 1.7)), gz = buildGazebo(sz, sz, 3, mat); gz.position.set(ip.p[0], .1, ip.p[1]); body.add(gz); ly = 3.3; ls = Math.max(2.4, sz * 1.6); }
+  else { const tb = buildTables(P, ip); tb.position.y = .1; body.add(tb); ly = 1.1; ls = Math.max(2.4, Math.min(w, d * 3) * .6); }
+  const lab = new THREE.Mesh(new THREE.PlaneGeometry(ls, ls / 2), new THREE.MeshBasicMaterial({ map: labelTexture(s.name), transparent: true, depthWrite: false }));
+  orientLabel(lab, s); lab.position.set(ip.p[0], ly, ip.p[1]); lab.visible = labelsOn; lab.raycast = () => {}; body.add(lab);
+  body.traverse(o => { o.userData.id = s.id; if (o.isLine) o.raycast = () => {}; });
+  const grp = new THREE.Group(); grp.add(body);
+  const lk = new THREE.Sprite(new THREE.SpriteMaterial({ map: lockTex, depthTest: false })); lk.scale.set(1, 1, 1); lk.visible = !!s.locked; lk.raycast = () => {}; lk.renderOrder = 5; grp.add(lk);
+  grp.position.set((s.fx - .5) * W, baseOf(s), (s.fy - .5) * D); grp.rotation.y = -s.rot * Math.PI / 180; body.scale.y = hScale; placeLock(lk, s);
+  world.add(grp); meshes.set(s.id, { group: grp, body, mat, lab, emat, lk });
+}
 const ICON = {
   gaz: '<svg viewBox="0 0 64 64"><path d="M32 6 L58 26 H6 Z"/><path d="M12 26V56M52 26V56M12 56H52"/></svg>',
   stand: '<svg viewBox="0 0 64 64"><rect x="8" y="12" width="48" height="8"/><path d="M10 20V50M54 20V50"/><rect x="18" y="40" width="28" height="10"/><path d="M6 54H58"/></svg>',
   custom: '<svg viewBox="0 0 64 64"><path d="M10 48 L16 20 L44 14 L52 40 Z" stroke-dasharray="5 4"/><path d="M40 52 L54 38 L58 42 L44 56 Z"/></svg>',
   ticket: '<svg viewBox="0 0 64 64"><rect x="8" y="14" width="48" height="38"/><rect x="18" y="28" width="28" height="10"/><path d="M4 14H60"/></svg>',
   stage: '<svg viewBox="0 0 64 64"><path d="M6 44H58V54H6Z"/><path d="M12 44V12M52 44V12M12 12H52"/></svg>',
+  wc: '<svg viewBox="0 0 64 64"><rect x="18" y="8" width="28" height="46"/><path d="M18 54H46M26 20H38M32 20V36"/></svg>',
+  acc: '<svg viewBox="0 0 64 64"><rect x="14" y="8" width="36" height="46"/><circle cx="30" cy="20" r="4"/><path d="M30 26V38H40L44 48M30 32H38"/><circle cx="28" cy="42" r="8"/></svg>',
+  fence: '<svg viewBox="0 0 64 64"><path d="M6 50L24 20L42 44L58 14" stroke-dasharray="6 4"/><path d="M6 50V30M24 20V4M42 44V24M58 14V0"/></svg>',
+  bolt: '<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26"/><path d="M36 8L20 36H32L28 56L46 26H34Z"/></svg>',
   desk: '<svg viewBox="0 0 64 64"><path d="M8 22H56"/><path d="M12 22V54M52 22V54"/><rect x="16" y="34" width="32" height="8"/></svg>'
 };
 const CUSTOM_IT = { custom: true, label: 'Personalizzato', sub: 'Disegni la forma in mappa', icon: ICON.custom };
@@ -491,22 +596,30 @@ const CAT_OBJ = [
   { key: 'obj-biglietteria', label: 'Biglietteria', sub: '3 \u00d7 2 m', w: 3, d: 2, h: 2.5, color: '#e67e22', icon: ICON.ticket, build: buildKiosk },
   { key: 'obj-palco', label: 'Palco', sub: '6 \u00d7 4 m', w: 6, d: 4, h: 1, color: '#8e44ad', icon: ICON.stage, build: buildStage },
   { key: 'obj-segreteria', label: 'Segreteria', sub: '3 \u00d7 2 m', w: 3, d: 2, h: 2.5, color: '#2980b9', icon: ICON.desk, build: buildDesk },
+  { key: 'obj-wc', label: 'Bagno chimico', sub: '1,2 \u00d7 1,2 m', w: 1.2, d: 1.2, h: 2.3, color: '#27ae60', icon: ICON.wc, build: buildWc, noName: true },
+  { key: 'obj-wcdis', label: 'Bagno chimico disabili', sub: '2,2 \u00d7 2,2 m', w: 2.2, d: 2.2, h: 2.4, color: '#2e86de', icon: ICON.acc, build: buildWcDis, noName: true },
+  { key: 'obj-transenna', label: 'Transenne', sub: '2 \u00d7 2 m \u00b7 a polilinea', w: 2, d: 2, h: 2, color: '#8d949e', icon: ICON.fence, build: null, line: true, noName: true },
+  { key: 'obj-colonnina', label: 'Colonnina elettrica', sub: 'allaccio elettrico', w: .5, d: .5, h: 1.1, color: '#f1c40f', icon: ICON.bolt, build: buildBolt, noName: true },
   { custom: true, label: 'Altro (disegna)', sub: 'Disegni la forma in mappa', color: '#16a085', icon: ICON.custom }];
 const MODEL_DEFS = {}; CAT_IN.concat(CAT_OUT, CAT_OBJ).forEach(it => { if (it.key) MODEL_DEFS[it.key] = it; });
-const modelLabel = k => MODEL_DEFS[k] ? MODEL_DEFS[k].label : k;
+const modelLabel = k => k === 'area' ? 'area personalizzata' : (MODEL_DEFS[k] ? MODEL_DEFS[k].label : k);
 function buildModelStand(s) {
-  const { w, d } = dims(s);
+  const { w, d } = dims(s), line = isLine(s), noLab = line || s.model === 'obj-colonnina';
   const mat = new THREE.MeshStandardMaterial({ color: colorOf(s), roughness: .5, metalness: .06 });
-  const body = MODEL_DEFS[s.model].build(w, d, s.h, mat);
+  const body = line ? buildFence(s, w, d, mat) : MODEL_DEFS[s.model].build(w, d, s.h, mat);
   const emat = new THREE.LineBasicMaterial({ color: s.locked ? 0xc9a227 : 0x1e2d4e, transparent: true, opacity: s.locked ? .95 : .3 });
-  body.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]].map(p => new THREE.Vector3(p[0], .04, p[1]))), emat));
-  const ls = Math.max(Math.min(w, d * 3), 2.2);
-  const lab = new THREE.Mesh(new THREE.PlaneGeometry(ls, ls / 2), new THREE.MeshBasicMaterial({ map: labelTexture(s.name), transparent: true, depthWrite: false }));
-  lab.rotation.x = -Math.PI / 2; lab.position.y = s.h + (s.model.indexOf('out-') === 0 ? .1 : .04) + (s.model === 'obj-biglietteria' ? .5 : 0); lab.visible = labelsOn; lab.raycast = () => {}; body.add(lab);
+  if (!line) body.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]].map(p => new THREE.Vector3(p[0], .04, p[1]))), emat));
+  let lab;
+  if (noLab) { lab = new THREE.Object3D(); body.add(lab); }
+  else {
+    const ls = Math.max(Math.min(w, d * 3), 2.2);
+    lab = new THREE.Mesh(new THREE.PlaneGeometry(ls, ls / 2), new THREE.MeshBasicMaterial({ map: labelTexture(s.name), transparent: true, depthWrite: false }));
+    orientLabel(lab, s); lab.position.y = s.h + (s.model.indexOf('out-') === 0 ? .1 : .04) + (s.model === 'obj-biglietteria' ? .5 : 0) + (s.model.indexOf('obj-wc') === 0 ? .3 : 0); lab.visible = labelsOn; lab.raycast = () => {}; body.add(lab);
+  }
   body.traverse(o => { o.userData.id = s.id; if (o.isLine) o.raycast = () => {}; });
   const grp = new THREE.Group(); grp.add(body);
-  const lk = new THREE.Sprite(new THREE.SpriteMaterial({ map: lockTex, depthTest: false })); lk.scale.set(2, 2, 1); lk.visible = !!s.locked; lk.raycast = () => {}; lk.renderOrder = 5; grp.add(lk);
-  grp.position.set((s.fx - .5) * W, baseOf(s), (s.fy - .5) * D); grp.rotation.y = -s.rot * Math.PI / 180; body.scale.y = hScale; lk.position.y = s.h * hScale + 1.6;
+  const lk = new THREE.Sprite(new THREE.SpriteMaterial({ map: lockTex, depthTest: false })); lk.scale.set(1, 1, 1); lk.visible = !!s.locked; lk.raycast = () => {}; lk.renderOrder = 5; grp.add(lk);
+  grp.position.set((s.fx - .5) * W, baseOf(s), (s.fy - .5) * D); grp.rotation.y = -s.rot * Math.PI / 180; body.scale.y = hScale; placeLock(lk, s);
   world.add(grp); meshes.set(s.id, { group: grp, body, mat, lab, emat, lk });
 }
 
@@ -557,10 +670,10 @@ async function addObject() {
   if (mState !== 'idle' || ZN === null || cfOpen) return;
   const it = await openCoverflow(CAT_OBJ, 'Oggetto senza stand');
   if (!it) return;
-  let name = prompt('Nome dell\'oggetto', it.custom ? '' : it.label); if (name === null) return;
+  let name = it.noName ? it.label : prompt('Nome dell\'oggetto', it.custom ? '' : it.label); if (name === null) return;
   name = name.trim().slice(0, 60) || (it.custom ? 'Oggetto' : it.label);
   const s = { id: null, name, zone: ZN, code: '', pass: 0, done: 0, notes: '', importable: false, placed: false, fx: .5, fy: .5, wf: .03, df: .03, rot: 0, shape: null, h: it.h || 2.5, locked: false, model: null, kind: 'obj', color: it.color };
-  if (it.custom) startDraw(s); else startPlace(s, it);
+  if (it.line) startDraw(s, 'line'); else if (it.custom) startDraw(s); else startPlace(s, it);
 }
 let plc = null;
 function startPlace(s, it) {
@@ -607,8 +720,25 @@ function commitPlaced(s) {
 }
 $('outd').onchange = e => {
   if (!Z) return; const v = e.target.checked;
-  api('/admin/mappatest/zone-outdoor', { zone: Z.name, outdoor: v ? 1 : 0 }).then(d => { if (d && d.ok) { Z.outdoor = v; toast(v ? 'Zona all\'aperto' : 'Zona al chiuso'); } else { e.target.checked = !v; toast('Salvataggio non riuscito'); } });
+  api('/admin/mappatest/zone-outdoor', { zone: Z.name, outdoor: v ? 1 : 0 }).then(d => { if (d && d.ok) { Z.outdoor = v; zs().forEach(buildStand); toast(v ? 'Zona all\'aperto' : 'Zona al chiuso'); } else { e.target.checked = !v; toast('Salvataggio non riuscito'); } });
 };
+
+(function () {
+  const st = document.createElement('style'); st.textContent =
+    '.mt-wide-btn{position:absolute;left:12px;top:12px;z-index:21;width:36px;height:36px;border-radius:12px;border:1.5px solid #d9cff0;background:rgba(255,255,255,.95);color:#4c2c78;font-size:18px;line-height:1;cursor:pointer;box-shadow:0 4px 12px rgba(30,45,78,.18)}' +
+    'body.mp-on .mt-view .mt-banner{left:58px;max-width:calc(62% - 46px)}' +
+    '@media (min-width:1001px){body.mp-on .mt-main.mt-wide{grid-template-columns:minmax(0,1fr)}body.mp-on .mt-main.mt-wide .mt-side{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:.9rem;align-items:start}body.mp-on .mt-main.mt-wide .mt-panel{margin-bottom:0}}' +
+    '@media (max-width:1000px){.mt-wide-btn{display:none}}';
+  document.head.appendChild(st);
+  const main = document.querySelector('.mt-main'), b = document.createElement('button'); b.className = 'mt-wide-btn'; vw.appendChild(b);
+  const setWide = on => { main.classList.toggle('mt-wide', on); b.textContent = on ? '\u2921' : '\u2922'; b.title = on ? 'Riporta i menu a destra' : 'Allarga la finestra 3D a tutta larghezza (menu sotto)'; try { localStorage.setItem('mt-wide', on ? '1' : '0'); } catch (e) { /* ok */ } };
+  b.onclick = () => setWide(!main.classList.contains('mt-wide'));
+  let w0 = false; try { w0 = localStorage.getItem('mt-wide') === '1'; } catch (e) { /* ok */ } setWide(w0);
+  const h = $('psh'), bd = $('psb'), t = $('pst');
+  const setC = c => { bd.style.display = c ? 'none' : ''; t.textContent = c ? '\u25B8' : '\u25BE'; h.style.marginBottom = c ? '0' : ''; try { localStorage.setItem('mt-scale-c', c ? '1' : '0'); } catch (e) { /* ok */ } };
+  h.onclick = () => setC(bd.style.display !== 'none');
+  let c0 = false; try { c0 = localStorage.getItem('mt-scale-c') === '1'; } catch (e) { /* ok */ } if (c0) setC(true);
+})();
 
 /* ---------- viste e zone ---------- */
 const VIEWS = { top: { p: [0, 1.3, 0.001], t: [0, 0, 0] }, persp: { p: [0, .72, .82], t: [0, 0, .02] }, iso: { p: [.78, .72, .78], t: [0, 0, 0] }, south: { p: [.08, .22, 1.0], t: [.08, .03, 0] } };
@@ -653,7 +783,7 @@ document.querySelectorAll('#views button').forEach(b => b.onclick = () => goView
 document.querySelectorAll('#modes button').forEach(b => b.onclick = () => { document.querySelectorAll('#modes button').forEach(x => x.classList.remove('on')); b.classList.add('on'); mode = b.dataset.m; paint(); renderLegend(); });
 $('lab').onchange = e => { labelsOn = e.target.checked; meshes.forEach(m => m.lab.visible = labelsOn); };
 $('shd').onchange = e => { renderer.shadowMap.enabled = e.target.checked; sun.castShadow = e.target.checked; scene.traverse(o => { if (o.material) o.material.needsUpdate = true; }); };
-$('hsl').oninput = e => { hScale = e.target.value / 100; zs().forEach(s => { const m = meshes.get(s.id); if (m) { m.body.scale.y = hScale; m.lk.position.y = s.h * hScale + 1.6; } }); };
+$('hsl').oninput = e => { hScale = e.target.value / 100; zs().forEach(s => { const m = meshes.get(s.id); if (m) { m.body.scale.y = hScale; placeLock(m.lk, s); } }); };
 $('bld').onchange = applyVis;
 $('rf').onchange = applyVis;
 $('rfl').onchange = applyVis;
