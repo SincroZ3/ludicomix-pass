@@ -16,10 +16,10 @@ const api = (url, body, method) => fetch(url, { method: method || 'POST', creden
 const loadImg = src => new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
 
 const zones = DATA.zones;
-const stands = DATA.stands.map(s => {
+const stands = DATA.stands.concat(DATA.objects || []).map(s => {
   const L = s.L;
   return { id: s.id, name: s.name, zone: s.zone, code: s.code, pass: s.pc || 0, done: s.cs || 0, notes: s.notes, importable: !!s.importable, placed: !!L,
-    fx: L ? L.fx : .5, fy: L ? L.fy : .5, wf: L ? L.wf : .03, df: L ? L.df : .03, rot: L ? L.rot : 0, shape: L ? L.shape : null, h: L ? L.h : 2.5, locked: L ? !!L.locked : false };
+    fx: L ? L.fx : .5, fy: L ? L.fy : .5, wf: L ? L.wf : .03, df: L ? L.df : .03, rot: L ? L.rot : 0, shape: L ? L.shape : null, h: L ? L.h : 2.5, locked: L ? !!L.locked : false, model: L ? (L.model || null) : null, kind: s.kind || 'stand', color: s.color || null };
 });
 
 root.innerHTML = '' +
@@ -29,14 +29,14 @@ root.innerHTML = '' +
 '<div class="mt-main"><div class="mt-card">' +
  '<div class="mt-bar"><div class="mt-seg" id="views"><button data-v="top">Dall\'alto</button><button data-v="persp" class="on">Prospettiva</button><button data-v="iso">Isometrica</button><button data-v="south">Fronte</button></div>' +
  '<div class="mt-seg" id="modes"><button data-m="pass" class="on">Pass</button><button data-m="neutro">Neutro</button></div>' +
- '<label class="mt-chk"><input type="checkbox" id="bld" checked> Edificio</label><label class="mt-chk"><input type="checkbox" id="rf" checked> Tetti</label>' +
+ '<label class="mt-chk"><input type="checkbox" id="bld" checked> Edificio</label><label class="mt-chk"><input type="checkbox" id="rf" checked> Tetti sala</label><label class="mt-chk"><input type="checkbox" id="rfl" checked> Tetti bassi</label>' +
  '<label class="mt-chk"><input type="checkbox" id="lab" checked> Etichette</label><label class="mt-chk"><input type="checkbox" id="shd" checked> Ombre</label>' +
  '<label class="mt-chk">Trasparenza <input type="range" id="trn" min="0" max="100" value="55"></label>' +
  '<label class="mt-chk">Sole <input type="range" id="sunr" min="0" max="360" value="215"></label>' +
  '<label class="mt-chk">Altezze <input type="range" id="hsl" min="30" max="200" value="100"></label></div>' +
  '<div class="mt-view" id="vw"><div class="mt-banner" id="bn"></div><div class="mt-leg" id="lg"></div><div class="mt-tray" id="tr"></div><div class="mt-msg" id="ms"></div></div>' +
 '</div><aside class="mt-side">' +
- '<div class="mt-panel"><h3>Scala e dati</h3><label class="mt-f">Larghezza reale della pianta (m)<input id="wm" type="number" min="10" max="500" step="0.5"></label><div class="mt-note" id="wmn"></div>' +
+ '<div class="mt-panel"><h3>Scala e dati</h3><label class="mt-f">Larghezza reale della pianta (m)<input id="wm" type="number" min="10" max="500" step="0.5"></label><div class="mt-note" id="wmn"></div><label class="mt-chk" style="margin:6px 0"><input type="checkbox" id="outd"> Zona all&#39;aperto</label>' +
  '<div class="mt-row"><button class="mt-btn" id="imp">Importa dalla mappa attuale</button></div><div class="mt-note" id="impn"></div>' +
  '<div class="mt-row"><button class="mt-btn lock" id="la">\uD83D\uDD12 Blocca tutti</button><button class="mt-btn" id="ua">Sblocca tutti</button><button class="mt-btn" id="ex">Esporta JSON</button></div></div>' +
  '<div class="mt-panel" id="sel"></div>' +
@@ -60,8 +60,8 @@ const sun = new THREE.DirectionalLight(0xfff4e0, 2.1); sun.castShadow = true; su
 function setSun(deg) { const a = deg * Math.PI / 180, r = Math.max(W, D) * .9; sun.position.set(Math.cos(a) * r, r * .85, Math.sin(a) * r); }
 const world = new THREE.Group(); scene.add(world);
 const modelG = new THREE.Group(); scene.add(modelG);
-const gRoof = new THREE.Group(), gWall = new THREE.Group(), gLow = new THREE.Group(), gSol = new THREE.Group(), gSta = new THREE.Group(), gRai = new THREE.Group();
-modelG.add(gRoof, gWall, gLow, gSol, gSta, gRai);
+const gRoof = new THREE.Group(), gWall = new THREE.Group(), gLow = new THREE.Group(), gSol = new THREE.Group(), gSta = new THREE.Group(), gRai = new THREE.Group(), gLowRoof = new THREE.Group();
+modelG.add(gRoof, gWall, gLow, gLowRoof, gSol, gSta, gRai);
 const overlay = new THREE.Group(); scene.add(overlay);
 
 let ZN = null, Z = null, W = 80, D = 30, MODEL = null, PL = null, RAISED_S = [];
@@ -70,22 +70,24 @@ let floorMesh = null, slab = null, ground = null, floorToken = 0, zoneTok = 0, c
 const texMats = [];
 const meshes = new Map();
 const zs = () => stands.filter(s => s.zone === ZN);
+const isOut = () => !!(Z && Z.outdoor);
 const dims = s => ({ w: s.wf * W, d: s.df * D });
 const COL = { grey: '#9ca3af', green: '#2d6a4f', yellow: '#c9a227', red: '#c0392b', neutro: '#6b3fa0' };
-function colorOf(s) { if (mode === 'neutro') return COL.neutro; if (!s.pass) return COL.grey; const p = s.done / s.pass; return p >= .8 ? COL.green : p > 0 ? COL.yellow : COL.red; }
+function colorOf(s) { if (s.kind === 'obj') return s.color || '#16a085'; if (mode === 'neutro') return COL.neutro; if (!s.pass) return COL.grey; const p = s.done / s.pass; return p >= .8 ? COL.green : p > 0 ? COL.yellow : COL.red; }
 let tt; function toast(t) { const e = $('mt-toast'); e.textContent = t; e.style.display = 'block'; clearTimeout(tt); tt = setTimeout(() => e.style.display = 'none', 2600); }
 
 /* ---------- materiali dell'edificio ---------- */
 const matRoof = new THREE.MeshStandardMaterial({ color: 0xf4f6f9, roughness: .55, metalness: .05, side: THREE.DoubleSide, transparent: true, depthWrite: false });
 const matWallB = new THREE.MeshStandardMaterial({ color: 0xb86f4e, roughness: .85, side: THREE.DoubleSide, transparent: true });
 const matGlass = new THREE.MeshPhysicalMaterial({ color: 0x9fc6e8, roughness: .08, metalness: .1, side: THREE.DoubleSide, transparent: true, depthWrite: false, envMapIntensity: 1.4 });
-const matLow = new THREE.MeshStandardMaterial({ color: 0xb4bccb, roughness: .8, transparent: true, depthWrite: false });
+const matLow = new THREE.MeshStandardMaterial({ color: 0xb4bccb, roughness: .8, side: THREE.DoubleSide, transparent: true, depthWrite: false });
+const matLowRoof = new THREE.MeshStandardMaterial({ color: 0xcfd5e0, roughness: .6, side: THREE.DoubleSide, transparent: true, depthWrite: false });
 const matSol = new THREE.MeshStandardMaterial({ color: 0x777784, roughness: .95 });
 const matSta = new THREE.MeshStandardMaterial({ color: 0xf0a030, roughness: .7 });
 function applyTransp() {
   const t = transp;
-  matRoof.opacity = Math.max(.08, 1 - .92 * t); matWallB.opacity = Math.max(.12, 1 - .85 * t); matGlass.opacity = Math.max(.1, .85 - .75 * t); matLow.opacity = Math.max(.1, .85 - .75 * t);
-  [matRoof, matWallB, matGlass, matLow].forEach(m => { m.needsUpdate = true; });
+  matRoof.opacity = Math.max(.08, 1 - .92 * t); matWallB.opacity = Math.max(.12, 1 - .85 * t); matGlass.opacity = Math.max(.1, .85 - .75 * t); matLow.opacity = Math.max(.1, .85 - .75 * t); matLowRoof.opacity = Math.max(.08, 1 - .92 * t);
+  [matRoof, matWallB, matGlass, matLow, matLowRoof].forEach(m => { m.needsUpdate = true; });
 }
 
 /* ---------- pavimento ---------- */
@@ -113,6 +115,7 @@ function buildFloor(img) {
 }
 
 /* ---------- modello dell'edificio ---------- */
+function applyVis() { const on = $('bld').checked; gSol.visible = gLow.visible = gSta.visible = gRai.visible = gWall.visible = on; gRoof.visible = on && $('rf').checked; gLowRoof.visible = on && $('rfl').checked; }
 function clearGroup(g) { while (g.children.length) { const o = g.children.pop(); o.traverse(c => { if (c.geometry) c.geometry.dispose(); }); } }
 function pointIn(poly, x, z) {
   const inside = (ring) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const a = ring[i], b = ring[j]; if (((a[1] > z) !== (b[1] > z)) && (x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0])) c = !c; } return c; };
@@ -122,7 +125,7 @@ const baseOf = s => { if (!MODEL || !RAISED_S.length) return 0; const x = (s.fx 
 function tris(arr, pts) { for (const p of pts) arr.push(p[0], p[1], p[2]); }
 function rawMesh(arr, mat) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); g.computeVertexNormals(); const m = new THREE.Mesh(g, mat); m.castShadow = mat !== matGlass; m.receiveShadow = true; return m; }
 function buildModel() {
-  [gRoof, gWall, gLow, gSol, gSta, gRai].forEach(clearGroup); RAISED_S = [];
+  [gRoof, gWall, gLow, gLowRoof, gSol, gSta, gRai].forEach(clearGroup); RAISED_S = [];
   if (!MODEL || !PL) return;
   const m = MODEL, pw = m.planPx[0], ph = m.planPx[1], hh = m.heights;
   const MX = px => ((PL.xOff + px / pw * PL.wFrac) - .5) * W, MZ = py => ((py / ph * PL.hFrac) - .5) * D;
@@ -145,7 +148,14 @@ function buildModel() {
     [[BL, BA], [BA, BR]].forEach(([a, c]) => { for (let t = 0; t <= 4; t++) { const u = t / 4, x = a[0] + (c[0] - a[0]) * u, y = a[1] + (c[1] - a[1]) * u;
       const pts = [new THREE.Vector3(MX(x), 0, MZ(y)), new THREE.Vector3(MX(x), hf(x), MZ(y))]; gWall.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x5b6577, transparent: true, opacity: .6 }))); } });
   }
-  m.low.forEach(p => ext(conv(p), hh.low, matLow, gLow));
+  m.low.forEach(p => {
+    const c = conv(p), arr = [];
+    [c.o].concat(c.h).forEach(ring => { for (let i = 0; i < ring.length; i++) { const q = ring[i], r = ring[(i + 1) % ring.length]; tris(arr, [[q[0], 0, q[1]], [r[0], 0, r[1]], [r[0], hh.low, r[1]], [q[0], 0, q[1]], [r[0], hh.low, r[1]], [q[0], hh.low, q[1]]]); } });
+    const wm = rawMesh(arr, matLow); wm.castShadow = false; gLow.add(wm);
+    const rg = new THREE.ShapeGeometry(shapeOf(c)); rg.rotateX(-Math.PI / 2);
+    const rm = new THREE.Mesh(rg, matLowRoof); rm.position.y = hh.low; rm.receiveShadow = true;
+    rm.add(new THREE.LineSegments(new THREE.EdgesGeometry(rg, 25), new THREE.LineBasicMaterial({ color: 0x1e2d4e, transparent: true, opacity: .4 }))); gLowRoof.add(rm);
+  });
   m.solid.forEach(p => ext(conv(p), hh.low + 0.1, matSol, gSol));
   m.steps.forEach(p => ext(conv(p), hh.raise * (p.i + 1) / m.stepsN, matSta, gSta));
   RAISED_S = m.raised.map(conv);
@@ -175,6 +185,7 @@ function clearStands() { meshes.forEach(m => { world.remove(m.group); m.group.tr
 function buildStand(s) {
   if (meshes.has(s.id)) { const old = meshes.get(s.id); world.remove(old.group); old.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); meshes.delete(s.id); }
   if (!s.placed || s.zone !== ZN) return;
+  if (s.model && MODEL_DEFS[s.model]) { buildModelStand(s); return; }
   const { w, d } = dims(s); const bt = Math.min(.07, s.h / 6, Math.min(w, d) / 8);
   const sh = new THREE.Shape(); (s.shape || [[0, 0], [1, 0], [1, 1], [0, 1]]).forEach((p, i) => { const x = (p[0] - .5) * w, y = (.5 - p[1]) * d; i ? sh.lineTo(x, y) : sh.moveTo(x, y); });
   const geo = new THREE.ExtrudeGeometry(sh, { depth: Math.max(.05, s.h - 2 * bt), bevelEnabled: true, bevelThickness: bt, bevelSize: bt, bevelOffset: -bt, bevelSegments: 2 });
@@ -231,14 +242,14 @@ function kpi(n, label, warn) { return '<span class="mp-k' + (warn ? ' warn' : ''
 function renderTabs() {
   const zt = $('zt'); zt.innerHTML = '';
   const mk = (name, label, n) => { const b = document.createElement('button'); b.className = 'ztab' + (ZN === name && (ZN !== null || name === null) ? ' active' : ''); b.innerHTML = esc(label) + ' <span>' + n + '</span>'; b.onclick = () => setZone(name); zt.appendChild(b); };
-  zones.forEach(z => mk(z.name, z.name, stands.filter(s => s.zone === z.name).length));
+  zones.forEach(z => mk(z.name, z.name, stands.filter(s => s.zone === z.name && s.kind !== 'obj').length));
   const nz = stands.filter(s => !zones.some(z => z.name === s.zone)).length; if (nz) mk(null, '\u2753 Senza zona', nz);
 }
 function refresh() {
   computeConflicts(); paint();
-  const all = stands.filter(s => zones.some(z => z.name === s.zone));
+  const all = stands.filter(s => s.kind !== 'obj' && zones.some(z => z.name === s.zone));
   $('hs').innerHTML = kpi(zones.length, ' zone') + kpi(all.filter(s => s.placed).length, ' stand in pianta') + kpi(all.filter(s => !s.placed).length, ' da posizionare', all.some(s => !s.placed));
-  const zl = zs(), pl = zl.filter(s => s.placed); let area = 0, pc = 0, cs = 0; pl.forEach(s => { const d = dims(s); area += d.w * d.d; pc += s.pass; cs += s.done; });
+  const zl = zs().filter(s => s.kind !== 'obj'), pl = zl.filter(s => s.placed); let area = 0, pc = 0, cs = 0; pl.forEach(s => { const d = dims(s); area += d.w * d.d; pc += s.pass; cs += s.done; });
   $('kp').innerHTML = ZN === null ? '' : kpi(pl.length, ' in pianta') + kpi(zl.length - pl.length, ' da posizionare', zl.length - pl.length > 0) + kpi(Math.round(area / (W * D) * 100) + '%', ' area occupata') +
     (conflicts.size ? kpi(Math.ceil(conflicts.size / 2), ' sovrapposizioni', true) : '') + kpi(cs + '/' + pc, ' pass consegnati');
   const imp = zl.filter(s => !s.placed && s.importable).length;
@@ -249,7 +260,8 @@ function refresh() {
 function renderTray() {
   const t = $('tr'); const un = zs().filter(s => !s.placed); t.style.display = ZN === null ? 'none' : 'flex';
   t.innerHTML = '<b>Da posizionare (' + un.length + ')</b>' + (un.length ? '' : '<span class="mt-note" style="margin:0">Tutti gli stand sono in pianta</span>');
-  un.forEach(s => { const b = document.createElement('button'); b.className = 'mt-chip'; b.textContent = s.name + ' \u00b7 ' + s.done + '/' + s.pass + '  \u270E disegna'; b.onclick = () => startDraw(s); t.appendChild(b); });
+  un.forEach(s => { const b = document.createElement('button'); b.className = 'mt-chip'; b.textContent = s.name + ' \u00b7 ' + s.done + '/' + s.pass + '  \u270E posiziona'; b.onclick = () => choosePlacement(s); t.appendChild(b); });
+  const ob = document.createElement('button'); ob.className = 'mt-chip'; ob.textContent = '\uFF0B Oggetto'; ob.title = 'Biglietteria, palco, segreteria e altri oggetti senza stand'; ob.onclick = addObject; t.appendChild(ob);
 }
 function renderLegend() {
   const it = mode === 'pass' ? [[COL.green, '\u226580% consegnati'], [COL.yellow, 'parziale'], [COL.red, '0 consegnati'], [COL.grey, 'nessun pass']] : [[COL.neutro, 'stand']];
@@ -257,24 +269,29 @@ function renderLegend() {
 }
 function renderSel() {
   const c = $('sel'); const s = stands.find(x => x.id === selected);
-  if (!s || !s.placed || s.zone !== ZN) { c.innerHTML = '<h3>Stand selezionato</h3><div class="mt-note">Clicca uno stand per vedere i dettagli. Trascinalo sulla pianta per spostarlo.</div>'; return; }
-  const d = dims(s), L = s.locked ? ' disabled' : '';
-  c.innerHTML = '<h3>Stand selezionato</h3><div class="mt-name">' + esc(s.name) + (s.locked ? '<span class="mt-tag">\uD83D\uDD12 bloccato</span>' : '') + '</div>' +
-    '<div class="mt-note">' + (s.code ? esc(s.code) + ' \u00b7 ' : '') + s.done + '/' + s.pass + ' pass consegnati \u00b7 ' + d.w.toFixed(1) + ' \u00d7 ' + d.d.toFixed(1) + ' m \u00b7 h ' + s.h.toFixed(1) + ' m' + (baseOf(s) ? ' \u00b7 su pavimento rialzato' : '') + (conflicts.has(s.id) ? ' \u00b7 <b style="color:#b3321f">sovrapposto</b>' : '') + '</div>' +
-    '<div class="mt-row"><button class="mt-btn lock" id="lk">' + (s.locked ? '\uD83D\uDD13 Sblocca' : '\uD83D\uDD12 Blocca') + '</button><button class="mt-btn pri" id="ef"' + L + '>\u270E Modifica forma</button></div>' +
+  if (!s || !s.placed || s.zone !== ZN) { c.innerHTML = '<h3>Selezione</h3><div class="mt-note">Clicca uno stand o un oggetto per vedere i dettagli. Trascinalo sulla pianta per spostarlo.</div>'; return; }
+  const obj = s.kind === 'obj', d = dims(s), L = s.locked ? ' disabled' : '';
+  c.innerHTML = '<h3>' + (obj ? 'Oggetto selezionato' : 'Stand selezionato') + '</h3><div class="mt-name">' + esc(s.name) + (s.locked ? '<span class="mt-tag">\uD83D\uDD12 bloccato</span>' : '') + '</div>' +
+    '<div class="mt-note">' + (obj ? 'Oggetto senza stand' : (s.code ? esc(s.code) + ' \u00b7 ' : '') + s.done + '/' + s.pass + ' pass consegnati') + ' \u00b7 ' + d.w.toFixed(1) + ' \u00d7 ' + d.d.toFixed(1) + ' m \u00b7 h ' + s.h.toFixed(1) + ' m' + (s.model ? ' \u00b7 modello ' + esc(modelLabel(s.model)) : '') + (baseOf(s) ? ' \u00b7 su pavimento rialzato' : '') + (conflicts.has(s.id) ? ' \u00b7 <b style="color:#b3321f">sovrapposto</b>' : '') + '</div>' +
+    '<div class="mt-row"><button class="mt-btn lock" id="lk">' + (s.locked ? '\uD83D\uDD13 Sblocca' : '\uD83D\uDD12 Blocca') + '</button>' + (s.model ? '<button class="mt-btn pri" id="mc"' + L + '>Rendi personalizzato</button>' : '<button class="mt-btn pri" id="ef"' + L + '>\u270E Modifica forma</button>') + '</div>' +
+    (obj ? '<label class="mt-f">Nome<input id="on" type="text" maxlength="60" value="' + esc(s.name) + '"' + L + '></label><label class="mt-f">Colore<input id="oc" type="color" value="' + esc(s.color || '#16a085') + '"' + L + '></label>' : '') +
     '<label class="mt-f">Altezza (m)<input id="hh" type="number" step="0.1" min="0.2" max="12" value="' + s.h + '"' + L + '></label>' +
     '<div class="mt-row"><button class="mt-btn" id="r1"' + L + '>\u27F2 \u221215\u00b0</button><button class="mt-btn" id="r2"' + L + '>\u27F3 +15\u00b0</button><button class="mt-btn" id="r3"' + L + '>90\u00b0</button></div>' +
-    '<div class="mt-row"><a class="mt-btn" href="/assignment-groups/' + s.id + '" style="text-decoration:none">Apri scheda gruppo</a><button class="mt-btn del" id="rm"' + L + '>Rimuovi dalla pianta</button></div>';
+    '<div class="mt-row">' + (obj ? '' : '<a class="mt-btn" href="/assignment-groups/' + s.id + '" style="text-decoration:none">Apri scheda gruppo</a>') + '<button class="mt-btn del" id="rm"' + L + '>' + (obj ? 'Elimina oggetto' : 'Rimuovi dalla pianta') + '</button></div>';
   $('lk').onclick = () => toggleLock(s);
-  $('ef').onclick = () => startEdit(s);
+  if ($('ef')) $('ef').onclick = () => startEdit(s);
+  if ($('mc')) $('mc').onclick = () => { const old = s.model; s.model = null; buildStand(s); saveGeom(s, () => { s.model = old; buildStand(s); refresh(); }); refresh(); toast('Ora la forma si modifica come uno stand personalizzato'); };
+  if ($('on')) $('on').onchange = e => { const old = s.name; s.name = (e.target.value || '').trim().slice(0, 60) || old; buildStand(s); saveGeom(s, () => { s.name = old; buildStand(s); refresh(); }); refresh(); };
+  if ($('oc')) $('oc').onchange = e => { const old = s.color; s.color = e.target.value; paint(); saveGeom(s, () => { s.color = old; paint(); refresh(); }); };
   $('hh').onchange = e => { const old = s.h; s.h = Math.max(.2, Math.min(12, parseFloat(e.target.value) || 2.5)); buildStand(s); saveGeom(s, () => { s.h = old; buildStand(s); refresh(); }); refresh(); };
   $('r1').onclick = () => rot(s, -15); $('r2').onclick = () => rot(s, 15); $('r3').onclick = () => rot(s, 90);
   $('rm').onclick = () => removeStand(s);
 }
 
 /* ---------- salvataggio ---------- */
+function geomBody(s) { return { zone: s.zone, fx: s.fx, fy: s.fy, wf: s.wf, df: s.df, rot: s.rot, shape: s.shape, height: s.h, model: s.model || null, kind: s.kind || 'stand', label: s.kind === 'obj' ? s.name : null, color: s.color || null }; }
 function saveGeom(s, onFail) {
-  return api('/admin/mappatest/layout/' + s.id, { zone: s.zone, fx: s.fx, fy: s.fy, wf: s.wf, df: s.df, rot: s.rot, shape: s.shape, height: s.h }).then(d => {
+  return api('/admin/mappatest/layout/' + s.id, geomBody(s)).then(d => {
     if (d && d.ok) { toast('\u2713 Salvato (test)'); return true; }
     toast(d && d.status === 423 ? s.name + ' \u00e8 bloccato' : 'Salvataggio non riuscito' + (d && d.error ? ': ' + d.error : '')); if (onFail) onFail(); return false;
   });
@@ -283,8 +300,8 @@ function toggleLock(s) {
   api('/admin/mappatest/layout/' + s.id + '/lock', { locked: s.locked ? 0 : 1 }).then(d => { if (d && d.ok) { s.locked = !s.locked; toast(s.locked ? s.name + ' bloccato' : s.name + ' sbloccato'); refresh(); } else toast('Operazione non riuscita'); });
 }
 function removeStand(s) {
-  if (s.locked) return; if (!confirm('Rimuovere ' + s.name + ' dalla pianta di test?')) return;
-  api('/admin/mappatest/layout/' + s.id + '/remove', {}).then(d => { if (d && d.ok) { s.placed = false; s.shape = null; buildStand(s); selected = null; refresh(); } else toast(d && d.status === 423 ? 'Stand bloccato' : 'Operazione non riuscita'); });
+  if (s.locked) return; if (!confirm((s.kind === 'obj' ? 'Eliminare l\'oggetto ' : 'Rimuovere ') + s.name + (s.kind === 'obj' ? '?' : ' dalla pianta di test?'))) return;
+  api('/admin/mappatest/layout/' + s.id + '/remove', {}).then(d => { if (d && d.ok) { s.placed = false; s.shape = null; s.model = null; buildStand(s); if (s.kind === 'obj') { const ix = stands.indexOf(s); if (ix > -1) stands.splice(ix, 1); } selected = null; refresh(); } else toast(d && d.status === 423 ? 'Stand bloccato' : 'Operazione non riuscita'); });
 }
 let rotTimer = null;
 function rot(s, a) { if (s.locked) return; s.rot = (s.rot + a + 360) % 360; meshes.get(s.id).group.rotation.y = -s.rot * Math.PI / 180; refresh(); clearTimeout(rotTimer); rotTimer = setTimeout(() => saveGeom(s), 500); }
@@ -293,7 +310,7 @@ function rot(s, a) { if (s.locked) return; s.rot = (s.rot + a + 360) % 360; mesh
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), hit = new THREE.Vector3();
 const planeY = h => new THREE.Plane(new THREE.Vector3(0, 1, 0), -h);
 function setNdc(e) { const r = renderer.domElement.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); }
-function pickStand(e) { setNdc(e); const h = ray.intersectObjects([...meshes.values()].map(m => m.body), false)[0]; return h ? h.object.userData.id : null; }
+function pickStand(e) { setNdc(e); const h = ray.intersectObjects([...meshes.values()].map(m => m.body), true).find(x => x.object.userData && x.object.userData.id != null); return h ? h.object.userData.id : null; }
 function floorPoint(e) {
   setNdc(e);
   if (MODEL && RAISED_S.length && ray.ray.intersectPlane(planeY(MODEL.heights.raise), hit)) { const p1 = hit.clone(); if (RAISED_S.some(p => pointIn(p, p1.x, p1.z))) return p1; }
@@ -333,8 +350,7 @@ function finishDraw() {
   if (pts.length < 3) { toast('Servono almeno 3 punti'); return; }
   const s = dr.stand, kind = dr.kind; applyWorldPts(s, pts); if (kind === 'rect') s.shape = null;
   if (s.wf * W < .8 || s.df * D < .8) { toast('Forma troppo piccola'); return; }
-  s.placed = true; selected = s.id; dr = null; mState = 'idle'; clearOverlay(); setBanner(''); lockCam(false); buildStand(s); refresh();
-  saveGeom(s, () => { s.placed = false; s.shape = null; buildStand(s); selected = null; refresh(); });
+  s.model = null; commitPlaced(s);
 }
 function addDrawPoint(p) {
   const x = snap(p.x), z = snap(p.z), last = dr.pts[dr.pts.length - 1]; if (last && last[0] === x && last[1] === z) return;
@@ -344,7 +360,7 @@ function addDrawPoint(p) {
 
 /* modifica forma */
 function startEdit(s) {
-  if (s.locked) { toast('Stand bloccato: sbloccalo per modificarlo'); return; } if (mState !== 'idle') return;
+  if (s.locked) { toast('Stand bloccato: sbloccalo per modificarlo'); return; } if (s.model) { toast('Modello predefinito: usa "Rendi personalizzato" per modificarne la forma'); return; } if (mState !== 'idle') return;
   ed = { s, pts: worldPts(s).map(p => p.slice()), snapshot: { fx: s.fx, fy: s.fy, wf: s.wf, df: s.df, rot: s.rot, shape: s.shape }, handles: [], mids: [] };
   mState = 'edit'; applyWorldPts(s, ed.pts); buildStand(s); goView('top'); lockCam(true); buildHandles();
   setBanner('<span>Modifica forma di <b>' + esc(s.name) + '</b></span><span class="dim">trascina i vertici \u00b7 clic sui punti gialli per aggiungerne uno \u00b7 doppio clic su un vertice per toglierlo</span><button class="mt-btn pri" id="ek">\u2713 Fine</button><button class="mt-btn" id="ec">Annulla modifiche</button>');
@@ -370,7 +386,7 @@ cvs.addEventListener('pointerdown', e => {
     if (h.type === 'm') { const a = ed.pts[h.i], b = ed.pts[(h.i + 1) % ed.pts.length]; ed.pts.splice(h.i + 1, 0, [snap((a[0] + b[0]) / 2), snap((a[1] + b[1]) / 2)]); buildHandles(); handleDrag = h.i + 1; } else handleDrag = h.i;
     controls.enabled = false; return;
   }
-  if (mState === 'draw') return;
+  if (mState === 'draw' || mState === 'place') return;
   const id = pickStand(e);
   if (id != null) {
     selected = id; const s = stands.find(x => x.id === id);
@@ -382,6 +398,7 @@ cvs.addEventListener('pointerdown', e => {
 cvs.addEventListener('pointermove', e => {
   if (mState === 'edit' && handleDrag != null) { const p = floorPoint(e); if (!p) return; ed.pts[handleDrag] = [snap(Math.max(-W / 2, Math.min(W / 2, p.x))), snap(Math.max(-D / 2, Math.min(D / 2, p.z)))]; applyWorldPts(ed.s, ed.pts); buildStand(ed.s); buildHandles(); computeConflicts(); paint(); return; }
   if (mState === 'draw' && dr) { const p = floorPoint(e); if (p) { dr.cursor = [snap(p.x), snap(p.z)]; drawOverlay(); } return; }
+  if (mState === 'place' && plc) { const p = floorPoint(e); if (p) plcMove(p); cvs.style.cursor = 'crosshair'; return; }
   if (drag) {
     const p = floorPoint(e); if (!p) return; const x = snap(p.x + drag.ox), z = snap(p.z + drag.oz);
     drag.s.fx = Math.max(.01, Math.min(.99, x / W + .5)); drag.s.fy = Math.max(.01, Math.min(.99, z / D + .5)); drag.moved = true;
@@ -396,6 +413,7 @@ cvs.addEventListener('pointermove', e => {
 addEventListener('pointerup', e => {
   if (handleDrag != null) { handleDrag = null; controls.enabled = true; refresh(); return; }
   if (mState === 'draw' && dr && down && e.target === cvs && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4) { const p = floorPoint(e); if (inFloor(p)) addDrawPoint(p); down = null; return; }
+  if (mState === 'place' && plc && down && e.target === cvs && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4) { const p = floorPoint(e); if (p) { plcMove(p); confirmPlace(); } down = null; return; }
   if (drag) {
     const dg = drag; drag = null; controls.enabled = true;
     if (dg.moved) { refresh(); saveGeom(dg.s, () => { dg.s.fx = dg.ofx; dg.s.fy = dg.ofy; buildStand(dg.s); refresh(); }); if (conflicts.has(dg.s.id)) toast('Attenzione: lo stand si sovrappone a un altro'); }
@@ -412,7 +430,185 @@ addEventListener('keydown', e => {
   if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
   if (mState === 'draw') { if (e.key === 'Enter') finishDraw(); else if (e.key === 'Escape') cancelDraw(); else if (e.key === 'Backspace') { dr.pts.pop(); drawOverlay(); e.preventDefault(); } }
   else if (mState === 'edit') { if (e.key === 'Enter') endEdit(); else if (e.key === 'Escape') cancelEdit(); }
+  else if (mState === 'place') { if (e.key === 'r' || e.key === 'R') rotatePlace(); else if (e.key === 'Escape') cancelPlace(); }
 });
+
+/* ---------- modelli 3D predefiniti, selettore e posizionamento ---------- */
+const matFix = (c, r) => new THREE.MeshStandardMaterial({ color: c, roughness: r == null ? .7 : r, metalness: .05 });
+const MF = { alu: matFix(0xb8bcc4, .4), white: matFix(0xf3f3f1, .8), dark: matFix(0x2b2d36, .8), wood: matFix(0xe3d9c6, .8), plat: matFix(0xdedbe6, .9) };
+function box(w, h, d, x, y0, z, m) { const me = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); me.position.set(x, y0 + h / 2, z); me.castShadow = true; me.receiveShadow = true; return me; }
+function buildGazebo(w, d, H, mat) {
+  const g = new THREE.Group(), eave = Math.min(2.4, H * .72), rh = Math.max(.3, H - eave), t = .03, lg = .07, vh = .3;
+  [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(c => g.add(box(lg, eave, lg, c[0] * (w / 2 - lg / 2), 0, c[1] * (d / 2 - lg / 2), MF.alu)));
+  g.add(box(w - .04, eave - .12, t, 0, 0, -d / 2 + t / 2 + .01, mat), box(t, eave - .12, d - .04, -w / 2 + t / 2 + .01, 0, 0, mat), box(t, eave - .12, d - .04, w / 2 - t / 2 - .01, 0, 0, mat));
+  g.add(box(w, vh, t, 0, eave - vh, d / 2 - t / 2, mat), box(w, vh, t, 0, eave - vh, -d / 2 + t / 2, mat), box(t, vh, d, -w / 2 + t / 2, eave - vh, 0, mat), box(t, vh, d, w / 2 - t / 2, eave - vh, 0, mat));
+  const cg = new THREE.ConeGeometry(Math.SQRT1_2, rh, 4, 1); cg.rotateY(Math.PI / 4);
+  const roof = new THREE.Mesh(cg, mat); roof.scale.set(w + .12, 1, d + .12); roof.position.y = eave + rh / 2; roof.castShadow = true; roof.receiveShadow = true; g.add(roof);
+  return g;
+}
+function buildIndoor(w, d, H, mat) {
+  const g = new THREE.Group(), t = .05, sd = Math.min(1, d * .5);
+  g.add(box(w, .08, d, 0, 0, 0, MF.plat));
+  g.add(box(w, H - .08, t, 0, .08, -d / 2 + t / 2, mat));
+  g.add(box(w * .8, .32, .08, 0, Math.max(.5, H - .5), -d / 2 + t + .04, MF.white));
+  g.add(box(t, H * .8 - .08, sd, -w / 2 + t / 2, .08, -d / 2 + sd / 2, mat), box(t, H * .8 - .08, sd, w / 2 - t / 2, .08, -d / 2 + sd / 2, mat));
+  g.add(box(Math.min(w * .6, w - .4), 1, .45, 0, .08, d / 2 - .45, MF.wood));
+  return g;
+}
+function buildKiosk(w, d, H, mat) {
+  const g = new THREE.Group();
+  g.add(box(w, H, d, 0, 0, 0, mat), box(w * .6, .7, .06, 0, 1, d / 2, MF.dark), box(w * .7, .06, .3, 0, .95, d / 2 + .15, MF.white), box(w + .2, .12, d + .2, 0, H, 0, MF.white), box(w * .5, .3, .05, 0, H + .12, d / 2, MF.dark));
+  return g;
+}
+function buildStage(w, d, H, mat) {
+  const g = new THREE.Group();
+  g.add(box(w, H, d, 0, 0, 0, mat), box(w, .04, d, 0, H, 0, MF.plat), box(Math.min(1.2, w), Math.max(.2, H / 2), .4, w / 2 - Math.min(1.2, w) / 2 - .2, 0, d / 2 + .2, mat), box(w, 2.4, .08, 0, H, -d / 2 + .1, MF.dark));
+  [-1, 1].forEach(k => g.add(box(.1, 3, .1, k * (w / 2 - .1), H, -d / 2 + .1, MF.alu)));
+  return g;
+}
+function buildDesk(w, d, H, mat) {
+  const g = new THREE.Group(), ph = Math.min(2.4, H);
+  [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(c => g.add(box(.07, ph, .07, c[0] * (w / 2 - .05), 0, c[1] * (d / 2 - .05), MF.alu)));
+  g.add(box(w + .2, .1, d + .2, 0, ph, 0, mat), box(w * .8, .9, .5, 0, 0, d / 2 - .5, MF.wood), box(w * .8, .75, .6, 0, 0, -d / 2 + .5, mat));
+  return g;
+}
+const ICON = {
+  gaz: '<svg viewBox="0 0 64 64"><path d="M32 6 L58 26 H6 Z"/><path d="M12 26V56M52 26V56M12 56H52"/></svg>',
+  stand: '<svg viewBox="0 0 64 64"><rect x="8" y="12" width="48" height="8"/><path d="M10 20V50M54 20V50"/><rect x="18" y="40" width="28" height="10"/><path d="M6 54H58"/></svg>',
+  custom: '<svg viewBox="0 0 64 64"><path d="M10 48 L16 20 L44 14 L52 40 Z" stroke-dasharray="5 4"/><path d="M40 52 L54 38 L58 42 L44 56 Z"/></svg>',
+  ticket: '<svg viewBox="0 0 64 64"><rect x="8" y="14" width="48" height="38"/><rect x="18" y="28" width="28" height="10"/><path d="M4 14H60"/></svg>',
+  stage: '<svg viewBox="0 0 64 64"><path d="M6 44H58V54H6Z"/><path d="M12 44V12M52 44V12M12 12H52"/></svg>',
+  desk: '<svg viewBox="0 0 64 64"><path d="M8 22H56"/><path d="M12 22V54M52 22V54"/><rect x="16" y="34" width="32" height="8"/></svg>'
+};
+const CUSTOM_IT = { custom: true, label: 'Personalizzato', sub: 'Disegni la forma in mappa', icon: ICON.custom };
+const CAT_IN = [
+  { key: 'in-4x25', label: '4 \u00d7 2,5 m', sub: 'Stand al chiuso', w: 4, d: 2.5, h: 2.5, icon: ICON.stand, build: buildIndoor },
+  { key: 'in-2x15', label: '2 \u00d7 1,5 m', sub: 'Stand al chiuso', w: 2, d: 1.5, h: 2.5, icon: ICON.stand, build: buildIndoor }, CUSTOM_IT];
+const CAT_OUT = [
+  { key: 'out-3x3', label: '3 \u00d7 3 m', sub: 'Gazebo all\'aperto', w: 3, d: 3, h: 3.4, icon: ICON.gaz, build: buildGazebo },
+  { key: 'out-4x3', label: '4 \u00d7 3 m', sub: 'Gazebo all\'aperto', w: 4, d: 3, h: 3.4, icon: ICON.gaz, build: buildGazebo }, CUSTOM_IT];
+const CAT_OBJ = [
+  { key: 'obj-biglietteria', label: 'Biglietteria', sub: '3 \u00d7 2 m', w: 3, d: 2, h: 2.5, color: '#e67e22', icon: ICON.ticket, build: buildKiosk },
+  { key: 'obj-palco', label: 'Palco', sub: '6 \u00d7 4 m', w: 6, d: 4, h: 1, color: '#8e44ad', icon: ICON.stage, build: buildStage },
+  { key: 'obj-segreteria', label: 'Segreteria', sub: '3 \u00d7 2 m', w: 3, d: 2, h: 2.5, color: '#2980b9', icon: ICON.desk, build: buildDesk },
+  { custom: true, label: 'Altro (disegna)', sub: 'Disegni la forma in mappa', color: '#16a085', icon: ICON.custom }];
+const MODEL_DEFS = {}; CAT_IN.concat(CAT_OUT, CAT_OBJ).forEach(it => { if (it.key) MODEL_DEFS[it.key] = it; });
+const modelLabel = k => MODEL_DEFS[k] ? MODEL_DEFS[k].label : k;
+function buildModelStand(s) {
+  const { w, d } = dims(s);
+  const mat = new THREE.MeshStandardMaterial({ color: colorOf(s), roughness: .5, metalness: .06 });
+  const body = MODEL_DEFS[s.model].build(w, d, s.h, mat);
+  const emat = new THREE.LineBasicMaterial({ color: s.locked ? 0xc9a227 : 0x1e2d4e, transparent: true, opacity: s.locked ? .95 : .3 });
+  body.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]].map(p => new THREE.Vector3(p[0], .04, p[1]))), emat));
+  const ls = Math.max(Math.min(w, d * 3), 2.2);
+  const lab = new THREE.Mesh(new THREE.PlaneGeometry(ls, ls / 2), new THREE.MeshBasicMaterial({ map: labelTexture(s.name), transparent: true, depthWrite: false }));
+  lab.rotation.x = -Math.PI / 2; lab.position.y = s.h + (s.model.indexOf('out-') === 0 ? .1 : .04) + (s.model === 'obj-biglietteria' ? .5 : 0); lab.visible = labelsOn; lab.raycast = () => {}; body.add(lab);
+  body.traverse(o => { o.userData.id = s.id; if (o.isLine) o.raycast = () => {}; });
+  const grp = new THREE.Group(); grp.add(body);
+  const lk = new THREE.Sprite(new THREE.SpriteMaterial({ map: lockTex, depthTest: false })); lk.scale.set(2, 2, 1); lk.visible = !!s.locked; lk.raycast = () => {}; lk.renderOrder = 5; grp.add(lk);
+  grp.position.set((s.fx - .5) * W, baseOf(s), (s.fy - .5) * D); grp.rotation.y = -s.rot * Math.PI / 180; body.scale.y = hScale; lk.position.y = s.h * hScale + 1.6;
+  world.add(grp); meshes.set(s.id, { group: grp, body, mat, lab, emat, lk });
+}
+
+/* selettore a scorrimento (coverflow) */
+(function () { const st = document.createElement('style'); st.textContent =
+  '.mt-cf{position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:rgba(36,22,64,.6);backdrop-filter:blur(3px)}' +
+  '.mt-cf-t{color:#fff;font-weight:700;font-size:18px;text-align:center;padding:0 12px;text-shadow:0 1px 4px rgba(0,0,0,.4)}' +
+  '.mt-cf-s{position:relative;width:100%;max-width:760px;height:250px;perspective:900px}' +
+  '.mt-cf-c{position:absolute;left:50%;top:50%;width:150px;height:200px;margin:-100px 0 0 -75px;background:#fff;border-radius:14px;box-shadow:0 10px 26px rgba(0,0,0,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:transform .35s ease,opacity .35s ease;text-align:center;padding:10px;box-sizing:border-box;color:#2b1d4d}' +
+  '.mt-cf-c.on{outline:3px solid #f5c842}.mt-cf-c span{font-size:12px;color:#6b6480}' +
+  '.mt-cf-i svg{width:84px;height:84px;stroke:#6b3fa0;fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}' +
+  '.mt-cf-n{display:flex;align-items:center;gap:12px;color:#fff;flex-wrap:wrap;justify-content:center}.mt-cf-n .dim{color:#e7def7;font-size:12px}';
+  document.head.appendChild(st); })();
+let cfOpen = false;
+function openCoverflow(items, title) {
+  return new Promise(res => {
+    if (cfOpen) { res(null); return; }
+    cfOpen = true; let idx = Math.floor(items.length / 2);
+    if (getComputedStyle(vw).position === 'static') vw.style.position = 'relative';
+    const el = document.createElement('div'); el.className = 'mt-cf';
+    el.innerHTML = '<div class="mt-cf-t">' + esc(title) + '</div><div class="mt-cf-s"></div><div class="mt-cf-n"><button class="mt-btn" id="cfp">\u2039</button><span class="dim">\u2190 \u2192 per scorrere \u00b7 clic sulla scheda al centro per confermare \u00b7 Esc annulla</span><button class="mt-btn" id="cfn">\u203A</button></div><button class="mt-btn" id="cfx">Annulla</button>';
+    vw.appendChild(el);
+    const stg = el.querySelector('.mt-cf-s');
+    const cards = items.map((it, i) => { const c = document.createElement('div'); c.className = 'mt-cf-c'; c.innerHTML = '<div class="mt-cf-i">' + it.icon + '</div><b>' + esc(it.label) + '</b><span>' + esc(it.sub || '') + '</span>'; c.onclick = () => { if (i === idx) done(it); else { idx = i; lay(); } }; stg.appendChild(c); return c; });
+    function lay() { cards.forEach((c, i) => { const o = i - idx, ab = Math.abs(o); c.style.transform = 'translateX(' + (o * 150) + 'px) translateZ(' + (-ab * 90) + 'px) rotateY(' + (-Math.sign(o) * Math.min(ab, 2) * 38) + 'deg)'; c.style.opacity = ab > 2 ? 0 : 1 - ab * .22; c.style.zIndex = 10 - ab; c.style.pointerEvents = ab > 2 ? 'none' : 'auto'; c.classList.toggle('on', o === 0); }); }
+    function done(it) { cfOpen = false; removeEventListener('keydown', key, true); el.remove(); res(it); }
+    function key(e) {
+      if (e.key === 'ArrowLeft') idx = Math.max(0, idx - 1); else if (e.key === 'ArrowRight') idx = Math.min(items.length - 1, idx + 1);
+      else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); done(items[idx]); return; } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(null); return; } else return;
+      e.preventDefault(); e.stopPropagation(); lay();
+    }
+    addEventListener('keydown', key, true);
+    el.querySelector('#cfp').onclick = () => { idx = Math.max(0, idx - 1); lay(); };
+    el.querySelector('#cfn').onclick = () => { idx = Math.min(items.length - 1, idx + 1); lay(); };
+    el.querySelector('#cfx').onclick = () => done(null);
+    lay();
+  });
+}
+
+/* scelta del tipo e posizionamento */
+async function choosePlacement(s) {
+  if (mState !== 'idle' || ZN === null || cfOpen) return;
+  const it = await openCoverflow(isOut() ? CAT_OUT : CAT_IN, 'Tipo di stand per ' + s.name + (isOut() ? ' \u00b7 all\'aperto' : ' \u00b7 al chiuso'));
+  if (!it) return;
+  if (it.custom) startDraw(s); else startPlace(s, it);
+}
+async function addObject() {
+  if (mState !== 'idle' || ZN === null || cfOpen) return;
+  const it = await openCoverflow(CAT_OBJ, 'Oggetto senza stand');
+  if (!it) return;
+  let name = prompt('Nome dell\'oggetto', it.custom ? '' : it.label); if (name === null) return;
+  name = name.trim().slice(0, 60) || (it.custom ? 'Oggetto' : it.label);
+  const s = { id: null, name, zone: ZN, code: '', pass: 0, done: 0, notes: '', importable: false, placed: false, fx: .5, fy: .5, wf: .03, df: .03, rot: 0, shape: null, h: it.h || 2.5, locked: false, model: null, kind: 'obj', color: it.color };
+  if (it.custom) startDraw(s); else startPlace(s, it);
+}
+let plc = null;
+function startPlace(s, it) {
+  if (mState !== 'idle' || ZN === null) return;
+  mState = 'place'; selected = null; goView('top'); lockCam(true);
+  plc = { s, it, w: Math.min(it.w, W - 1), d: Math.min(it.d, D - 1), rot: 0, cur: null, raw: null, base: 0 };
+  refresh(); placeBanner();
+}
+function placeBanner() {
+  setBanner('<span>Posiziona <b>' + esc(plc.s.name) + '</b> \u00b7 ' + esc(plc.it.label) + '</span><span class="dim">clic per piazzare \u00b7 R ruota di 90\u00b0 \u00b7 Esc annulla</span><button class="mt-btn" id="pr">Ruota</button><button class="mt-btn" id="pc">Annulla</button>');
+  $('pr').onclick = rotatePlace; $('pc').onclick = cancelPlace;
+}
+function plcMove(p) {
+  if (!plc) return; plc.raw = { x: p.x, z: p.z };
+  const q = plc.rot % 180 === 90, hx = (q ? plc.d : plc.w) / 2, hz = (q ? plc.w : plc.d) / 2;
+  const cx = Math.max(-W / 2 + hx, Math.min(W / 2 - hx, snap(p.x))), cz = Math.max(-D / 2 + hz, Math.min(D / 2 - hz, snap(p.z)));
+  plc.cur = [cx, cz]; ghostOverlay();
+}
+function ghostOverlay() {
+  clearOverlay(); if (!plc || !plc.cur) return;
+  const t = { fx: plc.cur[0] / W + .5, fy: plc.cur[1] / D + .5, wf: plc.w / W, df: plc.d / D, rot: plc.rot, shape: null };
+  plc.base = baseOf(t); const y = plc.base + .08, v = worldPts(t).map(p => new THREE.Vector3(p[0], y, p[1]));
+  const ln = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(v), new THREE.LineBasicMaterial({ color: 0x6b3fa0, depthTest: false })); ln.renderOrder = 9; overlay.add(ln);
+  const fm = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([v[0], v[1], v[2], v[0], v[2], v[3]]), new THREE.MeshBasicMaterial({ color: colorOf(plc.s), transparent: true, opacity: .4, depthTest: false, side: THREE.DoubleSide })); fm.renderOrder = 8; overlay.add(fm);
+}
+function rotatePlace() { if (!plc) return; plc.rot = (plc.rot + 90) % 360; if (plc.raw) plcMove(plc.raw); }
+function cancelPlace() { plc = null; mState = 'idle'; clearOverlay(); setBanner(''); lockCam(false); refresh(); }
+function confirmPlace() {
+  if (!plc || !plc.cur) return; const { s, it } = plc;
+  s.fx = plc.cur[0] / W + .5; s.fy = plc.cur[1] / D + .5; s.wf = plc.w / W; s.df = plc.d / D; s.rot = plc.rot; s.shape = null; s.model = it.key; s.h = it.h;
+  commitPlaced(s);
+}
+function commitPlaced(s) {
+  s.placed = true; dr = null; plc = null; mState = 'idle'; clearOverlay(); setBanner(''); lockCam(false);
+  if (s.kind === 'obj' && s.id == null) {
+    api('/admin/mappatest/object', geomBody(s)).then(d => {
+      if (d && d.ok) { s.id = d.id; stands.push(s); selected = s.id; buildStand(s); refresh(); toast('\u2713 Oggetto salvato (test)'); }
+      else { toast('Salvataggio non riuscito' + (d && d.error ? ': ' + d.error : '')); refresh(); }
+    });
+    return;
+  }
+  selected = s.id; buildStand(s); refresh();
+  saveGeom(s, () => { s.placed = false; s.shape = null; s.model = null; buildStand(s); selected = null; refresh(); });
+}
+$('outd').onchange = e => {
+  if (!Z) return; const v = e.target.checked;
+  api('/admin/mappatest/zone-outdoor', { zone: Z.name, outdoor: v ? 1 : 0 }).then(d => { if (d && d.ok) { Z.outdoor = v; toast(v ? 'Zona all\'aperto' : 'Zona al chiuso'); } else { e.target.checked = !v; toast('Salvataggio non riuscito'); } });
+};
 
 /* ---------- viste e zone ---------- */
 const VIEWS = { top: { p: [0, 1.3, 0.001], t: [0, 0, 0] }, persp: { p: [0, .72, .82], t: [0, 0, .02] }, iso: { p: [.78, .72, .78], t: [0, 0, 0] }, south: { p: [.08, .22, 1.0], t: [.08, .03, 0] } };
@@ -432,7 +628,7 @@ async function getModel(name) {
 getModel.cache = {};
 let firstZone = true;
 async function setZone(name) {
-  if (mState === 'draw') cancelDraw(); if (mState === 'edit') cancelEdit();
+  if (mState === 'draw') cancelDraw(); if (mState === 'edit') cancelEdit(); if (mState === 'place') cancelPlace();
   const tok = ++zoneTok;
   ZN = name; Z = zones.find(z => z.name === name) || null; selected = null; query = ''; $('q').value = '';
   const refW = (Z && Z.refW) || 1450, refH = (Z && Z.refH) || 600;
@@ -443,10 +639,10 @@ async function setZone(name) {
   if (img && model && Math.abs((img.naturalWidth / img.naturalHeight) / (model.planPx[0] / model.planPx[1]) - 1) < .03) MODEL = model;
   W = MODEL ? (MODEL.planPx[0] * MODEL.mpp) / PL.wFrac : ((Z && Z.widthM) || 80);
   D = W * refH / refW;
-  $('wm').value = Z ? Math.round(W * 10) / 10 : ''; $('wm').disabled = !Z || !!MODEL;
+  $('wm').value = Z ? Math.round(W * 10) / 10 : ''; $('wm').disabled = !Z || !!MODEL; $('outd').checked = !!(Z && Z.outdoor); $('outd').disabled = !Z;
   $('wmn').textContent = MODEL ? 'Scala presa dal modello 3D dell\'edificio (sala larga 51 m).' : (model && img ? 'Il modello 3D non corrisponde alla planimetria caricata: ignorato.' : '');
   clearStands(); clearOverlay(); buildFloor(img); buildModel(); zs().forEach(buildStand);
-  gSol.visible = gLow.visible = gSta.visible = gRai.visible = gWall.visible = $('bld').checked; gRoof.visible = $('bld').checked && $('rf').checked;
+  applyVis();
   const ms = $('ms'); if (!Z) { ms.style.display = 'flex'; ms.innerHTML = zones.length ? 'Questi stand non hanno una zona assegnata: assegnali a una zona dalle impostazioni assegnatari.' : 'Nessuna zona configurata.'; } else ms.style.display = 'none';
   refresh();
   const t = viewTarget(curView);
@@ -458,8 +654,9 @@ document.querySelectorAll('#modes button').forEach(b => b.onclick = () => { docu
 $('lab').onchange = e => { labelsOn = e.target.checked; meshes.forEach(m => m.lab.visible = labelsOn); };
 $('shd').onchange = e => { renderer.shadowMap.enabled = e.target.checked; sun.castShadow = e.target.checked; scene.traverse(o => { if (o.material) o.material.needsUpdate = true; }); };
 $('hsl').oninput = e => { hScale = e.target.value / 100; zs().forEach(s => { const m = meshes.get(s.id); if (m) { m.body.scale.y = hScale; m.lk.position.y = s.h * hScale + 1.6; } }); };
-$('bld').onchange = e => { const on = e.target.checked; gSol.visible = gLow.visible = gSta.visible = gRai.visible = gWall.visible = on; gRoof.visible = on && $('rf').checked; };
-$('rf').onchange = e => { gRoof.visible = $('bld').checked && e.target.checked; };
+$('bld').onchange = applyVis;
+$('rf').onchange = applyVis;
+$('rfl').onchange = applyVis;
 $('trn').oninput = e => { transp = e.target.value / 100; applyTransp(); };
 $('sunr').oninput = e => setSun(+e.target.value);
 $('q').oninput = e => { query = e.target.value; paint(); };
@@ -475,7 +672,7 @@ function lockZone(v) { if (!Z) return; api('/admin/mappatest/zone-lock', { zone:
 $('la').onclick = () => lockZone(true);
 $('ua').onclick = () => { if (confirm('Sbloccare tutti gli stand di questa zona?')) lockZone(false); };
 $('ex').onclick = () => {
-  const data = { zona: ZN, larghezza_m: W, stand: zs().map(s => ({ id: s.id, nome: s.name, in_pianta: s.placed, bloccato: s.locked, fx: s.fx, fy: s.fy, wf: s.wf, df: s.df, rot: s.rot, altezza_m: s.h, forma: s.shape })) };
+  const data = { zona: ZN, larghezza_m: W, stand: zs().map(s => ({ id: s.id, nome: s.name, tipo: s.kind, modello: s.model, in_pianta: s.placed, bloccato: s.locked, fx: s.fx, fy: s.fy, wf: s.wf, df: s.df, rot: s.rot, altezza_m: s.h, forma: s.shape })) };
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' })); a.download = 'layout-mappatest.json'; a.click();
 };
 function resize() { const r = vw.getBoundingClientRect(); renderer.setSize(r.width, r.height); camera.aspect = r.width / Math.max(1, r.height); camera.updateProjectionMatrix(); }
