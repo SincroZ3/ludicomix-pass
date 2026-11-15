@@ -1,15 +1,15 @@
 /* ludi-mappatest-parco.js — estensione 3D per la zona "Mariambini" della pagina /admin/mappatest.
-   Non modifica ludi-mappatest.js: intercetta la scena three.js e aggiunge alberi, edifici di contesto, prato, percorsi, lampioni e tettoia
+   Non modifica ludi-mappatest.js: si aggancia alla scena three.js e aggiunge alberi, edifici di contesto, prato, percorsi, lampioni e tettoia
    leggendo i dati da /mappatest-models/mariambini.json (chiave "parco"). Se qualcosa non va, la pagina continua a funzionare come prima. */
 import * as THREE from 'three';
 
 const URL_MODEL = '/mappatest-models/mariambini.json';
 let scene = null, P = null, loading = null, grp = null, builtFor = null, sync = null, restore = null, token = 0, panel = null;
 
-const origRender = THREE.WebGLRenderer.prototype.render;
-THREE.WebGLRenderer.prototype.render = function (s, c) {
-  if (s && s.isScene && s.children.some(o => o.isDirectionalLight)) { scene = s; try { tick(); } catch (e) { if (!tick.err) { tick.err = 1; console.warn('parco3d', e); } } }
-  return origRender.call(this, s, c);
+const origUMW = THREE.Object3D.prototype.updateMatrixWorld;
+THREE.Object3D.prototype.updateMatrixWorld = function (force) {
+  if (this.isScene && this.children.some(o => o.isDirectionalLight)) { scene = this; try { tick(); } catch (e) { if (!tick.err) { tick.err = 1; console.warn('parco3d', e); } } }
+  return origUMW.call(this, force);
 };
 
 const zoneName = () => { const b = document.querySelector('#zt .ztab.active'); return b && b.firstChild ? String(b.firstChild.textContent).trim() : ''; };
@@ -33,7 +33,7 @@ function dispose() {
 }
 
 function build(floor) {
-  dispose(); const my = ++token; builtFor = floor;
+  dispose(); builtFor = floor;
   const par = P.parco, gp = floor.geometry.parameters, W = gp.width, D = gp.height, pw = P.planPx[0], ph = P.planPx[1];
   const a = pw / ph, r = W / D; let wF, hF, xO; if (r >= a) { hF = 1; wF = a / r; xO = (1 - wF) / 2; } else { wF = 1; hF = r / a; xO = 0; }
   const X = px => ((xO + px / pw * wF) - .5) * W, Zc = py => ((py / ph * hF) - .5) * D, K = W * wF / pw;
@@ -89,14 +89,14 @@ function build(floor) {
     for (let rr = 0; rr < 16; rr++) for (let k = 0; k < 8; k++) { const x = k * 32 + (rr % 2 ? 16 : 0), y = rr * 16, v = 118 + Math.floor(rnd() * 50); g.fillStyle = 'rgb(' + (v + 6) + ',' + v + ',' + (v - 8) + ')'; g.fillRect(x + 1, y + 1, 30, 14); }
     const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; };
   const lawnShape = shapeOf(par.lawn), gt = grassTex(); gt.repeat.set(1 / 2.2, 1 / 2.2);
-  const lawn = new THREE.Mesh(new THREE.ShapeGeometry(lawnShape), new THREE.MeshStandardMaterial({ map: gt, bumpMap: gt, bumpScale: .6, roughness: 1 })); lawn.rotation.x = -Math.PI / 2; lawn.position.y = -.008; lawn.receiveShadow = true; gLawn.add(lawn);
+  const lawn = new THREE.Mesh(new THREE.ShapeGeometry(lawnShape), new THREE.MeshStandardMaterial({ map: gt, bumpMap: gt, bumpScale: .6, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); lawn.rotation.x = -Math.PI / 2; lawn.position.y = -.006; lawn.receiveShadow = true; gLawn.add(lawn);
   const FW = pw * K, FH = ph * K, FCx = X(pw / 2), FCz = Zc(ph / 2);
   const tc = cv(1220, 540), tg = tc.getContext('2d'); tg.fillStyle = '#fff'; tg.fillRect(0, 0, 1220, 540);
   for (let i = 0; i < 60; i++) { const x = rnd() * 1220, y = rnd() * 540, rr = 30 + rnd() * 90, gr = tg.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, rnd() < .6 ? 'rgba(205,190,120,.5)' : 'rgba(150,185,120,.4)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); tg.fillStyle = gr; tg.fillRect(x - rr, y - rr, 2 * rr, 2 * rr); }
   par.trees.forEach(t => { const x = t.x / 2, y = t.y / 2, rr = (t.r / K) / 2 * 1.1, gr = tg.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, 'rgba(60,70,40,.75)'); gr.addColorStop(.7, 'rgba(90,100,60,.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); tg.fillStyle = gr; tg.fillRect(x - rr, y - rr, 2 * rr, 2 * rr); });
-  const tint = new THREE.Mesh(new THREE.PlaneGeometry(FW, FH), new THREE.MeshBasicMaterial({ map: (() => { const t = new THREE.CanvasTexture(tc); t.colorSpace = THREE.SRGBColorSpace; return t; })(), transparent: true, blending: THREE.MultiplyBlending, premultipliedAlpha: true, depthWrite: false })); tint.rotation.x = -Math.PI / 2; tint.position.set(FCx, -.006, FCz); gLawn.add(tint);
+  const tint = new THREE.Mesh(new THREE.PlaneGeometry(FW, FH), new THREE.MeshBasicMaterial({ map: (() => { const t = new THREE.CanvasTexture(tc); t.colorSpace = THREE.SRGBColorSpace; return t; })(), transparent: true, blending: THREE.MultiplyBlending, premultipliedAlpha: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 })); tint.rotation.x = -Math.PI / 2; tint.position.set(FCx, -.005, FCz); tint.renderOrder = 2; gLawn.add(tint);
   // planimetria stand: il pavimento della pagina diventa trasparente (moltiplicato) per far vedere prato e percorsi
-  const old = floor.material, mul = new THREE.MeshBasicMaterial({ map: old.map || null, transparent: true, blending: THREE.MultiplyBlending, premultipliedAlpha: true, depthWrite: false });
+  const old = floor.material, mul = new THREE.MeshBasicMaterial({ map: old.map || null, transparent: true, blending: THREE.MultiplyBlending, premultipliedAlpha: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 });
   floor.material = mul; floor.renderOrder = 3; floor.receiveShadow = false;
   sync = () => { if (mul.map !== old.map) { mul.map = old.map; mul.needsUpdate = true; } };
   restore = () => { floor.material = old; floor.renderOrder = 0; floor.receiveShadow = true; floor.visible = true; };
@@ -105,7 +105,7 @@ function build(floor) {
     const pm = cv(1220, 540), pg = pm.getContext('2d'); pg.fillStyle = '#000'; pg.fillRect(0, 0, 1220, 540); pg.fillStyle = '#fff'; pg.beginPath();
     par.paths.forEach(poly => { poly.forEach((p, i) => i ? pg.lineTo(p[0] / 2, p[1] / 2) : pg.moveTo(p[0] / 2, p[1] / 2)); pg.closePath(); }); pg.fill('evenodd'); const pd = pg.getImageData(0, 0, 1220, 540).data;
     const pv = paverTex(); pv.repeat.set(FW / 1.6, FH / 1.6); const am = new THREE.CanvasTexture(pm);
-    const pp = new THREE.Mesh(new THREE.PlaneGeometry(FW, FH), new THREE.MeshStandardMaterial({ map: pv, alphaMap: am, transparent: true, alphaTest: .4, roughness: .9 })); pp.rotation.x = -Math.PI / 2; pp.position.set(FCx, -.004, FCz); pp.receiveShadow = true; gPath.add(pp);
+    const pp = new THREE.Mesh(new THREE.PlaneGeometry(FW, FH), new THREE.MeshStandardMaterial({ map: pv, alphaMap: am, transparent: true, alphaTest: .4, roughness: .9, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })); pp.rotation.x = -Math.PI / 2; pp.position.set(FCx, -.004, FCz); pp.receiveShadow = true; gPath.add(pp);
     const N = 22000, tp = [];
     for (let k = 0; k < 5; k++) { const an = k * 1.26 + rnd(), h = .14 + rnd() * .16, w = .012, dx = Math.cos(an) * w, dz = Math.sin(an) * w, ox = (rnd() - .5) * .1, oz = (rnd() - .5) * .1, lean = .07; tp.push(ox - dx, 0, oz - dz, ox + dx, 0, oz + dz, ox + Math.cos(an + 1.2) * lean, h, oz + Math.sin(an + 1.2) * lean); }
     const tg2 = new THREE.BufferGeometry(); tg2.setAttribute('position', new THREE.Float32BufferAttribute(tp, 3)); tg2.computeVertexNormals();
