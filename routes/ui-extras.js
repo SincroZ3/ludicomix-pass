@@ -13,9 +13,13 @@
  *   GET /api/participants/summary
  *       -> { groups, participants, senzaPass }  (edizione corrente)
  *         senzaPass = partecipanti senza alcun pass valido (stesso criterio della home)
+ *
+ * In coda registra anche routes/mappa-pubblica.js (mappa pubblica su tabella propria): le sue rotte
+ * vengono spostate PRIMA di quelle dell'agenda, che altrimenti avrebbero la precedenza.
  */
 
-module.exports = function registerUiExtras(app, db, { requireAuth, edFilter }) {
+module.exports = function registerUiExtras(app, db, mw) {
+  const { requireAuth, edFilter } = mw;
 
   app.get('/api/assignment-groups/portal-status', requireAuth, (req, res) => {
     const sql = `
@@ -50,5 +54,18 @@ module.exports = function registerUiExtras(app, db, { requireAuth, edFilter }) {
       .then(([g, p, s]) => res.json({ groups: g.n, participants: p.n, senzaPass: s.n }))
       .catch(() => res.status(500).json({ error: 'Errore DB' }));
   });
+
+  // ── Mappa pubblica su tabella propria (public_zones) ───────────────────────────────────
+  try {
+    const stack = app._router && app._router.stack;
+    const before = stack ? stack.length : 0;
+    require('./mappa-pubblica')(app, db, mw);
+    if (stack) {
+      const mine = stack.splice(before);
+      const idx = stack.findIndex((l) => l.name === 'router' && l.handle && l.handle.stack &&
+        l.handle.stack.some((s) => s.route && s.route.path === '/admin/mappa-pubblica'));
+      if (idx >= 0) stack.splice(idx, 0, ...mine); else stack.push(...mine);
+    }
+  } catch (e) { console.error('[mappa-pubblica]', e.message); }
 
 };
