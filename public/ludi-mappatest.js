@@ -259,7 +259,7 @@ function renderTabs() {
   const zt = $('zt'); zt.innerHTML = '';
   const mk = (name, label, n) => { const b = document.createElement('button'); b.className = 'ztab' + (ZN === name && (ZN !== null || name === null) ? ' active' : ''); b.innerHTML = esc(label) + ' <span>' + n + '</span>'; b.onclick = () => setZone(name); zt.appendChild(b); };
   zones.forEach(z => mk(z.name, z.name, stands.filter(s => s.zone === z.name && s.kind !== 'obj').length));
-  const nz = stands.filter(s => !zones.some(z => z.name === s.zone)).length; if (nz) mk(null, '\u2753 Senza zona', nz);
+  const nz = stands.filter(s => !zones.some(z => z.name === s.zone)).length; if (nz) mk(null, '\u2753 Zona non trovata', nz);
 }
 function refresh() {
   computeConflicts(); paint();

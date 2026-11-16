@@ -124,7 +124,7 @@ var noZoneGroups=groups.filter(function(g){return !g.zone||zoneNames.indexOf(g.z
   </button>
   <% }); %>
   <% if(noZoneGroups.length>0){ %>
-  <button class="ztab" data-zone="0" onclick="switchZone(0)">&#10067; Senza zona <span style="font-size:.68rem;opacity:.65;margin-left:.25rem;">(<%=noZoneGroups.length%>)</span></button>
+  <button class="ztab" data-zone="0" onclick="switchZone(0)">&#10067; Zona non trovata <span style="font-size:.68rem;opacity:.65;margin-left:.25rem;">(<%=noZoneGroups.length%>)</span></button>
   <% } %>
 </div>
 
@@ -270,13 +270,13 @@ var noZoneGroups=groups.filter(function(g){return !g.zone||zoneNames.indexOf(g.z
     <div class="map-area-wrap">
       <div class="map-area" style="min-height:180px;display:flex;align-items:center;justify-content:center;">
         <div style="color:var(--text-muted);font-size:.85rem;text-align:center;padding:1.5rem;">
-          &#10067; Questi espositori non hanno una zona assegnata.<br>
-          Assegnali a una zona dalle <a href="/participants">impostazioni assegnatari</a>.
+          &#10067; Questi stand hanno una zona che non esiste (rinominata o eliminata).<br>
+          Correggi la zona dalle <a href="/participants">impostazioni assegnatari</a>.
         </div>
       </div>
     </div>
     <div class="map-sidebar">
-      <div class="sidebar-title">Stand senza zona</div>
+      <div class="sidebar-title">Stand con zona non trovata</div>
       <% noZoneGroups.forEach(function(g){ %>
       <div class="sidebar-box" style="border-left:3px solid <%=sc(g)%>">
         <div class="sbn"><%=g.stand_name%></div>

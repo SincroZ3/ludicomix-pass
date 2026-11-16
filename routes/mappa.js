@@ -71,6 +71,7 @@ module.exports = function registerMappaRoutes(
            LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
            LEFT JOIN passes p ON p.participant_id = pa.id
            WHERE (1=1) ${edFilterMappa()}
+             AND ag.zone IS NOT NULL AND TRIM(ag.zone) <> ''  -- ospiti/animatori senza zona: non hanno stand, non vanno in mappa
            GROUP BY ag.id ORDER BY ag.zone, ag.name`,
           [],
           (err2, groups) => {
@@ -355,6 +356,7 @@ module.exports = function registerMappaRoutes(
          LEFT JOIN participants pa ON pa.assignment_group_id = ag.id
          LEFT JOIN passes p ON p.participant_id = pa.id
          WHERE (1=1) ${f}
+           AND ag.zone IS NOT NULL AND TRIM(ag.zone) <> ''  -- ospiti/animatori senza zona: non hanno stand, non vanno in mappa
          GROUP BY ag.id ORDER BY ag.zone, ag.name`,
         [],
         (e2, groups) => {
