@@ -90,6 +90,14 @@ function build(floor) {
     const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; };
   const lawnShape = shapeOf(par.lawn), gt = grassTex(); gt.repeat.set(1 / 2.2, 1 / 2.2);
   const lawn = new THREE.Mesh(new THREE.ShapeGeometry(lawnShape), new THREE.MeshStandardMaterial({ map: gt, bumpMap: gt, bumpScale: .6, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); lawn.rotation.x = -Math.PI / 2; lawn.position.y = -.006; lawn.receiveShadow = true; gLawn.add(lawn);
+  // terreno esterno: base continua sotto tutta l'area (alberi, edifici di contesto, prato), anche oltre la planimetria
+  const gGnd = new THREE.Group(); gTT.add(gGnd);
+  { let x0 = 0, x1 = pw, y0 = 0, y1 = ph; const ext = (x, y) => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); };
+    par.trees.forEach(t => ext(t.x, t.y)); par.buildings.forEach(p => p.forEach(q => ext(q[0], q[1]))); par.lawn.forEach(q => ext(q[0], q[1]));
+    const M = 160; x0 -= M; x1 += M; y0 -= M; y1 += M;
+    const gg = grassTex(); gg.repeat.set((x1 - x0) * K / 2.2, (y1 - y0) * K / 2.2);
+    const gm = new THREE.Mesh(new THREE.PlaneGeometry((x1 - x0) * K, (y1 - y0) * K), new THREE.MeshStandardMaterial({ map: gg, color: 0xdfe8cf, roughness: 1, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 }));
+    gm.rotation.x = -Math.PI / 2; gm.position.set(X((x0 + x1) / 2), -.02, Zc((y0 + y1) / 2)); gm.receiveShadow = true; gGnd.add(gm); }
   const FW = pw * K, FH = ph * K, FCx = X(pw / 2), FCz = Zc(ph / 2);
   const tc = cv(1220, 540), tg = tc.getContext('2d'); tg.fillStyle = '#fff'; tg.fillRect(0, 0, 1220, 540);
   for (let i = 0; i < 60; i++) { const x = rnd() * 1220, y = rnd() * 540, rr = 30 + rnd() * 90, gr = tg.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, rnd() < .6 ? 'rgba(205,190,120,.5)' : 'rgba(150,185,120,.4)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); tg.fillStyle = gr; tg.fillRect(x - rr, y - rr, 2 * rr, 2 * rr); }
@@ -121,7 +129,7 @@ function build(floor) {
   const vw = document.getElementById('vw'); panel = document.createElement('div');
   panel.style.cssText = 'position:absolute;right:10px;top:10px;z-index:30;background:rgba(255,255,255,.93);border:1px solid #ece6f7;border-radius:14px;padding:8px 10px;font:12px system-ui,sans-serif;color:#2b1d4d;max-width:210px;box-shadow:0 6px 20px rgba(30,45,78,.18)';
   panel.innerHTML = '<b style="font-size:12px">Ambiente 3D</b>' +
-    ['Alberi|tr', 'Edifici di contesto|bl', 'Prato|gr', 'Fili d\u2019erba 3D|tu', 'Percorsi|pa', 'Planimetria stand|pl', 'Tettoia|pv', 'Lampioni|la'].map(s => { const [l, id] = s.split('|'); return '<label style="display:flex;gap:6px;align-items:center;margin:2px 0;font-weight:600"><input type="checkbox" data-k="' + id + '" checked> ' + l + '</label>'; }).join('') +
+    ['Alberi|tr', 'Edifici di contesto|bl', 'Prato|gr', 'Terreno esterno|gx', 'Fili d\u2019erba 3D|tu', 'Percorsi|pa', 'Planimetria stand|pl', 'Tettoia|pv', 'Lampioni|la'].map(s => { const [l, id] = s.split('|'); return '<label style="display:flex;gap:6px;align-items:center;margin:2px 0;font-weight:600"><input type="checkbox" data-k="' + id + '" checked> ' + l + '</label>'; }).join('') +
     '<label style="display:block;margin-top:4px;font-weight:600">Trasparenza alberi<input data-k="to" type="range" min="0" max="90" value="0" style="width:100%"></label>' +
     '<div style="margin-top:4px;font-weight:700;color:#6b5a8a">Allineamento ambiente</div>' +
     '<label style="display:block">E-O <span data-v="ax">0</span> m<input data-k="ax" type="range" min="-15" max="15" step="0.1" value="0" style="width:100%"></label>' +
@@ -129,7 +137,7 @@ function build(floor) {
     '<label style="display:block">Rotazione <span data-v="ar">0</span>\u00b0<input data-k="ar" type="range" min="-6" max="6" step="0.1" value="0" style="width:100%"></label>';
   vw.appendChild(panel);
   const g = k => panel.querySelector('[data-k="' + k + '"]'), apply = () => {
-    gTrees.visible = g('tr').checked; gBld.visible = g('bl').checked; gLawn.visible = g('gr').checked; gTuft.visible = g('tu').checked && g('gr').checked; gPath.visible = g('pa').checked; floor.visible = g('pl').checked; gPav.visible = g('pv').checked; gLamps.visible = g('la').checked;
+    gTrees.visible = g('tr').checked; gBld.visible = g('bl').checked; gLawn.visible = g('gr').checked; gGnd.visible = g('gx').checked; gTuft.visible = g('tu').checked && g('gr').checked; gPath.visible = g('pa').checked; floor.visible = g('pl').checked; gPav.visible = g('pv').checked; gLamps.visible = g('la').checked;
     const o = +g('to').value / 100; treeMats.forEach(m => { m.transparent = o > 0; m.opacity = 1 - o; m.depthWrite = o < .3; m.needsUpdate = true; });
     gTT.position.set(+g('ax').value, 0, +g('az').value); gTT.rotation.y = -(+g('ar').value) * Math.PI / 180;
     ['ax', 'az', 'ar'].forEach(k => { panel.querySelector('[data-v="' + k + '"]').textContent = g(k).value; });
