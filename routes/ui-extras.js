@@ -14,12 +14,15 @@
  *       -> { groups, participants, senzaPass }  (edizione corrente)
  *         senzaPass = partecipanti senza alcun pass valido (stesso criterio della home)
  *
+ *   GET /admin/mappa-pubblica/diagnostica  (solo admin, sola lettura)
+ *       -> elenca gli stand che /mappa mette in "Senza zona" e il motivo
+ *
  * In coda registra anche routes/mappa-pubblica.js (mappa pubblica su tabella propria): le sue rotte
  * vengono spostate PRIMA di quelle dell'agenda, che altrimenti avrebbero la precedenza.
  */
 
 module.exports = function registerUiExtras(app, db, mw) {
-  const { requireAuth, edFilter } = mw;
+  const { requireAuth, requireAdmin, edFilter } = mw;
 
   app.get('/api/assignment-groups/portal-status', requireAuth, (req, res) => {
     const sql = `
@@ -53,6 +56,28 @@ module.exports = function registerUiExtras(app, db, mw) {
     ])
       .then(([g, p, s]) => res.json({ groups: g.n, participants: p.n, senzaPass: s.n }))
       .catch(() => res.status(500).json({ error: 'Errore DB' }));
+  });
+
+  // ── Diagnostica "Senza zona" della mappa interna (sola lettura) ─────────────────────────
+  app.get('/admin/mappa-pubblica/diagnostica', requireAuth, requireAdmin, (req, res) => {
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const cur = edFilter();
+    const f = cur ? cur.replace(/AND ag\.edition_id = (\d+)/, 'AND (ag.edition_id = $1 OR ag.edition_id IS NULL)') : '';
+    db.all(`SELECT ag.id, ag.name, ag.zone, ag.edition_id, z.id AS zid, z.zone_scope,
+                   (SELECT COUNT(*) FROM participants pa WHERE pa.assignment_group_id = ag.id) AS persone
+            FROM assignment_groups ag LEFT JOIN zones z ON z.name = ag.zone
+            WHERE (1=1) ${f}
+              AND (ag.zone IS NULL OR ag.zone = '' OR z.id IS NULL OR NOT (z.zone_scope IS NULL OR z.zone_scope = 'internal'))
+            ORDER BY ag.zone, ag.name`, [], (err, rows) => {
+      if (err) return res.status(500).send('Errore DB: ' + esc(err.message));
+      const why = (r) => (!r.zone ? 'zona vuota' : !r.zid ? 'zona inesistente nella tabella zones' : 'zona con scope "' + r.zone_scope + '" (nascosta dalla mappa interna)');
+      const count = {};
+      rows.forEach((r) => { const w = why(r); count[w] = (count[w] || 0) + 1; });
+      res.send('<!doctype html><meta charset="utf-8"><title>Diagnostica Senza zona</title><body style="font:14px system-ui;margin:1.2rem"><h1>Stand in "Senza zona": ' + rows.length + '</h1><ul>' +
+        Object.keys(count).map((k) => '<li>' + esc(k) + ': <b>' + count[k] + '</b></li>').join('') + '</ul>' +
+        '<table border="1" cellpadding="4" style="border-collapse:collapse"><tr><th>ID</th><th>Nome</th><th>Zona</th><th>Edizione</th><th>Persone</th><th>Motivo</th></tr>' +
+        rows.map((r) => '<tr><td>' + r.id + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.zone) + '</td><td>' + (r.edition_id == null ? 'nessuna' : r.edition_id) + '</td><td>' + r.persone + '</td><td>' + esc(why(r)) + '</td></tr>').join('') + '</table></body>');
+    });
   });
 
   // ── Mappa pubblica su tabella propria (public_zones) ───────────────────────────────────
