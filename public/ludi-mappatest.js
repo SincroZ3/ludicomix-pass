@@ -20,7 +20,7 @@ const LBL = { color: (DATA.settings && DATA.settings.lbl_color) || '#ffffff', ou
 const stands = DATA.stands.concat(DATA.objects || []).map(s => {
   const L = s.L;
   return { id: s.id, name: s.name, zone: s.zone, code: s.code, pass: s.pc || 0, done: s.cs || 0, notes: s.notes, importable: !!s.importable, placed: !!L,
-    fx: L ? L.fx : .5, fy: L ? L.fy : .5, wf: L ? L.wf : .03, df: L ? L.df : .03, rot: L ? L.rot : 0, shape: L ? L.shape : null, h: L ? L.h : 2.5, locked: L ? !!L.locked : false, model: L ? (L.model || null) : null, kind: s.kind || 'stand', color: (L && L.color) || s.color || null, lscale: L ? (L.lscale || 1) : 1, lrot: L ? (L.lrot || 0) : 0 };
+    fx: L ? L.fx : .5, fy: L ? L.fy : .5, wf: L ? L.wf : .03, df: L ? L.df : .03, rot: L ? L.rot : 0, shape: L ? L.shape : null, h: L ? L.h : 2.5, elev: L ? (L.elev || 0) : 0, locked: L ? !!L.locked : false, model: L ? (L.model || null) : null, kind: s.kind || 'stand', color: (L && L.color) || s.color || null, lscale: L ? (L.lscale || 1) : 1, lrot: L ? (L.lrot || 0) : 0 };
 });
 
 stands.forEach(s => { if (s.model === 'obj-transenna' && s.shape) s.shape = dedupeShape(s.shape); });
@@ -124,7 +124,7 @@ function pointIn(poly, x, z) {
   const inside = (ring) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const a = ring[i], b = ring[j]; if (((a[1] > z) !== (b[1] > z)) && (x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0])) c = !c; } return c; };
   if (!inside(poly.o)) return false; for (const h of poly.h) if (inside(h)) return false; return true;
 }
-const baseOf = s => { if (!MODEL || !RAISED_S.length) return 0; const x = (s.fx - .5) * W, z = (s.fy - .5) * D; return RAISED_S.some(p => pointIn(p, x, z)) ? MODEL.heights.raise : 0; };
+const baseOf = s => { let b = 0; if (MODEL && RAISED_S.length) { const x = (s.fx - .5) * W, z = (s.fy - .5) * D; if (RAISED_S.some(p => pointIn(p, x, z))) b = MODEL.heights.raise; } return b + (s.elev || 0); };
 function tris(arr, pts) { for (const p of pts) arr.push(p[0], p[1], p[2]); }
 function rawMesh(arr, mat) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); g.computeVertexNormals(); const m = new THREE.Mesh(g, mat); m.castShadow = mat !== matGlass; m.receiveShadow = true; return m; }
 function buildModel() {
@@ -288,7 +288,7 @@ function renderSel() {
   if (!s || !s.placed || s.zone !== ZN) { c.innerHTML = '<h3>Selezione</h3><div class="mt-note">Clicca uno stand o un oggetto per vedere i dettagli. Trascinalo sulla pianta per spostarlo.</div>'; return; }
   const obj = s.kind === 'obj', d = dims(s), L = s.locked ? ' disabled' : '';
   c.innerHTML = '<h3>' + (obj ? 'Oggetto selezionato' : 'Stand selezionato') + '</h3><div class="mt-name">' + esc(s.name) + (s.locked ? '<span class="mt-tag">\uD83D\uDD12 bloccato</span>' : '') + '</div>' +
-    '<div class="mt-note">' + (obj ? 'Oggetto senza stand' : (s.code ? esc(s.code) + ' \u00b7 ' : '') + s.done + '/' + s.pass + ' pass consegnati') + ' \u00b7 ' + d.w.toFixed(1) + ' \u00d7 ' + d.d.toFixed(1) + ' m \u00b7 h ' + s.h.toFixed(1) + ' m' + (s.model ? ' \u00b7 modello ' + esc(modelLabel(s.model)) : '') + (baseOf(s) ? ' \u00b7 su pavimento rialzato' : '') + (conflicts.has(s.id) ? ' \u00b7 <b style="color:#b3321f">sovrapposto</b>' : '') + '</div>' +
+    '<div class="mt-note">' + (obj ? 'Oggetto senza stand' : (s.code ? esc(s.code) + ' \u00b7 ' : '') + s.done + '/' + s.pass + ' pass consegnati') + ' \u00b7 ' + d.w.toFixed(1) + ' \u00d7 ' + d.d.toFixed(1) + ' m \u00b7 h ' + s.h.toFixed(1) + ' m' + (s.model ? ' \u00b7 modello ' + esc(modelLabel(s.model)) : '') + ((baseOf(s) - (s.elev || 0)) ? ' \u00b7 su pavimento rialzato' : '') + (conflicts.has(s.id) ? ' \u00b7 <b style="color:#b3321f">sovrapposto</b>' : '') + '</div>' +
     '<div class="mt-row"><button class="mt-btn lock" id="lk">' + (s.locked ? '\uD83D\uDD13 Sblocca' : '\uD83D\uDD12 Blocca') + '</button>' + (s.model && MODEL_DEFS[s.model] && !isLine(s) ? '<button class="mt-btn pri" id="ef"' + L + '>\u270E Ridimensiona</button><button class="mt-btn" id="mc"' + L + '>Forma libera</button>' : '<button class="mt-btn pri" id="ef"' + L + '>\u270E Modifica forma</button>') + (!obj && (!s.model || s.model === 'area') ? '<button class="mt-btn" id="sty"' + L + '>' + (s.model === 'area' ? 'Aspetto volume' : 'Aspetto area') + '</button>' : '') + '</div>' +
     (obj ? '<label class="mt-f">Nome<input id="on" type="text" maxlength="60" value="' + esc(s.name) + '"' + L + '></label><label class="mt-f">Colore<input id="oc" type="color" value="' + esc(s.color || '#16a085') + '"' + L + '></label>' : '') +
     (obj ? '<label class="mt-f">Note (mostrate al passaggio del mouse)<textarea id="onote" rows="3" maxlength="500" style="width:100%;margin-top:.2rem;border:1.5px solid #d9cff0;border-radius:12px;padding:.4rem .65rem;font:inherit;font-size:.86rem"' + L + '>' + esc(s.notes || '') + '</textarea></label>'
@@ -296,6 +296,7 @@ function renderSel() {
     '<label class="mt-f">Dimensione nome (' + Math.round((s.lscale || 1) * 100) + '%)<input id="lsz" type="range" min="30" max="400" step="5" value="' + Math.round((s.lscale || 1) * 100) + '"' + L + '></label><div class="mt-row"><button class="mt-btn" id="lfit"' + L + '>Adatta allo spazio</button><button class="mt-btn" id="lrst"' + L + '>100%</button></div>' +
     '<div class="mt-f">Rotazione nome (' + ((s.lrot || 0) ? Math.round(s.lrot) + '\u00b0' : 'automatica, sempre leggibile') + ')</div><div class="mt-row"><button class="mt-btn" id="lr1"' + L + '>\u27F2 \u221215\u00b0</button><button class="mt-btn" id="lr2"' + L + '>\u27F3 +15\u00b0</button><button class="mt-btn" id="lr3"' + L + '>90\u00b0</button><button class="mt-btn" id="lr4"' + L + '>Come lo stand</button><button class="mt-btn" id="lr0"' + L + '>Auto</button></div>' +
     '<label class="mt-f">Altezza (m)<input id="hh" type="number" step="0.1" min="0.2" max="12" value="' + s.h + '"' + L + '></label>' +
+    '<label class="mt-f">Quota da terra (m)<input id="he" type="number" step="0.1" min="-5" max="30" value="' + (s.elev || 0) + '"' + L + '></label>' +
     '<div class="mt-row"><button class="mt-btn" id="r1"' + L + '>\u27F2 \u221215\u00b0</button><button class="mt-btn" id="r2"' + L + '>\u27F3 +15\u00b0</button><button class="mt-btn" id="r3"' + L + '>90\u00b0</button></div>' +
     '<div class="mt-row">' + (obj ? '' : '<a class="mt-btn" href="/assignment-groups/' + s.id + '" style="text-decoration:none">Apri scheda gruppo</a>') + '<button class="mt-btn del" id="rm"' + L + '>' + (obj ? 'Elimina oggetto' : 'Rimuovi dalla pianta') + '</button></div>';
   $('lk').onclick = () => toggleLock(s);
@@ -305,6 +306,7 @@ function renderSel() {
   if ($('on')) $('on').onchange = e => { const old = s.name; s.name = (e.target.value || '').trim().slice(0, 60) || old; buildStand(s); saveGeom(s, () => { s.name = old; buildStand(s); refresh(); }); refresh(); };
   if ($('oc')) $('oc').onchange = e => { const old = s.color; s.color = e.target.value; paint(); saveGeom(s, () => { s.color = old; paint(); refresh(); }); };
   $('hh').onchange = e => { const old = s.h; s.h = Math.max(.2, Math.min(12, parseFloat(e.target.value) || 2.5)); buildStand(s); saveGeom(s, () => { s.h = old; buildStand(s); refresh(); }); refresh(); };
+  $('he').onchange = e => { const old = s.elev || 0; s.elev = Math.max(-5, Math.min(30, parseFloat(e.target.value) || 0)); buildStand(s); saveGeom(s, () => { s.elev = old; buildStand(s); refresh(); }); refresh(); };
   const setNc = v => { const old = s.color; s.color = v; paint(); saveGeom(s, () => { s.color = old; paint(); refresh(); }); refresh(); };
   if ($('nc')) $('nc').onchange = e => setNc(e.target.value);
   if ($('ncr')) $('ncr').onclick = () => setNc(null);
@@ -322,7 +324,7 @@ function renderSel() {
 }
 
 /* ---------- salvataggio ---------- */
-function geomBody(s) { return { zone: s.zone, fx: s.fx, fy: s.fy, wf: s.wf, df: s.df, rot: s.rot, shape: (isLine(s) && s.shape && s.shape.length === 2) ? s.shape.concat([s.shape[1]]) : s.shape, height: s.h, model: s.model || null, kind: s.kind || 'stand', label: s.kind === 'obj' ? s.name : null, color: s.color || null, notes: s.kind === 'obj' ? (s.notes || '') : null, lscale: s.lscale || 1, lrot: s.lrot || 0 }; }
+function geomBody(s) { return { zone: s.zone, fx: s.fx, fy: s.fy, wf: s.wf, df: s.df, rot: s.rot, shape: (isLine(s) && s.shape && s.shape.length === 2) ? s.shape.concat([s.shape[1]]) : s.shape, height: s.h, elev: s.elev || 0, model: s.model || null, kind: s.kind || 'stand', label: s.kind === 'obj' ? s.name : null, color: s.color || null, notes: s.kind === 'obj' ? (s.notes || '') : null, lscale: s.lscale || 1, lrot: s.lrot || 0 }; }
 function saveGeom(s, onFail) {
   return api('/admin/mappatest/layout/' + s.id, geomBody(s)).then(d => {
     if (d && d.ok) { toast('\u2713 Salvato (test)'); return true; }
@@ -831,7 +833,7 @@ function lockZone(v) { if (!Z) return; api('/admin/mappatest/zone-lock', { zone:
 $('la').onclick = () => lockZone(true);
 $('ua').onclick = () => { if (confirm('Sbloccare tutti gli stand di questa zona?')) lockZone(false); };
 $('ex').onclick = () => {
-  const data = { zona: ZN, larghezza_m: W, stand: zs().map(s => ({ id: s.id, nome: s.name, tipo: s.kind, modello: s.model, in_pianta: s.placed, bloccato: s.locked, fx: s.fx, fy: s.fy, wf: s.wf, df: s.df, rot: s.rot, altezza_m: s.h, forma: s.shape })) };
+  const data = { zona: ZN, larghezza_m: W, stand: zs().map(s => ({ id: s.id, nome: s.name, tipo: s.kind, modello: s.model, in_pianta: s.placed, bloccato: s.locked, fx: s.fx, fy: s.fy, wf: s.wf, df: s.df, rot: s.rot, altezza_m: s.h, quota_m: s.elev || 0, forma: s.shape })) };
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' })); a.download = 'layout-mappatest.json'; a.click();
 };
 function resize() { const r = vw.getBoundingClientRect(); renderer.setSize(r.width, r.height); camera.aspect = r.width / Math.max(1, r.height); camera.updateProjectionMatrix(); }

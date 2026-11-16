@@ -311,6 +311,7 @@ module.exports = function registerMappaRoutes(
     ['model TEXT', 'label TEXT', 'color TEXT', 'kind TEXT'].forEach((c) => {
       db.run('ALTER TABLE map_test_layout ADD COLUMN ' + c, () => {});
     });
+    db.run('ALTER TABLE map_test_layout ADD COLUMN elev REAL DEFAULT 0', () => {});
     db.run('ALTER TABLE map_test_zone ADD COLUMN outdoor INTEGER DEFAULT 0', () => {});
   });
 
@@ -329,6 +330,7 @@ module.exports = function registerMappaRoutes(
       fx, fy, wf, df, shape, kind,
       rot: num(b.rot) || 0,
       h: Math.max(0.2, Math.min(12, num(b.height) || 2.5)),
+      elev: num(b.elev) === null ? null : Math.max(-5, Math.min(30, num(b.elev))),
       model: (typeof b.model === 'string' && /^[a-z0-9-]{1,24}$/.test(b.model)) ? b.model : null,
       label: kind === 'obj' ? (String(b.label || '').trim().slice(0, 60) || 'Oggetto') : null,
       color: (typeof b.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(b.color)) ? b.color : null,
@@ -340,7 +342,7 @@ module.exports = function registerMappaRoutes(
   };
   const toLayout = (l) => ({
     fx: l.fx, fy: l.fy, wf: l.wf, df: l.df, rot: l.rot || 0, shape: parseShape(l),
-    h: l.height || 2.5, locked: l.locked ? 1 : 0, model: l.model || null,
+    h: l.height || 2.5, elev: l.elev || 0, locked: l.locked ? 1 : 0, model: l.model || null,
   });
 
   app.get('/admin/mappatest', requireAuth, requireAdmin, (req, res) => {
@@ -408,12 +410,13 @@ module.exports = function registerMappaRoutes(
       if (row && row.locked) return res.status(423).json({ ok: false, error: 'Stand bloccato' });
       if (g.kind === 'obj' && !row) return res.status(404).json({ ok: false, error: 'Oggetto non trovato' });
       db.run(
-        `INSERT INTO map_test_layout (group_id, zone, fx, fy, wf, df, rot, shape, height, locked, updated_at, model, label, color, kind)
-         VALUES (?,?,?,?,?,?,?,?,?,0,datetime('now','localtime'),?,?,?,?)
+        `INSERT INTO map_test_layout (group_id, zone, fx, fy, wf, df, rot, shape, height, locked, updated_at, model, label, color, kind, elev)
+         VALUES (?,?,?,?,?,?,?,?,?,0,datetime('now','localtime'),?,?,?,?,?)
          ON CONFLICT(group_id) DO UPDATE SET zone=excluded.zone, fx=excluded.fx, fy=excluded.fy, wf=excluded.wf, df=excluded.df,
            rot=excluded.rot, shape=excluded.shape, height=excluded.height, updated_at=excluded.updated_at,
-           model=excluded.model, label=excluded.label, color=excluded.color, kind=excluded.kind`,
-        [id, String(req.body.zone || ''), g.fx, g.fy, g.wf, g.df, g.rot, g.shape, g.h, g.model, g.label, g.color, g.kind],
+           model=excluded.model, label=excluded.label, color=excluded.color, kind=excluded.kind,
+           elev=COALESCE(excluded.elev, map_test_layout.elev)`,
+        [id, String(req.body.zone || ''), g.fx, g.fy, g.wf, g.df, g.rot, g.shape, g.h, g.model, g.label, g.color, g.kind, g.elev],
         (err) => res.json(err ? { ok: false, error: err.message } : { ok: true })
       );
     });
@@ -428,9 +431,9 @@ module.exports = function registerMappaRoutes(
       if (e) return res.status(500).json({ ok: false, error: e.message });
       const id = Math.min(-1, ((row && row.m) || 0) - 1);
       db.run(
-        `INSERT INTO map_test_layout (group_id, zone, fx, fy, wf, df, rot, shape, height, locked, updated_at, model, label, color, kind)
-         VALUES (?,?,?,?,?,?,?,?,?,0,datetime('now','localtime'),?,?,?,'obj')`,
-        [id, zone, g.fx, g.fy, g.wf, g.df, g.rot, g.shape, g.h, g.model, g.label, g.color],
+        `INSERT INTO map_test_layout (group_id, zone, fx, fy, wf, df, rot, shape, height, locked, updated_at, model, label, color, kind, elev)
+         VALUES (?,?,?,?,?,?,?,?,?,0,datetime('now','localtime'),?,?,?,'obj',?)`,
+        [id, zone, g.fx, g.fy, g.wf, g.df, g.rot, g.shape, g.h, g.model, g.label, g.color, g.elev || 0],
         (err) => res.json(err ? { ok: false, error: err.message } : { ok: true, id })
       );
     });
