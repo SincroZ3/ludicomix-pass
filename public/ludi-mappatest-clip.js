@@ -1,10 +1,11 @@
-/* ludi-mappatest-clip.js — "Taglio" per /admin/mappatest: piano di sezione orizzontale che affetta la scena 3D dall'alto verso il basso.
-   Vale per tutte le zone e per tutti i modelli (Palazzetto, Mariambini, Vanvere e quelli futuri): non dipende dal modello, agisce sul renderer.
-   Non modifica ludi-mappatest.js: si aggancia alla scena three.js e inserisce lo slider nella barra comandi. Se qualcosa non va, la pagina resta com'e'. */
+/* ludi-mappatest-clip.js — "Taglio" per /admin/mappatest: piano di sezione orizzontale che affetta dall'alto verso il basso i soli modelli 3D degli ambienti
+   (edificio della zona, ambiente del Mariambini, Vanvere e quelli futuri). Gli stand e gli oggetti restano sempre interi: il piano e' applicato ai materiali
+   dell'ambiente (clipping locale), non al renderer. Si aggancia alla scena three.js e inserisce lo slider nella barra comandi. Se qualcosa non va, la pagina resta com'e'. */
 import * as THREE from 'three';
 
 const plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e4);   // tiene i punti con y <= quota
-const PLANES_ON = [plane], PLANES_OFF = [];
+const PLANES_ENV = [plane], PLANES_OFF = [];
+const clipped = new Set();   // materiali dell'ambiente su cui il taglio e' attivo
 let scene = null, maxH = 12, level = null, lastZone = null, lastBox = 0, lastSide = 0, ui = null;
 
 const origUMW = THREE.Object3D.prototype.updateMatrixWorld;
@@ -17,34 +18,52 @@ THREE.Object3D.prototype.updateMatrixWorld = function (force) {
 };
 
 function onBefore(renderer) {
-  const on = level != null;
-  if (on) plane.constant = level;
-  const want = on ? PLANES_ON : PLANES_OFF;
-  if (renderer.clippingPlanes !== want) renderer.clippingPlanes = want;
+  if (level != null) plane.constant = level;
+  if (!renderer.localClippingEnabled) renderer.localClippingEnabled = true;
+  if (renderer.clippingPlanes !== PLANES_OFF && renderer.clippingPlanes.length) renderer.clippingPlanes = PLANES_OFF;   // nessun piano globale: gli stand non vengono mai tagliati
+}
+
+// radici dell'ambiente: edificio della zona, ambiente del Mariambini, Vanvere. Gli stand (figli di "world") e le guide di disegno ne restano fuori.
+function envRoots() {
+  if (!scene) return [];
+  return scene.children.filter(o => o.isGroup && (o.name === 'modelG' || o.name === 'parco3d' || o.name === 'vanvere3d'
+    || (!o.name && o.children.length === 7 && o.children.every(c => c.isGroup))));
+}
+function eachEnvMaterial(fn) {
+  envRoots().forEach(r => r.traverse(o => {
+    if (!o.material || o.isSprite || o.isPoints) return;
+    (Array.isArray(o.material) ? o.material : [o.material]).forEach(fn);
+  }));
 }
 
 const zoneName = () => { const b = document.querySelector('#zt .ztab.active'); return b && b.firstChild ? String(b.firstChild.textContent).trim() : ''; };
 
 function sceneMaxHeight() {
   const box = new THREE.Box3(), tmp = new THREE.Box3(); let any = false;
-  scene.traverse(o => {
+  envRoots().forEach(r => r.traverse(o => {
     if (!o.isMesh || o.isSprite || !o.visible || !o.geometry) return;
     if (o.geometry.type === 'PlaneGeometry' && o.geometry.parameters && o.geometry.parameters.width > 1000) return;
     try { tmp.setFromObject(o); } catch (e) { return; }
     if (isFinite(tmp.max.y)) { box.union(tmp); any = true; }
-  });
+  }));
   return any ? Math.max(3, Math.ceil(box.max.y * 2) / 2) : 12;
 }
 
-// con il taglio attivo le facce interne devono vedersi, altrimenti i volumi pieni sembrano vuoti
-function applySides(on) {
-  scene.traverse(o => {
-    if (!o.material || o.isSprite || o.isPoints || o.isLine) return;
-    (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
-      if (on) { if (m.userData.clipSide === undefined) m.userData.clipSide = m.side; if (m.side !== THREE.DoubleSide) { m.side = THREE.DoubleSide; m.needsUpdate = true; } }
-      else if (m.userData.clipSide !== undefined) { if (m.side !== m.userData.clipSide) { m.side = m.userData.clipSide; m.needsUpdate = true; } delete m.userData.clipSide; }
+// con il taglio attivo le facce interne devono vedersi, altrimenti i volumi pieni sembrano vuoti; il piano vale solo per i materiali dell'ambiente
+function applyClip(on) {
+  if (on) {
+    eachEnvMaterial(m => {
+      if (m.clippingPlanes === PLANES_ENV) return;
+      m.userData.clipSide = m.side; m.clippingPlanes = PLANES_ENV; m.clipShadows = true; m.side = THREE.DoubleSide; m.needsUpdate = true; clipped.add(m);
     });
-  });
+  } else {
+    clipped.forEach(m => {
+      m.clippingPlanes = null; m.clipShadows = false;
+      if (m.userData.clipSide !== undefined) { m.side = m.userData.clipSide; delete m.userData.clipSide; }
+      m.needsUpdate = true;
+    });
+    clipped.clear();
+  }
 }
 
 function fmt(v) { return v.toFixed(1).replace('.', ',') + ' m'; }
@@ -58,7 +77,7 @@ function refreshUi() {
 
 function setLevel(v) {   // v in metri, oppure null per spegnere
   level = v;
-  if (scene) applySides(v != null);
+  if (scene) applyClip(v != null);
   refreshUi();
 }
 
@@ -85,5 +104,5 @@ function tick() {
   const now = performance.now();
   if (z !== lastZone) { lastZone = z; lastBox = 0; if (level != null) setLevel(null); }
   if (level == null && now - lastBox > 1500) { lastBox = now; const h = sceneMaxHeight(); if (h !== maxH) { maxH = h; refreshUi(); } }
-  if (level != null && now - lastSide > 600) { lastSide = now; applySides(true); }   // copre i materiali creati dopo (stand ridisegnati)
+  if (level != null && now - lastSide > 600) { lastSide = now; applyClip(true); }   // copre i materiali dell'ambiente creati dopo (ambiente ricostruito)
 }

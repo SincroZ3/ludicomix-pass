@@ -62,7 +62,7 @@ scene.add(new THREE.HemisphereLight(0xffffff, 0xcdbfe8, 0.55));
 const sun = new THREE.DirectionalLight(0xfff4e0, 2.1); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04; scene.add(sun);
 function setSun(deg) { const a = deg * Math.PI / 180, r = Math.max(W, D) * .9; sun.position.set(Math.cos(a) * r, r * .85, Math.sin(a) * r); }
 const world = new THREE.Group(); scene.add(world);
-const modelG = new THREE.Group(); scene.add(modelG);
+const modelG = new THREE.Group(); modelG.name = 'modelG'; scene.add(modelG);
 const gRoof = new THREE.Group(), gWall = new THREE.Group(), gLow = new THREE.Group(), gSol = new THREE.Group(), gSta = new THREE.Group(), gRai = new THREE.Group(), gLowRoof = new THREE.Group();
 modelG.add(gRoof, gWall, gLow, gLowRoof, gSol, gSta, gRai);
 const overlay = new THREE.Group(); scene.add(overlay);
