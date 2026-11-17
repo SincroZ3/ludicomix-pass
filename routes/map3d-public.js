@@ -4,7 +4,7 @@
  * ne la vista stand_map.ejs. La pagina viene ritoccata solo mentre viene inviata: nel <head> la mappa degli import di three.js,
  * in fondo lo script public/ludi-map3d-public.js. Lo script aggiunge il pulsante solo se la zona ha un layout 3D e apre il 3D per primo;
  * in caso di errore o senza WebGL resta la mappa 2D di sempre. Per disattivare: togliere la riga che carica questo file in routes/map3d-api.js.
- * Registra anche routes/map3d-portal.js (fase 4: portale espositore).
+ * Registra anche routes/map3d-portal.js (fase 4: portale espositore) e routes/map3d-internal.js (fase 5: mappa interna /mappa).
  */
 const V = Date.now().toString(36);
 
@@ -46,4 +46,6 @@ module.exports = function registerMap3dPublic(app, db, mw) {
 
   // Fase 4: portale espositore
   try { require('./map3d-portal')(app, db, mw); } catch (e) { console.error('[map3d-portal]', e.message); }
+  // Fase 5: mappa interna /mappa
+  try { require('./map3d-internal')(app, db, mw); } catch (e) { console.error('[map3d-internal]', e.message); }
 };
