@@ -6,7 +6,8 @@
  *                                 pubblico solo se la zona ha la mappa stand pubblica attiva (zones.stand_map_public = 1), altrimenti solo admin.
  *   GET /mappa-3d/:zoneId         pagina di prova della vista 3D (solo admin). Con ?focus=<id stand>: evidenzia lo stand, gli altri in grigio, rotazione lenta.
  *
- * Sola lettura: nessuna scrittura sul DB. Le informazioni e gli eventi degli stand restano quelli di /api/mappa-stand/:zoneId (integrazione nella fase 3).
+ * Sola lettura: nessuna scrittura sul DB. Le informazioni e gli eventi degli stand restano quelli di /api/mappa-stand/:zoneId.
+ * Registra anche routes/map3d-public.js (fase 3: pulsante 3D/2D nella mappa stand pubblica).
  */
 const ASSET_V = Date.now().toString(36);
 
@@ -70,4 +71,7 @@ module.exports = function registerMap3dApi(app, db, mw) {
         if (!m) info.textContent = 'Vista 3D non disponibile: usa la mappa 2D.';
       </script></body></html>`);
   });
+
+  // Fase 3: pulsante 3D/2D nella mappa stand pubblica
+  try { require('./map3d-public')(app, db, mw); } catch (e) { console.error('[map3d-public]', e.message); }
 };
