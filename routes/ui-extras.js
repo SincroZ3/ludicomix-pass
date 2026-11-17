@@ -17,7 +17,8 @@
  *   GET /admin/mappa-pubblica/diagnostica  (solo admin, sola lettura)
  *       -> elenca gli stand che /mappa mette in "Senza zona" e il motivo
  *
- * Registra anche routes/map3d-sync.js (sincronizzazione mappa 3D -> 2D, manuale e annullabile: /admin/map3d/sync).
+ * Registra anche routes/map3d-sync.js (sincronizzazione mappa 3D -> 2D, manuale e annullabile: /admin/map3d/sync)
+ * e routes/map3d-api.js (vista 3D di sola lettura: /api/map3d/zone/:id e pagina di prova /mappa-3d/:id).
  *
  * In coda registra anche routes/mappa-pubblica.js (mappa pubblica su tabella propria): le sue rotte
  * vengono spostate PRIMA di quelle dell'agenda, che altrimenti avrebbero la precedenza.
@@ -97,5 +98,8 @@ module.exports = function registerUiExtras(app, db, mw) {
 
   // ── Sincronizzazione mappa 3D -> 2D (fase 1: inattiva finche' non si applica da /admin/map3d/sync) ─────
   try { require('./map3d-sync')(app, db, mw); } catch (e) { console.error('[map3d-sync]', e.message); }
+
+  // ── Vista 3D di sola lettura (fase 2): API /api/map3d/zone/:id e pagina di prova /mappa-3d/:id (solo admin) ─────
+  try { require('./map3d-api')(app, db, mw); } catch (e) { console.error('[map3d-api]', e.message); }
 
 };
