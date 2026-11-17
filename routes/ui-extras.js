@@ -17,6 +17,8 @@
  *   GET /admin/mappa-pubblica/diagnostica  (solo admin, sola lettura)
  *       -> elenca gli stand che /mappa mette in "Senza zona" e il motivo
  *
+ * Registra anche routes/map3d-sync.js (sincronizzazione mappa 3D -> 2D, manuale e annullabile: /admin/map3d/sync).
+ *
  * In coda registra anche routes/mappa-pubblica.js (mappa pubblica su tabella propria): le sue rotte
  * vengono spostate PRIMA di quelle dell'agenda, che altrimenti avrebbero la precedenza.
  */
@@ -92,5 +94,8 @@ module.exports = function registerUiExtras(app, db, mw) {
       if (idx >= 0) stack.splice(idx, 0, ...mine); else stack.push(...mine);
     }
   } catch (e) { console.error('[mappa-pubblica]', e.message); }
+
+  // ── Sincronizzazione mappa 3D -> 2D (fase 1: inattiva finche' non si applica da /admin/map3d/sync) ─────
+  try { require('./map3d-sync')(app, db, mw); } catch (e) { console.error('[map3d-sync]', e.message); }
 
 };
