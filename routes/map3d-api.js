@@ -41,7 +41,7 @@ module.exports = function registerMap3dApi(app, db, mw) {
         });
       });
       const set = {};
-      try { (await all(`SELECT key, value FROM app_settings WHERE key IN ('lbl_color','lbl_outline')`)).forEach((r) => { set[r.key] = r.value; }); } catch (_) { /* predefiniti */ }
+      try { (await all(`SELECT key, value FROM map_test_setting WHERE key IN ('lbl_color','lbl_outline')`)).forEach((r) => { set[r.key] = r.value; }); } catch (_) { /* predefiniti */ }
       res.json({
         zone: { id: z.id, name: z.name, bg: z.background_image || null, refW: z.map_ref_w || null, refH: z.map_ref_h || null, widthM: cfg.width_m || null, outdoor: cfg.outdoor ? 1 : 0 },
         stands, settings: set,

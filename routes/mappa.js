@@ -300,7 +300,9 @@ module.exports = function registerMappaRoutes(
   // I dati stanno in tabelle separate (map_test_layout, map_test_zone):
   // la mappa reale (assignment_groups.map_*) non viene mai scritta da queste rotte.
   // Colonne aggiunte: map_test_layout.model/label/color/kind (modelli predefiniti e oggetti liberi con id negativo),
-  // map_test_zone.outdoor (zona all'aperto). Gli ALTER TABLE danno errore se la colonna esiste già: l'errore è ignorato.
+  // map_test_layout.elev/lscale/lrot/notes (quota, dimensione e rotazione del nome, note degli oggetti),
+  // map_test_zone.outdoor (zona all'aperto), tabella map_test_setting (colori dei nomi).
+  // Gli ALTER TABLE danno errore se la colonna esiste già: l'errore è ignorato.
   db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS map_test_layout (
       group_id INTEGER PRIMARY KEY, zone TEXT, fx REAL, fy REAL, wf REAL, df REAL,
@@ -308,7 +310,9 @@ module.exports = function registerMappaRoutes(
       (e) => { if (e) console.error('[mappatest] tabella layout', e.message); });
     db.run(`CREATE TABLE IF NOT EXISTS map_test_zone (zone TEXT PRIMARY KEY, width_m REAL)`,
       (e) => { if (e) console.error('[mappatest] tabella zone', e.message); });
-    ['model TEXT', 'label TEXT', 'color TEXT', 'kind TEXT'].forEach((c) => {
+    db.run(`CREATE TABLE IF NOT EXISTS map_test_setting (key TEXT PRIMARY KEY, value TEXT)`,
+      (e) => { if (e) console.error('[mappatest] tabella setting', e.message); });
+    ['model TEXT', 'label TEXT', 'color TEXT', 'kind TEXT', 'notes TEXT', 'lscale REAL DEFAULT 1', 'lrot REAL DEFAULT 0'].forEach((c) => {
       db.run('ALTER TABLE map_test_layout ADD COLUMN ' + c, () => {});
     });
     db.run('ALTER TABLE map_test_layout ADD COLUMN elev REAL DEFAULT 0', () => {});
@@ -334,6 +338,9 @@ module.exports = function registerMappaRoutes(
       model: (typeof b.model === 'string' && /^[a-z0-9-]{1,24}$/.test(b.model)) ? b.model : null,
       label: kind === 'obj' ? (String(b.label || '').trim().slice(0, 60) || 'Oggetto') : null,
       color: (typeof b.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(b.color)) ? b.color : null,
+      lscale: Math.max(0.3, Math.min(4, num(b.lscale) || 1)),
+      lrot: (((num(b.lrot) || 0) % 360) + 360) % 360,
+      notes: kind === 'obj' ? String(b.notes || '').slice(0, 500) : null,
     };
   }
   const parseShape = (l) => {
@@ -343,6 +350,7 @@ module.exports = function registerMappaRoutes(
   const toLayout = (l) => ({
     fx: l.fx, fy: l.fy, wf: l.wf, df: l.df, rot: l.rot || 0, shape: parseShape(l),
     h: l.height || 2.5, elev: l.elev || 0, locked: l.locked ? 1 : 0, model: l.model || null,
+    lscale: l.lscale || 1, lrot: l.lrot || 0,
   });
 
   app.get('/admin/mappatest', requireAuth, requireAdmin, (req, res) => {
@@ -365,16 +373,20 @@ module.exports = function registerMappaRoutes(
           if (e2) return res.status(500).send('Errore DB');
           db.all('SELECT * FROM map_test_layout', [], (e3, lays) => {
             db.all('SELECT * FROM map_test_zone', [], (e4, zset) => {
+              db.all('SELECT key, value FROM map_test_setting', [], (e5, sset) => {
               const byG = {};
               (lays || []).forEach((l) => { byG[l.group_id] = l; });
               const wBy = {}, oBy = {};
               (zset || []).forEach((z) => { wBy[z.zone] = z.width_m; oBy[z.zone] = z.outdoor ? 1 : 0; });
+              const settings = {};
+              (sset || []).forEach((r) => { settings[r.key] = r.value; });
               const data = {
                 zones: (zones || []).map((z) => ({
                   id: z.id, name: z.name, bg: z.background_image || null,
                   refW: z.map_ref_w || null, refH: z.map_ref_h || null, widthM: wBy[z.name] || null,
                   outdoor: oBy[z.name] || 0,
                 })),
+                settings,
                 stands: (groups || []).map((g) => {
                   const l = byG[g.id];
                   return {
@@ -387,11 +399,12 @@ module.exports = function registerMappaRoutes(
                 // Oggetti liberi (biglietteria, palco, segreteria...): righe con id negativo, non sono stand
                 objects: (lays || []).filter((l) => l.kind === 'obj' && l.group_id < 0).map((l) => ({
                   id: l.group_id, name: l.label || 'Oggetto', zone: l.zone || null, code: '',
-                  pc: 0, cs: 0, notes: '', importable: false, kind: 'obj', color: l.color || null,
+                  pc: 0, cs: 0, notes: l.notes || '', importable: false, kind: 'obj', color: l.color || null,
                   L: toLayout(l),
                 })),
               };
               res.render('mappa-test', { data, assetV: MAPPA_ASSET_V });
+              });
             });
           });
         }
@@ -410,13 +423,14 @@ module.exports = function registerMappaRoutes(
       if (row && row.locked) return res.status(423).json({ ok: false, error: 'Stand bloccato' });
       if (g.kind === 'obj' && !row) return res.status(404).json({ ok: false, error: 'Oggetto non trovato' });
       db.run(
-        `INSERT INTO map_test_layout (group_id, zone, fx, fy, wf, df, rot, shape, height, locked, updated_at, model, label, color, kind, elev)
-         VALUES (?,?,?,?,?,?,?,?,?,0,datetime('now','localtime'),?,?,?,?,?)
+        `INSERT INTO map_test_layout (group_id, zone, fx, fy, wf, df, rot, shape, height, locked, updated_at, model, label, color, kind, elev, lscale, lrot, notes)
+         VALUES (?,?,?,?,?,?,?,?,?,0,datetime('now','localtime'),?,?,?,?,?,?,?,?)
          ON CONFLICT(group_id) DO UPDATE SET zone=excluded.zone, fx=excluded.fx, fy=excluded.fy, wf=excluded.wf, df=excluded.df,
            rot=excluded.rot, shape=excluded.shape, height=excluded.height, updated_at=excluded.updated_at,
            model=excluded.model, label=excluded.label, color=excluded.color, kind=excluded.kind,
-           elev=COALESCE(excluded.elev, map_test_layout.elev)`,
-        [id, String(req.body.zone || ''), g.fx, g.fy, g.wf, g.df, g.rot, g.shape, g.h, g.model, g.label, g.color, g.kind, g.elev],
+           elev=COALESCE(excluded.elev, map_test_layout.elev),
+           lscale=excluded.lscale, lrot=excluded.lrot, notes=excluded.notes`,
+        [id, String(req.body.zone || ''), g.fx, g.fy, g.wf, g.df, g.rot, g.shape, g.h, g.model, g.label, g.color, g.kind, g.elev, g.lscale, g.lrot, g.notes],
         (err) => res.json(err ? { ok: false, error: err.message } : { ok: true })
       );
     });
@@ -431,12 +445,23 @@ module.exports = function registerMappaRoutes(
       if (e) return res.status(500).json({ ok: false, error: e.message });
       const id = Math.min(-1, ((row && row.m) || 0) - 1);
       db.run(
-        `INSERT INTO map_test_layout (group_id, zone, fx, fy, wf, df, rot, shape, height, locked, updated_at, model, label, color, kind, elev)
-         VALUES (?,?,?,?,?,?,?,?,?,0,datetime('now','localtime'),?,?,?,'obj',?)`,
-        [id, zone, g.fx, g.fy, g.wf, g.df, g.rot, g.shape, g.h, g.model, g.label, g.color, g.elev || 0],
+        `INSERT INTO map_test_layout (group_id, zone, fx, fy, wf, df, rot, shape, height, locked, updated_at, model, label, color, kind, elev, lscale, lrot, notes)
+         VALUES (?,?,?,?,?,?,?,?,?,0,datetime('now','localtime'),?,?,?,'obj',?,?,?,?)`,
+        [id, zone, g.fx, g.fy, g.wf, g.df, g.rot, g.shape, g.h, g.model, g.label, g.color, g.elev || 0, g.lscale, g.lrot, g.notes],
         (err) => res.json(err ? { ok: false, error: err.message } : { ok: true, id })
       );
     });
+  });
+
+  // Colori dei nomi sugli stand (testo e contorno), uguali per tutte le zone
+  app.post('/admin/mappatest/setting', requireAuth, requireAdmin, (req, res) => {
+    const key = String((req.body && req.body.key) || '');
+    const value = String((req.body && req.body.value) || '');
+    if (!['lbl_color', 'lbl_outline'].includes(key) || !/^#[0-9a-fA-F]{6}$/.test(value)) {
+      return res.status(400).json({ ok: false, error: 'dati non validi' });
+    }
+    db.run('INSERT INTO map_test_setting (key, value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', [key, value],
+      (err) => res.json(err ? { ok: false, error: err.message } : { ok: true }));
   });
 
   // Blocca / sblocca uno stand
