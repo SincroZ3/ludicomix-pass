@@ -107,6 +107,7 @@
   // ---- pillole: tetto, edificio, alberi (la trasparenza resta fissa) ----
   // Palazzetto: setContext sul modello dell'edificio. Mariambini e Vanvere: i loro pannelli "Ambiente 3D" (nascosti) hanno le caselle
   // Tettoia/Tetti, Edifici di contesto/Muri e finestre, Alberi: le pillole le accendono e spengono (anche quando il pannello viene ricreato).
+  // Attenzione: il menu "Contesto e vista" della vista ha caselle con gli stessi nomi (data-k="rf"): qui si usano solo quelle del pannello Ambiente 3D.
   function buildPills(v, host) {
     var st = { bld: true, rf: true, tr: true };
     var box = document.createElement('div'); box.className = 'm3pills';
@@ -115,7 +116,14 @@
       bld: '<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M10 21v-4h4v4"/></svg>',
       tr: '<svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="6"/><path d="M12 15v6M9 21h6"/></svg>'
     };
-    function envBox(k) { return host.querySelector('input[type="checkbox"][data-k="' + k + '"]'); }
+    function envBox(k) {
+      var all = host.querySelectorAll('input[type="checkbox"][data-k="' + k + '"]');
+      for (var i = 0; i < all.length; i++) {
+        var m = all[i].closest('.m3-menu');
+        if (!m || all[i].closest('[data-env]')) return all[i];
+      }
+      return null;
+    }
     function envSet(keys, on) {
       keys.forEach(function (k) {
         var c = envBox(k);
