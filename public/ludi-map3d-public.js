@@ -2,6 +2,8 @@
    Viene aggiunto alla pagina da routes/map3d-public.js. Se la zona non ha un layout 3D o WebGL non e disponibile
    non cambia nulla e resta la mappa 2D. Aprendo la pagina parte il 3D; ?view=2d apre il 2D.
    Il clic su uno stand in 3D apre la stessa scheda (con gli eventi collegati) della mappa 2D.
+   - Stile: header sfumato viola con il ciuchino e il nome della mappa; tasti rotondi (lista stand, 3D/2D, zoom); lista "Stand in zona" a comparsa
+     e ricerca nello stile del portale (viola, bianco, angoli morbidi). Tutto via CSS: la pagina stand_map.ejs non cambia.
    - Loader: velo viola con il ciuchino che parte piccolissimo, cresce piano piano e, a 3D pronto, si ingrandisce fino a svelare la mappa.
      Il 3D parte subito, senza aspettare la 2D.
    - Ricerca: la lista "Stand in zona" (cerca + clic) lavora sul 3D: la camera vola sullo stand, lo evidenzia (gli altri diventano grigi),
@@ -21,24 +23,70 @@
   function list2d() { try { return stands || []; } catch (e) { return []; } }
 
   var css = document.createElement('style');
-  css.textContent = '.m3wrap{position:fixed;left:0;right:0;bottom:0;top:58px;z-index:100;background:linear-gradient(#e9e2f6,#f6f3fb)}' +
-    'body.m3on .sm-ctrl .sm-btn.reset,body.m3on .sm-ctrl .sm-btn[onclick^=doZoom],body.m3on #smLegend{display:none!important}' +
-    '.sm-btn.m3-toggle{font:800 .85rem system-ui,sans-serif;background:#f5c842;border-color:#f5c842;color:#1e2d4e}' +
-    '.m3wrap .m3-btn,.m3wrap .m3-menu{display:none!important}' +
-    '.m3pills{position:absolute;left:12px;top:12px;z-index:30;display:flex;flex-direction:column;gap:9px}' +
-    '.m3pill{position:relative;width:46px;height:46px;border-radius:50%;border:1.5px solid #d9cff0;background:rgba(255,255,255,.96);color:#4c2c78;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:0 4px 14px rgba(59,31,102,.22);transition:background .15s,color .15s,transform .12s}' +
-    '.m3pill svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}' +
-    '.m3pill:active{transform:scale(.92)}' +
-    '.m3pill.on{background:#6b3fa0;border-color:#6b3fa0;color:#fff}' +
-    '.m3pill.off:after{content:"";position:absolute;width:28px;height:2.5px;border-radius:2px;background:#c0392b;transform:rotate(-45deg)}' +
-    '.m3pill[disabled]{opacity:.45;cursor:default}' +
-    '.m3load{position:fixed;left:0;right:0;bottom:0;top:58px;z-index:101;overflow:hidden;background:radial-gradient(circle at 50% 42%,#a78bfa 0%,#8b5cf6 22%,#6b3fa0 58%,#3b1f66 100%);transition:opacity .4s ease .5s}' +
-    '.m3l-d{position:absolute;left:50%;top:50%;width:min(58vw,300px);height:auto;transform:translate(-50%,-50%) scale(.04);transition:transform 9s cubic-bezier(.08,.7,.3,1);filter:drop-shadow(0 8px 22px rgba(20,8,48,.45));will-change:transform;user-select:none;-webkit-user-drag:none}' +
-    '.m3load.grow .m3l-d{transform:translate(-50%,-50%) scale(.5)}' +
-    '.m3load.done{opacity:0;pointer-events:none}' +
-    '.m3load.done .m3l-d{transition:transform .95s cubic-bezier(.55,0,.85,.35);transform:translate(-50%,-50%) scale(16)}' +
-    '@media (prefers-reduced-motion:reduce){.m3l-d,.m3load.done .m3l-d{transition:none;transform:translate(-50%,-50%) scale(.5)}.m3load{transition:opacity .3s}}';
+  css.textContent = [
+    '.m3wrap{position:fixed;left:0;right:0;bottom:0;top:0;z-index:100;background:linear-gradient(#e9e2f6,#f6f3fb)}',
+    'body.m3on .sm-ctrl .sm-btn.reset,body.m3on .sm-ctrl .sm-btn[onclick^=doZoom],body.m3on #smLegend{display:none!important}',
+    '.m3wrap .m3-btn,.m3wrap .m3-menu{display:none!important}',
+    // pillole tetto/edificio/alberi
+    '.m3pills{position:absolute;left:12px;top:100px;z-index:30;display:flex;flex-direction:column;gap:10px}',
+    '.m3pill{position:relative;width:46px;height:46px;border-radius:50%;border:1.5px solid #d9cff0;background:rgba(255,255,255,.96);color:#4c2c78;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:0 4px 14px rgba(59,31,102,.22);transition:background .15s,color .15s,transform .12s}',
+    '.m3pill svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}',
+    '.m3pill:active{transform:scale(.92)}',
+    '.m3pill.on{background:#6b3fa0;border-color:#6b3fa0;color:#fff}',
+    '.m3pill.off:after{content:"";position:absolute;width:28px;height:2.5px;border-radius:2px;background:#c0392b;transform:rotate(-45deg)}',
+    '.m3pill[disabled]{opacity:.45;cursor:default}',
+    // header: sfumato viola, piu alto, ciuchino a sinistra e nome mappa grande
+    '.sm-header{padding:.7rem 1rem 1.6rem!important;background:linear-gradient(to bottom,rgba(59,31,102,.98) 0%,rgba(91,52,150,.93) 52%,rgba(107,63,160,0) 100%)!important}',
+    '.sm-header img{height:58px!important;width:auto!important;object-fit:contain!important;filter:drop-shadow(0 3px 8px rgba(20,8,48,.5))}',
+    '.sm-subtitle{color:#d9cff0!important;font-size:.7rem!important;font-weight:800!important;letter-spacing:.09em!important;text-transform:uppercase!important}',
+    '.sm-title{color:#fff!important;font-size:clamp(1.2rem,5vw,1.75rem)!important;font-weight:900!important;letter-spacing:.2px!important;text-transform:none!important;line-height:1.1!important;text-shadow:0 2px 10px rgba(20,8,48,.5);max-width:56vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.sm-back{background:rgba(255,255,255,.16)!important;border:1.5px solid rgba(255,255,255,.62)!important;color:#fff!important;border-radius:999px!important;padding:.5rem 1rem!important;font-size:.82rem!important;font-weight:800!important;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}',
+    '.sm-back:active{background:rgba(255,255,255,.3)!important}',
+    // tasti rotondi: lista stand, 3D/2D, centra, zoom
+    '.sm-ctrl{gap:10px!important}',
+    '.sm-btn{width:46px!important;height:46px!important;border-radius:50%!important;background:rgba(255,255,255,.96)!important;border:1.5px solid #d9cff0!important;color:#4c2c78!important;box-shadow:0 4px 14px rgba(59,31,102,.22)!important;transition:background .15s,transform .12s}',
+    '.sm-btn:active{background:#f1ecfa!important;transform:scale(.93)}',
+    '.sm-btn.reset{background:rgba(255,255,255,.96)!important;border-color:#d9cff0!important;color:#4c2c78!important}',
+    '.sm-btn.m3-toggle{background:#6b3fa0!important;border-color:#6b3fa0!important;color:#fff!important;font:800 .82rem system-ui,sans-serif!important}',
+    // lista "Stand in zona" a comparsa + ricerca
+    '.sm-drawer-overlay{background:rgba(30,10,60,.38)!important}',
+    '.sm-drawer{background:#fff!important;border-left:1px solid #d9cff0!important;border-radius:22px 0 0 22px!important;box-shadow:-8px 0 34px rgba(30,10,60,.28)!important;overflow:hidden}',
+    '.sm-drawer-head{background:linear-gradient(135deg,#5b3496,#8b5cf6)!important;border-bottom:0!important;padding:.95rem 1rem .8rem!important}',
+    '.sm-drawer-title{color:#fff!important;font-size:.95rem!important;font-weight:900!important;letter-spacing:.04em!important}',
+    '.sm-drawer-close{background:rgba(255,255,255,.18)!important;border:1.5px solid rgba(255,255,255,.55)!important;color:#fff!important;border-radius:50%!important;width:34px!important;height:34px!important}',
+    '.sm-drawer>div[style*="border-bottom"]{border-bottom:1px solid #ece6f7!important;padding:.7rem .85rem .6rem!important}',
+    '#smDrawerSearch{background:#f6f3fb!important;color:#2b1d4d!important;border:1.5px solid #d9cff0!important;border-radius:999px!important;padding:.6rem 1rem!important;font-size:.88rem!important;font-weight:600!important}',
+    '#smDrawerSearch::placeholder{color:#8a7aa8}',
+    '#smDrawerSearch:focus{border-color:#8b5cf6!important;box-shadow:0 0 0 3px rgba(139,92,246,.18)!important}',
+    '.sm-drawer-body{padding:.35rem .4rem!important}',
+    '.sm-drawer-item{border-bottom:0!important;border-radius:12px!important;padding:.6rem .75rem!important}',
+    '.sm-drawer-item:active,.sm-drawer-item:hover{background:#f1ecfa!important}',
+    '.sm-drawer-dot{background:#6b3fa0!important;border:0!important;border-radius:50%!important}',
+    '.sm-drawer-code{color:#6b3fa0!important;font-size:.74rem!important}',
+    '.sm-drawer-name{color:#2b1d4d!important;font-size:.86rem!important;font-weight:700!important}',
+    '.sm-drawer-loc{color:#6b5a8a!important}',
+    '.sm-drawer-evbadge{background:#f5c842!important;color:#1e2d4e!important}',
+    // scheda stand e tooltip
+    '.sm-badge{background:#6b3fa0!important;color:#fff!important}',
+    '.sm-sname{color:#2b1d4d!important}',
+    '.sm-handle{background:#d9cff0!important}',
+    '.sm-tip{background:rgba(59,31,102,.96)!important;border:1.5px solid #a78bfa!important}',
+    '.sm-tip-code{color:#f5c842!important}',
+    // loader
+    '.m3load{position:fixed;left:0;right:0;bottom:0;top:0;z-index:101;overflow:hidden;background:radial-gradient(circle at 50% 42%,#a78bfa 0%,#8b5cf6 22%,#6b3fa0 58%,#3b1f66 100%);transition:opacity .4s ease .5s}',
+    '.m3l-d{position:absolute;left:50%;top:50%;width:min(58vw,300px);height:auto;transform:translate(-50%,-50%) scale(.04);transition:transform 9s cubic-bezier(.08,.7,.3,1);filter:drop-shadow(0 8px 22px rgba(20,8,48,.45));will-change:transform;user-select:none;-webkit-user-drag:none}',
+    '.m3load.grow .m3l-d{transform:translate(-50%,-50%) scale(.5)}',
+    '.m3load.done{opacity:0;pointer-events:none}',
+    '.m3load.done .m3l-d{transition:transform .95s cubic-bezier(.55,0,.85,.35);transform:translate(-50%,-50%) scale(16)}',
+    '@media (prefers-reduced-motion:reduce){.m3l-d,.m3load.done .m3l-d{transition:none;transform:translate(-50%,-50%) scale(.5)}.m3load{transition:opacity .3s}}'
+  ].join('\n');
   document.head.appendChild(css);
+
+  // ciuchino con sfondo trasparente al posto del logo, in alto a sinistra, con il nome della mappa a destra
+  try {
+    var hi = document.querySelector('.sm-header img');
+    if (hi) { hi.onerror = null; hi.removeAttribute('height'); hi.alt = 'Ludicomix'; hi.src = '/ciuchino_static.png'; }
+  } catch (e) { /* header invariato */ }
 
   function smLoad(show) { var sl = document.getElementById('smLoad'); if (sl) sl.style.display = show ? '' : 'none'; }
   function showLoader() {
