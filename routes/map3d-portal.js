@@ -1,14 +1,15 @@
 /**
  * routes/map3d-portal.js
- * Fase 4: portale espositore (/portale/:token). Aggiunge un pulsante Il tuo stand in 3D che apre una vista a tutto schermo:
- * 3D con rotazione lenta attorno allo stand dell'espositore oppure 2D (dall'alto). Lo stand dell'espositore e evidenziato, gli altri
- * sono grigi, senza nome e non cliccabili.
+ * Portale espositore (/portale/:token).
+ *   - 3D nel riquadro "Dove siete?" (vedi public/ludi-map3d-portal.js): stand evidenziato, orbita, super trasparenza, switch 3D/2D.
+ *   - Header compatto: stessa testata viola e sticky del gestionale (versione ristretta) con il logo del portale espositore.
  *
  *   GET /api/map3d/zone/p-<token>   dati 3D della zona dell'espositore. Valido solo con un portale attivo (token + portal_enabled = 1).
  *                                   Degli altri stand non esce ne il nome ne l'id reale: solo la forma, per disegnarli in grigio.
  *
  * Come per la mappa pubblica non si modificano ne routes/portale.js ne portale.ejs: la pagina viene ritoccata mentre viene inviata
- * (importmap di three.js nel head e script in fondo). Per disattivare: togliere la riga che carica questo file in routes/map3d-public.js.
+ * (importmap di three.js e stile dell'header nel head, header sostituito, script in fondo).
+ * Per disattivare: togliere la riga che carica questo file in routes/map3d-public.js.
  */
 const V = Date.now().toString(36);
 
@@ -67,7 +68,19 @@ module.exports = function registerMap3dPortal(app, db, mw) {
   }, '/api/map3d/zone/:zoneId');
 
   const imap = JSON.stringify({ imports: { three: 'https://unpkg.com/three@0.160.0/build/three.module.js', 'three/addons/': 'https://unpkg.com/three@0.160.0/examples/jsm/' } });
-  const head = `<script type='importmap'>${imap}</script>`;
+
+  // header compatto: stessa testata viola del gestionale nella versione ristretta (64px, 52px su telefono), fissa in alto
+  const hdrCss = `<style>
+.pt-sticky{position:sticky;top:0;z-index:30}
+.pt-bar{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:0 1.5rem;min-height:64px;background:linear-gradient(135deg,#4c2c78 0%,#6b3fa0 45%,#8b5cc0 100%);box-shadow:0 4px 14px rgba(30,20,60,.25)}
+.pt-logo{display:block;height:64px;width:auto;max-width:72%;object-fit:contain;object-position:left center;filter:drop-shadow(0 3px 6px rgba(0,0,0,.3))}
+.pt-right{font-size:.74rem;color:#f0e6ff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+@media (max-width:640px){.pt-bar{min-height:52px;padding:0 .75rem}.pt-logo{height:52px}.pt-right{display:none}}
+</style>`;
+  const hdrHtml = `<div class="pt-sticky"><header class="pt-bar"><img src="/logo-portale-espositore.png" alt="Ludicomix - Portale Espositore" class="pt-logo"><div class="pt-right">&#128274; Accesso riservato &middot; Non condividere questo link</div></header></div>`;
+  const HDR_RE = /<header\b[^>]*\bclass=["']topbar["'][^>]*>[\s\S]*?<\/header>/;
+
+  const head = `<script type='importmap'>${imap}</script>${hdrCss}`;
   const tag = `<script src='/ludi-map3d-portal.js?v=${V}' defer></script>`;
   inFront(() => {
     app.get('/portale/:token', (req, res, next) => {
@@ -79,6 +92,7 @@ module.exports = function registerMap3dPortal(app, db, mw) {
           let out = html;
           try {
             out = out.includes('</head>') ? out.replace('</head>', () => head + '</head>') : head + out;
+            out = out.replace(HDR_RE, () => hdrHtml);
             const i = out.lastIndexOf('</body>');
             out = i === -1 ? out + tag : out.slice(0, i) + tag + out.slice(i);
           } catch (_) { out = html; }
