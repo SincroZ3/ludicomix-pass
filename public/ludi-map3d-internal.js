@@ -1,6 +1,7 @@
 /* ludi-map3d-internal.js - mappa interna /mappa: il 3D e la modalita principale di lavoro.
    Aggiunto alla pagina da routes/map3d-internal.js.
    - Chi puo modificare la mappa (admin, organizer, operator): la scheda 3D e l'editor completo di /admin/mappatest (taglio, ricerca stand, modifica, salvataggio) caricato dentro /mappa, senza cambiare pagina.
+     La testata "Mappa Stand" della pagina resta; l'intestazione "test 3D" dell'editor e nascosta.
      /mappa?ed=0 apre invece la vista di sola lettura; /mappa?dbg=1 mostra gli errori JavaScript in un riquadro rosso.
    - Altri utenti: vista 3D di sola lettura.
    - Il 2D resta disponibile e, quando la sincronizzazione 3D -> 2D e attiva, e di sola lettura.
@@ -17,9 +18,11 @@
 
   var css = document.createElement('style');
   css.textContent = '.m3i-bar{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin:.6rem 0;font:600 .85rem system-ui,sans-serif;color:#2b1d4d}' +
-    '.m3i-bar button,.m3i-bar a.m3i-a{border:1.5px solid #d9cff0;background:#fff;color:#4c2c78;border-radius:10px;padding:.4rem .8rem;font:800 .82rem system-ui,sans-serif;cursor:pointer;text-decoration:none}' +
+    '.m3i-bar button,.m3i-bar a.m3i-a,.m3i-res button{border:1.5px solid #d9cff0;background:#fff;color:#4c2c78;border-radius:10px;padding:.4rem .8rem;font:800 .82rem system-ui,sans-serif;cursor:pointer;text-decoration:none}' +
     '.m3i-bar button.on{background:#6b3fa0;border-color:#6b3fa0;color:#fff}' +
     '.m3i-note{color:#6b5a8a;font-weight:600}' +
+    '.m3i-res{margin:.2rem 0 .8rem;display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;font:600 .82rem system-ui,sans-serif;color:#2b1d4d}' +
+    '.m3i-res button{padding:.25rem .65rem}' +
     '.m3i-box{display:none;position:relative;height:calc(100vh - 290px);min-height:420px;border-radius:14px;overflow:hidden;border:1px solid #ece6f7;background:linear-gradient(#e9e2f6,#f6f3fb)}' +
     'div.m3i-edbox{display:none}' +
     '.m3i-load{padding:1rem;font:600 .9rem system-ui,sans-serif;color:#6b5a8a}' +
@@ -50,8 +53,9 @@
     if (k == null) { var p = document.querySelector('.zone-panel.active'); k = p ? p.getAttribute('data-zone') : null; }
     return (k == null || k === '' || k === '0') ? null : k;
   }
+  // nasconde le schede zona e il riepilogo della pagina (l'editor ha i suoi); la testata "Mappa Stand" resta
   function tagChrome() {
-    [].forEach.call(document.querySelectorAll('.mp-hero, .mp-strip, .zone-tabs'), function (e) {
+    [].forEach.call(document.querySelectorAll('.mp-strip, .zone-tabs'), function (e) {
       if (!e.closest('#mt-root')) e.classList.add('m3i-pg');
     });
   }
@@ -79,6 +83,24 @@
     view = v;
   }
 
+  // Importa l'editor correggendo la ricerca: senza distinzione di maiuscole/accenti, piu parole, anche il codice dello stand.
+  // Se il testo dell'editor non e quello atteso, usa l'editor cosi com'e.
+  async function importEditor() {
+    try {
+      var src = await (await fetch('/ludi-mappatest.js?v=' + VER, { credentials: 'same-origin' })).text();
+      var a = 'const q = query.trim().toLowerCase();', b = 'hit = q && s.name.toLowerCase().indexOf(q) > -1;';
+      if (src.indexOf(a) < 0 || src.indexOf(b) < 0) throw new Error('ricerca dell\'editor non riconosciuta');
+      src = src.replace(a, function () { return 'const q = __n(query);'; }).replace(b, function () { return 'hit = q && __m(s, q);'; });
+      src += '\nfunction __n(s) { return String(s == null ? \'\' : s).normalize(\'NFD\').replace(/[\\u0300-\\u036f]/g, \'\').toLowerCase().trim(); }\n' +
+        'function __m(s, q) { const h = __n(s.name + \' \' + (s.code || \'\')); return q.split(/\\s+/).every(function (w) { return h.indexOf(w) > -1; }); }\n';
+      var url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+      await import(url);
+    } catch (e) {
+      console.warn('[map3d-internal] editor non modificato', e);
+      await import('/ludi-mappatest.js?v=' + VER);
+    }
+  }
+
   function loadEditor() {
     if (edP) return edP;
     edP = (async function () {
@@ -94,7 +116,7 @@
       edBox.innerHTML = '';
       var s = document.createElement('script'); s.id = 'mt-data'; s.type = 'application/json'; s.textContent = d.textContent; edBox.appendChild(s);
       var root = document.createElement('div'); root.id = 'mt-root'; edBox.appendChild(root);
-      await import('/ludi-mappatest.js?v=' + VER);
+      await importEditor();
       var more = ['ludi-mappatest-parco.js', 'ludi-mappatest-vanvere.js', 'ludi-mappatest-ui.js', 'ludi-mappatest-clip.js'];
       for (var i = 0; i < more.length; i++) {
         try { await import('/' + more[i] + '?v=' + VER); } catch (e) { console.warn('[map3d-internal]', more[i], e); }
@@ -102,6 +124,42 @@
     })();
     return edP;
   }
+
+  // Sotto la barra di ricerca dell'editor: elenca gli stand trovati in TUTTE le zone, dice se mancano in pianta 3D e porta alla loro zona
+  function enhanceSearch() {
+    if (document.getElementById('m3i-res')) return;
+    var q = document.getElementById('q'), dEl = document.getElementById('mt-data');
+    if (!q || !dEl) return;
+    var data; try { data = JSON.parse(dEl.textContent); } catch (e) { return; }
+    var strip = q.closest('.mp-strip'); if (!strip || !strip.parentNode) return;
+    var list = (data.stands || []).filter(function (s) { return s.kind !== 'obj' && s.id > 0; });
+    var out = document.createElement('div'); out.id = 'm3i-res'; out.className = 'm3i-res'; out.style.display = 'none';
+    strip.parentNode.insertBefore(out, strip.nextSibling);
+    function norm(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+    function goZone(name) {
+      var b = [].filter.call(document.querySelectorAll('#zt .ztab'), function (x) { return x.firstChild && String(x.firstChild.textContent).trim() === name; })[0];
+      if (b) b.click();
+    }
+    function run() {
+      var t = norm(q.value).split(/\s+/).filter(Boolean);
+      out.innerHTML = '';
+      if (!t.length) { out.style.display = 'none'; return; }
+      out.style.display = 'flex';
+      var hits = list.filter(function (s) { var h = norm(s.name + ' ' + (s.code || '')); return t.every(function (w) { return h.indexOf(w) > -1; }); });
+      var head = document.createElement('span');
+      head.textContent = hits.length ? (hits.length + (hits.length === 1 ? ' stand trovato:' : ' stand trovati:')) : 'Nessuno stand trovato (cerco in nome e codice, in tutte le zone).';
+      out.appendChild(head);
+      hits.slice(0, 12).forEach(function (s) {
+        var b = document.createElement('button'); b.type = 'button';
+        b.textContent = s.name + ' \u00b7 ' + (s.zone || 'senza zona') + (s.L ? '' : ' \u00b7 non ancora posizionato in 3D');
+        b.onclick = function () { if (s.zone) goZone(s.zone); };
+        out.appendChild(b);
+      });
+      if (hits.length > 12) { var more = document.createElement('span'); more.textContent = '... e altri ' + (hits.length - 12); out.appendChild(more); }
+    }
+    q.addEventListener('input', run);
+  }
+
   async function showEditor() {
     tagChrome();
     var my = ++busy;
@@ -112,6 +170,7 @@
       return;
     }
     tagChrome();
+    try { enhanceSearch(); } catch (e) { console.warn('[map3d-internal] ricerca', e); }
     setTimeout(function () { try { window.dispatchEvent(new Event('resize')); } catch (e) { /* ok */ } }, 60);
   }
 
