@@ -21,8 +21,10 @@
     '.m3i-bar button,.m3i-bar a.m3i-a,.m3i-res button{border:1.5px solid #d9cff0;background:#fff;color:#4c2c78;border-radius:10px;padding:.4rem .8rem;font:800 .82rem system-ui,sans-serif;cursor:pointer;text-decoration:none}' +
     '.m3i-bar button.on{background:#6b3fa0;border-color:#6b3fa0;color:#fff}' +
     '.m3i-note{color:#6b5a8a;font-weight:600}' +
-    '.m3i-res{margin:.2rem 0 .8rem;display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;font:600 .82rem system-ui,sans-serif;color:#2b1d4d}' +
+    '.m3i-res{margin:.2rem 0 .8rem;font:600 .82rem system-ui,sans-serif;color:#2b1d4d}' +
+    '.m3i-row{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;margin:.25rem 0}' +
     '.m3i-res button{padding:.25rem .65rem}' +
+    '.m3i-res button[disabled]{opacity:.55;cursor:default}' +
     '.m3i-box{display:none;position:relative;height:calc(100vh - 290px);min-height:420px;border-radius:14px;overflow:hidden;border:1px solid #ece6f7;background:linear-gradient(#e9e2f6,#f6f3fb)}' +
     'div.m3i-edbox{display:none}' +
     '.m3i-load{padding:1rem;font:600 .9rem system-ui,sans-serif;color:#6b5a8a}' +
@@ -83,16 +85,31 @@
     view = v;
   }
 
-  // Importa l'editor correggendo la ricerca: senza distinzione di maiuscole/accenti, piu parole, anche il codice dello stand.
+  // Codice aggiunto in fondo al modulo dell'editor (gira nel suo ambito): confronto della ricerca e accesso a scena, camera e zone.
+  var HOOK = String.raw`
+window.__mt = {
+  get zone() { return ZN; },
+  stands: stands, meshes: meshes, camera: camera, controls: controls,
+  setZone: function (n) { return setZone(n); },
+  W: function () { return W; }, D: function () { return D; },
+  dims: dims, baseOf: baseOf,
+  pick: function (id) { selected = id; try { refresh(); } catch (e) { /* ok */ } }
+};
+function __n(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(); }
+function __m(s, q) { const h = __n(s.name + ' ' + (s.code || '')); return q.split(/\s+/).every(function (w) { return h.indexOf(w) > -1; }); }
+`;
+
+  // Importa l'editor correggendo la ricerca: senza distinzione di maiuscole/accenti, piu parole, anche il codice dello stand;
+  // gli stand non trovati diventano grigi e trasparenti, quelli trovati restano colorati ed evidenziati.
   // Se il testo dell'editor non e quello atteso, usa l'editor cosi com'e.
   async function importEditor() {
     try {
       var src = await (await fetch('/ludi-mappatest.js?v=' + VER, { credentials: 'same-origin' })).text();
-      var a = 'const q = query.trim().toLowerCase();', b = 'hit = q && s.name.toLowerCase().indexOf(q) > -1;';
+      var a = 'const q = query.trim().toLowerCase();', b = 'hit = q && s.name.toLowerCase().indexOf(q) > -1;', c = 'm.mat.opacity = (q && !hit) ? .2 : 1;';
       if (src.indexOf(a) < 0 || src.indexOf(b) < 0) throw new Error('ricerca dell\'editor non riconosciuta');
       src = src.replace(a, function () { return 'const q = __n(query);'; }).replace(b, function () { return 'hit = q && __m(s, q);'; });
-      src += '\nfunction __n(s) { return String(s == null ? \'\' : s).normalize(\'NFD\').replace(/[\\u0300-\\u036f]/g, \'\').toLowerCase().trim(); }\n' +
-        'function __m(s, q) { const h = __n(s.name + \' \' + (s.code || \'\')); return q.split(/\\s+/).every(function (w) { return h.indexOf(w) > -1; }); }\n';
+      if (src.indexOf(c) >= 0) src = src.replace(c, function () { return 'm.mat.opacity = (q && !hit) ? .18 : 1; if (q && !hit) m.mat.color.set(\'#9ca3af\');'; });
+      src += '\n' + HOOK;
       var url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
       await import(url);
     } catch (e) {
@@ -125,7 +142,32 @@
     return edP;
   }
 
-  // Sotto la barra di ricerca dell'editor: elenca gli stand trovati in TUTTE le zone, dice se mancano in pianta 3D e porta alla loro zona
+  // Avvicina la camera allo stand con un movimento morbido (vista a circa 35 gradi, mantenendo l'orientamento attuale)
+  function focusStand(id) {
+    var M = window.__mt; if (!M) return false;
+    var s = M.stands.filter(function (x) { return x.id === id; })[0];
+    if (!s || !s.placed || !M.meshes.has(id)) return false;
+    var d = M.dims(s), cx = (s.fx - 0.5) * M.W(), cz = (s.fy - 0.5) * M.D(), cy = M.baseOf(s) + Math.min(s.h || 2, 3) / 2;
+    var R = Math.max(12, Math.max(d.w, d.d) * 1.8 + 8);
+    var cam = M.camera, ctl = M.controls;
+    var hx = cam.position.x - ctl.target.x, hz = cam.position.z - ctl.target.z, hl = Math.hypot(hx, hz);
+    if (hl < 0.5) { hx = 0; hz = 1; hl = 1; }
+    hx /= hl; hz /= hl;
+    var el = 35 * Math.PI / 180;
+    var p1 = { x: cx + hx * R * Math.cos(el), y: cy + R * Math.sin(el), z: cz + hz * R * Math.cos(el) };
+    var p0 = { x: cam.position.x, y: cam.position.y, z: cam.position.z }, t0 = { x: ctl.target.x, y: ctl.target.y, z: ctl.target.z };
+    var start = performance.now(), dur = 700;
+    (function step(now) {
+      var k = Math.min(1, (now - start) / dur), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      cam.position.set(p0.x + (p1.x - p0.x) * e, p0.y + (p1.y - p0.y) * e, p0.z + (p1.z - p0.z) * e);
+      ctl.target.set(t0.x + (cx - t0.x) * e, t0.y + (cy - t0.y) * e, t0.z + (cz - t0.z) * e);
+      try { ctl.update(); } catch (er) { /* ok */ }
+      if (k < 1) requestAnimationFrame(step);
+    })(performance.now());
+    return true;
+  }
+
+  // Sotto la barra di ricerca dell'editor: stand trovati nell'area aperta; quelli di altre aree sono segnalati a parte e portano all'area giusta
   function enhanceSearch() {
     if (document.getElementById('m3i-res')) return;
     var q = document.getElementById('q'), dEl = document.getElementById('mt-data');
@@ -136,28 +178,53 @@
     var out = document.createElement('div'); out.id = 'm3i-res'; out.className = 'm3i-res'; out.style.display = 'none';
     strip.parentNode.insertBefore(out, strip.nextSibling);
     function norm(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+    function curZone() {
+      var M = window.__mt; if (M) return M.zone;
+      var b = document.querySelector('#zt .ztab.active'); return b && b.firstChild ? String(b.firstChild.textContent).trim() : '';
+    }
     function goZone(name) {
       var b = [].filter.call(document.querySelectorAll('#zt .ztab'), function (x) { return x.firstChild && String(x.firstChild.textContent).trim() === name; })[0];
       if (b) b.click();
+    }
+    function openStand(s) {
+      var M = window.__mt;
+      if (!M) { goZone(s.zone); return; }
+      function go() { M.pick(s.id); focusStand(s.id); }
+      if (M.zone === s.zone && M.meshes.has(s.id)) { go(); return; }
+      M.setZone(s.zone);
+      var t0 = Date.now();
+      (function wait() {
+        if (M.zone === s.zone && M.meshes.has(s.id)) { q.dispatchEvent(new Event('input')); go(); }
+        else if (Date.now() - t0 < 5000) setTimeout(wait, 120);
+      })();
+    }
+    function row(text) { var r = document.createElement('div'); r.className = 'm3i-row'; var sp = document.createElement('span'); sp.textContent = text; r.appendChild(sp); out.appendChild(r); return r; }
+    function standBtn(r, s, withZone) {
+      var b = document.createElement('button'); b.type = 'button';
+      b.textContent = s.name + (s.code ? ' (' + s.code + ')' : '') + (withZone ? ' \u00b7 ' + (s.zone || 'senza zona') : '') + (s.L ? '' : ' \u00b7 non posizionato in 3D');
+      if (!s.L) { b.disabled = true; b.title = 'Questo stand non e ancora stato posizionato nella pianta 3D'; } else b.onclick = function () { openStand(s); };
+      r.appendChild(b);
     }
     function run() {
       var t = norm(q.value).split(/\s+/).filter(Boolean);
       out.innerHTML = '';
       if (!t.length) { out.style.display = 'none'; return; }
-      out.style.display = 'flex';
+      out.style.display = 'block';
+      var cz = curZone();
       var hits = list.filter(function (s) { var h = norm(s.name + ' ' + (s.code || '')); return t.every(function (w) { return h.indexOf(w) > -1; }); });
-      var head = document.createElement('span');
-      head.textContent = hits.length ? (hits.length + (hits.length === 1 ? ' stand trovato:' : ' stand trovati:')) : 'Nessuno stand trovato (cerco in nome e codice, in tutte le zone).';
-      out.appendChild(head);
-      hits.slice(0, 12).forEach(function (s) {
-        var b = document.createElement('button'); b.type = 'button';
-        b.textContent = s.name + ' \u00b7 ' + (s.zone || 'senza zona') + (s.L ? '' : ' \u00b7 non ancora posizionato in 3D');
-        b.onclick = function () { if (s.zone) goZone(s.zone); };
-        out.appendChild(b);
-      });
-      if (hits.length > 12) { var more = document.createElement('span'); more.textContent = '... e altri ' + (hits.length - 12); out.appendChild(more); }
+      var here = hits.filter(function (s) { return s.zone === cz; }), other = hits.filter(function (s) { return s.zone !== cz; });
+      var r1 = row(here.length ? (here.length === 1 ? '1 stand in quest\'area (' + cz + '):' : here.length + ' stand in quest\'area (' + cz + '):') : 'Nessuno stand trovato in quest\'area (' + cz + ').');
+      here.slice(0, 12).forEach(function (s) { standBtn(r1, s, false); });
+      if (here.length > 12) { var m1 = document.createElement('span'); m1.textContent = '... e altri ' + (here.length - 12); r1.appendChild(m1); }
+      if (other.length) {
+        var r2 = row('Trovati in altre aree (clic per andarci):');
+        other.slice(0, 12).forEach(function (s) { standBtn(r2, s, true); });
+        if (other.length > 12) { var m2 = document.createElement('span'); m2.textContent = '... e altri ' + (other.length - 12); r2.appendChild(m2); }
+      }
     }
     q.addEventListener('input', run);
+    var zt = document.getElementById('zt');
+    if (zt && window.MutationObserver) new MutationObserver(function () { if (q.value) run(); }).observe(zt, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
   }
 
   async function showEditor() {
