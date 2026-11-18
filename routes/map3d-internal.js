@@ -2,10 +2,11 @@
  * routes/map3d-internal.js
  * Fase 5: mappa interna /mappa in 3D. Aggiunge alla pagina (senza modificare mappa.js ne mappa.ejs) la scelta 3D / 2D:
  * il 3D si apre per primo; il 2D resta disponibile e, quando la sincronizzazione 3D -> 2D e attiva, diventa di sola lettura.
- * La modifica delle posizioni avviene nell'editor 3D (/admin/mappatest) e arriva al 2D con la sincronizzazione.
+ * Chi puo modificare la mappa (admin, organizer, operator: gli stessi di requireNotViewer) trova nel 3D l'editor completo di /admin/mappatest;
+ * per loro le rotte /admin/mappatest* passano da requireAdmin a requireNotViewer (vedi openEditorAccess). Gli altri vedono il 3D di sola lettura.
  *
  *   GET /api/map3d/zone/i-<id o nome zona>   dati 3D della zona con i nomi di tutti gli stand (solo utenti collegati)
- *   GET /api/map3d/internal-status           { sync, admin }: sync = esistono i trigger di sincronizzazione su map_test_layout
+ *   GET /api/map3d/internal-status           { sync, admin, editor }: sync = esistono i trigger di sincronizzazione su map_test_layout
  *
  * Per disattivare: togliere la riga che carica questo file in routes/map3d-public.js.
  */
@@ -17,6 +18,26 @@ module.exports = function registerMap3dInternal(app, db, mw) {
   const get = (sql, p) => new Promise((ok, ko) => db.get(sql, p || [], (e, r) => (e ? ko(e) : ok(r))));
   const parseShape = (v) => { if (!v) return null; try { const a = JSON.parse(v); return Array.isArray(a) ? a : null; } catch (_) { return null; } };
   const isAdmin = (req) => !!(req.session && req.session.user && req.session.user.role === 'admin');
+  const EDIT_ROLES = ['admin', 'organizer', 'operator'];
+  const canEdit = (req) => !!(req.session && req.session.user && EDIT_ROLES.indexOf(req.session.user.role) >= 0);
+
+  // Le rotte /admin/mappatest* sono registrate da routes/mappa.js con requireAdmin: qui si sostituisce quel controllo con requireNotViewer.
+  // Si esegue una sola volta, alla prima richiesta (quando tutte le rotte sono gia registrate).
+  let opened = false;
+  function openEditorAccess() {
+    if (opened) return;
+    opened = true;
+    try {
+      const stack = (app._router && app._router.stack) || [];
+      let n = 0;
+      stack.forEach((l) => {
+        const r = l.route;
+        if (!r || typeof r.path !== 'string' || r.path.indexOf('/admin/mappatest') !== 0) return;
+        r.stack.forEach((s) => { if (mw.requireNotViewer && s.handle === mw.requireAdmin) { s.handle = mw.requireNotViewer; n++; } });
+      });
+      console.log('[map3d-internal] editor 3D aperto a chi puo modificare la mappa: ' + n + ' controlli aggiornati');
+    } catch (e) { console.error('[map3d-internal] accesso editor', e.message); }
+  }
 
   function inFront(register, path) {
     const stack = app._router && app._router.stack;
@@ -74,10 +95,12 @@ module.exports = function registerMap3dInternal(app, db, mw) {
 
   app.get('/api/map3d/internal-status', requireAuth, async (req, res) => {
     res.set('Cache-Control', 'no-store');
+    const editor = canEdit(req);
+    if (editor) openEditorAccess();
     try {
       const r = await get(`SELECT COUNT(*) AS c FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'map_test_layout'`);
-      res.json({ sync: !!(r && r.c > 0), admin: isAdmin(req) });
-    } catch (e) { res.json({ sync: false, admin: isAdmin(req) }); }
+      res.json({ sync: !!(r && r.c > 0), admin: isAdmin(req), editor });
+    } catch (e) { res.json({ sync: false, admin: isAdmin(req), editor }); }
   });
 
   const imap = JSON.stringify({ imports: { three: 'https://unpkg.com/three@0.160.0/build/three.module.js', 'three/addons/': 'https://unpkg.com/three@0.160.0/examples/jsm/' } });
