@@ -234,6 +234,7 @@ function __m(s, q) { const h = __n(s.name + ' ' + (s.code || '')); return q.spli
     var list = (data.stands || []).filter(function (s) { return s.kind !== 'obj' && s.id > 0; });
     var dd = document.createElement('div'); dd.id = 'm3i-dd'; dd.className = 'm3i-dd';
     document.body.appendChild(dd);
+    var quiet = false;
     function norm(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
     function curZone() {
       var M = window.__mt; if (M) return M.zone;
@@ -251,16 +252,26 @@ function __m(s, q) { const h = __n(s.name + ' ' + (s.code || '')); return q.spli
       dd.style.top = (r.bottom + 6) + 'px';
       dd.style.maxHeight = Math.max(160, window.innerHeight - r.bottom - 20) + 'px';
     }
+    // il cambio area dell'editor azzera la ricerca (query e campo di testo): la rimettiamo, cosi lo stand resta evidenziato nella nuova area
     function openStand(s) {
       hide();
       var M = window.__mt;
       if (!M) { goZone(s.zone); return; }
+      var txt = q.value;
+      function reapply() {
+        if (q.value !== txt) q.value = txt;
+        quiet = true; q.dispatchEvent(new Event('input')); quiet = false;
+      }
       function go() { M.pick(s.id); focusStand(s.id); }
       if (M.zone === s.zone && M.meshes.has(s.id)) { go(); return; }
       M.setZone(s.zone);
       var t0 = Date.now();
       (function wait() {
-        if (M.zone === s.zone && M.meshes.has(s.id)) { q.dispatchEvent(new Event('input')); hide(); go(); }
+        if (M.zone === s.zone && M.meshes.has(s.id)) {
+          reapply(); hide(); go();
+          setTimeout(function () { reapply(); hide(); }, 300);
+          setTimeout(function () { reapply(); hide(); }, 900);
+        }
         else if (Date.now() - t0 < 5000) setTimeout(wait, 120);
       })();
     }
@@ -289,7 +300,7 @@ function __m(s, q) { const h = __n(s.name + ' ' + (s.code || '')); return q.spli
       }
       place(); dd.style.display = 'block';
     }
-    q.addEventListener('input', run);
+    q.addEventListener('input', function () { if (!quiet) run(); });
     q.addEventListener('focus', function () { if (q.value.trim()) run(); });
     q.addEventListener('keydown', function (e) { if (e.key === 'Escape') hide(); });
     document.addEventListener('mousedown', function (e) { if (e.target !== q && !dd.contains(e.target)) hide(); });
