@@ -12,19 +12,22 @@
   var tabs = document.querySelector('.zone-tabs');
   if (!tabs) return;
   var mode = null, view = null, bar = null, box = null, edBox = null, info = null, link = null, ro = false, canEd = false, busy = 0, edP = null;
-  var useEd = false;
+  var useEd = false, T3 = null;
 
   import('/ludi-env-defaults.js?v=' + VER).catch(function () { /* facoltativo */ });
 
   var css = document.createElement('style');
   css.textContent = '.m3i-bar{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin:.6rem 0;font:600 .85rem system-ui,sans-serif;color:#2b1d4d}' +
-    '.m3i-bar button,.m3i-bar a.m3i-a,.m3i-res button{border:1.5px solid #d9cff0;background:#fff;color:#4c2c78;border-radius:10px;padding:.4rem .8rem;font:800 .82rem system-ui,sans-serif;cursor:pointer;text-decoration:none}' +
+    '.m3i-bar button,.m3i-bar a.m3i-a{border:1.5px solid #d9cff0;background:#fff;color:#4c2c78;border-radius:10px;padding:.4rem .8rem;font:800 .82rem system-ui,sans-serif;cursor:pointer;text-decoration:none}' +
     '.m3i-bar button.on{background:#6b3fa0;border-color:#6b3fa0;color:#fff}' +
     '.m3i-note{color:#6b5a8a;font-weight:600}' +
-    '.m3i-res{margin:.2rem 0 .8rem;font:600 .82rem system-ui,sans-serif;color:#2b1d4d}' +
-    '.m3i-row{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;margin:.25rem 0}' +
-    '.m3i-res button{padding:.25rem .65rem}' +
-    '.m3i-res button[disabled]{opacity:.55;cursor:default}' +
+    '.m3i-dd{display:none;position:fixed;z-index:9500;background:#fff;border:1px solid #d9cff0;border-radius:14px;box-shadow:0 12px 32px rgba(30,20,60,.25);padding:.4rem;max-height:60vh;overflow:auto;font:600 .84rem system-ui,sans-serif;color:#2b1d4d}' +
+    '.m3i-dd h5{margin:.35rem .5rem .2rem;font:800 .68rem system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#6b5a8a}' +
+    '.m3i-dd button{display:flex;justify-content:space-between;gap:.8rem;width:100%;text-align:left;border:0;background:none;padding:.45rem .6rem;border-radius:10px;font:700 .84rem system-ui,sans-serif;color:#2b1d4d;cursor:pointer}' +
+    '.m3i-dd button:hover{background:#f1ecfa}' +
+    '.m3i-dd button[disabled]{opacity:.5;cursor:default}' +
+    '.m3i-dd button small{color:#6b5a8a;font-weight:700;white-space:nowrap}' +
+    '.m3i-dd .m3i-empty{padding:.5rem .6rem;color:#6b5a8a}' +
     '.m3i-box{display:none;position:relative;height:calc(100vh - 290px);min-height:420px;border-radius:14px;overflow:hidden;border:1px solid #ece6f7;background:linear-gradient(#e9e2f6,#f6f3fb)}' +
     'div.m3i-edbox{display:none}' +
     '.m3i-load{padding:1rem;font:600 .9rem system-ui,sans-serif;color:#6b5a8a}' +
@@ -85,6 +88,60 @@
     view = v;
   }
 
+  // ---- evidenziazione degli stand trovati: viola con bagliore su TUTTE le parti (banconi, tavoli, pareti); gli altri grigi e trasparenti ----
+  var glows = [], pulsing = false, glowTexture = null;
+  function glowTex() {
+    if (glowTexture || !T3) return glowTexture;
+    var cv = document.createElement('canvas'); cv.width = cv.height = 128;
+    var g = cv.getContext('2d'), gr = g.createRadialGradient(64, 64, 8, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(196,167,255,0.95)'); gr.addColorStop(0.55, 'rgba(139,92,246,0.55)'); gr.addColorStop(1, 'rgba(139,92,246,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    glowTexture = new T3.CanvasTexture(cv); return glowTexture;
+  }
+  function pulse(now) {
+    glows = glows.filter(function (g) { return g.parent; });
+    glows.forEach(function (g) { g.material.opacity = 0.6 + 0.35 * Math.sin(now / 320); });
+    if (glows.length) requestAnimationFrame(pulse); else pulsing = false;
+  }
+  function setGlow(m, s, on) {
+    var old = m.group.getObjectByName('m3glow');
+    if (!on) { if (old) { m.group.remove(old); old.geometry.dispose(); old.material.dispose(); } return; }
+    if (old || !T3 || !window.__mt) return;
+    var d = window.__mt.dims(s);
+    var mesh = new T3.Mesh(new T3.PlaneGeometry(d.w + 5, d.d + 5), new T3.MeshBasicMaterial({ map: glowTex(), transparent: true, depthWrite: false, blending: T3.AdditiveBlending, opacity: 0.9 }));
+    mesh.name = 'm3glow'; mesh.userData.m3glow = true; mesh.rotation.x = -Math.PI / 2; mesh.position.y = 0.09; mesh.raycast = function () {}; mesh.renderOrder = 4;
+    m.group.add(mesh); glows.push(mesh);
+    if (!pulsing) { pulsing = true; requestAnimationFrame(pulse); }
+  }
+  // chiamata dall'editor a ogni ridisegno: m = record dello stand (gruppo, materiale principale, ecc.), hit = corrisponde, active = ricerca attiva
+  function hl(m, s, hit, active) {
+    try {
+      var g = m.group; if (!g) return;
+      g.traverse(function (o) {
+        if (!o.isMesh || !o.material || o === m.lab || (o.userData && (o.userData.isLabel || o.userData.m3glow))) return;
+        var arr = Array.isArray(o.material), list = arr ? o.material : [o.material];
+        list.forEach(function (mt, i) {
+          if (!mt || !mt.emissive || !mt.color) return;
+          var c = mt;
+          if (mt !== m.mat) {
+            if (!(mt.userData && mt.userData.__m3)) {
+              c = mt.clone();
+              c.userData = { __m3: { color: mt.color.clone(), emissive: mt.emissive.clone(), ei: mt.emissiveIntensity, op: mt.opacity, tr: mt.transparent, dw: mt.depthWrite } };
+              if (arr) o.material[i] = c; else o.material = c;
+            }
+          }
+          var base = c.userData && c.userData.__m3;
+          if (active && hit) { c.color.set('#8b5cf6'); c.emissive.set('#a78bfa'); c.emissiveIntensity = 0.65; c.transparent = false; c.opacity = 1; c.depthWrite = true; }
+          else if (active) { if (c !== m.mat) { c.color.set('#9ca3af'); c.emissive.set('#000000'); c.emissiveIntensity = 0; c.transparent = true; c.opacity = 0.18; c.depthWrite = false; } }
+          else if (base && c !== m.mat) { c.color.copy(base.color); c.emissive.copy(base.emissive); c.emissiveIntensity = base.ei; c.transparent = base.tr; c.opacity = base.op; c.depthWrite = base.dw; }
+          c.needsUpdate = true;
+        });
+      });
+      setGlow(m, s, !!(active && hit));
+    } catch (e) { if (!hl.err) { hl.err = 1; console.warn('[map3d-internal] evidenziazione', e); } }
+  }
+  window.__mtHL = hl;
+
   // Codice aggiunto in fondo al modulo dell'editor (gira nel suo ambito): confronto della ricerca e accesso a scena, camera e zone.
   var HOOK = String.raw`
 window.__mt = {
@@ -100,7 +157,7 @@ function __m(s, q) { const h = __n(s.name + ' ' + (s.code || '')); return q.spli
 `;
 
   // Importa l'editor correggendo la ricerca: senza distinzione di maiuscole/accenti, piu parole, anche il codice dello stand;
-  // gli stand non trovati diventano grigi e trasparenti, quelli trovati restano colorati ed evidenziati.
+  // gli stand non trovati diventano grigi e trasparenti, quelli trovati viola con bagliore.
   // Se il testo dell'editor non e quello atteso, usa l'editor cosi com'e.
   async function importEditor() {
     try {
@@ -108,7 +165,7 @@ function __m(s, q) { const h = __n(s.name + ' ' + (s.code || '')); return q.spli
       var a = 'const q = query.trim().toLowerCase();', b = 'hit = q && s.name.toLowerCase().indexOf(q) > -1;', c = 'm.mat.opacity = (q && !hit) ? .2 : 1;';
       if (src.indexOf(a) < 0 || src.indexOf(b) < 0) throw new Error('ricerca dell\'editor non riconosciuta');
       src = src.replace(a, function () { return 'const q = __n(query);'; }).replace(b, function () { return 'hit = q && __m(s, q);'; });
-      if (src.indexOf(c) >= 0) src = src.replace(c, function () { return 'm.mat.opacity = (q && !hit) ? .18 : 1; if (q && !hit) m.mat.color.set(\'#9ca3af\');'; });
+      if (src.indexOf(c) >= 0) src = src.replace(c, function () { return 'm.mat.opacity = (q && !hit) ? .18 : 1; if (q && !hit) m.mat.color.set(\'#9ca3af\'); if (window.__mtHL) window.__mtHL(m, s, !!(q && hit), !!q);'; });
       src += '\n' + HOOK;
       var url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
       await import(url);
@@ -130,6 +187,7 @@ function __m(s, q) { const h = __n(s.name + ' ' + (s.code || '')); return q.spli
       if (!document.getElementById('m3i-edcss')) {
         var l = document.createElement('link'); l.id = 'm3i-edcss'; l.rel = 'stylesheet'; l.href = '/ludi-mappatest.css?v=' + VER; document.head.appendChild(l);
       }
+      try { T3 = await import('three'); } catch (e) { T3 = null; }
       edBox.innerHTML = '';
       var s = document.createElement('script'); s.id = 'mt-data'; s.type = 'application/json'; s.textContent = d.textContent; edBox.appendChild(s);
       var root = document.createElement('div'); root.id = 'mt-root'; edBox.appendChild(root);
@@ -150,9 +208,9 @@ function __m(s, q) { const h = __n(s.name + ' ' + (s.code || '')); return q.spli
     var d = M.dims(s), cx = (s.fx - 0.5) * M.W(), cz = (s.fy - 0.5) * M.D(), cy = M.baseOf(s) + Math.min(s.h || 2, 3) / 2;
     var R = Math.max(12, Math.max(d.w, d.d) * 1.8 + 8);
     var cam = M.camera, ctl = M.controls;
-    var hx = cam.position.x - ctl.target.x, hz = cam.position.z - ctl.target.z, hl = Math.hypot(hx, hz);
-    if (hl < 0.5) { hx = 0; hz = 1; hl = 1; }
-    hx /= hl; hz /= hl;
+    var hx = cam.position.x - ctl.target.x, hz = cam.position.z - ctl.target.z, hl2 = Math.hypot(hx, hz);
+    if (hl2 < 0.5) { hx = 0; hz = 1; hl2 = 1; }
+    hx /= hl2; hz /= hl2;
     var el = 35 * Math.PI / 180;
     var p1 = { x: cx + hx * R * Math.cos(el), y: cy + R * Math.sin(el), z: cz + hz * R * Math.cos(el) };
     var p0 = { x: cam.position.x, y: cam.position.y, z: cam.position.z }, t0 = { x: ctl.target.x, y: ctl.target.y, z: ctl.target.z };
@@ -167,16 +225,15 @@ function __m(s, q) { const h = __n(s.name + ' ' + (s.code || '')); return q.spli
     return true;
   }
 
-  // Sotto la barra di ricerca dell'editor: stand trovati nell'area aperta; quelli di altre aree sono segnalati a parte e portano all'area giusta
+  // Menu a comparsa sotto il campo di ricerca dell'editor: stand dell'area aperta; quelli di altre aree sono segnalati a parte e portano all'area giusta
   function enhanceSearch() {
-    if (document.getElementById('m3i-res')) return;
+    if (document.getElementById('m3i-dd')) return;
     var q = document.getElementById('q'), dEl = document.getElementById('mt-data');
     if (!q || !dEl) return;
     var data; try { data = JSON.parse(dEl.textContent); } catch (e) { return; }
-    var strip = q.closest('.mp-strip'); if (!strip || !strip.parentNode) return;
     var list = (data.stands || []).filter(function (s) { return s.kind !== 'obj' && s.id > 0; });
-    var out = document.createElement('div'); out.id = 'm3i-res'; out.className = 'm3i-res'; out.style.display = 'none';
-    strip.parentNode.insertBefore(out, strip.nextSibling);
+    var dd = document.createElement('div'); dd.id = 'm3i-dd'; dd.className = 'm3i-dd';
+    document.body.appendChild(dd);
     function norm(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
     function curZone() {
       var M = window.__mt; if (M) return M.zone;
@@ -186,7 +243,16 @@ function __m(s, q) { const h = __n(s.name + ' ' + (s.code || '')); return q.spli
       var b = [].filter.call(document.querySelectorAll('#zt .ztab'), function (x) { return x.firstChild && String(x.firstChild.textContent).trim() === name; })[0];
       if (b) b.click();
     }
+    function hide() { dd.style.display = 'none'; }
+    function place() {
+      var r = q.getBoundingClientRect(), w = Math.min(460, window.innerWidth - 16);
+      dd.style.width = w + 'px';
+      dd.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+      dd.style.top = (r.bottom + 6) + 'px';
+      dd.style.maxHeight = Math.max(160, window.innerHeight - r.bottom - 20) + 'px';
+    }
     function openStand(s) {
+      hide();
       var M = window.__mt;
       if (!M) { goZone(s.zone); return; }
       function go() { M.pick(s.id); focusStand(s.id); }
@@ -194,37 +260,43 @@ function __m(s, q) { const h = __n(s.name + ' ' + (s.code || '')); return q.spli
       M.setZone(s.zone);
       var t0 = Date.now();
       (function wait() {
-        if (M.zone === s.zone && M.meshes.has(s.id)) { q.dispatchEvent(new Event('input')); go(); }
+        if (M.zone === s.zone && M.meshes.has(s.id)) { q.dispatchEvent(new Event('input')); hide(); go(); }
         else if (Date.now() - t0 < 5000) setTimeout(wait, 120);
       })();
     }
-    function row(text) { var r = document.createElement('div'); r.className = 'm3i-row'; var sp = document.createElement('span'); sp.textContent = text; r.appendChild(sp); out.appendChild(r); return r; }
-    function standBtn(r, s, withZone) {
+    function head(text) { var h = document.createElement('h5'); h.textContent = text; dd.appendChild(h); }
+    function item(s, withZone) {
       var b = document.createElement('button'); b.type = 'button';
-      b.textContent = s.name + (s.code ? ' (' + s.code + ')' : '') + (withZone ? ' \u00b7 ' + (s.zone || 'senza zona') : '') + (s.L ? '' : ' \u00b7 non posizionato in 3D');
+      var n = document.createElement('span'); n.textContent = s.name + (s.code ? ' (' + s.code + ')' : '');
+      var z = document.createElement('small'); z.textContent = (withZone ? (s.zone || 'senza zona') : '') + (s.L ? '' : (withZone ? ' \u00b7 ' : '') + 'non posizionato in 3D');
+      b.appendChild(n); b.appendChild(z);
       if (!s.L) { b.disabled = true; b.title = 'Questo stand non e ancora stato posizionato nella pianta 3D'; } else b.onclick = function () { openStand(s); };
-      r.appendChild(b);
+      dd.appendChild(b);
     }
     function run() {
       var t = norm(q.value).split(/\s+/).filter(Boolean);
-      out.innerHTML = '';
-      if (!t.length) { out.style.display = 'none'; return; }
-      out.style.display = 'block';
+      dd.innerHTML = '';
+      if (!t.length) { hide(); return; }
       var cz = curZone();
       var hits = list.filter(function (s) { var h = norm(s.name + ' ' + (s.code || '')); return t.every(function (w) { return h.indexOf(w) > -1; }); });
       var here = hits.filter(function (s) { return s.zone === cz; }), other = hits.filter(function (s) { return s.zone !== cz; });
-      var r1 = row(here.length ? (here.length === 1 ? '1 stand in quest\'area (' + cz + '):' : here.length + ' stand in quest\'area (' + cz + '):') : 'Nessuno stand trovato in quest\'area (' + cz + ').');
-      here.slice(0, 12).forEach(function (s) { standBtn(r1, s, false); });
-      if (here.length > 12) { var m1 = document.createElement('span'); m1.textContent = '... e altri ' + (here.length - 12); r1.appendChild(m1); }
+      head('In quest\'area (' + cz + ')');
+      if (!here.length) { var e1 = document.createElement('div'); e1.className = 'm3i-empty'; e1.textContent = 'Nessuno stand trovato in quest\'area.'; dd.appendChild(e1); }
+      here.slice(0, 15).forEach(function (s) { item(s, false); });
       if (other.length) {
-        var r2 = row('Trovati in altre aree (clic per andarci):');
-        other.slice(0, 12).forEach(function (s) { standBtn(r2, s, true); });
-        if (other.length > 12) { var m2 = document.createElement('span'); m2.textContent = '... e altri ' + (other.length - 12); r2.appendChild(m2); }
+        head('Trovati in altre aree');
+        other.slice(0, 15).forEach(function (s) { item(s, true); });
       }
+      place(); dd.style.display = 'block';
     }
     q.addEventListener('input', run);
+    q.addEventListener('focus', function () { if (q.value.trim()) run(); });
+    q.addEventListener('keydown', function (e) { if (e.key === 'Escape') hide(); });
+    document.addEventListener('mousedown', function (e) { if (e.target !== q && !dd.contains(e.target)) hide(); });
+    window.addEventListener('resize', function () { if (dd.style.display === 'block') place(); });
+    window.addEventListener('scroll', function () { if (dd.style.display === 'block') place(); }, true);
     var zt = document.getElementById('zt');
-    if (zt && window.MutationObserver) new MutationObserver(function () { if (q.value) run(); }).observe(zt, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    if (zt && window.MutationObserver) new MutationObserver(function () { if (dd.style.display === 'block' && q.value.trim()) run(); }).observe(zt, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
   }
 
   async function showEditor() {
@@ -250,6 +322,7 @@ function __m(s, q) { const h = __n(s.name + ' ' + (s.code || '')); return q.spli
     document.body.classList.toggle('m3i-ro', !on && ro);
     bar.querySelectorAll('button[data-m]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-m') === m); });
     note.textContent = on ? '' : (ro ? '2D in sola lettura: le posizioni si modificano nel 3D.' : '');
+    var dd = document.getElementById('m3i-dd'); if (dd && !on) dd.style.display = 'none';
     if (on) { if (useEd) showEditor(); else show3d(); } else { busy++; stopView(); }
   }
 
