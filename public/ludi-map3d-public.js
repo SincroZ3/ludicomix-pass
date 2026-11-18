@@ -37,7 +37,7 @@
     '.m3pill[disabled]{opacity:.45;cursor:default}',
     // header: sfumato viola, piu alto, ciuchino a sinistra e nome mappa grande
     '.sm-header{padding:.7rem 1rem 1.6rem!important;background:linear-gradient(to bottom,rgba(59,31,102,.98) 0%,rgba(91,52,150,.93) 52%,rgba(107,63,160,0) 100%)!important}',
-    '.sm-header img{height:58px!important;width:auto!important;object-fit:contain!important;filter:drop-shadow(0 3px 8px rgba(20,8,48,.5))}',
+    '.sm-header img{display:block!important;visibility:visible!important;height:58px!important;width:auto!important;object-fit:contain!important;filter:drop-shadow(0 3px 8px rgba(20,8,48,.5))}',
     '.sm-subtitle{color:#d9cff0!important;font-size:.7rem!important;font-weight:800!important;letter-spacing:.09em!important;text-transform:uppercase!important}',
     '.sm-title{color:#fff!important;font-size:clamp(1.2rem,5vw,1.75rem)!important;font-weight:900!important;letter-spacing:.2px!important;text-transform:none!important;line-height:1.1!important;text-shadow:0 2px 10px rgba(20,8,48,.5);max-width:56vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
     '.sm-back{background:rgba(255,255,255,.16)!important;border:1.5px solid rgba(255,255,255,.62)!important;color:#fff!important;border-radius:999px!important;padding:.5rem 1rem!important;font-size:.82rem!important;font-weight:800!important;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}',
@@ -82,10 +82,15 @@
   ].join('\n');
   document.head.appendChild(css);
 
-  // ciuchino con sfondo trasparente al posto del logo, in alto a sinistra, con il nome della mappa a destra
+  // ciuchino al posto del logo, in alto a sinistra, con il nome della mappa a destra.
+  // Il vecchio logo mancante veniva nascosto dal suo onerror (display:none inline): qui lo si riattiva.
   try {
     var hi = document.querySelector('.sm-header img');
-    if (hi) { hi.onerror = null; hi.removeAttribute('height'); hi.alt = 'Ludicomix'; hi.src = '/ciuchino_static.png'; }
+    if (hi) {
+      hi.onerror = null; hi.removeAttribute('onerror'); hi.removeAttribute('height');
+      hi.style.display = 'block'; hi.style.visibility = 'visible';
+      hi.alt = 'Ludicomix'; hi.src = '/ciuchino_static.png';
+    }
   } catch (e) { /* header invariato */ }
 
   function smLoad(show) { var sl = document.getElementById('smLoad'); if (sl) sl.style.display = show ? '' : 'none'; }
