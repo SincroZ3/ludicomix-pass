@@ -6,13 +6,14 @@
      Il 3D parte subito, senza aspettare la 2D.
    - Ricerca: la lista "Stand in zona" (cerca + clic) lavora sul 3D: la camera vola sullo stand, lo evidenzia (gli altri diventano grigi),
      avvia l'orbita attorno a lui e apre la scheda. Un clic su un altro stand o sul vuoto, o la chiusura della scheda, riporta la vista normale.
-   - Menu: il pannello "Contesto e vista" e sostituito da due pillole tonde (tetto, edificio); la trasparenza degli edifici resta fissa. */
+   - Menu: il pannello "Contesto e vista" e sostituito da pillole tonde (tetto, edificio e, dove ci sono, alberi); la trasparenza degli edifici resta fissa.
+     Le pillole agiscono sul modello dell'edificio (Palazzetto) e sui comandi dei pannelli "Ambiente 3D" di Mariambini e Vanvere (che restano nascosti). */
 (function () {
   var SRC = (document.currentScript && document.currentScript.src) || '';
   var VER = (SRC.split('v=')[1] || '').split('&')[0];
   var q = new URLSearchParams(location.search);
   var want3d = q.get('view') !== '2d';
-  var view = null, wrap = null, btn = null, busy = false, loader = null, has3d = false;
+  var view = null, wrap = null, btn = null, busy = false, loader = null, has3d = false, pillObs = null;
   var origFocus = null, origClose = null, focused = false;
 
   function zid() { try { return ZONE_ID; } catch (e) { return null; } }
@@ -103,36 +104,60 @@
     } catch (e) { /* resta la vista 3D */ }
   }
 
-  // ---- pillole: tetto ed edificio (la trasparenza resta fissa) ----
+  // ---- pillole: tetto, edificio, alberi (la trasparenza resta fissa) ----
+  // Palazzetto: setContext sul modello dell'edificio. Mariambini e Vanvere: i loro pannelli "Ambiente 3D" (nascosti) hanno le caselle
+  // Tettoia/Tetti, Edifici di contesto/Muri e finestre, Alberi: le pillole le accendono e spengono (anche quando il pannello viene ricreato).
   function buildPills(v, host) {
-    var st = { bld: true, rf: true };
+    var st = { bld: true, rf: true, tr: true };
     var box = document.createElement('div'); box.className = 'm3pills';
     var ICON = {
       rf: '<svg viewBox="0 0 24 24"><path d="M3 13l9-8 9 8"/><path d="M7 11v8h10v-8"/></svg>',
-      bld: '<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M10 21v-4h4v4"/></svg>'
+      bld: '<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M10 21v-4h4v4"/></svg>',
+      tr: '<svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="6"/><path d="M12 15v6M9 21h6"/></svg>'
     };
-    function mk(key, labelOn, labelOff) {
+    function envBox(k) { return host.querySelector('input[type="checkbox"][data-k="' + k + '"]'); }
+    function envSet(keys, on) {
+      keys.forEach(function (k) {
+        var c = envBox(k);
+        if (c && c.checked !== on) { c.checked = on; c.dispatchEvent(new Event('input', { bubbles: true })); }
+      });
+    }
+    function applyEnv() {
+      envSet(['rf', 'pv'], st.bld && st.rf);
+      envSet(['wl', 'wn', 'bl'], st.bld);
+      envSet(['tr'], st.tr);
+    }
+    var pills = {};
+    function paint(key) {
+      var b = pills[key], on = st[key];
+      b.classList.toggle('on', on); b.classList.toggle('off', !on);
+      var L = { rf: ['Nascondi il tetto', 'Mostra il tetto'], bld: ['Nascondi l\u2019edificio', 'Mostra l\u2019edificio'], tr: ['Nascondi gli alberi', 'Mostra gli alberi'] }[key];
+      b.title = on ? L[0] : L[1]; b.setAttribute('aria-label', b.title);
+    }
+    function sync() {
+      pills.rf.disabled = !st.bld;
+      pills.tr.style.display = envBox('tr') ? '' : 'none';
+    }
+    function mk(key) {
       var b = document.createElement('button'); b.type = 'button'; b.className = 'm3pill on'; b.innerHTML = ICON[key];
-      function paint() {
-        var on = st[key];
-        b.classList.toggle('on', on); b.classList.toggle('off', !on);
-        b.title = on ? labelOn : labelOff; b.setAttribute('aria-label', b.title);
-      }
       b.onclick = function () {
         if (b.disabled) return;
         st[key] = !st[key];
         try { v.setContext({ bld: st.bld, rf: st.rf }); } catch (e) { /* ok */ }
-        paint(); sync();
+        applyEnv(); paint(key); sync();
       };
-      b.paint = paint; paint(); box.appendChild(b); return b;
+      pills[key] = b; box.appendChild(b); paint(key); return b;
     }
-    var bRf = mk('rf', 'Nascondi il tetto', 'Mostra il tetto');
-    var bBld = mk('bld', 'Nascondi l\u2019edificio', 'Mostra l\u2019edificio');
-    function sync() { bRf.disabled = !st.bld; }
-    host.appendChild(box);
+    mk('rf'); mk('bld'); mk('tr');
+    sync(); host.appendChild(box);
+    if (window.MutationObserver) {
+      pillObs = new MutationObserver(function () { applyEnv(); sync(); });
+      pillObs.observe(host, { childList: true, subtree: true });
+    }
   }
 
   function cleanup() {
+    if (pillObs) { try { pillObs.disconnect(); } catch (e) { /* ok */ } pillObs = null; }
     if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap);
     wrap = null; view = null;
     document.body.classList.remove('m3on');
@@ -145,6 +170,7 @@
     document.body.classList.add('m3on');
     var m = null;
     try {
+      import('/ludi-env-defaults.js?v=' + VER).catch(function () { /* facoltativo: Vanvere parte al 50% di trasparenza */ });
       var mod = await import('/ludi-map3d-view.js?v=' + VER);
       m = await mod.createMap3D(wrap, { zoneId: zid(), clickable: 'all', env: true, menu: true, onSelect: onPick });
     } catch (e) { console.warn('[map3d]', e); m = null; }
