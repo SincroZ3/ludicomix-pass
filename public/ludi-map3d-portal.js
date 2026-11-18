@@ -3,6 +3,8 @@
    - Il riquadro mostra subito il 3D: stand dell'espositore evidenziato, orbita lenta attorno a lui, edificio in super trasparenza
      (si vede lo stand attraverso i muri). Gli altri stand sono grigi, senza nome e non cliccabili.
    - Piccolo switch 3D / 2D nella barra del riquadro: il 2D e la mappa originale della pagina (canvas), invariata.
+   - Tasto tondo in alto a destra nel riquadro: schermo intero (a tutta finestra, funziona anche su iPhone). Esc o lo stesso tasto per uscire.
+     A schermo intero il trascinamento ruota liberamente e la rotellina zooma.
    - Pagina scorrevole: il trascinamento verticale scorre la pagina, quello orizzontale ruota la mappa; la rotellina zooma solo con Ctrl.
    - Se lo stand non ha un layout 3D o WebGL non e disponibile resta il 2D. Se la pagina non ha il riquadro "Dove siete?"
      ma lo stand ha un 3D, compare il vecchio pulsante "Il tuo stand in 3D" che apre la vista a tutto schermo. */
@@ -12,6 +14,8 @@
   var parts = location.pathname.split('/'), pi = parts.indexOf('portale'), token = pi > -1 ? parts[pi + 1] : '';
   if (!token) return;
   var info = null, ov = null, view = null, busy = false, emb = null;
+  var ICON_FS = '<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>';
+  var ICON_X = '<svg viewBox="0 0 24 24"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>';
 
   var css = document.createElement('style');
   css.textContent = '.m3p-fab{position:fixed;left:14px;bottom:14px;z-index:900;border:0;border-radius:999px;padding:.65rem 1rem;background:#1e2d4e;color:#f5c842;font:800 .85rem system-ui,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.28);cursor:pointer}' +
@@ -23,8 +27,12 @@
     '.m3p-body{flex:1;position:relative;min-height:0;background:linear-gradient(#e9e2f6,#f6f3fb)}' +
     '@media (max-width:700px){.m3p-ov .m3-menu{left:8px;right:8px}}' +
     '.m3e-box{position:relative;height:380px;background:linear-gradient(#e9e2f6,#f6f3fb);overflow:hidden}' +
+    '.m3e-box.full{position:fixed;left:0;top:0;right:0;bottom:0;height:auto!important;z-index:10001}' +
     '.m3e-box .m3-btn,.m3e-box .m3-menu{display:none!important}' +
     '.m3e-load{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font:700 .85rem Inter,system-ui,sans-serif;color:#6b3fa0}' +
+    '.m3e-fs{position:absolute;right:10px;top:10px;z-index:30;width:42px;height:42px;border-radius:50%;border:1.5px solid #d9cff0;background:rgba(255,255,255,.96);color:#4c2c78;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:0 4px 12px rgba(30,45,78,.22)}' +
+    '.m3e-fs svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}' +
+    '.m3e-fs:active{background:#f1ecfa}' +
     '.m3e-seg{display:inline-flex;border:1.5px solid #d1d9e6;border-radius:9999px;overflow:hidden;background:#fff}' +
     '.m3e-seg button{border:0;background:#fff;color:#1a2744;padding:.38rem .95rem;font:700 .76rem Inter,system-ui,sans-serif;cursor:pointer}' +
     '.m3e-seg button.on{background:#6b3fa0;color:#fff}' +
@@ -82,8 +90,21 @@
       });
     } catch (e) { /* ok */ }
   }
+  // schermo intero: il riquadro passa a tutta finestra (funziona ovunque, anche su iPhone); la vista si adatta da sola
+  function setFull(on) {
+    if (!emb || !emb.view) return;
+    emb.full = !!on;
+    emb.box.classList.toggle('full', !!on);
+    document.documentElement.style.overflow = on ? 'hidden' : '';
+    emb.fs.innerHTML = on ? ICON_X : ICON_FS;
+    emb.fs.title = on ? 'Esci da schermo intero' : 'Schermo intero';
+    emb.fs.setAttribute('aria-label', emb.fs.title);
+    try { var cv = emb.box.querySelector('canvas'); if (cv) cv.style.touchAction = on ? 'none' : 'pan-y'; } catch (e) { /* ok */ }
+    try { window.dispatchEvent(new Event('resize')); } catch (e) { /* ok */ }
+  }
   function setEmbMode(m) {
     if (!emb || !emb.view) return;
+    if (m === '2d' && emb.full) setFull(false);
     emb.mode = m;
     emb.seg.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-m') === m); });
     if (m === '3d') {
@@ -101,8 +122,8 @@
     var box = document.createElement('div'); box.className = 'm3e-box';
     box.innerHTML = "<div class='m3e-load'>Carico la mappa 3D...</div>";
     wrap.parentNode.insertBefore(box, wrap); wrap.style.display = 'none';
-    // scorrimento della pagina: la rotellina zooma solo con Ctrl, il trascinamento verticale scorre la pagina
-    box.addEventListener('wheel', function (e) { if (!e.ctrlKey) e.stopImmediatePropagation(); }, true);
+    // scorrimento della pagina: la rotellina zooma solo con Ctrl (o a schermo intero), il trascinamento verticale scorre la pagina
+    box.addEventListener('wheel', function (e) { if (!e.ctrlKey && !(emb && emb.full)) e.stopImmediatePropagation(); }, true);
     var v = null;
     try {
       var mod = await import('/ludi-map3d-view.js?v=' + VER);
@@ -110,12 +131,17 @@
     } catch (e) { console.warn('[map3d-portal]', e); v = null; }
     if (!v) { if (box.parentNode) box.parentNode.removeChild(box); wrap.style.display = ''; return false; }
     try { var cv = box.querySelector('canvas'); if (cv) cv.style.touchAction = 'pan-y'; } catch (e) { /* ok */ }
+    var fs = document.createElement('button'); fs.type = 'button'; fs.className = 'm3e-fs'; fs.innerHTML = ICON_FS; fs.title = 'Schermo intero'; fs.setAttribute('aria-label', 'Schermo intero');
+    fs.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+    box.appendChild(fs);
     var seg = document.createElement('div'); seg.className = 'm3e-seg';
     seg.innerHTML = "<button type='button' data-m='3d' class='on'>3D</button><button type='button' data-m='2d'>2D</button>";
     var acts = card.querySelector('.dove-actions');
     if (acts) acts.insertBefore(seg, acts.firstChild); else card.insertBefore(seg, box);
-    emb = { box: box, wrap: wrap, view: v, seg: seg, card: card, mode: '3d' };
+    emb = { box: box, wrap: wrap, view: v, seg: seg, card: card, fs: fs, mode: '3d', full: false };
     seg.querySelectorAll('button').forEach(function (b) { b.onclick = function () { setEmbMode(b.getAttribute('data-m')); }; });
+    fs.onclick = function () { setFull(!emb.full); };
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && emb && emb.full) setFull(false); });
     superTransp(); setTimeout(superTransp, 1500); setTimeout(superTransp, 4000);
     return true;
   }
