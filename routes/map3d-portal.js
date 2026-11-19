@@ -3,6 +3,7 @@
  * Portale espositore (/portale/:token).
  *   - 3D nel riquadro "Dove siete?" (vedi public/ludi-map3d-portal.js): stand evidenziato, orbita, super trasparenza, switch 3D/2D.
  *   - Header compatto: stessa testata viola e sticky del gestionale (versione ristretta) con il logo del portale espositore.
+ *   - Registra anche routes/map3d-pubstyle.js (nuovo stile viola della mappa pubblica /mappa-pubblica).
  *
  *   GET /api/map3d/zone/p-<token>   dati 3D della zona dell'espositore. Valido solo con un portale attivo (token + portal_enabled = 1).
  *                                   Degli altri stand non esce ne il nome ne l'id reale: solo la forma, per disegnarli in grigio.
@@ -103,4 +104,7 @@ module.exports = function registerMap3dPortal(app, db, mw) {
       next();
     });
   }, '/portale/:token');
+
+  // stile viola della mappa pubblica /mappa-pubblica
+  try { require('./map3d-pubstyle')(app); } catch (e) { console.error('[map3d-pubstyle]', e.message); }
 };
