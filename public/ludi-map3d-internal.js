@@ -5,6 +5,7 @@
      /mappa?ed=0 apre invece la vista di sola lettura; /mappa?dbg=1 mostra gli errori JavaScript in un riquadro rosso.
    - Altri utenti: vista 3D di sola lettura.
    - Il 2D resta disponibile e, quando la sincronizzazione 3D -> 2D e attiva, e di sola lettura.
+   - Oggetti senza stand (pulsante "Oggetto"): oltre a biglietteria, palco ecc. ci sono i Gazebo 3 x 3 m, 4 x 3 m e "ridimensionabile" (chiede le misure).
    Se WebGL manca o qualcosa non va resta il 2D di sempre. */
 (function () {
   var SRC = (document.currentScript && document.currentScript.src) || '';
@@ -156,6 +157,26 @@ function __n(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[\
 function __m(s, q) { const h = __n(s.name + ' ' + (s.code || '')); return q.split(/\s+/).every(function (w) { return h.indexOf(w) > -1; }); }
 `;
 
+  // Gazebo tra gli oggetti senza stand (pulsante "Oggetto" dell'editor): 3 x 3 m, 4 x 3 m e "ridimensionabile" (chiede larghezza e profondita;
+  // dopo si possono comunque cambiare con "Ridimensiona"). Sono gli stessi modelli dei gazebo degli stand (out-3x3, out-4x3), quindi
+  // si vedono uguali ovunque (mappa pubblica, portale, 3D). Se il testo dell'editor non e quello atteso non cambia nulla.
+  var GZ = [
+    [String.raw`const it = await openCoverflow(CAT_OBJ, 'Oggetto senza stand');`,
+      String.raw`let it = await openCoverflow(CAT_OBJ, 'Oggetto senza stand'); if (it && it.free) { const fw = parseFloat(String(prompt('Larghezza del gazebo (m)', '3') || '').replace(',', '.')), fd = parseFloat(String(prompt('Profondit\u00e0 del gazebo (m)', '3') || '').replace(',', '.')); if (!(fw > 0) || !(fd > 0)) it = null; else it = Object.assign({}, it, { w: Math.max(1, Math.min(30, fw)), d: Math.max(1, Math.min(30, fd)) }); }`],
+    [String.raw`{ custom: true, label: 'Altro (disegna)', sub: 'Disegni la forma in mappa', color: '#16a085', icon: ICON.custom }];`,
+      String.raw`{ key: 'out-3x3', label: 'Gazebo 3 \u00d7 3 m', sub: 'Gazebo degli stand', w: 3, d: 3, h: 3.4, color: '#6b3fa0', icon: ICON.gaz, build: buildGazebo },
+  { key: 'out-4x3', label: 'Gazebo 4 \u00d7 3 m', sub: 'Gazebo degli stand', w: 4, d: 3, h: 3.4, color: '#6b3fa0', icon: ICON.gaz, build: buildGazebo },
+  { key: 'out-3x3', free: true, label: 'Gazebo ridimensionabile', sub: 'Scegli tu le misure', w: 3, d: 3, h: 3.4, color: '#6b3fa0', icon: ICON.gaz, build: buildGazebo },
+  { custom: true, label: 'Altro (disegna)', sub: 'Disegni la forma in mappa', color: '#16a085', icon: ICON.custom }];`],
+    [String.raw`CAT_IN.concat(CAT_OUT, CAT_OBJ).forEach(it => { if (it.key) MODEL_DEFS[it.key] = it; });`,
+      String.raw`CAT_IN.concat(CAT_OUT, CAT_OBJ).forEach(it => { if (it.key && !MODEL_DEFS[it.key]) MODEL_DEFS[it.key] = it; });`]
+  ];
+  function patchGazebi(src) {
+    for (var i = 0; i < GZ.length; i++) if (src.indexOf(GZ[i][0]) < 0) return src;
+    GZ.forEach(function (p) { src = src.replace(p[0], function () { return p[1]; }); });
+    return src;
+  }
+
   // Importa l'editor correggendo la ricerca: senza distinzione di maiuscole/accenti, piu parole, anche il codice dello stand;
   // gli stand non trovati diventano grigi e trasparenti, quelli trovati viola con bagliore.
   // Se il testo dell'editor non e quello atteso, usa l'editor cosi com'e.
@@ -166,6 +187,7 @@ function __m(s, q) { const h = __n(s.name + ' ' + (s.code || '')); return q.spli
       if (src.indexOf(a) < 0 || src.indexOf(b) < 0) throw new Error('ricerca dell\'editor non riconosciuta');
       src = src.replace(a, function () { return 'const q = __n(query);'; }).replace(b, function () { return 'hit = q && __m(s, q);'; });
       if (src.indexOf(c) >= 0) src = src.replace(c, function () { return 'm.mat.opacity = (q && !hit) ? .18 : 1; if (q && !hit) m.mat.color.set(\'#9ca3af\'); if (window.__mtHL) window.__mtHL(m, s, !!(q && hit), !!q);'; });
+      src = patchGazebi(src);
       src += '\n' + HOOK;
       var url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
       await import(url);
