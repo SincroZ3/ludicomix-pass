@@ -6,6 +6,7 @@
    - Altri utenti: vista 3D di sola lettura.
    - Il 2D resta disponibile e, quando la sincronizzazione 3D -> 2D e attiva, e di sola lettura.
    - Oggetti senza stand (pulsante "Oggetto"): oltre a biglietteria, palco ecc. ci sono i Gazebo 3 x 3 m, 4 x 3 m e "ridimensionabile" (chiede le misure).
+     I gazebo hanno le stesse impostazioni di colore degli stand: "Colore in vista neutra", campioni e "Predefinito" (viola).
    Se WebGL manca o qualcosa non va resta il 2D di sempre. */
 (function () {
   var SRC = (document.currentScript && document.currentScript.src) || '';
@@ -171,10 +172,22 @@ function __m(s, q) { const h = __n(s.name + ' ' + (s.code || '')); return q.spli
     [String.raw`CAT_IN.concat(CAT_OUT, CAT_OBJ).forEach(it => { if (it.key) MODEL_DEFS[it.key] = it; });`,
       String.raw`CAT_IN.concat(CAT_OUT, CAT_OBJ).forEach(it => { if (it.key && !MODEL_DEFS[it.key]) MODEL_DEFS[it.key] = it; });`]
   ];
-  function patchGazebi(src) {
-    for (var i = 0; i < GZ.length; i++) if (src.indexOf(GZ[i][0]) < 0) return src;
-    GZ.forEach(function (p) { src = src.replace(p[0], function () { return p[1]; }); });
+  // Colore dei gazebo (oggetti con modello out-...): nel pannello dell'oggetto la stessa impostazione degli stand, "Colore in vista neutra"
+  // con campioni e "Predefinito" (viola); senza colore scelto il gazebo e viola e non verde acqua come gli altri oggetti.
+  var GZC = [
+    [String.raw`<label class="mt-f">Colore<input id="oc" type="color" value="' + esc(s.color || '#16a085') + '"' + L + '></label>'`,
+      String.raw`' + (s.model && s.model.indexOf('out-') === 0 ? ('<label class="mt-f">Colore in vista neutra<input id="nc" type="color" value="' + esc(s.color || '#6b3fa0') + '"' + L + '></label><div class="mt-row" id="sw">' + SW.map(c => '<button class="mt-btn" data-c="' + c + '" title="' + c + '" style="width:26px;height:26px;padding:0;border-radius:8px;background:' + c + '"' + L + '></button>').join('') + '<button class="mt-btn" data-c="#6b3fa0"' + L + '>Predefinito</button></div>') : ('<label class="mt-f">Colore<input id="oc" type="color" value="' + esc(s.color || '#16a085') + '"' + L + '></label>')) + ''`],
+    [String.raw`if (s.kind === 'obj') return s.color || '#16a085';`,
+      String.raw`if (s.kind === 'obj') return s.color || (s.model && s.model.indexOf('out-') === 0 ? '#6b3fa0' : '#16a085');`]
+  ];
+  function applyAll(src, pairs) {
+    for (var i = 0; i < pairs.length; i++) if (src.indexOf(pairs[i][0]) < 0) return src;
+    pairs.forEach(function (p) { src = src.replace(p[0], function () { return p[1]; }); });
     return src;
+  }
+  function patchGazebi(src) {
+    src = applyAll(src, GZ);
+    return applyAll(src, GZC);
   }
 
   // Importa l'editor correggendo la ricerca: senza distinzione di maiuscole/accenti, piu parole, anche il codice dello stand;
